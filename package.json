@@ -1,0 +1,32 @@
+{
+  "name": "workflow-repository-management-system",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Workflow Repository Management System Monorepo",
+  "scripts": {
+    "dev:backend": "npm run dev --prefix backend",
+    "dev:frontend": "npm run dev --prefix frontend",
+    "build:backend": "npm run build --prefix backend",
+    "build:frontend": "npm run build --prefix frontend",
+    "docker:up": "docker compose up -d --build",
+    "docker:down": "docker compose down",
+    "docker:logs": "docker compose logs -f",
+    "prisma:studio": "npm run prisma:studio --prefix backend",
+    "prisma:migrate": "npm run prisma:migrate --prefix backend"
+  },
+  "keywords": [
+    "nextjs",
+    "express",
+    "typescript",
+    "prisma",
+    "postgresql",
+    "workflow",
+    "repository",
+    "docker"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.112.4"
+  }
+}

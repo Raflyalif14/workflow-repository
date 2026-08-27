@@ -1,0 +1,85 @@
+# =========================================
+# Dependencies
+# =========================================
+node_modules/
+.pnp
+.pnp.js
+
+# =========================================
+# Next.js
+# =========================================
+frontend/.next/
+frontend/out/
+.next/
+out/
+
+# =========================================
+# Production Builds
+# =========================================
+backend/dist/
+frontend/dist/
+frontend/build/
+dist/
+build/
+
+# =========================================
+# Environment Variables / Secrets
+# =========================================
+.env
+.env.*
+!.env.example
+!**/.env.example
+
+# =========================================
+# Logs
+# =========================================
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+*.log
+logs/
+
+# =========================================
+# Testing / Coverage
+# =========================================
+coverage/
+.nyc_output/
+
+# =========================================
+# TypeScript / Cache
+# =========================================
+*.tsbuildinfo
+.eslintcache
+.cache/
+
+# =========================================
+# Prisma Local Database
+# =========================================
+backend/prisma/*.db
+backend/prisma/*.db-journal
+
+# =========================================
+# OS Generated Files
+# =========================================
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# =========================================
+# IDE / Editor
+# =========================================
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# =========================================
+# Docker Local Data
+# =========================================
+.docker/
+docker-data/
+# Runtime uploads
+backend/uploads/
+# Generated source maps
+*.js.map

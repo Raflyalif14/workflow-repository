@@ -1,0 +1,373 @@
+"use client";
+
+import React, { useState, createContext, useContext } from "react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import {
+  LayoutDashboard,
+  FolderKanban,
+  Milestone,
+  ShieldCheck,
+  FileText,
+  Users,
+  Settings,
+  ChevronLeft,
+  ChevronRight,
+  LogOut,
+  Bell,
+  Search,
+  Menu,
+  X,
+  Layers,
+  HelpCircle,
+} from "lucide-react";
+import { useAuth } from "@/components/auth/auth-provider";
+
+// ─── Sidebar Context ───
+interface SidebarContextType {
+  collapsed: boolean;
+  setCollapsed: (val: boolean) => void;
+  mobileOpen: boolean;
+  setMobileOpen: (val: boolean) => void;
+}
+
+const SidebarContext = createContext<SidebarContextType>({
+  collapsed: false,
+  setCollapsed: () => {},
+  mobileOpen: false,
+  setMobileOpen: () => {},
+});
+
+export const useSidebar = () => useContext(SidebarContext);
+
+// ─── Role-Based Navigation Config ───
+export interface NavItem {
+  label: string;
+  href: string;
+  icon: any;
+  description: string;
+  allowedRoles?: string[]; // If undefined, visible to all roles
+}
+
+const NAV_ITEMS: NavItem[] = [
+  {
+    label: "Dashboard",
+    href: "/",
+    icon: LayoutDashboard,
+    description: "Overview & Analytics",
+  },
+  {
+    label: "Projects",
+    href: "/projects",
+    icon: FolderKanban,
+    description: "Project Management",
+  },
+  {
+    label: "Milestones",
+    href: "/milestones",
+    icon: Milestone,
+    description: "Workflow Progress",
+  },
+  {
+    label: "Approvals",
+    href: "/approvals",
+    icon: ShieldCheck,
+    description: "Sign-Off Center",
+    allowedRoles: ["SUPER_ADMIN", "HEAD_SA"],
+  },
+  {
+    label: "Documents",
+    href: "/documents",
+    icon: FileText,
+    description: "File Repository",
+  },
+  {
+    label: "Users",
+    href: "/users",
+    icon: Users,
+    description: "Account Management",
+    allowedRoles: ["SUPER_ADMIN"],
+  },
+  {
+    label: "Settings",
+    href: "/settings",
+    icon: Settings,
+    description: "System Configuration",
+    allowedRoles: ["SUPER_ADMIN", "HEAD_SA"],
+  },
+];
+
+// ─── Sidebar Component ───
+export function Sidebar() {
+  const pathname = usePathname();
+  const { collapsed, setCollapsed, mobileOpen, setMobileOpen } = useSidebar();
+  const { user, logout } = useAuth();
+
+  const userRole = user?.role || "GUEST";
+
+  // Filter navigation links based on user role
+  const visibleNavItems = NAV_ITEMS.filter((item) => {
+    if (!item.allowedRoles) return true;
+    return item.allowedRoles.includes(userRole);
+  });
+
+  const isActive = (href: string) => {
+    if (href === "/") return pathname === "/";
+    return pathname.startsWith(href);
+  };
+
+  const sidebarContent = (
+    <div className="flex flex-col h-full">
+      {/* Logo */}
+      <div className="flex items-center gap-3 px-4 h-16 border-b border-[hsl(var(--sidebar-border))] shrink-0">
+        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-lg shadow-primary/20 shrink-0">
+          <Layers className="h-5 w-5" />
+        </div>
+        {!collapsed && (
+          <div className="animate-fade-in overflow-hidden">
+            <h1 className="text-sm font-bold text-foreground tracking-tight leading-tight">
+              WorkflowHub
+            </h1>
+            <p className="text-[10px] text-[hsl(var(--sidebar-foreground))] font-medium tracking-wide">
+              {userRole.replace(/_/g, " ")} Workspace
+            </p>
+          </div>
+        )}
+      </div>
+
+      {/* Section Label */}
+      {!collapsed && (
+        <div className="px-4 pt-6 pb-2">
+          <span className="text-[10px] font-semibold uppercase tracking-[0.15em] text-[hsl(var(--sidebar-foreground))]">
+            Main Navigation
+          </span>
+        </div>
+      )}
+
+      {/* Dynamic Role Navigation */}
+      <nav className="flex-1 px-3 py-2 space-y-1 overflow-y-auto">
+        {visibleNavItems.map((item) => {
+          const active = isActive(item.href);
+          const Icon = item.icon;
+
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              onClick={() => setMobileOpen(false)}
+              title={collapsed ? item.label : undefined}
+              className={`
+                group flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200 relative
+                ${collapsed ? "justify-center px-0" : ""}
+                ${
+                  active
+                    ? "bg-primary/10 text-primary"
+                    : "text-[hsl(var(--sidebar-foreground))] hover:bg-[hsl(var(--sidebar-hover))] hover:text-foreground"
+                }
+              `}
+            >
+              {/* Active indicator bar */}
+              {active && (
+                <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 rounded-r-full bg-primary" />
+              )}
+
+              <Icon
+                className={`h-[18px] w-[18px] shrink-0 transition-colors duration-200 ${
+                  active
+                    ? "text-primary"
+                    : "text-[hsl(var(--sidebar-foreground))] group-hover:text-foreground"
+                }`}
+              />
+
+              {!collapsed && (
+                <div className="flex flex-col overflow-hidden animate-fade-in">
+                  <span className="truncate leading-tight">{item.label}</span>
+                  <span
+                    className={`text-[10px] truncate leading-tight ${
+                      active ? "text-primary/60" : "text-[hsl(var(--sidebar-foreground))]"
+                    }`}
+                  >
+                    {item.description}
+                  </span>
+                </div>
+              )}
+            </Link>
+          );
+        })}
+      </nav>
+
+      {/* Bottom Section */}
+      <div className="border-t border-[hsl(var(--sidebar-border))] p-3 space-y-1 shrink-0">
+        {!collapsed && (
+          <button
+            onClick={() => logout()}
+            className="flex items-center gap-3 w-full rounded-lg px-3 py-2 text-sm text-destructive hover:bg-destructive/10 transition-all duration-200"
+          >
+            <LogOut className="h-[18px] w-[18px] shrink-0" />
+            <span>Sign Out</span>
+          </button>
+        )}
+
+        {/* Collapse Toggle */}
+        <button
+          onClick={() => setCollapsed(!collapsed)}
+          className="hidden lg:flex items-center gap-3 w-full rounded-lg px-3 py-2 text-sm text-[hsl(var(--sidebar-foreground))] hover:bg-[hsl(var(--sidebar-hover))] hover:text-foreground transition-all duration-200"
+          title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+        >
+          {collapsed ? (
+            <ChevronRight className="h-[18px] w-[18px] shrink-0 mx-auto" />
+          ) : (
+            <>
+              <ChevronLeft className="h-[18px] w-[18px] shrink-0" />
+              <span>Collapse</span>
+            </>
+          )}
+        </button>
+      </div>
+    </div>
+  );
+
+  return (
+    <>
+      {/* Desktop Sidebar */}
+      <aside
+        className={`hidden lg:flex flex-col fixed top-0 left-0 bottom-0 z-40 border-r border-[hsl(var(--sidebar-border))] transition-all duration-300 ease-in-out ${
+          collapsed ? "w-[var(--sidebar-collapsed-width)]" : "w-[var(--sidebar-width)]"
+        }`}
+        style={{ background: "hsl(var(--sidebar-bg))" }}
+      >
+        {sidebarContent}
+      </aside>
+
+      {/* Mobile Overlay */}
+      {mobileOpen && (
+        <div
+          className="lg:hidden fixed inset-0 z-40 bg-background/80 backdrop-blur-sm"
+          onClick={() => setMobileOpen(false)}
+        />
+      )}
+
+      {/* Mobile Sidebar */}
+      <aside
+        className={`lg:hidden fixed top-0 left-0 bottom-0 z-50 w-[var(--sidebar-width)] border-r border-[hsl(var(--sidebar-border))] transition-transform duration-300 ease-in-out ${
+          mobileOpen ? "translate-x-0" : "-translate-x-full"
+        }`}
+        style={{ background: "hsl(var(--sidebar-bg))" }}
+      >
+        {/* Mobile Close Button */}
+        <button
+          onClick={() => setMobileOpen(false)}
+          className="absolute top-4 right-3 p-1 rounded-md text-[hsl(var(--sidebar-foreground))] hover:text-foreground hover:bg-[hsl(var(--sidebar-hover))] transition"
+        >
+          <X className="h-5 w-5" />
+        </button>
+        {sidebarContent}
+      </aside>
+    </>
+  );
+}
+
+// ─── Top Bar (Header) Component ───
+export function TopBar() {
+  const { setMobileOpen } = useSidebar();
+  const { user, logout } = useAuth();
+
+  const getInitials = (name?: string) => {
+    if (!name) return "U";
+    return name
+      .split(" ")
+      .map((n) => n[0])
+      .join("")
+      .substring(0, 2)
+      .toUpperCase();
+  };
+
+  return (
+    <header className="sticky top-0 z-30 h-14 border-b border-border/60 glass">
+      <div className="flex items-center justify-between h-full px-4 lg:px-6">
+        {/* Left: Mobile Hamburger + Global Search */}
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setMobileOpen(true)}
+            className="lg:hidden p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition"
+          >
+            <Menu className="h-5 w-5" />
+          </button>
+
+          {/* Global Search */}
+          <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-secondary/50 border border-border/50 text-muted-foreground text-sm w-72 hover:border-primary/40 transition">
+            <Search className="h-3.5 w-3.5" />
+            <span className="text-xs">Search projects, documents...</span>
+            <kbd className="ml-auto text-[10px] font-mono bg-background/60 px-1.5 py-0.5 rounded border border-border/50">
+              ⌘K
+            </kbd>
+          </div>
+        </div>
+
+        {/* Right: User Profile & Actions */}
+        <div className="flex items-center gap-3">
+          {/* Notifications */}
+          <button
+            className="relative p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition"
+            title="Notifications"
+          >
+            <Bell className="h-[18px] w-[18px]" />
+            <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-primary animate-pulse" />
+          </button>
+
+          {/* User Profile Pill */}
+          <div className="flex items-center gap-2.5 pl-2 pr-3 py-1.5 rounded-lg bg-secondary/30 border border-border/40">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-primary/80 to-primary text-primary-foreground text-xs font-bold shadow-sm shrink-0">
+              {getInitials(user?.fullName)}
+            </div>
+            <div className="hidden sm:block text-left">
+              <p className="text-xs font-semibold text-foreground leading-tight truncate max-w-[130px]">
+                {user?.fullName || "User Account"}
+              </p>
+              <p className="text-[10px] text-primary leading-tight font-semibold">
+                {user?.role?.replace(/_/g, " ") || "Member"}
+              </p>
+            </div>
+
+            {/* Logout Button */}
+            <button
+              onClick={() => logout()}
+              className="ml-1 p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition"
+              title="Sign Out"
+            >
+              <LogOut className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+      </div>
+    </header>
+  );
+}
+
+// ─── Shell Layout Provider ───
+export function AppShell({ children }: { children: React.ReactNode }) {
+  const [collapsed, setCollapsed] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
+
+  return (
+    <SidebarContext.Provider
+      value={{ collapsed, setCollapsed, mobileOpen, setMobileOpen }}
+    >
+      <div className="relative min-h-screen bg-background text-foreground">
+        <Sidebar />
+
+        {/* Main Content Area - offset by sidebar width */}
+        <div
+          className={`transition-all duration-300 ease-in-out ${
+            collapsed
+              ? "lg:ml-[var(--sidebar-collapsed-width)]"
+              : "lg:ml-[var(--sidebar-width)]"
+          }`}
+        >
+          <TopBar />
+          <main className="animate-fade-in">{children}</main>
+        </div>
+      </div>
+    </SidebarContext.Provider>
+  );
+}
