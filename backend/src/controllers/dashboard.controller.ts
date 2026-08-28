@@ -7,12 +7,21 @@ export class DashboardController {
   /**
    * GET /api/dashboard
    */
-  static async getOverview(_req: AuthenticatedRequest, res: Response): Promise<void> {
+  static async getOverview(req: AuthenticatedRequest, res: Response): Promise<void> {
     try {
-      const data = await DashboardService.getOverview();
+      if (!req.user) {
+        sendError(res, 'Unauthorized: User authentication required', null, 401);
+        return;
+      }
+
+      const data = await DashboardService.getOverview({
+        userId: req.user.userId,
+        role: req.user.role,
+        fullName: req.user.fullName,
+      });
       sendSuccess(res, 'Dashboard data retrieved successfully', data);
-    } catch (error: any) {
-      sendError(res, error.message || 'Failed to load dashboard', null, 500);
+    } catch {
+      sendError(res, 'Failed to load dashboard data.', null, 500);
     }
   }
 }

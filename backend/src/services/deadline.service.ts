@@ -56,7 +56,7 @@ const normalizeRelatedOne = <T>(value: T | T[] | null): T | null => {
   return value || null;
 };
 
-const hasExistingDeadline = (milestone: DeadlineMilestone): boolean =>
+export const hasExistingDeadline = (milestone: DeadlineMilestone): boolean =>
   Boolean(milestone.start_date || milestone.duration_working_days || milestone.due_date);
 
 const getSignedRemainingWorkingDays = (today: string, dueDate: string, holidays: HolidayInput[]): number => {
@@ -77,31 +77,74 @@ const mapDeadlineHistory = (row: any, users: Map<string, any>) => ({
   created_at: row.created_at,
 });
 
-async function logMilestoneDeadline(actor: Actor, milestone: DeadlineMilestone, action: string, dueDate: string) {
-  const description = `${actor.fullName} ${action === 'MILESTONE_DEADLINE_CHANGED' ? 'changed' : 'set'} deadline for milestone '${milestone.name}' to ${dueDate}`;
-  const { error } = await supabaseAdmin.from('activity_logs').insert({
+export function buildDeadlineChangeRequestedActivity(actor: Actor, milestone: DeadlineMilestone, dueDate: string) {
+  return {
     project_id: milestone.project_id,
     user_id: actor.userId,
-    action,
-    description,
-  });
-
-  if (error) {
-    throw error;
-  }
+    action: 'DEADLINE_CHANGE_REQUESTED',
+    description: `${actor.fullName} requested deadline change for milestone '${milestone.name}' with proposed due date ${dueDate}`,
+  };
 }
 
-async function logDeadlineApprovalRequested(actor: Actor, milestone: DeadlineMilestone, dueDate: string) {
+async function logDeadlineChangeRequested(actor: Actor, milestone: DeadlineMilestone, dueDate: string) {
   const { error } = await supabaseAdmin.from('activity_logs').insert({
-    project_id: milestone.project_id,
-    user_id: actor.userId,
-    action: 'DEADLINE_APPROVAL_REQUESTED',
-    description: `${actor.fullName} requested deadline approval for milestone '${milestone.name}' with due date ${dueDate}`,
+    ...buildDeadlineChangeRequestedActivity(actor, milestone, dueDate),
   });
 
-  if (error) {
-    throw error;
-  }
+  if (error) throw error;
+}
+
+export function buildDeadlineProposalArtifacts(
+  milestone: DeadlineMilestone,
+  calculated: { start_date: string; duration_working_days: number; due_date: string },
+  actor: Actor,
+  hasPendingApproval: boolean,
+  reason?: string
+) {
+  if (actor.role !== 'SALES') throw new Error('Forbidden');
+  if (!milestone.project) throw new Error('Project not found');
+  if (milestone.project.sales_id !== actor.userId) throw new Error('Forbidden');
+  if (milestone.project.status === 'POSTPONED' || milestone.project.is_postponed) throw new Error('Project is postponed.');
+  if (milestone.status === 'COMPLETED') throw new Error('Completed milestone deadline cannot be changed.');
+  if (hasPendingApproval) throw new Error('A deadline change request is already pending approval.');
+  if (hasExistingDeadline(milestone) && !reason?.trim()) throw new Error('Reason is required when changing an existing deadline.');
+
+  const changeReason = hasExistingDeadline(milestone) ? reason!.trim() : reason?.trim() || 'Initial deadline';
+  const effectiveDeadline = {
+    start_date: milestone.start_date,
+    duration_working_days: milestone.duration_working_days,
+    due_date: milestone.due_date,
+  };
+
+  return {
+    history: {
+      milestone_id: milestone.id,
+      start_date: calculated.start_date,
+      duration_working_days: calculated.duration_working_days,
+      due_date: calculated.due_date,
+      changed_by: actor.userId,
+      change_reason: changeReason,
+    },
+    approval: {
+      milestone_id: milestone.id,
+      status: 'PENDING' as const,
+      requested_by: actor.userId,
+      reviewed_by: null,
+      review_note: null,
+      reviewed_at: null,
+    },
+    effectiveDeadline,
+    response: {
+      milestone_id: milestone.id,
+      start_date: calculated.start_date,
+      duration_working_days: calculated.duration_working_days,
+      due_date: calculated.due_date,
+      effective_deadline: effectiveDeadline,
+      approval: {
+        status: 'PENDING' as const,
+      },
+    },
+  };
 }
 
 export class DeadlineService {
@@ -201,88 +244,59 @@ export class DeadlineService {
   }
 
   static async saveMilestoneDeadline(milestoneId: string, input: SaveMilestoneDeadlineInput, actor: Actor) {
-    if (actor.role !== 'SALES') throw new Error('Forbidden');
-
     const milestone = await this.getMilestone(milestoneId);
-    if (!milestone.project) throw new Error('Project not found');
-    if (milestone.project.sales_id !== actor.userId) throw new Error('Forbidden');
-    if (milestone.project.status === 'POSTPONED' || milestone.project.is_postponed) throw new Error('Project is postponed.');
-    if (milestone.status === 'COMPLETED') throw new Error('Completed milestone deadline cannot be changed.');
-    if (hasExistingDeadline(milestone) && !input.reason?.trim()) throw new Error('Reason is required when changing an existing deadline.');
+
+    const { data: pendingApproval, error: pendingError } = await supabaseAdmin
+      .from('milestone_deadline_approvals')
+      .select('id')
+      .eq('milestone_id', milestoneId)
+      .eq('status', 'PENDING')
+      .maybeSingle();
+
+    if (pendingError) throw new Error(pendingError.message);
 
     const calculated = await this.calculateDeadline(input.start_date, input.duration_working_days);
-    const changeReason = hasExistingDeadline(milestone) ? input.reason!.trim() : input.reason?.trim() || 'Initial deadline';
-    const previousDeadline = {
-      start_date: milestone.start_date,
-      duration_working_days: milestone.duration_working_days,
-      due_date: milestone.due_date,
-    };
-
-    const { data: updated, error: updateError } = await supabaseAdmin
-      .from('project_milestones')
-      .update({
-        start_date: calculated.start_date,
-        duration_working_days: calculated.duration_working_days,
-        due_date: calculated.due_date,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', milestoneId)
-      .select('id')
-      .single();
-
-    if (updateError || !updated) throw new Error(updateError?.message || 'Milestone not found');
+    const proposal = buildDeadlineProposalArtifacts(milestone, calculated, actor, Boolean(pendingApproval), input.reason);
 
     const { data: deadlineHistory, error: historyError } = await supabaseAdmin
       .from('milestone_deadline_history')
+      .insert(proposal.history)
+      .select('id')
+      .single();
+
+    if (historyError || !deadlineHistory) throw new Error(historyError?.message || 'Failed to create milestone deadline history');
+
+    const { data: approval, error: approvalError } = await supabaseAdmin
+      .from('milestone_deadline_approvals')
       .insert({
-        milestone_id: milestoneId,
-        start_date: calculated.start_date,
-        duration_working_days: calculated.duration_working_days,
-        due_date: calculated.due_date,
-        changed_by: actor.userId,
-        change_reason: changeReason,
+        ...proposal.approval,
+        deadline_history_id: deadlineHistory.id,
       })
       .select('id')
       .single();
 
-    if (historyError || !deadlineHistory) {
-      await supabaseAdmin.from('project_milestones').update(previousDeadline).eq('id', milestoneId);
-      throw new Error(historyError?.message || 'Failed to create milestone deadline history');
+    if (approvalError || !approval) {
+      const { error: cleanupError } = await supabaseAdmin
+        .from('milestone_deadline_history')
+        .delete()
+        .eq('id', deadlineHistory.id);
+
+      if (cleanupError) {
+        throw new Error(`${approvalError?.message || 'Failed to create deadline approval.'}; cleanup failed: ${cleanupError.message}`);
+      }
+
+      throw new Error(approvalError?.message || 'Failed to create deadline approval.');
     }
 
-    const { error: supersedeError } = await supabaseAdmin
-      .from('milestone_deadline_approvals')
-      .update({ status: 'SUPERSEDED' })
-      .eq('milestone_id', milestoneId)
-      .eq('status', 'PENDING');
-
-    if (supersedeError) throw new Error(supersedeError.message);
-
-    const { error: approvalError } = await supabaseAdmin.from('milestone_deadline_approvals').insert({
-      milestone_id: milestoneId,
-      deadline_history_id: deadlineHistory.id,
-      status: 'PENDING',
-      requested_by: actor.userId,
-      reviewed_by: null,
-      review_note: null,
-      reviewed_at: null,
-    });
-
-    if (approvalError) throw new Error(approvalError.message);
-
-    await logMilestoneDeadline(
-      actor,
-      milestone,
-      hasExistingDeadline(milestone) ? 'MILESTONE_DEADLINE_CHANGED' : 'MILESTONE_DEADLINE_SET',
-      calculated.due_date
-    );
-    await logDeadlineApprovalRequested(actor, milestone, calculated.due_date);
+    await logDeadlineChangeRequested(actor, milestone, calculated.due_date);
 
     return {
-      milestone_id: milestoneId,
-      start_date: calculated.start_date,
-      duration_working_days: calculated.duration_working_days,
-      due_date: calculated.due_date,
+      ...proposal.response,
+      approval: {
+        ...proposal.response.approval,
+        id: approval.id,
+        deadline_history_id: deadlineHistory.id,
+      },
     };
   }
 

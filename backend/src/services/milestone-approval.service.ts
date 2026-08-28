@@ -21,6 +21,7 @@ type MilestoneApprovalMilestone = {
   id: string;
   project_id: string;
   name: string;
+  step_order: number;
   status: string;
   project: {
     status: string;
@@ -39,10 +40,37 @@ type UserSummary = {
   email: string;
 };
 
+type NextMilestoneSummary = {
+  id: string;
+  name: string;
+  step_order: number;
+  status: string;
+  start_date?: string | null;
+  duration_working_days?: number | null;
+  due_date?: string | null;
+};
+
 const normalizeRelatedOne = <T>(value: T | T[] | null): T | null => {
   if (Array.isArray(value)) return value[0] || null;
   return value || null;
 };
+
+export const isMilestoneCompletedLike = (status: string): boolean =>
+  status === 'COMPLETED' || status === 'APPROVED';
+
+export function selectNextMilestone(
+  current: Pick<MilestoneApprovalMilestone, 'id' | 'project_id' | 'step_order'>,
+  milestones: NextMilestoneSummary[]
+) {
+  return [...milestones]
+    .filter((milestone) => milestone.id !== current.id && milestone.step_order > current.step_order)
+    .sort((a, b) => a.step_order - b.step_order)[0] || null;
+}
+
+export function shouldCompleteProject(projectStatus: string, milestones: Array<{ status: string }>) {
+  if (projectStatus !== 'ACTIVE' && projectStatus !== 'COMPLETED') return false;
+  return milestones.length > 0 && milestones.every((milestone) => isMilestoneCompletedLike(milestone.status));
+}
 
 export function buildMilestoneApprovalReview(
   approvalStatus: MilestoneApprovalStatus,
@@ -69,7 +97,10 @@ export function buildMilestoneApprovalReview(
       review_note: trimmedNote,
       reviewed_at: reviewedAt,
     },
-    milestone_status: decision,
+    milestone: {
+      status: decision === 'APPROVED' ? 'COMPLETED' : 'REJECTED',
+      completed_at: decision === 'APPROVED' ? reviewedAt : null,
+    },
   };
 }
 
@@ -85,6 +116,21 @@ async function logMilestoneApprovalReview(
     action,
     description: `${actor.fullName} ${verb} milestone '${context.milestone.name}'`,
   });
+
+  if (error) throw error;
+}
+
+export function buildProjectCompletedActivityLog(actor: Actor, projectId: string, milestoneName: string) {
+  return {
+    project_id: projectId,
+    user_id: actor.userId,
+    action: 'PROJECT_COMPLETED',
+    description: `${actor.fullName} completed project workflow after milestone '${milestoneName}' was approved`,
+  };
+}
+
+async function logProjectCompleted(actor: Actor, projectId: string, milestoneName: string) {
+  const { error } = await supabaseAdmin.from('activity_logs').insert(buildProjectCompletedActivityLog(actor, projectId, milestoneName));
 
   if (error) throw error;
 }
@@ -111,7 +157,7 @@ export class MilestoneApprovalService {
 
     const { data: milestone, error: milestoneError } = await supabaseAdmin
       .from('project_milestones')
-      .select('id, project_id, name, status, project:projects!project_milestones_project_id_fkey(id,status,is_postponed)')
+      .select('id, project_id, name, step_order, status, project:projects!project_milestones_project_id_fkey(id,status,is_postponed)')
       .eq('id', approval.milestone_id)
       .single();
 
@@ -151,16 +197,17 @@ export class MilestoneApprovalService {
     const { data: updatedMilestone, error: milestoneError } = await supabaseAdmin
       .from('project_milestones')
       .update({
-        status: review.milestone_status,
+        status: review.milestone.status,
+        completed_at: review.milestone.completed_at,
         updated_at: new Date().toISOString(),
       })
       .eq('id', context.milestone.id)
       .eq('status', 'SUBMITTED')
-      .select('id, name, status')
+      .select('id, project_id, name, step_order, status, completed_at')
       .maybeSingle();
 
     if (milestoneError || !updatedMilestone) {
-      await supabaseAdmin
+      const { error: rollbackError } = await supabaseAdmin
         .from('milestone_approvals')
         .update({
           status: 'PENDING',
@@ -169,7 +216,62 @@ export class MilestoneApprovalService {
           reviewed_at: null,
         })
         .eq('id', approvalId);
+
+      if (rollbackError) {
+        throw new Error(`${milestoneError?.message || 'Only a SUBMITTED milestone can be reviewed.'}; rollback failed: ${rollbackError.message}`);
+      }
+
       throw new Error(milestoneError?.message || 'Only a SUBMITTED milestone can be reviewed.');
+    }
+
+    let nextMilestone: NextMilestoneSummary | null = null;
+    let projectCompleted = false;
+    let shouldLogProjectCompleted = false;
+
+    if (decision === 'APPROVED') {
+      const [nextMilestoneResult, projectMilestonesResult] = await Promise.all([
+        supabaseAdmin
+          .from('project_milestones')
+          .select('id, name, step_order, status, start_date, duration_working_days, due_date')
+          .eq('project_id', context.milestone.project_id)
+          .gt('step_order', context.milestone.step_order)
+          .order('step_order', { ascending: true })
+          .limit(1)
+          .maybeSingle(),
+        supabaseAdmin
+          .from('project_milestones')
+          .select('id, status')
+          .eq('project_id', context.milestone.project_id),
+      ]);
+
+      if (nextMilestoneResult.error) throw new Error(nextMilestoneResult.error.message);
+      if (projectMilestonesResult.error) throw new Error(projectMilestonesResult.error.message);
+
+      nextMilestone = nextMilestoneResult.data || null;
+
+      const milestonesAfterUpdate = (projectMilestonesResult.data || []).map((milestone) =>
+        milestone.id === updatedMilestone.id
+          ? { ...milestone, status: updatedMilestone.status }
+          : milestone
+      );
+
+      if (!nextMilestone && shouldCompleteProject(context.milestone.project?.status || '', milestonesAfterUpdate)) {
+        const { data: updatedProject, error: projectError } = await supabaseAdmin
+          .from('projects')
+          .update({
+            status: 'COMPLETED',
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', context.milestone.project_id)
+          .eq('status', 'ACTIVE')
+          .select('id, status')
+          .maybeSingle();
+
+        if (projectError) throw new Error(projectError.message);
+
+        projectCompleted = Boolean(updatedProject) || context.milestone.project?.status === 'COMPLETED';
+        shouldLogProjectCompleted = Boolean(updatedProject);
+      }
     }
 
     await logMilestoneApprovalReview(
@@ -178,10 +280,29 @@ export class MilestoneApprovalService {
       decision === 'APPROVED' ? 'MILESTONE_APPROVED' : 'MILESTONE_REJECTED'
     );
 
+    if (shouldLogProjectCompleted) {
+      await logProjectCompleted(actor, context.milestone.project_id, context.milestone.name);
+    }
+
     return {
       milestone_id: updatedMilestone.id,
       name: updatedMilestone.name,
       status: updatedMilestone.status,
+      current_milestone: {
+        id: updatedMilestone.id,
+        name: updatedMilestone.name,
+        status: updatedMilestone.status,
+        completed_at: updatedMilestone.completed_at,
+      },
+      next_milestone: nextMilestone
+        ? {
+            id: nextMilestone.id,
+            name: nextMilestone.name,
+            step_order: nextMilestone.step_order,
+            status: nextMilestone.status,
+          }
+        : null,
+      project_completed: projectCompleted,
       approval: {
         id: updatedApproval.id,
         status: updatedApproval.status,

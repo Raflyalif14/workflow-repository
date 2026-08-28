@@ -22,7 +22,13 @@ export class DeadlineController {
       const result = await DeadlineService.saveMilestoneDeadline(getRouteParam(req, 'milestoneId'), input, req.user!);
       sendSuccess(res, 'Milestone deadline saved successfully', result);
     } catch (error: any) {
-      const status = error.message === 'Forbidden' ? 403 : error.message?.includes('not found') ? 404 : 400;
+      const status = error.message === 'Forbidden'
+        ? 403
+        : error.message?.includes('not found')
+          ? 404
+          : error.message?.includes('pending approval')
+            ? 409
+            : 400;
       sendError(res, error.message || 'Failed to save milestone deadline', null, status);
     }
   }

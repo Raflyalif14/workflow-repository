@@ -9,18 +9,14 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { useProcessApproval, useAddApprovalComment } from "@/hooks/use-approvals";
+import { useProcessApproval } from "@/hooks/use-approvals";
 import { ApprovalItem } from "@/types/approval";
 import {
   CheckCircle2,
   XCircle,
-  Clock,
-  FileText,
-  Download,
   CalendarClock,
-  Layers,
-  Send,
-  MessageSquare,
+  FileCheck2,
+  PlayCircle,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
@@ -38,11 +34,9 @@ export function ApprovalActionDialog({
   initialAction = "APPROVE",
 }: ApprovalActionDialogProps) {
   const processMutation = useProcessApproval();
-  const addCommentMutation = useAddApprovalComment();
 
   const [action, setAction] = useState<"APPROVE" | "REJECT">(initialAction || "APPROVE");
   const [feedback, setFeedback] = useState("");
-  const [commentText, setCommentText] = useState("");
 
   // Sync action state when dialog opens or initialAction prop changes
   React.useEffect(() => {
@@ -51,14 +45,17 @@ export function ApprovalActionDialog({
     }
     if (!open) {
       setFeedback("");
-      setCommentText("");
     }
   }, [initialAction, open]);
 
   if (!item) return null;
 
+  const isPending = item.status === "PENDING";
+  const canProcess = isPending && item.isCurrentApproval !== false;
+
   const handleDecision = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!canProcess) return;
     if (action === "REJECT" && (!feedback || feedback.length < 5)) {
       alert("Please provide at least 5 characters of feedback for rejection.");
       return;
@@ -66,7 +63,7 @@ export function ApprovalActionDialog({
 
     try {
       await processMutation.mutateAsync({
-        id: item.id,
+        item,
         action,
         feedback,
       });
@@ -78,37 +75,13 @@ export function ApprovalActionDialog({
     }
   };
 
-  const handleSendComment = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!commentText.trim()) return;
-
-    try {
-      await addCommentMutation.mutateAsync({
-        id: item.id,
-        content: commentText,
-      });
-      setCommentText("");
-      alert("Comment posted to ticket thread.");
-    } catch (err: any) {
-      alert(err.message || "Failed to post comment");
-    }
-  };
-
-  const handleDownload = () => {
-    if (!item.fileUrl) return;
-    const downloadUrl = item.fileUrl.startsWith("http")
-      ? item.fileUrl
-      : `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"}${item.fileUrl}`;
-    window.open(downloadUrl, "_blank");
-  };
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogHeader>
         <div className="flex items-center gap-2 mb-1">
           {item.category === "DEADLINE" && <CalendarClock className="h-5 w-5 text-amber-400" />}
-          {item.category === "MILESTONE" && <Layers className="h-5 w-5 text-primary" />}
-          {item.category === "DOCUMENT" && <FileText className="h-5 w-5 text-blue-400" />}
+          {item.category === "INITIATION" && <PlayCircle className="h-5 w-5 text-primary" />}
+          {item.category === "SUBMISSION" && <FileCheck2 className="h-5 w-5 text-emerald-400" />}
           <DialogTitle>Head SA Review & Sign-Off</DialogTitle>
         </div>
         <DialogDescription>
@@ -131,22 +104,34 @@ export function ApprovalActionDialog({
           <h3 className="text-sm font-bold text-foreground">{item.title}</h3>
           <p className="text-muted-foreground">{item.details}</p>
 
-          {/* If Document -> File Attachment Preview & Download */}
-          {item.category === "DOCUMENT" && item.fileName && (
-            <div className="flex items-center justify-between bg-muted/40 p-2.5 rounded-lg border border-border/40 mt-2">
-              <span className="flex items-center gap-1.5 font-medium truncate max-w-[250px]">
-                <FileText className="h-4 w-4 text-primary shrink-0" />
-                <span className="truncate">{item.fileName}</span>
-              </span>
-              <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={handleDownload}>
-                <Download className="h-3 w-3" />
-                <span>Download</span>
-              </Button>
+          {item.category === "DEADLINE" && (
+            <div className="grid gap-2 sm:grid-cols-2">
+              <DeadlineBox title="Effective Deadline" deadline={item.currentDeadline} />
+              <DeadlineBox title="Proposed Deadline" deadline={item.proposedDeadline} />
+            </div>
+          )}
+
+          {item.category === "INITIATION" && (
+            <div className="rounded-lg border border-border/40 bg-muted/30 p-2.5">
+              <p>Milestone: <strong className="text-foreground">{item.milestoneName}</strong></p>
+              <p>PIC: <strong className="text-foreground">{formatPicRequirement(item)}</strong></p>
+              <p>Effective due: <strong className="text-foreground">{formatDate(item.currentDeadline?.due_date)}</strong></p>
+              {item.requestNote && <p>Request note: <strong className="text-foreground">{item.requestNote}</strong></p>}
+            </div>
+          )}
+
+          {item.category === "SUBMISSION" && (
+            <div className="rounded-lg border border-border/40 bg-muted/30 p-2.5">
+              <p>Milestone: <strong className="text-foreground">{item.milestoneName}</strong></p>
+              <p>Submitted by: <strong className="text-foreground">{item.submittedBy}</strong></p>
+              <p>Submission note: <strong className="text-foreground">{item.submissionNote || "-"}</strong></p>
+              {item.reviewNote && <p>Review note: <strong className="text-foreground">{item.reviewNote}</strong></p>}
+              {item.currentDeadline?.due_date && <p>Effective due: <strong className="text-foreground">{formatDate(item.currentDeadline.due_date)}</strong></p>}
             </div>
           )}
 
           <div className="flex items-center justify-between pt-2 border-t border-border/40 text-[11px] text-muted-foreground">
-            <span>Submitted by: <strong className="text-foreground">{item.submittedBy}</strong></span>
+            <span>Requested by: <strong className="text-foreground">{item.submittedBy}</strong></span>
             {item.deadline && (
               <span>Target: <strong className="text-foreground">{new Date(item.deadline).toLocaleDateString("id-ID", { dateStyle: "medium" })}</strong></span>
             )}
@@ -154,6 +139,7 @@ export function ApprovalActionDialog({
         </div>
 
         {/* Decision Form */}
+        {canProcess ? (
         <form onSubmit={handleDecision} className="space-y-3">
           <div className="flex items-center gap-3">
             <Button
@@ -215,7 +201,54 @@ export function ApprovalActionDialog({
             </Button>
           </DialogFooter>
         </form>
+        ) : (
+          <div className="space-y-3">
+            <div className="rounded-lg border border-border/50 bg-muted/30 p-3 text-xs">
+              <p>Status: <strong className="text-foreground">{item.status}</strong></p>
+              <p>Reviewed by: <strong className="text-foreground">{item.reviewer?.full_name || item.reviewer?.fullName || "-"}</strong></p>
+              {item.reviewNote && <p>Review note: <strong className="text-foreground">{item.reviewNote}</strong></p>}
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+                Close
+              </Button>
+            </DialogFooter>
+          </div>
+        )}
       </div>
     </Dialog>
+  );
+}
+
+function formatDate(value?: string | null) {
+  if (!value) return "-";
+  return new Date(value).toLocaleDateString("id-ID", { dateStyle: "medium" });
+}
+
+function formatPicRequirement(item: ApprovalItem) {
+  if (item.stageDefaultRole !== "SA") return "Not Required";
+  return item.pic?.full_name || item.pic?.fullName || "-";
+}
+
+function DeadlineBox({
+  title,
+  deadline,
+}: {
+  title: string;
+  deadline?: {
+    start_date?: string | null;
+    duration_working_days?: number | null;
+    due_date?: string | null;
+    change_reason?: string | null;
+  } | null;
+}) {
+  return (
+    <div className="rounded-lg border border-border/40 bg-muted/30 p-2.5 text-[11px]">
+      <p className="font-semibold text-foreground">{title}</p>
+      <p>Start: {formatDate(deadline?.start_date)}</p>
+      <p>Duration: {deadline?.duration_working_days || "-"} working days</p>
+      <p>Due: {formatDate(deadline?.due_date)}</p>
+      {deadline?.change_reason && <p>Reason: {deadline.change_reason}</p>}
+    </div>
   );
 }

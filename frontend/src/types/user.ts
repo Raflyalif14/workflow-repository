@@ -12,6 +12,7 @@ export interface User {
   avatarUrl?: string | null;
   role: UserRole;
   isActive: boolean;
+  mustChangePassword: boolean;
   createdAt: string;
   updatedAt?: string;
   _count?: {

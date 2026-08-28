@@ -37,11 +37,25 @@ type DeadlineApprovalContext = {
     id: string;
     project_id: string;
     name: string;
+    start_date: string | null;
+    duration_working_days: number | null;
+    due_date: string | null;
+    project: {
+      status: string;
+      is_postponed: boolean;
+    } | null;
   };
   history: {
     id: string;
+    start_date: string;
+    duration_working_days: number;
     due_date: string;
   };
+};
+
+const normalizeRelatedOne = <T>(value: T | T[] | null): T | null => {
+  if (Array.isArray(value)) return value[0] || null;
+  return value || null;
 };
 
 export function buildDeadlineApprovalReview(
@@ -117,9 +131,9 @@ export function buildDeadlineApprovalReadResult(
 async function logDeadlineApprovalReview(
   actor: Actor,
   context: DeadlineApprovalContext,
-  action: 'DEADLINE_APPROVAL_APPROVED' | 'DEADLINE_APPROVAL_REJECTED'
+  action: 'DEADLINE_APPROVED' | 'DEADLINE_REJECTED'
 ) {
-  const verb = action === 'DEADLINE_APPROVAL_APPROVED' ? 'approved' : 'rejected';
+  const verb = action === 'DEADLINE_APPROVED' ? 'approved' : 'rejected';
   const { error } = await supabaseAdmin.from('activity_logs').insert({
     project_id: context.milestone.project_id,
     user_id: actor.userId,
@@ -130,6 +144,27 @@ async function logDeadlineApprovalReview(
   if (error) {
     throw error;
   }
+}
+
+export function buildDeadlineApprovalResolution(
+  currentStatus: ApprovalStatus,
+  decision: ReviewDecision,
+  reviewerId: string,
+  history: Pick<DeadlineHistoryRow, 'start_date' | 'duration_working_days' | 'due_date'>,
+  currentEffectiveDeadline: { start_date: string | null; duration_working_days: number | null; due_date: string | null },
+  note?: string | null,
+  reviewedAt = new Date().toISOString()
+) {
+  const approval = buildDeadlineApprovalReview(currentStatus, decision, reviewerId, note, reviewedAt);
+  const effectiveDeadline = decision === 'APPROVED'
+    ? {
+        start_date: history.start_date,
+        duration_working_days: history.duration_working_days,
+        due_date: history.due_date,
+      }
+    : currentEffectiveDeadline;
+
+  return { approval, effectiveDeadline };
 }
 
 export class DeadlineApprovalService {
@@ -155,12 +190,12 @@ export class DeadlineApprovalService {
     const [milestoneResult, historyResult] = await Promise.all([
       supabaseAdmin
         .from('project_milestones')
-        .select('id, project_id, name')
+        .select('id, project_id, name, start_date, duration_working_days, due_date, project:projects!project_milestones_project_id_fkey(id,status,is_postponed)')
         .eq('id', approval.milestone_id)
         .single(),
       supabaseAdmin
         .from('milestone_deadline_history')
-        .select('id, due_date')
+        .select('id, start_date, duration_working_days, due_date')
         .eq('id', approval.deadline_history_id)
         .single(),
     ]);
@@ -170,18 +205,35 @@ export class DeadlineApprovalService {
 
     return {
       approval: approval as DeadlineApproval,
-      milestone: milestoneResult.data,
+      milestone: {
+        ...milestoneResult.data,
+        project: normalizeRelatedOne(milestoneResult.data.project),
+      },
       history: historyResult.data,
     };
   }
 
   private static async review(approvalId: string, decision: ReviewDecision, note: string | undefined, actor: Actor) {
     const context = await this.getApprovalContext(approvalId);
-    const review = buildDeadlineApprovalReview(context.approval.status, decision, actor.userId, note);
+    if (!context.milestone.project) throw new Error('Project not found');
+    if (context.milestone.project.status === 'POSTPONED' || context.milestone.project.is_postponed) throw new Error('Project is postponed.');
+
+    const resolution = buildDeadlineApprovalResolution(
+      context.approval.status,
+      decision,
+      actor.userId,
+      context.history,
+      {
+        start_date: context.milestone.start_date,
+        duration_working_days: context.milestone.duration_working_days,
+        due_date: context.milestone.due_date,
+      },
+      note
+    );
 
     const { data: updated, error: updateError } = await supabaseAdmin
       .from('milestone_deadline_approvals')
-      .update(review)
+      .update(resolution.approval)
       .eq('id', approvalId)
       .eq('status', 'PENDING')
       .select('id, milestone_id, deadline_history_id, status, requested_by, reviewed_by, review_note, requested_at, reviewed_at')
@@ -190,13 +242,48 @@ export class DeadlineApprovalService {
     if (updateError) throw new Error(updateError.message);
     if (!updated) throw new Error('Deadline approval is no longer pending.');
 
+    if (decision === 'APPROVED') {
+      const { data: milestone, error: milestoneError } = await supabaseAdmin
+        .from('project_milestones')
+        .update({
+          start_date: context.history.start_date,
+          duration_working_days: context.history.duration_working_days,
+          due_date: context.history.due_date,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', context.milestone.id)
+        .select('id')
+        .maybeSingle();
+
+      if (milestoneError || !milestone) {
+        const { error: rollbackError } = await supabaseAdmin
+          .from('milestone_deadline_approvals')
+          .update({
+            status: 'PENDING',
+            reviewed_by: null,
+            review_note: null,
+            reviewed_at: null,
+          })
+          .eq('id', approvalId);
+
+        if (rollbackError) {
+          throw new Error(`${milestoneError?.message || 'Failed to apply approved deadline.'}; rollback failed: ${rollbackError.message}`);
+        }
+
+        throw new Error(milestoneError?.message || 'Failed to apply approved deadline.');
+      }
+    }
+
     await logDeadlineApprovalReview(
       actor,
       context,
-      decision === 'APPROVED' ? 'DEADLINE_APPROVAL_APPROVED' : 'DEADLINE_APPROVAL_REJECTED'
+      decision === 'APPROVED' ? 'DEADLINE_APPROVED' : 'DEADLINE_REJECTED'
     );
 
-    return updated;
+    return {
+      ...updated,
+      effective_deadline: resolution.effectiveDeadline,
+    };
   }
 
   static approveDeadlineApproval(approvalId: string, input: ApproveDeadlineApprovalInput, actor: Actor) {

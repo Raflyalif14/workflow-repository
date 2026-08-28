@@ -23,15 +23,17 @@ const assertThrows = (name: string, action: () => unknown) => {
 
 const approved = buildMilestoneApprovalReview('PENDING', 'SUBMITTED', activeProject, 'APPROVED', headSa, undefined, reviewedAt);
 assert(approved.approval.status === 'APPROVED', 'Test 1: approval should be APPROVED');
-assert(approved.milestone_status === 'APPROVED', 'Test 1: milestone should be APPROVED');
+assert(approved.milestone.status === 'COMPLETED', 'Test 1: milestone should be COMPLETED');
+assert(approved.milestone.completed_at === reviewedAt, 'Test 1: completed_at should be set');
 assert(approved.approval.reviewed_by === headSa.userId, 'Test 1: reviewed_by should be HEAD_SA');
-console.log('Test 1 - HEAD_SA approve PENDING + SUBMITTED: approval=APPROVED, milestone=APPROVED, reviewed_by=HEAD_SA');
+console.log('Test 1 - HEAD_SA approve PENDING + SUBMITTED: approval=APPROVED, milestone=COMPLETED, completed_at set');
 
 const rejected = buildMilestoneApprovalReview('PENDING', 'SUBMITTED', activeProject, 'REJECTED', headSa, 'Dokumentasi requirement belum lengkap.', reviewedAt);
 assert(rejected.approval.status === 'REJECTED', 'Test 2: approval should be REJECTED');
-assert(rejected.milestone_status === 'REJECTED', 'Test 2: milestone should be REJECTED');
+assert(rejected.milestone.status === 'REJECTED', 'Test 2: milestone should be REJECTED');
+assert(rejected.milestone.completed_at === null, 'Test 2: completed_at should be null');
 assert(rejected.approval.review_note === 'Dokumentasi requirement belum lengkap.', 'Test 2: review_note should be saved');
-console.log('Test 2 - HEAD_SA reject PENDING with note: approval=REJECTED, milestone=REJECTED, review_note saved');
+console.log('Test 2 - HEAD_SA reject PENDING with note: approval=REJECTED, milestone=REJECTED, completed_at null');
 
 assertThrows('Test 3 - Reject without note', () =>
   buildMilestoneApprovalReview('PENDING', 'SUBMITTED', activeProject, 'REJECTED', headSa, '   ', reviewedAt)

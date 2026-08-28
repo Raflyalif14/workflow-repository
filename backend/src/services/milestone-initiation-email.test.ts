@@ -21,6 +21,7 @@ const initiatedMilestone = {
     full_name: 'Solution Architect Test 2',
     email: 'sa.pic@test.com',
   },
+  workflow_stage: { default_role: 'SA' },
   start_date: '2026-08-28',
   duration_working_days: 3,
   due_date: '2026-09-02',
@@ -130,6 +131,24 @@ async function run() {
   assert(submission.status === 'SUBMITTED', 'Test 8: existing submission flow should accept IN_PROGRESS');
   assert(submission.approval.status === 'PENDING', 'Test 8: submission approval should be PENDING');
   console.log('Test 8 - Existing SA submission flow still works after IN_PROGRESS');
+
+  const skippedEmailCalls: string[] = [];
+  const skippedActivities: boolean[] = [];
+  const skippedNotification = await sendMilestoneInitiationNotification(
+    { ...initiatedMilestone, pic: null },
+    sales,
+    async (email) => {
+      skippedEmailCalls.push(email.recipientEmail);
+    },
+    async (sent) => {
+      skippedActivities.push(sent);
+    }
+  );
+  assert(skippedNotification.email_sent === false, 'Test 9: no-PIC notification should report email_sent=false');
+  assert(skippedNotification.skipped === true, 'Test 9: no-PIC notification should report skipped=true');
+  assert(skippedEmailCalls.length === 0, 'Test 9: no-PIC notification should not call SMTP sender');
+  assert(skippedActivities.length === 0, 'Test 9: no-PIC notification should not record failed email activity');
+  console.log('Test 9 - Non-SA no-PIC initiation skips SMTP recipient safely');
 }
 
 run().catch((error) => {

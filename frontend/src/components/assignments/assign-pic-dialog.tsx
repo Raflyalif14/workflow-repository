@@ -39,6 +39,8 @@ export function AssignPicDialog({
   const [reason, setReason] = useState("");
 
   const isReassignment = currentPicId && selectedPicId && currentPicId !== selectedPicId;
+  const displayName = (architect: { fullName?: string; full_name?: string }) =>
+    architect.fullName || architect.full_name || "-";
 
   // Head SA option (self)
   const headSa = architects.find(
@@ -96,7 +98,7 @@ export function AssignPicDialog({
           <div className="flex items-center justify-between rounded-lg border border-primary/20 bg-primary/5 p-3">
             <div className="text-xs">
               <span className="font-semibold text-foreground">Head SA Quick Action</span>
-              <p className="text-muted-foreground">Assign this project/deliverable to yourself ({headSa.fullName})</p>
+              <p className="text-muted-foreground">Assign this project/deliverable to yourself ({displayName(headSa)})</p>
             </div>
             <Button
               type="button"
@@ -126,7 +128,7 @@ export function AssignPicDialog({
             <option value="">-- Choose Solution Architect --</option>
             {architects.map((sa) => (
               <option key={sa.id} value={sa.id}>
-                {sa.fullName} ({sa.role}) — {sa._count?.assignedMilestones || 0} Active Tasks
+                {displayName(sa)} ({sa.role}) - {sa._count?.assignedMilestones || 0} Active Tasks
               </option>
             ))}
           </select>

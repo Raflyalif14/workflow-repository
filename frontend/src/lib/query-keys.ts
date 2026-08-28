@@ -1,0 +1,29 @@
+export const projectKeys = {
+  all: () => ["projects"] as const,
+  list: (filters?: unknown) => ["projects", filters ?? "all"] as const,
+  detail: (projectId: string) => ["project", projectId] as const,
+  milestones: (projectId: string) => ["project-milestones", projectId] as const,
+  progress: (projectId: string) => ["project-progress", projectId] as const,
+  assignmentHistory: (projectId: string) => ["assignment-history", projectId] as const,
+};
+
+export const milestoneKeys = {
+  workflowState: (milestoneId: string) => ["milestone-workflow-state", milestoneId] as const,
+};
+
+export const approvalKeys = {
+  all: () => ["approvals"] as const,
+  list: (filters?: unknown) => ["approvals", filters ?? "all"] as const,
+  stats: () => ["approval-stats"] as const,
+};
+
+export const assignmentKeys = {
+  eligibleSas: () => ["eligible-sas"] as const,
+  myAssignedProjects: () => ["my-assigned-projects"] as const,
+  myAssignedMilestones: () => ["my-assigned-milestones"] as const,
+  solutionArchitects: () => ["solution-architects"] as const,
+};
+
+export const dashboardKeys = {
+  overview: () => ["dashboard", "overview"] as const,
+};

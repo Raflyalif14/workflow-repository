@@ -18,6 +18,7 @@ const createdMilestone = {
     id: 'sa-1',
     full_name: 'Solution Architect Test 2',
   },
+  workflow_stage: { default_role: 'SA' },
   start_date: '2026-08-28',
   duration_working_days: 3,
   due_date: '2026-09-02',
@@ -59,6 +60,15 @@ assertThrows('Test 3 - Milestone is not CREATED', () =>
 assertThrows('Test 4 - PIC null', () =>
   buildMilestoneInitiationResult({ ...createdMilestone, pic_id: null, pic: null }, sales, 'APPROVED', 'APPROVED')
 );
+
+const salesStageInitiated = buildMilestoneInitiationResult(
+  { ...createdMilestone, pic_id: null, pic: null, workflow_stage: { default_role: 'SALES' } },
+  sales,
+  'APPROVED',
+  'APPROVED'
+);
+assert(salesStageInitiated.status === 'IN_PROGRESS', 'Test 4B: SALES stage should initiate without PIC');
+console.log('Test 4B - SALES stage + no PIC + approved approvals: IN_PROGRESS');
 
 assertThrows('Test 5 - Deadline missing', () =>
   buildMilestoneInitiationResult({ ...createdMilestone, due_date: null }, sales, 'APPROVED', 'APPROVED')

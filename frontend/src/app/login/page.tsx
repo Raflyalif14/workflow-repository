@@ -1,11 +1,14 @@
 "use client";
 
 import React, { FormEvent, useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   AlertCircle,
   ArrowRight,
   CheckCircle2,
+  Eye,
+  EyeOff,
   Layers,
   LockKeyhole,
   Mail,
@@ -17,9 +20,10 @@ import { useAuth } from "@/components/auth/auth-provider";
 
 export default function LoginPage() {
   const router = useRouter();
-  const { login, isAuthenticated } = useAuth();
+  const { login, isAuthenticated, user } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [nextPath, setNextPath] = useState("/");
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -30,9 +34,9 @@ export default function LoginPage() {
   }, []);
   useEffect(() => {
     if (isAuthenticated) {
-      router.replace(nextPath);
+      router.replace(user?.mustChangePassword ? "/change-password" : nextPath);
     }
-  }, [isAuthenticated, nextPath, router]);
+  }, [isAuthenticated, nextPath, router, user]);
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -40,8 +44,8 @@ export default function LoginPage() {
     setIsSubmitting(true);
 
     try {
-      await login({ email, password });
-      router.replace(nextPath);
+      const loggedInUser = await login({ email, password });
+      router.replace(loggedInUser.mustChangePassword ? "/change-password" : nextPath);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Login gagal");
     } finally {
@@ -74,7 +78,7 @@ export default function LoginPage() {
           </div>
 
           <div className="grid max-w-xl gap-3 sm:grid-cols-3">
-            {["Supabase Auth", "Role based access", "Protected API"].map((item) => (
+            {["Backend auth", "Role based access", "Protected API"].map((item) => (
               <div
                 key={item}
                 className="flex items-center gap-2 rounded-lg border border-border/60 bg-card/50 px-3 py-2 text-xs text-muted-foreground"
@@ -90,7 +94,7 @@ export default function LoginPage() {
           <CardHeader className="space-y-2">
             <CardTitle className="text-xl">Login</CardTitle>
             <p className="text-sm text-muted-foreground">
-              Use an account managed through Supabase Auth.
+              Use your workflow account credentials.
             </p>
           </CardHeader>
           <CardContent>
@@ -121,13 +125,21 @@ export default function LoginPage() {
                   <LockKeyhole className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                   <Input
                     id="password"
-                    type="password"
+                    type={showPassword ? "text" : "password"}
                     autoComplete="current-password"
                     value={password}
                     onChange={(event) => setPassword(event.target.value)}
-                    className="pl-9"
+                    className="pl-9 pr-10"
                     required
                   />
+                  <button
+                    type="button"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground transition hover:text-foreground"
+                    onClick={() => setShowPassword((value) => !value)}
+                    aria-label={showPassword ? "Hide password" : "Show password"}
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
                 </div>
               </div>
 
@@ -142,6 +154,15 @@ export default function LoginPage() {
                 <span>{isSubmitting ? "Signing in..." : "Sign in"}</span>
                 <ArrowRight className="h-4 w-4" />
               </Button>
+
+              <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
+                <Link className="hover:text-foreground" href="/forgot-password">
+                  Forgot password?
+                </Link>
+                <Link className="hover:text-foreground" href="/register">
+                  Create account
+                </Link>
+              </div>
             </form>
 
           </CardContent>

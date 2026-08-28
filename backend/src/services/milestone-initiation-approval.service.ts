@@ -33,6 +33,9 @@ type InitiationMilestoneState = {
   duration_working_days: number | null;
   due_date: string | null;
   project: ProjectState | null;
+  workflow_stage?: {
+    default_role?: string | null;
+  } | null;
 };
 
 type InitiationApproval = {
@@ -68,6 +71,14 @@ const normalizeRelatedOne = <T>(value: T | T[] | null): T | null => {
 const hasDeadline = (milestone: Pick<InitiationMilestoneState, 'start_date' | 'duration_working_days' | 'due_date'>) =>
   Boolean(milestone.start_date && milestone.duration_working_days && milestone.due_date);
 
+export function isPicRequiredForInitiation(milestone: Pick<InitiationMilestoneState, 'workflow_stage'>) {
+  return milestone.workflow_stage?.default_role === 'SA';
+}
+
+export function validateInitiationPicRequirement(milestone: Pick<InitiationMilestoneState, 'pic_id' | 'workflow_stage'>, message: string) {
+  if (isPicRequiredForInitiation(milestone) && !milestone.pic_id) throw new Error(message);
+}
+
 export function buildInitiationApprovalRequest(
   milestone: InitiationMilestoneState,
   actor: Actor,
@@ -80,7 +91,7 @@ export function buildInitiationApprovalRequest(
   if (milestone.project.sales_id !== actor.userId) throw new Error('Forbidden');
   if (milestone.project.status === 'POSTPONED' || milestone.project.is_postponed) throw new Error('Project is postponed.');
   if (milestone.status !== 'CREATED') throw new Error('Only a CREATED milestone can request initiation approval.');
-  if (!milestone.pic_id) throw new Error('Milestone must have a PIC before initiation approval can be requested.');
+  validateInitiationPicRequirement(milestone, 'Milestone must have a PIC before initiation approval can be requested.');
   if (!hasDeadline(milestone)) throw new Error('Milestone must have a deadline before initiation approval can be requested.');
   if (latestDeadlineApprovalStatus !== 'APPROVED') throw new Error('Milestone deadline must be approved before initiation approval can be requested.');
   if (hasPendingInitiationApproval) throw new Error('This milestone already has a pending initiation approval.');
@@ -134,7 +145,7 @@ export function buildMilestoneInitiationResult(
   if (milestone.project.sales_id !== actor.userId) throw new Error('Only the project owner can initiate this milestone.');
   if (milestone.project.status === 'POSTPONED' || milestone.project.is_postponed) throw new Error('Project is postponed.');
   if (milestone.status !== 'CREATED') throw new Error('Only CREATED milestones can be initiated.');
-  if (!milestone.pic_id) throw new Error('Milestone must have a PIC before it can be initiated.');
+  validateInitiationPicRequirement(milestone, 'Milestone must have a PIC before it can be initiated.');
   if (!hasDeadline(milestone)) throw new Error('Milestone must have a deadline before it can be initiated.');
   if (latestDeadlineApprovalStatus !== 'APPROVED') throw new Error('Milestone must have an approved deadline before it can be initiated.');
   if (latestInitiationApprovalStatus !== 'APPROVED') throw new Error('Milestone initiation approval must be APPROVED before initiation.');
@@ -290,8 +301,7 @@ export async function sendMilestoneInitiationNotification(
   recordEmailActivity: (sent: boolean) => Promise<void> = (sent) => logMilestoneInitiationEmail(actor, milestone, sent)
 ) {
   if (!milestone.pic?.email) {
-    await recordEmailActivity(false);
-    return { email_sent: false };
+    return { email_sent: false, skipped: true };
   }
 
   try {
@@ -308,7 +318,7 @@ export class MilestoneInitiationApprovalService {
   private static async getMilestoneContext(milestoneId: string): Promise<InitiationMilestoneState> {
     const { data, error } = await supabaseAdmin
       .from('project_milestones')
-      .select('id, project_id, name, status, pic_id, start_date, duration_working_days, due_date, pic:users!project_milestones_pic_id_fkey(id,full_name,email), project:projects!project_milestones_project_id_fkey(id,sales_id,name,customer,status,is_postponed)')
+      .select('id, project_id, name, status, pic_id, start_date, duration_working_days, due_date, pic:users!project_milestones_pic_id_fkey(id,full_name,email), workflow_stage:workflow_stages!project_milestones_workflow_stage_id_fkey(id,default_role), project:projects!project_milestones_project_id_fkey(id,sales_id,name,customer,status,is_postponed)')
       .eq('id', milestoneId)
       .single();
 
@@ -512,6 +522,7 @@ export class MilestoneInitiationApprovalService {
       },
       notification: {
         email_sent: notification.email_sent,
+        ...(notification.skipped ? { skipped: true } : {}),
       },
     };
   }

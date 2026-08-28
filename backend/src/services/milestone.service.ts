@@ -1,4 +1,5 @@
 import { supabaseAdmin } from '../config/supabase';
+import { isMilestoneCompletedLike } from './milestone-approval.service';
 
 type Actor = { userId: string; role: string; fullName: string };
 type MilestoneInput = { project_id: string; workflow_stage_id: string; name: string; description: string | null; step_order: number; status: typeof INITIAL_MILESTONE_STATUS };
@@ -18,7 +19,7 @@ type RevisionMilestoneState = SubmissionMilestoneState & {
   project_id: string;
 };
 
-const selectMilestones = 'id, project_id, workflow_stage_id, name, description, step_order, status, pic_id, pic:users!project_milestones_pic_id_fkey(id,full_name,email,role), workflow_stage:workflow_stages!project_milestones_workflow_stage_id_fkey(id,default_role), created_at, updated_at';
+export const selectMilestones = 'id, project_id, workflow_stage_id, name, description, step_order, status, pic_id, start_date, duration_working_days, due_date, completed_at, pic:users!project_milestones_pic_id_fkey(id,full_name,email,role), workflow_stage:workflow_stages!project_milestones_workflow_stage_id_fkey(id,default_role), created_at, updated_at';
 export const INITIAL_MILESTONE_STATUS = 'CREATED' as const;
 
 async function logMilestone(actor: Actor, projectId: string, details: string) {
@@ -102,7 +103,7 @@ export function buildInitialMilestoneRows(projectId: string, stages: WorkflowSta
 }
 
 export function calculateMilestoneProgress(milestones: Array<{ status: string }>) {
-  const completed = milestones.filter((item) => item.status === 'COMPLETED').length;
+  const completed = milestones.filter((item) => isMilestoneCompletedLike(item.status)).length;
   return {
     completed,
     total: milestones.length,

@@ -8,6 +8,7 @@ export type ProjectStatus =
   | "CANCELLED";
 
 export type MilestoneStatus =
+  | "CREATED"
   | "NOT_STARTED"
   | "PENDING"
   | "TRIGGERED"
@@ -28,10 +29,67 @@ export interface ProjectMilestonePhase4 {
   description?: string | null;
   step_order: number;
   status: MilestoneStatus;
-  pic?: { id: string; full_name: string; email: string; role: string } | null;
+  pic_id?: string | null;
+  pic?: { id: string; full_name?: string; fullName?: string; email: string; role: string } | null;
   workflow_stage?: { id: string; default_role: string } | null;
+  start_date?: string | null;
+  duration_working_days?: number | null;
+  due_date?: string | null;
+  completed_at?: string | null;
   created_at: string;
   updated_at: string;
+}
+
+export type DeadlineApprovalStatus = "PENDING" | "APPROVED" | "REJECTED" | "SUPERSEDED";
+export type InitiationApprovalStatus = "PENDING" | "APPROVED" | "REJECTED";
+export type MilestoneSubmissionApprovalStatus = "PENDING" | "APPROVED" | "REJECTED";
+
+export interface UserSummarySnake {
+  id: string;
+  full_name: string;
+  fullName?: string;
+  email: string;
+}
+
+export interface MilestoneDeadlineApproval {
+  id: string;
+  milestone_id: string;
+  deadline_history_id: string;
+  status: DeadlineApprovalStatus;
+  requested_by: UserSummarySnake | null;
+  reviewed_by: UserSummarySnake | null;
+  review_note: string | null;
+  requested_at: string;
+  reviewed_at: string | null;
+  deadline: {
+    start_date: string;
+    duration_working_days: number;
+    due_date: string;
+    change_reason: string | null;
+  } | null;
+}
+
+export interface MilestoneInitiationApproval {
+  id: string;
+  milestone_id: string;
+  status: InitiationApprovalStatus;
+  requested_by: UserSummarySnake | null;
+  reviewed_by: UserSummarySnake | null;
+  request_note: string | null;
+  review_note: string | null;
+  requested_at: string;
+  reviewed_at: string | null;
+}
+
+export interface MilestoneSubmissionApproval {
+  id: string;
+  status: MilestoneSubmissionApprovalStatus;
+  submission_note: string | null;
+  submitted_by: UserSummarySnake | null;
+  submitted_at: string;
+  review_note: string | null;
+  reviewed_by: UserSummarySnake | null;
+  reviewed_at: string | null;
 }
 
 export interface WorkflowStage {
@@ -85,6 +143,7 @@ export interface ActivityLog {
   action: string;
   entityType: string;
   entityId: string;
+  description?: string;
   details?: string;
   createdAt: string;
   user?: {
@@ -117,7 +176,7 @@ export interface Project {
   postponeReason?: string | null;
   milestones?: ProjectMilestone[];
   activityLogs?: ActivityLog[];
-  activity_logs?: Array<{ id: string; user_id?: string; action: string; details?: string; created_at: string }>;
+  activity_logs?: Array<{ id: string; user_id?: string; action: string; description?: string; details?: string; created_at: string }>;
   totalMilestones?: number;
   completedMilestones?: number;
   progress?: number; // Legacy field retained for older screens.

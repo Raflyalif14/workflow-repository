@@ -1,11 +1,12 @@
-export type ApprovalCategory = "ALL" | "DEADLINE" | "MILESTONE" | "DOCUMENT";
-export type ApprovalStatus = "ALL" | "PENDING" | "APPROVED" | "REJECTED";
+export type ApprovalCategory = "ALL" | "DEADLINE" | "INITIATION" | "SUBMISSION";
+export type ApprovalStatus = "ALL" | "PENDING" | "APPROVED" | "REJECTED" | "SUPERSEDED";
 
 export interface ApprovalItem {
   id: string;
-  category: "DEADLINE" | "MILESTONE" | "DOCUMENT";
+  category: "DEADLINE" | "INITIATION" | "SUBMISSION";
   title: string;
-  status: "PENDING" | "APPROVED" | "REJECTED";
+  status: "PENDING" | "APPROVED" | "REJECTED" | "SUPERSEDED";
+  isCurrentApproval?: boolean;
   projectId: string;
   projectName: string;
   projectCode: string;
@@ -23,10 +24,49 @@ export interface ApprovalItem {
   fileName?: string;
   fileSize?: number;
   changelog?: string;
+  milestoneId: string;
+  milestoneName: string;
+  stepOrder: number;
+  stageDefaultRole?: string | null;
+  requester?: {
+    id: string;
+    full_name?: string;
+    fullName?: string;
+    email?: string;
+  } | null;
+  reviewer?: {
+    id: string;
+    full_name?: string;
+    fullName?: string;
+    email?: string;
+  } | null;
+  pic?: {
+    id: string;
+    full_name?: string;
+    fullName?: string;
+    email?: string;
+  } | null;
+  requestedAt: string;
+  requestNote?: string | null;
+  reviewNote?: string | null;
+  submissionNote?: string | null;
+  currentDeadline?: {
+    start_date?: string | null;
+    duration_working_days?: number | null;
+    due_date?: string | null;
+  };
+  proposedDeadline?: {
+    start_date: string;
+    duration_working_days: number;
+    due_date: string;
+    change_reason?: string | null;
+  } | null;
 }
 
 export interface ApprovalStats {
   totalPending: number;
+  pendingInitiations: number;
+  pendingSubmissions: number;
   pendingMilestones: number;
   pendingDocs: number;
   pendingDeadlines: number;

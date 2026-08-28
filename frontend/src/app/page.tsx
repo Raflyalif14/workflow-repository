@@ -69,16 +69,18 @@ export default function DashboardPage() {
   const recentActivity = data?.recentActivity || [];
 
   const statusColors: Record<string, string> = {
-    IN_PROGRESS: "#3b82f6",
+    DRAFT: "#64748b",
+    ACTIVE: "#3b82f6",
+    POSTPONED: "#f59e0b",
     COMPLETED: "#22c55e",
-    ON_HOLD: "#f59e0b",
     CANCELLED: "#ef4444",
   };
 
   const statusLabels: Record<string, string> = {
-    IN_PROGRESS: "Active",
+    DRAFT: "Draft",
+    ACTIVE: "Active",
+    POSTPONED: "Postponed",
     COMPLETED: "Completed",
-    ON_HOLD: "On Hold",
     CANCELLED: "Cancelled",
   };
 
@@ -188,7 +190,7 @@ export default function DashboardPage() {
               {summary?.activeProjects ?? 0}
             </div>
             <p className="text-xs text-muted-foreground mt-0.5">
-              Currently in-progress workflows
+              Currently active workflows
             </p>
           </CardContent>
         </Card>
@@ -353,7 +355,7 @@ export default function DashboardPage() {
             </Link>
           </div>
           <CardDescription className="text-xs">
-            Active and on-hold projects with milestone completion percentage
+            Active, postponed, and completed projects with milestone completion percentage
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -389,10 +391,12 @@ export default function DashboardPage() {
                     <div className="col-span-2 text-center">
                       <Badge
                         variant={
-                          p.status === "IN_PROGRESS"
+                          p.status === "ACTIVE"
                             ? "default"
-                            : p.status === "ON_HOLD"
+                            : p.status === "POSTPONED"
                             ? "warning"
+                            : p.status === "COMPLETED"
+                            ? "success"
                             : "outline"
                         }
                         className="text-[10px]"

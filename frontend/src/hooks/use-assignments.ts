@@ -1,13 +1,16 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "@/lib/api-client";
+import { assignmentKeys, projectKeys } from "@/lib/query-keys";
 
 export interface SolutionArchitect {
   id: string;
-  fullName: string;
+  fullName?: string;
+  full_name?: string;
   email: string;
-  username: string;
+  username?: string;
   role: string;
   phoneNumber?: string;
+  phone_number?: string;
   _count?: {
     assignedMilestones?: number;
   };
@@ -47,17 +50,19 @@ export interface AssignmentHistoryItem {
 
 export function useEligibleSAs() {
   return useQuery<SolutionArchitect[]>({
-    queryKey: ["eligible-sas"],
-    queryFn: async () => apiClient<SolutionArchitect[]>("/assignments/eligible-sas"),
+    queryKey: assignmentKeys.eligibleSas(),
+    queryFn: async () => apiClient<SolutionArchitect[]>("/users/solution-architects"),
   });
 }
 
 export function useAssignmentHistory(projectId: string) {
   return useQuery<AssignmentHistoryItem[]>({
-    queryKey: ["assignment-history", projectId],
+    queryKey: projectKeys.assignmentHistory(projectId),
     queryFn: async () =>
-      apiClient<AssignmentHistoryItem[]>(`/assignments/projects/${projectId}/history`),
+      apiClient<AssignmentHistoryItem[]>(`/projects/${projectId}/assignments`),
     enabled: !!projectId,
+    staleTime: 0,
+    refetchOnWindowFocus: true,
   });
 }
 
@@ -77,19 +82,20 @@ export function useAssignPic() {
         reason?: string;
       };
     }) => {
-      return apiClient<AssignmentHistoryItem>(
-        `/assignments/projects/${projectId}/assign`,
-        {
-          method: "POST",
-          body: JSON.stringify(data),
-        }
-      );
+      return apiClient<AssignmentHistoryItem>(`/projects/${projectId}/assign-pic`, {
+        method: "POST",
+        body: JSON.stringify({
+          pic_id: data.newPicId,
+          reason: data.reason,
+        }),
+      });
     },
     onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ["project", variables.projectId] });
+      queryClient.invalidateQueries({ queryKey: projectKeys.detail(variables.projectId) });
       queryClient.invalidateQueries({ queryKey: ["projects"] });
+      queryClient.invalidateQueries({ queryKey: projectKeys.milestones(variables.projectId) });
       queryClient.invalidateQueries({
-        queryKey: ["assignment-history", variables.projectId],
+        queryKey: projectKeys.assignmentHistory(variables.projectId),
       });
     },
   });

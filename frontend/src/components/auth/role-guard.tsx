@@ -22,6 +22,14 @@ export function RoleGuard({ allowedRoles, children }: RoleGuardProps) {
     );
   }
 
+  if (user?.mustChangePassword) {
+    return (
+      <div className="flex py-20 items-center justify-center text-sm text-muted-foreground">
+        Redirecting to password change...
+      </div>
+    );
+  }
+
   if (!user || !allowedRoles.includes(user.role)) {
     return (
       <div className="container py-20 text-center space-y-4">

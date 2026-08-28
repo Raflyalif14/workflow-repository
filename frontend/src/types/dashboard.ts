@@ -3,6 +3,8 @@ export interface DashboardSummary {
   activeProjects: number;
   completedProjects: number;
   onHoldProjects: number;
+  postponedProjects?: number;
+  cancelledProjects?: number;
   overdueMilestones: number;
   waitingApproval: number;
 }
@@ -26,7 +28,7 @@ export interface ProjectProgress {
   clientName: string;
   status: string;
   progress: number;
-  targetEndDate: string;
+  targetEndDate: string | null;
   totalMilestones: number;
   completedMilestones: number;
   overdueMilestones: number;
