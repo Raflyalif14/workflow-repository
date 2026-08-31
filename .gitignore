@@ -54,12 +54,6 @@ coverage/
 .cache/
 
 # =========================================
-# Prisma Local Database
-# =========================================
-backend/prisma/*.db
-backend/prisma/*.db-journal
-
-# =========================================
 # OS Generated Files
 # =========================================
 .DS_Store
@@ -74,12 +68,7 @@ Desktop.ini
 *.swp
 *.swo
 
-# =========================================
-# Docker Local Data
-# =========================================
-.docker/
-docker-data/
-# Runtime uploads
+# Legacy local uploads are intentionally retained on disk and are no longer read by runtime.
 backend/uploads/
 # Generated source maps
 *.js.map

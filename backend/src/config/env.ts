@@ -26,14 +26,5 @@ export const ENV = {
   PASSWORD_RESET_URL: process.env.PASSWORD_RESET_URL || 'http://localhost:3000/reset-password',
   INTERNAL_EMAIL_DOMAIN: process.env.INTERNAL_EMAIL_DOMAIN || '',
   DEFAULT_REGISTER_ROLE: defaultRegisterRole as (typeof userRoles)[number],
-
-  // Object Storage (MinIO / S3) Configuration
-  STORAGE_DRIVER: process.env.STORAGE_DRIVER || 'local', // 's3' or 'local'
-  S3_ENDPOINT: process.env.S3_ENDPOINT || 'http://localhost:9000',
-  S3_BUCKET: process.env.S3_BUCKET || 'workflow-documents',
-  S3_ACCESS_KEY: process.env.S3_ACCESS_KEY || 'minioadmin',
-  S3_SECRET_KEY: process.env.S3_SECRET_KEY || '',
-  S3_REGION: process.env.S3_REGION || 'us-east-1',
-  S3_FORCE_PATH_STYLE: process.env.S3_FORCE_PATH_STYLE !== 'false',
-  UPLOAD_DIR: process.env.UPLOAD_DIR || 'uploads',
+  SUPABASE_DOCUMENT_BUCKET: process.env.SUPABASE_DOCUMENT_BUCKET || 'workflow-documents',
 };

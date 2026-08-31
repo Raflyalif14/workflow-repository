@@ -22,7 +22,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { useDocuments } from "@/hooks/use-documents";
+import { useDocumentDownloadUrl, useDocuments } from "@/hooks/use-documents";
 import { DocumentItem, DocumentCategory, DocumentStatus, DocumentVersion } from "@/types/document";
 import { UploadDocumentDialog } from "@/components/documents/upload-document-dialog";
 import { UploadVersionDialog } from "@/components/documents/upload-version-dialog";
@@ -56,6 +56,7 @@ export default function DocumentsPage() {
     category: categoryFilter,
     status: statusFilter,
   });
+  const documentDownload = useDocumentDownloadUrl();
 
   const getStatusBadge = (status: DocumentStatus) => {
     switch (status) {
@@ -93,11 +94,17 @@ export default function DocumentsPage() {
     setCommentsState({ docId: doc.id, docTitle: doc.title });
   };
 
-  const handleDownload = (fileUrl: string) => {
-    const downloadUrl = fileUrl.startsWith("http")
-      ? fileUrl
-      : `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"}${fileUrl}`;
-    window.open(downloadUrl, "_blank");
+  const handleDownload = async (versionId: string) => {
+    try {
+      const { url } = await documentDownload.mutateAsync(versionId);
+      const link = window.document.createElement("a");
+      link.href = url;
+      link.target = "_blank";
+      link.rel = "noopener noreferrer";
+      link.click();
+    } catch (error) {
+      alert(error instanceof Error ? error.message : "Failed to download document");
+    }
   };
 
   return (
@@ -107,7 +114,7 @@ export default function DocumentsPage() {
         <div>
           <div className="flex items-center gap-2 text-primary text-xs font-semibold uppercase tracking-wider mb-1">
             <FolderArchive className="h-4 w-4" />
-            <span>Document Repository & Object Storage (MinIO/S3)</span>
+            <span>Document Repository & Supabase Storage</span>
           </div>
           <h1 className="text-3xl font-bold tracking-tight">Document Repository</h1>
           <p className="text-sm text-muted-foreground mt-1">
@@ -256,7 +263,8 @@ export default function DocumentsPage() {
                           size="sm"
                           variant="outline"
                           className="h-8 text-xs gap-1.5"
-                          onClick={() => handleDownload(latestVersion.fileUrl)}
+                          onClick={() => handleDownload(latestVersion.id)}
+                          disabled={documentDownload.isPending}
                         >
                           <Download className="h-3.5 w-3.5" />
                           <span>Download</span>

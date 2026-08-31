@@ -19,10 +19,6 @@ export class ProjectManagementController {
   static update = (req: AuthenticatedRequest, res: Response) => run(res, () => ProjectManagementService.update(getRouteParam(req, 'id'), updateProjectManagementSchema.parse(req.body), actor(req)), 'Project updated successfully');
   static postpone = (req: AuthenticatedRequest, res: Response) => run(res, () => ProjectManagementService.postpone(getRouteParam(req, 'id'), postponeManagementSchema.parse(req.body).reason, actor(req)), 'Project postponed successfully');
   static resume = (req: AuthenticatedRequest, res: Response) => run(res, () => ProjectManagementService.resume(getRouteParam(req, 'id'), actor(req)), 'Project resumed successfully');
-  static initializeWorkflow = (req: AuthenticatedRequest, res: Response) => run(res, () => MilestoneService.initialize(getRouteParam(req, 'projectId'), actor(req)), 'Workflow initialized successfully');
   static milestones = (req: AuthenticatedRequest, res: Response) => run(res, () => MilestoneService.list(getRouteParam(req, 'projectId'), actor(req)), 'Project milestones retrieved successfully');
   static progress = (req: AuthenticatedRequest, res: Response) => run(res, () => MilestoneService.progress(getRouteParam(req, 'projectId'), actor(req)), 'Project progress retrieved successfully');
-  static triggerMilestone = (req: AuthenticatedRequest, res: Response) => run(res, () => MilestoneService.trigger(getRouteParam(req, 'projectId'), getRouteParam(req, 'milestoneId'), actor(req)), 'Milestone triggered successfully');
-  static startMilestone = (req: AuthenticatedRequest, res: Response) => run(res, () => MilestoneService.start(getRouteParam(req, 'projectId'), getRouteParam(req, 'milestoneId'), actor(req)), 'Milestone started successfully');
-  static completeMilestone = (req: AuthenticatedRequest, res: Response) => run(res, () => MilestoneService.complete(getRouteParam(req, 'projectId'), getRouteParam(req, 'milestoneId'), actor(req)), 'Milestone completed successfully');
 }

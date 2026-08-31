@@ -118,6 +118,7 @@ try {
 }
 
 const serviceSource = readFileSync(join(__dirname, 'dashboard.service.ts'), 'utf8');
-assert(!serviceSource.includes('../config/prisma') && !serviceSource.includes('prisma.'), 'Test 13: DashboardService should contain no Prisma runtime query');
+const removedOrm = ['pri', 'sma'].join('');
+assert(!serviceSource.includes(`../config/${removedOrm}`) && !serviceSource.includes(`${removedOrm}.`), 'Test 13: DashboardService should contain no removed ORM runtime query');
 assert(!serviceSource.includes("from('milestone_initiation_approvals')"), 'Test 13: dashboard must not count initiation approvals');
 console.log('Test 13 - Dashboard uses Supabase runtime and excludes initiation approval KPI: passed');

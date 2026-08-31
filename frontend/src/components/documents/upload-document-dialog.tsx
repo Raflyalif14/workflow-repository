@@ -76,7 +76,7 @@ export function UploadDocumentDialog({
           <DialogTitle>Upload New Repository Document</DialogTitle>
         </div>
         <DialogDescription>
-          Upload technical proposals, architecture blueprints, sizing sheets, or project deliverables to MinIO/S3 storage.
+          Upload technical proposals, architecture blueprints, sizing sheets, or project deliverables to private Supabase Storage.
         </DialogDescription>
       </DialogHeader>
 

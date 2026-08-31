@@ -34,13 +34,6 @@ type RevisionMilestoneState = SubmissionMilestoneState & {
 export const selectMilestones = 'id, project_id, workflow_stage_id, name, description, step_order, status, pic_id, start_date, duration_working_days, due_date, completed_at, pic:users!project_milestones_pic_id_fkey(id,full_name,email,role), workflow_stage:workflow_stages!project_milestones_workflow_stage_id_fkey(id,default_role), created_at, updated_at';
 export const INITIAL_MILESTONE_STATUS = 'CREATED' as const;
 
-async function logMilestone(actor: Actor, projectId: string, description: string) {
-  const { error } = await supabaseAdmin
-    .from('activity_logs')
-    .insert({ user_id: actor.userId, project_id: projectId, action: 'UPDATE', description });
-  if (error) throw new Error(error.message);
-}
-
 const normalizeRelatedOne = <T>(value: T | T[] | null): T | null => {
   if (Array.isArray(value)) return value[0] || null;
   return value || null;
@@ -205,37 +198,6 @@ export class MilestoneService {
 
   static completeStage(milestoneId: string, actor: Actor) {
     return completeMilestoneStage(milestoneId, actor);
-  }
-
-  static async trigger(projectId: string, milestoneId: string, actor: Actor) {
-    await this.getProject(projectId, actor);
-    const { data: milestone, error } = await supabaseAdmin.from('project_milestones').select('*').eq('id', milestoneId).eq('project_id', projectId).single();
-    if (error || !milestone) throw new Error('Milestone not found');
-    if (milestone.status !== 'PENDING') throw new Error('Only PENDING milestones can be triggered.');
-    if (milestone.step_order > 1) {
-      const { data: previous } = await supabaseAdmin.from('project_milestones').select('status').eq('project_id', projectId).eq('step_order', milestone.step_order - 1).single();
-      if (!previous || previous.status !== 'COMPLETED') throw new Error('Previous milestone must be completed first.');
-    }
-    const { data, error: updateError } = await supabaseAdmin.from('project_milestones').update({ status: 'TRIGGERED' }).eq('id', milestoneId).select(selectMilestones).single();
-    if (updateError || !data) throw new Error(updateError?.message || 'Milestone update failed');
-    await logMilestone(actor, projectId, `${actor.fullName} triggered milestone '${data.name}'`);
-    return data;
-  }
-
-  static async start(projectId: string, milestoneId: string, actor: Actor) {
-    await this.getProject(projectId, actor);
-    const { data, error } = await supabaseAdmin.from('project_milestones').update({ status: 'IN_PROGRESS' }).eq('id', milestoneId).eq('project_id', projectId).eq('status', 'TRIGGERED').select(selectMilestones).single();
-    if (error || !data) throw new Error('Only TRIGGERED milestones can be started.');
-    await logMilestone(actor, projectId, `${actor.fullName} started milestone '${data.name}'`);
-    return data;
-  }
-
-  static async complete(projectId: string, milestoneId: string, actor: Actor) {
-    await this.getProject(projectId, actor);
-    const { data, error } = await supabaseAdmin.from('project_milestones').update({ status: 'COMPLETED' }).eq('id', milestoneId).eq('project_id', projectId).eq('status', 'IN_PROGRESS').select(selectMilestones).single();
-    if (error || !data) throw new Error('Only IN_PROGRESS milestones can be completed.');
-    await logMilestone(actor, projectId, `${actor.fullName} completed milestone '${data.name}'`);
-    return data;
   }
 
   static async submitMilestone(milestoneId: string, actor: Actor, note?: string) {

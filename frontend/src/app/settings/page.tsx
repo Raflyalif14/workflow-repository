@@ -75,16 +75,16 @@ function SettingsPageContent() {
           </CardHeader>
           <CardContent className="space-y-3 text-xs">
             <div className="flex items-center justify-between py-1.5 border-b border-border/30">
-              <span className="text-muted-foreground">Storage Driver</span>
-              <Badge variant="success" className="font-mono text-[10px]">Configured in Phase 3</Badge>
+              <span className="text-muted-foreground">Storage Provider</span>
+              <Badge variant="success" className="font-mono text-[10px]">Supabase Storage</Badge>
             </div>
             <div className="flex items-center justify-between py-1.5 border-b border-border/30">
-              <span className="text-muted-foreground">Endpoint</span>
-              <span className="font-mono text-foreground">Not configured</span>
+              <span className="text-muted-foreground">Access</span>
+              <span className="font-mono text-foreground">Backend-signed download URLs</span>
             </div>
             <div className="flex items-center justify-between py-1.5">
-              <span className="text-muted-foreground">Bucket Name</span>
-              <span className="font-mono text-foreground">Not configured</span>
+              <span className="text-muted-foreground">Bucket</span>
+              <span className="font-mono text-foreground">Environment configured</span>
             </div>
           </CardContent>
         </Card>

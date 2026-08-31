@@ -105,6 +105,15 @@ export function useReviewVersion() {
   });
 }
 
+export function useDocumentDownloadUrl() {
+  return useMutation({
+    mutationFn: async (versionId: string) =>
+      apiClient<{ url: string; expires_in_seconds: number }>(
+        `/documents/versions/${versionId}/download-url`
+      ),
+  });
+}
+
 export function useAddComment() {
   const queryClient = useQueryClient();
 

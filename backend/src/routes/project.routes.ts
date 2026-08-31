@@ -1,5 +1,4 @@
 import { Router } from 'express';
-import { ProjectController } from '../controllers/project.controller';
 import { ProjectManagementController } from '../controllers/project-management.controller';
 import { ProjectPlanApprovalController } from '../controllers/project-plan-approval.controller';
 import { MilestoneInitiationApprovalController } from '../controllers/milestone-initiation-approval.controller';
@@ -13,23 +12,17 @@ import {
   saveProjectTimelineSchema,
   submitProjectPlanSchema,
 } from '../validators/project-plan.validator';
-import {
-  triggerMilestoneSchema,
-} from '../validators/project.validator';
 
 const router = Router();
 
 // Seluruh endpoint Project diproteksi dengan JWT Authentication
 router.use(authenticateJwt);
 
-// 1. Meta / Scenarios dropdown
-router.get('/meta/scenarios', ProjectController.listScenarios);
-
-// 2. Project List & Detail (Accessible by all internal roles)
+// 1. Project List & Detail (Accessible by all internal roles)
 router.get('/', ProjectManagementController.list);
 router.get('/:id', ProjectManagementController.get);
 
-// 3. Create Project (Sales & Super Admin)
+// 2. Create Project (Sales)
 router.post(
   '/',
   requireRoles(['SALES']),
@@ -71,7 +64,7 @@ router.get(
   ProjectPlanApprovalController.getHistory
 );
 
-// 4. Postpone Project (Sales, Head SA, Super Admin)
+// 3. Postpone Project (Sales)
 router.post(
   '/:id/postpone',
   requireRoles(['SALES']),
@@ -91,7 +84,7 @@ router.post('/:projectId/milestones/:milestoneId/complete', MilestoneInitiationA
 router.post('/:projectId/assign-pic', requireRoles(['HEAD_SA']), validateBody(assignPicSchema), AssignmentPhase5Controller.assign);
 router.get('/:projectId/assignments', AssignmentPhase5Controller.history);
 
-// 5. Trigger Milestone (Sales, SA, Head SA, Super Admin)
+// Retained compatibility endpoint. The retired controller returns HTTP 410.
 router.patch(
   '/milestones/:milestoneId/trigger',
   MilestoneInitiationApprovalController.retired
