@@ -1,18 +1,12 @@
 import { Router } from 'express';
 import { MilestoneInitiationApprovalController } from '../controllers/milestone-initiation-approval.controller';
-import { authenticateUser, requireRoles } from '../middlewares/auth.middleware';
-import { validateBody } from '../middlewares/validate.middleware';
-import {
-  approveMilestoneInitiationApprovalSchema,
-  rejectMilestoneInitiationApprovalSchema,
-} from '../validators/milestone-initiation-approval.validator';
+import { authenticateUser } from '../middlewares/auth.middleware';
 
 const router = Router();
 
 router.use(authenticateUser);
-router.use(requireRoles(['HEAD_SA']));
 
-router.post('/:approvalId/approve', validateBody(approveMilestoneInitiationApprovalSchema), MilestoneInitiationApprovalController.approve);
-router.post('/:approvalId/reject', validateBody(rejectMilestoneInitiationApprovalSchema), MilestoneInitiationApprovalController.reject);
+router.post('/:approvalId/approve', MilestoneInitiationApprovalController.retired);
+router.post('/:approvalId/reject', MilestoneInitiationApprovalController.retired);
 
 export default router;

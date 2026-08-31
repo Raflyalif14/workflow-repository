@@ -41,6 +41,7 @@ export interface ProjectMilestonePhase4 {
 }
 
 export type DeadlineApprovalStatus = "PENDING" | "APPROVED" | "REJECTED" | "SUPERSEDED";
+export type ProjectPlanApprovalStatus = "PENDING" | "APPROVED" | "REJECTED";
 export type InitiationApprovalStatus = "PENDING" | "APPROVED" | "REJECTED";
 export type MilestoneSubmissionApprovalStatus = "PENDING" | "APPROVED" | "REJECTED";
 
@@ -67,6 +68,26 @@ export interface MilestoneDeadlineApproval {
     due_date: string;
     change_reason: string | null;
   } | null;
+}
+
+export interface ProjectPlanApproval {
+  id: string;
+  project_id: string;
+  project?: {
+    id: string;
+    name: string;
+    customer: string;
+    status: ProjectStatus;
+  } | null;
+  status: ProjectPlanApprovalStatus;
+  requested_by: UserSummarySnake | null;
+  request_note: string | null;
+  reviewed_by: UserSummarySnake | null;
+  review_note: string | null;
+  submitted_at: string;
+  reviewed_at: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface MilestoneInitiationApproval {

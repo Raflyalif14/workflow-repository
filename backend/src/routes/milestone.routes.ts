@@ -7,7 +7,6 @@ import { MilestoneInitiationApprovalController } from '../controllers/milestone-
 import { authenticateUser, requireRoles } from '../middlewares/auth.middleware';
 import { validateBody } from '../middlewares/validate.middleware';
 import { saveMilestoneDeadlineSchema } from '../validators/deadline.validator';
-import { requestMilestoneInitiationApprovalSchema } from '../validators/milestone-initiation-approval.validator';
 import { submitMilestoneSchema } from '../validators/milestone.validator';
 
 const router = Router();
@@ -28,16 +27,25 @@ router.post(
 );
 
 router.post(
+  '/:milestoneId/start',
+  requireRoles(['SALES', 'HEAD_SA', 'SA']),
+  MilestoneController.start
+);
+
+router.post(
+  '/:milestoneId/complete',
+  requireRoles(['SALES', 'HEAD_SA', 'SA']),
+  MilestoneController.complete
+);
+
+router.post(
   '/:milestoneId/request-initiation-approval',
-  requireRoles(['SALES']),
-  validateBody(requestMilestoneInitiationApprovalSchema),
-  MilestoneInitiationApprovalController.request
+  MilestoneInitiationApprovalController.retired
 );
 
 router.post(
   '/:milestoneId/initiate',
-  requireRoles(['SALES']),
-  MilestoneInitiationApprovalController.initiate
+  MilestoneInitiationApprovalController.retired
 );
 
 router.patch(

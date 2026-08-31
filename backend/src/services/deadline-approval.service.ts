@@ -217,6 +217,7 @@ export class DeadlineApprovalService {
     const context = await this.getApprovalContext(approvalId);
     if (!context.milestone.project) throw new Error('Project not found');
     if (context.milestone.project.status === 'POSTPONED' || context.milestone.project.is_postponed) throw new Error('Project is postponed.');
+    if (context.milestone.project.status !== 'ACTIVE') throw new Error('Deadline changes can only be reviewed for ACTIVE projects.');
 
     const resolution = buildDeadlineApprovalResolution(
       context.approval.status,

@@ -3,7 +3,6 @@ import { apiClient } from "@/lib/api-client";
 import { approvalKeys, assignmentKeys, milestoneKeys, projectKeys } from "@/lib/query-keys";
 import {
   MilestoneDeadlineApproval,
-  MilestoneInitiationApproval,
   MilestoneSubmissionApproval,
   ProjectMilestonePhase4,
 } from "@/types/project";
@@ -11,7 +10,6 @@ import {
 export type MilestoneApprovalState = {
   deadlineApproval: MilestoneDeadlineApproval | null;
   deadlineApprovalHistory: MilestoneDeadlineApproval[];
-  initiationApproval: MilestoneInitiationApproval | null;
   submissionApproval: MilestoneSubmissionApproval | null;
   submissionApprovalHistory: MilestoneSubmissionApproval[];
 };
@@ -36,6 +34,7 @@ const invalidateMilestoneWorkflow = (
     queryClient.invalidateQueries({ queryKey: projectKeys.detail(projectId) });
     queryClient.invalidateQueries({ queryKey: projectKeys.milestones(projectId) });
     queryClient.invalidateQueries({ queryKey: projectKeys.progress(projectId) });
+    queryClient.invalidateQueries({ queryKey: projectKeys.planApproval(projectId) });
   }
   if (milestoneId) {
     queryClient.invalidateQueries({ queryKey: milestoneKeys.workflowState(milestoneId) });
@@ -50,17 +49,15 @@ export function useMilestoneApprovalStates(
     queries: milestones.map((milestone) => ({
       queryKey: milestoneKeys.workflowState(milestone.id),
       queryFn: async (): Promise<MilestoneApprovalState> => {
-        const [deadlineApproval, deadlineApprovalHistory, initiationApproval, submissionApprovalHistory] = await Promise.all([
+        const [deadlineApproval, deadlineApprovalHistory, submissionApprovalHistory] = await Promise.all([
           apiClient<MilestoneDeadlineApproval | null>(`/milestones/${milestone.id}/deadline-approval`),
           apiClient<MilestoneDeadlineApproval[]>(`/milestones/${milestone.id}/deadline-approval-history`),
-          apiClient<MilestoneInitiationApproval | null>(`/milestones/${milestone.id}/initiation-approval`),
           apiClient<MilestoneSubmissionApproval[]>(`/milestones/${milestone.id}/approval-history`),
         ]);
 
         return {
           deadlineApproval,
           deadlineApprovalHistory,
-          initiationApproval,
           submissionApproval: submissionApprovalHistory[0] || null,
           submissionApprovalHistory,
         };
@@ -85,30 +82,23 @@ export function useSaveMilestoneDeadline(projectId: string, milestoneId: string)
   });
 }
 
-export function useRequestInitiationApproval(projectId: string, milestoneId: string) {
+export function useStartMilestone(projectId: string, milestoneId: string) {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (note?: string) =>
-      apiClient(`/milestones/${milestoneId}/request-initiation-approval`, {
-        method: "POST",
-        body: JSON.stringify(note?.trim() ? { note: note.trim() } : {}),
-      }),
+    mutationFn: () => apiClient(`/milestones/${milestoneId}/start`, { method: "POST" }),
     onSuccess: () => invalidateMilestoneWorkflow(queryClient, projectId, milestoneId),
+    onError: () => invalidateMilestoneWorkflow(queryClient, projectId, milestoneId),
   });
 }
 
-export function useInitiateMilestone(projectId: string, milestoneId: string) {
+export function useCompleteMilestone(projectId: string, milestoneId: string) {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: () =>
-      apiClient<{
-        milestone_id: string;
-        status: string;
-        notification?: { email_sent?: boolean };
-      }>(`/milestones/${milestoneId}/initiate`, { method: "POST" }),
+    mutationFn: () => apiClient(`/milestones/${milestoneId}/complete`, { method: "POST" }),
     onSuccess: () => invalidateMilestoneWorkflow(queryClient, projectId, milestoneId),
+    onError: () => invalidateMilestoneWorkflow(queryClient, projectId, milestoneId),
   });
 }
 
@@ -150,20 +140,6 @@ export function useReviewDeadlineApproval(projectId?: string, milestoneId?: stri
   return useMutation({
     mutationFn: ({ approvalId, decision, note }: { approvalId: string; decision: "APPROVE" | "REJECT"; note?: string }) =>
       apiClient(`/deadline-approvals/${approvalId}/${decision === "APPROVE" ? "approve" : "reject"}`, {
-        method: "POST",
-        body: JSON.stringify(note?.trim() ? { note: note.trim() } : {}),
-      }),
-    onSuccess: () => invalidateMilestoneWorkflow(queryClient, projectId, milestoneId),
-    onError: () => invalidateMilestoneWorkflow(queryClient, projectId, milestoneId),
-  });
-}
-
-export function useReviewInitiationApproval(projectId?: string, milestoneId?: string) {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: ({ approvalId, decision, note }: { approvalId: string; decision: "APPROVE" | "REJECT"; note?: string }) =>
-      apiClient(`/milestone-initiation-approvals/${approvalId}/${decision === "APPROVE" ? "approve" : "reject"}`, {
         method: "POST",
         body: JSON.stringify(note?.trim() ? { note: note.trim() } : {}),
       }),

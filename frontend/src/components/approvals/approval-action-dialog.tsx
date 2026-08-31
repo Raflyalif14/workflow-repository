@@ -15,8 +15,8 @@ import {
   CheckCircle2,
   XCircle,
   CalendarClock,
+  ClipboardCheck,
   FileCheck2,
-  PlayCircle,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
@@ -80,7 +80,7 @@ export function ApprovalActionDialog({
       <DialogHeader>
         <div className="flex items-center gap-2 mb-1">
           {item.category === "DEADLINE" && <CalendarClock className="h-5 w-5 text-amber-400" />}
-          {item.category === "INITIATION" && <PlayCircle className="h-5 w-5 text-primary" />}
+          {item.category === "PROJECT_PLAN" && <ClipboardCheck className="h-5 w-5 text-primary" />}
           {item.category === "SUBMISSION" && <FileCheck2 className="h-5 w-5 text-emerald-400" />}
           <DialogTitle>Head SA Review & Sign-Off</DialogTitle>
         </div>
@@ -111,12 +111,11 @@ export function ApprovalActionDialog({
             </div>
           )}
 
-          {item.category === "INITIATION" && (
+          {item.category === "PROJECT_PLAN" && (
             <div className="rounded-lg border border-border/40 bg-muted/30 p-2.5">
-              <p>Milestone: <strong className="text-foreground">{item.milestoneName}</strong></p>
-              <p>PIC: <strong className="text-foreground">{formatPicRequirement(item)}</strong></p>
-              <p>Effective due: <strong className="text-foreground">{formatDate(item.currentDeadline?.due_date)}</strong></p>
-              {item.requestNote && <p>Request note: <strong className="text-foreground">{item.requestNote}</strong></p>}
+              <p>Project: <strong className="text-foreground">{item.projectName}</strong></p>
+              {item.requestNote && <p>Plan note: <strong className="text-foreground">{item.requestNote}</strong></p>}
+              {item.reviewNote && <p>Review note: <strong className="text-foreground">{item.reviewNote}</strong></p>}
             </div>
           )}
 
@@ -223,11 +222,6 @@ export function ApprovalActionDialog({
 function formatDate(value?: string | null) {
   if (!value) return "-";
   return new Date(value).toLocaleDateString("id-ID", { dateStyle: "medium" });
-}
-
-function formatPicRequirement(item: ApprovalItem) {
-  if (item.stageDefaultRole !== "SA") return "Not Required";
-  return item.pic?.full_name || item.pic?.fullName || "-";
 }
 
 function DeadlineBox({

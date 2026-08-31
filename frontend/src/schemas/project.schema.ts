@@ -15,7 +15,6 @@ export const createProjectFormSchema = z.object({
 });
 
 export const postponeProjectFormSchema = z.object({
-  newTargetEndDate: z.string().min(1, "Please pick a new deadline"),
   reason: z.string().min(5, "Postpone reason must be at least 5 characters"),
 });
 

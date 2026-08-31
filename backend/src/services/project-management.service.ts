@@ -26,14 +26,26 @@ const mapProject = (row: any) => ({
 const projectSelect = `*, scenario:scenarios!projects_scenario_id_fkey(id,name), sales:users!projects_sales_id_fkey(id,full_name,email), pic:users!projects_pic_id_fkey(id,full_name,email,role)`;
 
 async function withActivity(project: any) {
-  const { data: logs } = await supabaseAdmin.from('activity_logs').select('id,user_id,action,details,created_at').eq('project_id', project.id).order('created_at', { ascending: false });
-  return { ...project, activity_logs: logs || [] };
+  const { data: logs, error } = await supabaseAdmin
+    .from('activity_logs')
+    .select('id,user_id,action,description,created_at')
+    .eq('project_id', project.id)
+    .order('created_at', { ascending: false });
+  if (error) throw new Error(error.message);
+  return {
+    ...project,
+    activity_logs: (logs || []).map((log) => ({
+      ...log,
+      details: log.description,
+    })),
+  };
 }
 
-async function logProject(actor: Actor, projectId: string, action: string, details: string) {
-  try {
-    await supabaseAdmin.from('activity_logs').insert({ user_id: actor.userId, project_id: projectId, action, entity_type: 'PROJECT', entity_id: projectId, details });
-  } catch { return; }
+async function logProject(actor: Actor, projectId: string, action: string, description: string) {
+  const { error } = await supabaseAdmin
+    .from('activity_logs')
+    .insert({ user_id: actor.userId, project_id: projectId, action, description });
+  if (error) throw new Error(error.message);
 }
 
 export class ProjectManagementService {
@@ -70,13 +82,17 @@ export class ProjectManagementService {
   }
 
   static async create(input: CreateProjectManagementInput, actor: Actor) {
-    if (!['SUPER_ADMIN', 'SALES'].includes(actor.role)) throw new Error('Forbidden');
+    if (actor.role !== 'SALES') throw new Error('Forbidden');
     await this.activeScenario(input.scenario_id);
-    const { data, error } = await supabaseAdmin.from('projects').insert({ ...input, sales_id: actor.userId, status: 'ACTIVE' }).select(projectSelect).single();
+    const { data, error } = await supabaseAdmin
+      .from('projects')
+      .insert({ ...input, sales_id: actor.userId, status: 'DRAFT', is_postponed: false })
+      .select(projectSelect)
+      .single();
     if (error || !data) throw new Error(error?.message || 'Failed to create project');
-    await logProject(actor, data.id, 'CREATE', `${actor.fullName} created project '${data.name}'`);
     try {
       await MilestoneService.initialize(data.id, actor);
+      await logProject(actor, data.id, 'PROJECT_CREATED', `${actor.fullName} created project '${data.name}'`);
     } catch (error) {
       await supabaseAdmin.from('projects').delete().eq('id', data.id);
       throw error;
@@ -103,19 +119,21 @@ export class ProjectManagementService {
 
   static async postpone(id: string, reason: string, actor: Actor) {
     const existing = await this.get(id, actor);
-    if (actor.role !== 'SUPER_ADMIN' && (actor.role !== 'SALES' || existing.sales_id !== actor.userId)) throw new Error('Forbidden');
-    const { data, error } = await supabaseAdmin.from('projects').update({ status: 'POSTPONED', is_postponed: true, postponed_at: new Date().toISOString(), postponed_by: actor.userId, postpone_reason: reason }).eq('id', id).select(projectSelect).single();
+    if (actor.role !== 'SALES' || existing.sales_id !== actor.userId) throw new Error('Forbidden');
+    if (existing.status !== 'ACTIVE' || existing.is_postponed) throw new Error('Only ACTIVE projects can be postponed.');
+    const { data, error } = await supabaseAdmin.from('projects').update({ status: 'POSTPONED', is_postponed: true, postponed_at: new Date().toISOString(), postponed_by: actor.userId, postpone_reason: reason, updated_at: new Date().toISOString() }).eq('id', id).eq('status', 'ACTIVE').select(projectSelect).single();
     if (error || !data) throw new Error('Project not found');
-    await logProject(actor, id, 'UPDATE', `${actor.fullName} postponed project '${data.name}'. Reason: ${reason}`);
+    await logProject(actor, id, 'PROJECT_POSTPONED', `${actor.fullName} postponed project '${data.name}'. Reason: ${reason}`);
     return mapProject(data);
   }
 
   static async resume(id: string, actor: Actor) {
     const existing = await this.get(id, actor);
-    if (actor.role !== 'SUPER_ADMIN' && (actor.role !== 'SALES' || existing.sales_id !== actor.userId)) throw new Error('Forbidden');
-    const { data, error } = await supabaseAdmin.from('projects').update({ status: 'ACTIVE', is_postponed: false }).eq('id', id).select(projectSelect).single();
+    if (actor.role !== 'SALES' || existing.sales_id !== actor.userId) throw new Error('Forbidden');
+    if (existing.status !== 'POSTPONED' && !existing.is_postponed) throw new Error('Only POSTPONED projects can be resumed.');
+    const { data, error } = await supabaseAdmin.from('projects').update({ status: 'ACTIVE', is_postponed: false, updated_at: new Date().toISOString() }).eq('id', id).eq('status', 'POSTPONED').select(projectSelect).single();
     if (error || !data) throw new Error('Project not found');
-    await logProject(actor, id, 'UPDATE', `${actor.fullName} resumed project '${data.name}'`);
+    await logProject(actor, id, 'PROJECT_RESUMED', `${actor.fullName} resumed project '${data.name}'`);
     return mapProject(data);
   }
 }

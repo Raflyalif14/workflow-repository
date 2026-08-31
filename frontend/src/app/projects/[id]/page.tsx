@@ -1,52 +1,64 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
   Activity,
   ArrowLeft,
   CalendarClock,
+  Check,
   CheckCircle2,
   CircleDashed,
-  CirclePlay,
   FileCheck2,
+  Play,
   RotateCcw,
   Send,
+  X,
 } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { AssignmentHistoryCard } from "@/components/projects/assignment-history-card";
 import { PicAssignmentCard } from "@/components/projects/pic-assignment-card";
+import { PostponeProjectDialog } from "@/components/projects/postpone-project-dialog";
+import { ProjectTimelineEditor } from "@/components/projects/project-timeline-editor";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import {
-  getDeadlinePrerequisiteStatus,
   getEffectiveDeadline,
   getLatestSubmissionApproval,
   getMilestoneDisplayStatus,
-  hasEffectiveDeadline as hasMilestoneEffectiveDeadline,
+  hasEffectiveDeadline,
   isMilestoneCompleted,
 } from "@/lib/milestone-ui-state";
 import {
   useProject,
   useProjectMilestones,
+  useProjectPlanApproval,
   useProjectProgress,
+  useResumeProject,
+  useReviewProjectPlan,
+  useSubmitProjectPlan,
 } from "@/hooks/use-projects";
 import {
   MilestoneApprovalState,
-  useInitiateMilestone,
+  useCompleteMilestone,
   useMilestoneApprovalStates,
-  useRequestInitiationApproval,
-  useReviewSubmissionApproval,
   useReviewDeadlineApproval,
-  useReviewInitiationApproval,
+  useReviewSubmissionApproval,
   useSaveMilestoneDeadline,
+  useStartMilestone,
   useStartMilestoneRevision,
   useSubmitMilestone,
 } from "@/hooks/use-milestone-workflow";
-import { DeadlineApprovalStatus, MilestoneSubmissionApproval, ProjectMilestonePhase4, ProjectStatus } from "@/types/project";
+import {
+  DeadlineApprovalStatus,
+  MilestoneSubmissionApproval,
+  Project,
+  ProjectMilestonePhase4,
+  ProjectPlanApproval,
+} from "@/types/project";
 
 export default function ProjectDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -55,23 +67,61 @@ export default function ProjectDetailPage() {
   const { data: project, isLoading: projectLoading, isError } = useProject(id);
   const { data: milestones = [], isLoading: milestonesLoading } = useProjectMilestones(id);
   const { data: progress } = useProjectProgress(id);
+  const { data: planApproval } = useProjectPlanApproval(id);
   const approvalQueries = useMilestoneApprovalStates(milestones, Boolean(milestones.length));
-
-  useEffect(() => {
-    warnIfAssessmentReportCanonicalMismatch(milestones);
-  }, [milestones]);
+  const submitProjectPlan = useSubmitProjectPlan(id);
+  const resumeProject = useResumeProject();
+  const [postponeOpen, setPostponeOpen] = useState(false);
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
 
   const approvalByMilestone = useMemo(() => {
-    const map = new Map<string, MilestoneApprovalState>();
+    const states = new Map<string, MilestoneApprovalState>();
     milestones.forEach((milestone, index) => {
-      const data = approvalQueries[index]?.data;
-      if (data) map.set(milestone.id, data);
+      const state = approvalQueries[index]?.data;
+      if (state) states.set(milestone.id, state);
     });
-    return map;
+    return states;
   }, [approvalQueries, milestones]);
 
-  if (projectLoading) return <p className="container py-12 text-center text-muted-foreground">Loading project...</p>;
-  if (isError || !project) return <p className="container py-12 text-center text-destructive">Project not found.</p>;
+  if (projectLoading) {
+    return <p className="container py-12 text-center text-muted-foreground">Loading project...</p>;
+  }
+  if (isError || !project) {
+    return <p className="container py-12 text-center text-destructive">Project not found.</p>;
+  }
+
+  const isSalesOwner = user?.role === "SALES" && project.sales_id === user.id;
+  const isHeadSa = user?.role === "HEAD_SA";
+  const isDraft = project.status === "DRAFT";
+  const isActive = project.status === "ACTIVE";
+  const assignPicIsCurrent = milestones.some(
+    (milestone) =>
+      milestone.status === "IN_PROGRESS" &&
+      milestone.name.trim().toLocaleLowerCase() === "assign pic"
+  );
+
+  const submitPlan = async () => {
+    setError("");
+    setMessage("");
+    try {
+      await submitProjectPlan.mutateAsync();
+      setMessage("Project plan submitted for review.");
+    } catch (submitError) {
+      setError(submitError instanceof Error ? submitError.message : "Failed to submit project plan.");
+    }
+  };
+
+  const resume = async () => {
+    setError("");
+    setMessage("");
+    try {
+      await resumeProject.mutateAsync(project.id);
+      setMessage("Project resumed.");
+    } catch (resumeError) {
+      setError(resumeError instanceof Error ? resumeError.message : "Failed to resume project.");
+    }
+  };
 
   return (
     <div className="container space-y-6 py-8">
@@ -87,7 +137,19 @@ export default function ProjectDetailPage() {
             {project.customer} | {project.scenario?.name || "No scenario"}
           </p>
         </div>
-        <StatusBadge status={project.status} />
+        <div className="flex flex-wrap items-center gap-2">
+          <StatusBadge status={project.status} />
+          {isActive && isSalesOwner && (
+            <Button size="sm" variant="outline" onClick={() => setPostponeOpen(true)}>
+              Postpone Project
+            </Button>
+          )}
+          {project.status === "POSTPONED" && isSalesOwner && (
+            <Button size="sm" onClick={() => void resume()} disabled={resumeProject.isPending}>
+              {resumeProject.isPending ? "Resuming..." : "Resume Project"}
+            </Button>
+          )}
+        </div>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-3">
@@ -95,9 +157,39 @@ export default function ProjectDetailPage() {
         <Info label="Sales Owner" value={project.sales?.full_name || project.sales?.fullName || "-"} />
         <Info label="Project Status" value={project.status} badge />
       </div>
+      {error && <p className="text-sm text-destructive">{error}</p>}
+      {message && <p className="text-sm text-emerald-500">{message}</p>}
+
+      {isDraft && (
+        <>
+          <ProjectTimelineEditor
+            projectId={id}
+            milestones={milestones}
+            canEdit={isSalesOwner && planApproval?.status !== "PENDING"}
+          />
+          <ProjectPlanCard
+            project={project}
+            approval={planApproval}
+            canSubmit={isSalesOwner && planApproval?.status !== "PENDING"}
+            canReview={isHeadSa && planApproval?.status === "PENDING"}
+            onSubmit={() => void submitPlan()}
+            isSubmitting={submitProjectPlan.isPending}
+          />
+        </>
+      )}
+      {!isDraft && planApproval && (
+        <ProjectPlanCard
+          project={project}
+          approval={planApproval}
+          canSubmit={false}
+          canReview={false}
+          onSubmit={() => undefined}
+          isSubmitting={false}
+        />
+      )}
 
       <div className="grid gap-6 lg:grid-cols-2">
-        <PicAssignmentCard project={project} canAssign={user?.role === "HEAD_SA"} />
+        <PicAssignmentCard project={project} canAssign={isHeadSa && isActive && assignPicIsCurrent} />
         <AssignmentHistoryCard projectId={id} />
       </div>
 
@@ -113,7 +205,7 @@ export default function ProjectDetailPage() {
             <span className="font-mono text-primary">{progress?.percentage || 0}%</span>
           </div>
           <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-secondary">
-            <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${progress?.percentage || 0}%` }} />
+            <div className="h-full rounded-full bg-primary transition-all" style={{ width: String(progress?.percentage || 0) + "%" }} />
           </div>
         </CardContent>
       </Card>
@@ -132,9 +224,7 @@ export default function ProjectDetailPage() {
               milestones.map((milestone) => (
                 <MilestoneRow
                   key={milestone.id}
-                  projectId={id}
-                  projectSalesId={project.sales_id}
-                  projectStatus={project.status}
+                  project={project}
                   milestone={milestone}
                   approvalState={approvalByMilestone.get(milestone.id)}
                 />
@@ -162,116 +252,152 @@ export default function ProjectDetailPage() {
           </CardContent>
         </Card>
       </div>
+
+      <PostponeProjectDialog open={postponeOpen} onOpenChange={setPostponeOpen} project={project} />
     </div>
   );
 }
 
-function warnIfAssessmentReportCanonicalMismatch(milestones: ProjectMilestonePhase4[]) {
-  if (process.env.NODE_ENV !== "development") return;
+function ProjectPlanCard({
+  project,
+  approval,
+  canSubmit,
+  canReview,
+  onSubmit,
+  isSubmitting,
+}: {
+  project: Project;
+  approval: ProjectPlanApproval | null | undefined;
+  canSubmit: boolean;
+  canReview: boolean;
+  onSubmit: () => void;
+  isSubmitting: boolean;
+}) {
+  const [decision, setDecision] = useState<"APPROVE" | "REJECT" | null>(null);
+  const reviewProjectPlan = useReviewProjectPlan(project.id);
 
-  const assessmentReport = milestones.find(
-    (milestone) => milestone.id === "1b90d4a5-0245-43e4-ab30-78b985972f8a"
+  const review = async (note?: string) => {
+    if (!decision) return;
+    await reviewProjectPlan.mutateAsync({ decision, note });
+    setDecision(null);
+  };
+
+  return (
+    <>
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between gap-3">
+          <CardTitle className="text-base">Project Plan Approval</CardTitle>
+          {approval ? <PlanApprovalBadge status={approval.status} /> : <Badge variant="outline">NOT SUBMITTED</Badge>}
+        </CardHeader>
+        <CardContent className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="space-y-1 text-sm">
+            {approval ? (
+              <>
+                <p>Submitted by <strong>{approval.requested_by?.full_name || "-"}</strong> on {formatDateTime(approval.submitted_at)}</p>
+                {approval.request_note && <p className="text-muted-foreground">Note: {approval.request_note}</p>}
+                {approval.review_note && <p className="text-muted-foreground">Review: {approval.review_note}</p>}
+              </>
+            ) : (
+              <p className="text-muted-foreground">The project timeline is ready for one project-plan review.</p>
+            )}
+          </div>
+          <div className="flex shrink-0 flex-wrap gap-2">
+            {canSubmit && (
+              <Button size="sm" className="gap-1.5" onClick={onSubmit} disabled={isSubmitting}>
+                <Send className="h-3.5 w-3.5" />
+                {isSubmitting ? "Submitting..." : "Submit Project Plan"}
+              </Button>
+            )}
+            {canReview && (
+              <>
+                <Button size="sm" variant="outline" className="border-destructive/30 text-destructive" onClick={() => setDecision("REJECT")}>
+                  <X className="h-3.5 w-3.5" />
+                  Reject
+                </Button>
+                <Button size="sm" className="bg-emerald-500 text-black hover:bg-emerald-600" onClick={() => setDecision("APPROVE")}>
+                  <Check className="h-3.5 w-3.5" />
+                  Approve
+                </Button>
+              </>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+      <PlanReviewDialog
+        open={Boolean(decision)}
+        onOpenChange={(open) => !open && setDecision(null)}
+        decision={decision || "APPROVE"}
+        projectName={project.name}
+        isPending={reviewProjectPlan.isPending}
+        onSubmit={review}
+      />
+    </>
   );
-
-  if (!assessmentReport) return;
-
-  const matchesExpectedCanonical =
-    assessmentReport.status === "COMPLETED" &&
-    assessmentReport.start_date === "2026-08-28" &&
-    assessmentReport.duration_working_days === 3 &&
-    assessmentReport.due_date === "2026-09-02";
-
-  if (!matchesExpectedCanonical) {
-    console.warn("[Phase 9C Hotfix] Canonical milestone query mismatch", {
-      milestone_id: assessmentReport.id,
-      status: assessmentReport.status,
-      start_date: assessmentReport.start_date,
-      duration_working_days: assessmentReport.duration_working_days,
-      due_date: assessmentReport.due_date,
-      source: "GET /api/projects/:projectId/milestones",
-    });
-  }
 }
 
 function MilestoneRow({
-  projectId,
-  projectSalesId,
-  projectStatus,
+  project,
   milestone,
   approvalState,
 }: {
-  projectId: string;
-  projectSalesId?: string;
-  projectStatus: ProjectStatus;
+  project: Project;
   milestone: ProjectMilestonePhase4;
   approvalState?: MilestoneApprovalState;
 }) {
   const { user } = useAuth();
   const [deadlineOpen, setDeadlineOpen] = useState(false);
-  const [initiationOpen, setInitiationOpen] = useState(false);
   const [submitOpen, setSubmitOpen] = useState(false);
-  const [review, setReview] = useState<null | { type: "DEADLINE" | "INITIATION" | "SUBMISSION"; decision: "APPROVE" | "REJECT" }>(null);
+  const [review, setReview] = useState<null | { type: "DEADLINE" | "SUBMISSION"; decision: "APPROVE" | "REJECT" }>(null);
   const [error, setError] = useState("");
-  const [actionMessage, setActionMessage] = useState("");
-  const [emailMessage, setEmailMessage] = useState("");
-
+  const [message, setMessage] = useState("");
   const deadlineApproval = approvalState?.deadlineApproval || null;
-  const deadlineApprovalHistory = approvalState?.deadlineApprovalHistory || [];
-  const initiationApproval = approvalState?.initiationApproval || null;
   const submissionHistory = approvalState?.submissionApprovalHistory || [];
   const submissionApproval = getLatestSubmissionApproval(submissionHistory);
-  const latestRejectedSubmission = submissionHistory.find((approval) => approval.status === "REJECTED");
   const milestoneStatus = getMilestoneDisplayStatus(milestone);
   const effectiveDeadline = getEffectiveDeadline(milestone);
-  const hasEffectiveDeadline = hasMilestoneEffectiveDeadline(milestone);
-  const deadlinePrerequisiteStatus = getDeadlinePrerequisiteStatus(milestone, deadlineApproval, deadlineApprovalHistory);
-  const deadlinePrerequisiteApproved = deadlinePrerequisiteStatus === "APPROVED";
-  const hasPendingDeadline = deadlineApproval?.status === "PENDING";
-  const hasPendingInitiation = initiationApproval?.status === "PENDING";
-  const hasPendingSubmission = submissionApproval?.status === "PENDING";
   const stageRole = milestone.workflow_stage?.default_role;
   const requiresPic = stageRole === "SA";
   const hasPic = Boolean(milestone.pic_id || milestone.pic?.id);
-  const isProjectCompleted = projectStatus === "COMPLETED";
-  const isSalesOwner = user?.role === "SALES" && projectSalesId === user.id;
+  const isSalesOwner = user?.role === "SALES" && project.sales_id === user.id;
   const isHeadSa = user?.role === "HEAD_SA";
   const isAssignedSa = user?.role === "SA" && milestone.pic_id === user.id;
-  const canProposeDeadline = !isProjectCompleted && isSalesOwner && milestoneStatus === "CREATED" && !hasPendingDeadline;
-  const canRequestInitiation =
-    !isProjectCompleted &&
-    isSalesOwner &&
+  const projectIsActive = project.status === "ACTIVE";
+  const isAssignPic = milestone.name.trim().toLocaleLowerCase() === "assign pic";
+  const hasPendingDeadline = deadlineApproval?.status === "PENDING";
+  const hasPendingSubmission = submissionApproval?.status === "PENDING";
+  const canStart =
+    projectIsActive &&
     milestoneStatus === "CREATED" &&
-    (!requiresPic || hasPic) &&
-    hasEffectiveDeadline &&
-    deadlinePrerequisiteApproved &&
-    !hasPendingInitiation;
-  const canInitiate = !isProjectCompleted && isSalesOwner && milestoneStatus === "CREATED" && initiationApproval?.status === "APPROVED";
-  const canSubmit = !isProjectCompleted && isAssignedSa && milestoneStatus === "IN_PROGRESS";
-  const canStartRevision = !isProjectCompleted && isAssignedSa && milestoneStatus === "REJECTED";
-  const canReviewSubmission = !isProjectCompleted && isHeadSa && milestoneStatus === "SUBMITTED" && hasPendingSubmission;
-  const initiate = useInitiateMilestone(projectId, milestone.id);
-  const startRevision = useStartMilestoneRevision(projectId, milestone.id);
+    ((stageRole === "SALES" && isSalesOwner) ||
+      (stageRole === "HEAD_SA" && isHeadSa) ||
+      (stageRole === "SA" && isAssignedSa));
+  const canComplete =
+    projectIsActive &&
+    milestoneStatus === "IN_PROGRESS" &&
+    !isAssignPic &&
+    ((stageRole === "SALES" && isSalesOwner) || (stageRole === "HEAD_SA" && isHeadSa));
+  const canSubmit = projectIsActive && stageRole === "SA" && isAssignedSa && milestoneStatus === "IN_PROGRESS";
+  const canRevise = projectIsActive && stageRole === "SA" && isAssignedSa && milestoneStatus === "REJECTED";
+  const canReviewSubmission = projectIsActive && isHeadSa && milestoneStatus === "SUBMITTED" && hasPendingSubmission;
+  const canReviewDeadline = projectIsActive && isHeadSa && hasPendingDeadline;
+  const canRequestDeadlineChange =
+    projectIsActive &&
+    isSalesOwner &&
+    milestone.step_order > 2 &&
+    !isMilestoneCompleted(milestone) &&
+    !hasPendingDeadline;
+  const start = useStartMilestone(project.id, milestone.id);
+  const complete = useCompleteMilestone(project.id, milestone.id);
+  const startRevision = useStartMilestoneRevision(project.id, milestone.id);
 
-  const handleInitiate = async () => {
+  const perform = async (action: () => Promise<unknown>, success: string, fallback: string) => {
     setError("");
-    setActionMessage("");
-    setEmailMessage("");
+    setMessage("");
     try {
-      const result = await initiate.mutateAsync();
-      setEmailMessage(result.notification?.email_sent === false ? "Milestone initiated. Email notification failed." : "Milestone initiated.");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to initiate milestone.");
-    }
-  };
-
-  const handleStartRevision = async () => {
-    setError("");
-    setActionMessage("");
-    try {
-      await startRevision.mutateAsync();
-      setActionMessage("Revision started. Milestone is back in progress.");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to start revision.");
+      await action();
+      setMessage(success);
+    } catch (actionError) {
+      setError(actionError instanceof Error ? actionError.message : fallback);
     }
   };
 
@@ -284,58 +410,48 @@ function MilestoneRow({
               {String(milestone.step_order).padStart(2, "0")}
             </span>
             <StatusBadge status={milestoneStatus} />
+            <Badge variant="outline">{stageRole || "-"}</Badge>
           </div>
           <p className="font-medium">{milestone.name}</p>
           <p className="text-xs text-muted-foreground">{milestone.description || "No description"}</p>
         </div>
 
         <div className="flex flex-wrap gap-2">
-          {canProposeDeadline && (
+          {canRequestDeadlineChange && (
             <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setDeadlineOpen(true)}>
               <CalendarClock className="h-3.5 w-3.5" />
-              {hasEffectiveDeadline ? "Change Deadline" : "Set Deadline"}
+              Request Deadline Change
             </Button>
           )}
-          {hasPendingDeadline && isSalesOwner && (
-            <Badge variant="warning">Waiting for HEAD_SA approval</Badge>
-          )}
-          {canRequestInitiation && (
-            <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setInitiationOpen(true)}>
-              <Send className="h-3.5 w-3.5" />
-              Request Initiation Approval
+          {hasPendingDeadline && <Badge variant="warning">Deadline change pending</Badge>}
+          {canStart && (
+            <Button size="sm" className="gap-1.5" disabled={start.isPending} onClick={() => void perform(() => start.mutateAsync(), "Stage started.", "Failed to start stage.")}>
+              <Play className="h-3.5 w-3.5" />
+              {start.isPending ? "Starting..." : "Start Stage"}
             </Button>
           )}
-          {hasPendingInitiation && isSalesOwner && <Badge variant="warning">Initiation approval pending</Badge>}
-          {canInitiate && (
-            <Button size="sm" className="gap-1.5" onClick={() => void handleInitiate()} disabled={initiate.isPending}>
-              <CirclePlay className="h-3.5 w-3.5" />
-              {initiate.isPending ? "Initiating..." : "Initiate Milestone"}
+          {canComplete && (
+            <Button size="sm" className="gap-1.5" disabled={complete.isPending} onClick={() => void perform(() => complete.mutateAsync(), "Milestone completed.", "Failed to complete milestone.")}>
+              <CheckCircle2 className="h-3.5 w-3.5" />
+              {complete.isPending ? "Completing..." : "Mark Complete"}
             </Button>
           )}
           {canSubmit && (
             <Button size="sm" className="gap-1.5" onClick={() => setSubmitOpen(true)}>
               <FileCheck2 className="h-3.5 w-3.5" />
-              Submit Milestone
+              Submit
             </Button>
           )}
-          {isAssignedSa && milestoneStatus === "SUBMITTED" && <Badge variant="warning">Waiting for HEAD_SA approval</Badge>}
-          {canStartRevision && (
-            <Button size="sm" variant="outline" className="gap-1.5" onClick={() => void handleStartRevision()} disabled={startRevision.isPending}>
+          {canRevise && (
+            <Button size="sm" variant="outline" className="gap-1.5" disabled={startRevision.isPending} onClick={() => void perform(() => startRevision.mutateAsync(), "Revision started.", "Failed to start revision.")}>
               <RotateCcw className="h-3.5 w-3.5" />
               {startRevision.isPending ? "Starting..." : "Start Revision"}
             </Button>
           )}
-          {isMilestoneCompleted(milestone) && <Badge variant="success">Completed {formatDate(milestone.completed_at)}</Badge>}
-          {isHeadSa && !isProjectCompleted && hasPendingDeadline && (
+          {canReviewDeadline && (
             <>
               <Button size="sm" variant="outline" className="border-destructive/30 text-destructive" onClick={() => setReview({ type: "DEADLINE", decision: "REJECT" })}>Reject Deadline</Button>
               <Button size="sm" className="bg-emerald-500 text-black hover:bg-emerald-600" onClick={() => setReview({ type: "DEADLINE", decision: "APPROVE" })}>Approve Deadline</Button>
-            </>
-          )}
-          {isHeadSa && !isProjectCompleted && hasPendingInitiation && (
-            <>
-              <Button size="sm" variant="outline" className="border-destructive/30 text-destructive" onClick={() => setReview({ type: "INITIATION", decision: "REJECT" })}>Reject Initiation</Button>
-              <Button size="sm" className="bg-emerald-500 text-black hover:bg-emerald-600" onClick={() => setReview({ type: "INITIATION", decision: "APPROVE" })}>Approve Initiation</Button>
             </>
           )}
           {canReviewSubmission && (
@@ -348,82 +464,56 @@ function MilestoneRow({
       </div>
 
       <div className="mt-4 grid gap-3 lg:grid-cols-2">
-        <DeadlinePanel title="Effective Deadline" deadline={{
-          start_date: effectiveDeadline.start_date,
-          duration_working_days: effectiveDeadline.duration_working_days,
-          due_date: effectiveDeadline.due_date,
-        }} />
+        <DeadlinePanel title="Effective Deadline" deadline={effectiveDeadline} />
         <DeadlinePanel
-          title={deadlineApproval?.status === "PENDING" ? "Pending Change" : "Latest Deadline Proposal"}
+          title={deadlineApproval?.status === "PENDING" ? "Pending Deadline Change" : "Latest Deadline Proposal"}
           deadline={deadlineApproval?.deadline}
           status={deadlineApproval?.status}
         />
       </div>
 
-      <div className="mt-4 grid gap-2 text-xs sm:grid-cols-4">
-        <Prerequisite
-          label="PIC"
-          ok={!requiresPic || hasPic}
-          detail={requiresPic ? milestone.pic?.full_name || milestone.pic?.fullName || "Unassigned" : "Not Required"}
+      <div className="mt-4 grid gap-2 text-xs sm:grid-cols-3">
+        <WorkflowDetail label="Responsible Role" detail={stageRole || "-"} ok />
+        <WorkflowDetail label="PIC" detail={requiresPic ? milestone.pic?.full_name || milestone.pic?.fullName || "Unassigned" : "Not Required"} ok={!requiresPic || hasPic} />
+        <WorkflowDetail
+          label="Deadline Change"
+          detail={deadlineApproval?.status || (hasEffectiveDeadline(milestone) ? project.status === "DRAFT" ? "DRAFT TIMELINE" : "APPROVED PLAN" : "NOT SET")}
+          ok={!hasPendingDeadline}
         />
-        <Prerequisite label="Deadline" ok={deadlinePrerequisiteApproved} detail={deadlinePrerequisiteStatus} />
-        <Prerequisite label="Initiation Approval" ok={initiationApproval?.status === "APPROVED"} detail={initiationApproval?.status || "NOT_REQUESTED"} />
-        <Prerequisite label="Sales Initiation" ok={milestoneStatus === "IN_PROGRESS" || milestoneStatus === "SUBMITTED" || isMilestoneCompleted(milestone)} detail={milestoneStatus === "CREATED" ? "Not Started" : milestoneStatus} />
       </div>
 
+      {isAssignPic && milestoneStatus === "IN_PROGRESS" && (
+        <div className="mt-4 rounded-lg border border-primary/30 bg-primary/5 p-3 text-xs text-muted-foreground">
+          Assigning an eligible SA PIC completes this stage.
+        </div>
+      )}
+      {milestoneStatus === "SUBMITTED" && (
+        <div className="mt-4 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-xs">
+          Waiting for HEAD_SA review.
+        </div>
+      )}
       {milestoneStatus === "REJECTED" && (
         <div className="mt-4 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-xs">
-          <p className="font-semibold text-destructive">Revision Required</p>
-          <p className="mt-1 text-muted-foreground">
-            Review Note: <strong className="text-foreground">{latestRejectedSubmission?.review_note || "-"}</strong>
-          </p>
+          Revision required. {submissionHistory.find((approval) => approval.status === "REJECTED")?.review_note || "-"}
         </div>
       )}
-
       {isMilestoneCompleted(milestone) && (
         <div className="mt-4 rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3 text-xs">
-          <p className="font-semibold text-emerald-400">Milestone Completed</p>
-          <p className="mt-1 text-muted-foreground">Completed at: <strong className="text-foreground">{formatDateTime(milestone.completed_at)}</strong></p>
+          Completed at {formatDateTime(milestone.completed_at)}
         </div>
       )}
-
       <SubmissionHistoryPanel history={submissionHistory} />
-
       {error && <p className="mt-3 text-xs text-destructive">{error}</p>}
-      {actionMessage && <p className="mt-3 text-xs text-emerald-400">{actionMessage}</p>}
-      {emailMessage && <p className="mt-3 text-xs text-emerald-400">{emailMessage}</p>}
+      {message && <p className="mt-3 text-xs text-emerald-500">{message}</p>}
 
-      <DeadlineDialog
-        open={deadlineOpen}
-        onOpenChange={setDeadlineOpen}
-        projectId={projectId}
-        milestone={milestone}
-        hasEffectiveDeadline={hasEffectiveDeadline}
-      />
-      <InitiationRequestDialog
-        open={initiationOpen}
-        onOpenChange={setInitiationOpen}
-        projectId={projectId}
-        milestone={milestone}
-      />
-      <SubmitMilestoneDialog
-        open={submitOpen}
-        onOpenChange={setSubmitOpen}
-        projectId={projectId}
-        milestone={milestone}
-      />
+      <DeadlineDialog open={deadlineOpen} onOpenChange={setDeadlineOpen} projectId={project.id} milestone={milestone} />
+      <SubmitDialog open={submitOpen} onOpenChange={setSubmitOpen} projectId={project.id} milestone={milestone} />
       <ReviewDialog
         open={Boolean(review)}
         onOpenChange={(open) => !open && setReview(null)}
-        projectId={projectId}
+        projectId={project.id}
         milestoneId={milestone.id}
-        approvalId={
-          review?.type === "DEADLINE"
-            ? deadlineApproval?.id
-            : review?.type === "INITIATION"
-              ? initiationApproval?.id
-              : submissionApproval?.id
-        }
+        approvalId={review?.type === "DEADLINE" ? deadlineApproval?.id : submissionApproval?.id}
         type={review?.type || "DEADLINE"}
         decision={review?.decision || "APPROVE"}
       />
@@ -431,143 +521,60 @@ function MilestoneRow({
   );
 }
 
-function DeadlineDialog({
-  open,
-  onOpenChange,
-  projectId,
-  milestone,
-  hasEffectiveDeadline,
-}: {
+function DeadlineDialog({ open, onOpenChange, projectId, milestone }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   projectId: string;
   milestone: ProjectMilestonePhase4;
-  hasEffectiveDeadline: boolean;
 }) {
-  const save = useSaveMilestoneDeadline(projectId, milestone.id);
-  const [startDate, setStartDate] = useState("");
-  const [duration, setDuration] = useState("");
+  const saveDeadline = useSaveMilestoneDeadline(projectId, milestone.id);
+  const [startDate, setStartDate] = useState(milestone.start_date || "");
+  const [duration, setDuration] = useState(milestone.duration_working_days ? String(milestone.duration_working_days) : "");
   const [reason, setReason] = useState("");
   const [error, setError] = useState("");
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    const days = Number(duration);
+    if (!startDate || !Number.isInteger(days) || days <= 0) {
+      setError("A valid start date and working-day duration are required.");
+      return;
+    }
+    if (hasEffectiveDeadline(milestone) && !reason.trim()) {
+      setError("Reason is required for a deadline change.");
+      return;
+    }
     setError("");
-    const parsedDuration = Number(duration);
-    if (!startDate) return setError("Start date is required.");
-    if (!Number.isInteger(parsedDuration) || parsedDuration <= 0) return setError("Duration must be a positive integer.");
-    if (hasEffectiveDeadline && !reason.trim()) return setError("Reason is required when changing an existing deadline.");
-
     try {
-      await save.mutateAsync({
-        start_date: startDate,
-        duration_working_days: parsedDuration,
-        ...(reason.trim() ? { reason: reason.trim() } : {}),
-      });
-      onOpenChange(false);
-      setStartDate("");
-      setDuration("");
+      await saveDeadline.mutateAsync({ start_date: startDate, duration_working_days: days, ...(reason.trim() ? { reason: reason.trim() } : {}) });
       setReason("");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to submit deadline proposal.");
-    }
-  };
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogHeader>
-        <DialogTitle>{hasEffectiveDeadline ? "Change Deadline" : "Set Deadline"}</DialogTitle>
-        <DialogDescription>{milestone.name}</DialogDescription>
-      </DialogHeader>
-      <form className="space-y-4" onSubmit={submit}>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <div>
-            <label className="mb-1 block text-xs font-medium text-muted-foreground">Start Date</label>
-            <Input type="date" value={startDate} onChange={(event) => setStartDate(event.target.value)} required />
-          </div>
-          <div>
-            <label className="mb-1 block text-xs font-medium text-muted-foreground">Duration Working Days</label>
-            <Input type="number" min={1} step={1} value={duration} onChange={(event) => setDuration(event.target.value)} required />
-          </div>
-        </div>
-        <div>
-          <label className="mb-1 block text-xs font-medium text-muted-foreground">
-            Reason {hasEffectiveDeadline ? "(Required)" : "(Optional)"}
-          </label>
-          <textarea
-            rows={3}
-            value={reason}
-            onChange={(event) => setReason(event.target.value)}
-            className="flex w-full rounded-md border border-input bg-card px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-primary"
-          />
-        </div>
-        {error && <p className="text-xs text-destructive">{error}</p>}
-        <DialogFooter>
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button type="submit" disabled={save.isPending}>{save.isPending ? "Submitting..." : "Submit Proposal"}</Button>
-        </DialogFooter>
-      </form>
-    </Dialog>
-  );
-}
-
-function InitiationRequestDialog({
-  open,
-  onOpenChange,
-  projectId,
-  milestone,
-}: {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  projectId: string;
-  milestone: ProjectMilestonePhase4;
-}) {
-  const request = useRequestInitiationApproval(projectId, milestone.id);
-  const [note, setNote] = useState("");
-  const [error, setError] = useState("");
-
-  const submit = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    setError("");
-    try {
-      await request.mutateAsync(note);
       onOpenChange(false);
-      setNote("");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to request initiation approval.");
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : "Failed to request deadline change.");
     }
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogHeader>
-        <DialogTitle>Request Initiation Approval</DialogTitle>
+        <DialogTitle>Request Deadline Change</DialogTitle>
         <DialogDescription>{milestone.name}</DialogDescription>
       </DialogHeader>
       <form className="space-y-4" onSubmit={submit}>
-        <textarea
-          rows={3}
-          placeholder="Optional request note"
-          value={note}
-          onChange={(event) => setNote(event.target.value)}
-          className="flex w-full rounded-md border border-input bg-card px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-primary"
-        />
-        {error && <p className="text-xs text-destructive">{error}</p>}
+        <Input type="date" value={startDate} onChange={(event) => setStartDate(event.target.value)} />
+        <Input type="number" min="1" step="1" value={duration} onChange={(event) => setDuration(event.target.value)} placeholder="Working days" />
+        <textarea rows={3} value={reason} onChange={(event) => setReason(event.target.value)} placeholder="Reason" className="flex w-full rounded-md border border-input bg-card px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-primary" />
+        {error && <p className="text-sm text-destructive">{error}</p>}
         <DialogFooter>
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button type="submit" disabled={request.isPending}>{request.isPending ? "Submitting..." : "Request Approval"}</Button>
+          <Button type="submit" disabled={saveDeadline.isPending}>{saveDeadline.isPending ? "Submitting..." : "Request Change"}</Button>
         </DialogFooter>
       </form>
     </Dialog>
   );
 }
 
-function SubmitMilestoneDialog({
-  open,
-  onOpenChange,
-  projectId,
-  milestone,
-}: {
+function SubmitDialog({ open, onOpenChange, projectId, milestone }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   projectId: string;
@@ -582,11 +589,10 @@ function SubmitMilestoneDialog({
     setError("");
     try {
       await submitMilestone.mutateAsync(note);
-      onOpenChange(false);
       setNote("");
-      alert("Milestone submitted for HEAD_SA approval.");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to submit milestone.");
+      onOpenChange(false);
+    } catch (submitError) {
+      setError(submitError instanceof Error ? submitError.message : "Failed to submit milestone.");
     }
   };
 
@@ -597,18 +603,63 @@ function SubmitMilestoneDialog({
         <DialogDescription>{milestone.name}</DialogDescription>
       </DialogHeader>
       <form className="space-y-4" onSubmit={submit}>
-        <textarea
-          rows={3}
-          placeholder="Optional submission note"
-          value={note}
-          onChange={(event) => setNote(event.target.value)}
-          className="flex w-full rounded-md border border-input bg-card px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-primary"
-        />
-        {error && <p className="text-xs text-destructive">{error}</p>}
+        <textarea rows={4} value={note} onChange={(event) => setNote(event.target.value)} placeholder="Submission note" className="flex w-full rounded-md border border-input bg-card px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-primary" />
+        {error && <p className="text-sm text-destructive">{error}</p>}
         <DialogFooter>
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button type="submit" disabled={submitMilestone.isPending}>
-            {submitMilestone.isPending ? "Submitting..." : "Submit for Approval"}
+          <Button type="submit" disabled={submitMilestone.isPending}>{submitMilestone.isPending ? "Submitting..." : "Submit"}</Button>
+        </DialogFooter>
+      </form>
+    </Dialog>
+  );
+}
+
+function ReviewDialog({ open, onOpenChange, projectId, milestoneId, approvalId, type, decision }: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  projectId: string;
+  milestoneId: string;
+  approvalId?: string;
+  type: "DEADLINE" | "SUBMISSION";
+  decision: "APPROVE" | "REJECT";
+}) {
+  const reviewDeadline = useReviewDeadlineApproval(projectId, milestoneId);
+  const reviewSubmission = useReviewSubmissionApproval(projectId, milestoneId);
+  const [note, setNote] = useState("");
+  const [error, setError] = useState("");
+  const pending = type === "DEADLINE" ? reviewDeadline.isPending : reviewSubmission.isPending;
+
+  const submit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!approvalId) return;
+    if (decision === "REJECT" && !note.trim()) {
+      setError("A rejection reason is required.");
+      return;
+    }
+    setError("");
+    try {
+      const input = { approvalId, decision, note };
+      if (type === "DEADLINE") await reviewDeadline.mutateAsync(input);
+      else await reviewSubmission.mutateAsync(input);
+      setNote("");
+      onOpenChange(false);
+    } catch (reviewError) {
+      setError(reviewError instanceof Error ? reviewError.message : "Failed to review approval.");
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogHeader>
+        <DialogTitle>{decision === "APPROVE" ? "Approve" : "Reject"} {type === "DEADLINE" ? "Deadline Change" : "Submission"}</DialogTitle>
+      </DialogHeader>
+      <form className="space-y-4" onSubmit={submit}>
+        <textarea rows={4} value={note} onChange={(event) => setNote(event.target.value)} placeholder="Review note" className="flex w-full rounded-md border border-input bg-card px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-primary" />
+        {error && <p className="text-sm text-destructive">{error}</p>}
+        <DialogFooter>
+          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+          <Button type="submit" disabled={!approvalId || pending} variant={decision === "REJECT" ? "destructive" : "default"}>
+            {pending ? "Saving..." : "Confirm " + decision}
           </Button>
         </DialogFooter>
       </form>
@@ -616,63 +667,45 @@ function SubmitMilestoneDialog({
   );
 }
 
-function ReviewDialog({
-  open,
-  onOpenChange,
-  projectId,
-  milestoneId,
-  approvalId,
-  type,
-  decision,
-}: {
+function PlanReviewDialog({ open, onOpenChange, decision, projectName, onSubmit, isPending }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  projectId: string;
-  milestoneId: string;
-  approvalId?: string;
-  type: "DEADLINE" | "INITIATION" | "SUBMISSION";
   decision: "APPROVE" | "REJECT";
+  projectName: string;
+  onSubmit: (note?: string) => Promise<void>;
+  isPending: boolean;
 }) {
-  const deadlineReview = useReviewDeadlineApproval(projectId, milestoneId);
-  const initiationReview = useReviewInitiationApproval(projectId, milestoneId);
-  const submissionReview = useReviewSubmissionApproval(projectId, milestoneId);
   const [note, setNote] = useState("");
   const [error, setError] = useState("");
-  const mutation = type === "DEADLINE" ? deadlineReview : type === "INITIATION" ? initiationReview : submissionReview;
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (decision === "REJECT" && !note.trim()) {
+      setError("A rejection reason is required.");
+      return;
+    }
     setError("");
-    if (!approvalId) return setError("Approval record is missing.");
-    if (decision === "REJECT" && !note.trim()) return setError("Rejection note is required.");
     try {
-      await mutation.mutateAsync({ approvalId, decision, note });
-      onOpenChange(false);
+      await onSubmit(note);
       setNote("");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to review approval.");
+    } catch (reviewError) {
+      setError(reviewError instanceof Error ? reviewError.message : "Failed to review project plan.");
     }
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogHeader>
-        <DialogTitle>{decision === "APPROVE" ? "Approve" : "Reject"} {formatReviewType(type)} Request</DialogTitle>
-        <DialogDescription>Review decision will be saved by backend.</DialogDescription>
+        <DialogTitle>{decision === "APPROVE" ? "Approve" : "Reject"} Project Plan</DialogTitle>
+        <DialogDescription>{projectName}</DialogDescription>
       </DialogHeader>
       <form className="space-y-4" onSubmit={submit}>
-        <textarea
-          rows={3}
-          placeholder={decision === "REJECT" ? "Required rejection note" : "Optional note"}
-          value={note}
-          onChange={(event) => setNote(event.target.value)}
-          className="flex w-full rounded-md border border-input bg-card px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-primary"
-        />
-        {error && <p className="text-xs text-destructive">{error}</p>}
+        <textarea rows={4} value={note} onChange={(event) => setNote(event.target.value)} placeholder="Review note" className="flex w-full rounded-md border border-input bg-card px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-primary" />
+        {error && <p className="text-sm text-destructive">{error}</p>}
         <DialogFooter>
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button type="submit" disabled={mutation.isPending} variant={decision === "REJECT" ? "destructive" : "default"}>
-            {mutation.isPending ? "Saving..." : decision === "APPROVE" ? "Approve" : "Reject"}
+          <Button type="submit" disabled={isPending} variant={decision === "REJECT" ? "destructive" : "default"}>
+            {isPending ? "Saving..." : "Confirm " + decision}
           </Button>
         </DialogFooter>
       </form>
@@ -682,29 +715,19 @@ function ReviewDialog({
 
 function SubmissionHistoryPanel({ history }: { history: MilestoneSubmissionApproval[] }) {
   if (!history.length) return null;
-
   return (
-    <div className="mt-4 rounded-lg border border-border/50 bg-muted/20 p-3">
-      <div className="mb-2 flex items-center gap-2">
-        <FileCheck2 className="h-4 w-4 text-primary" />
-        <p className="text-xs font-semibold text-foreground">Submission Approval History</p>
-      </div>
+    <div className="mt-4 border-t border-border/40 pt-3">
+      <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Submission History</p>
       <div className="space-y-2">
         {history.map((approval) => (
-          <div key={approval.id} className="rounded-md border border-border/40 bg-card/60 p-2 text-xs">
+          <div key={approval.id} className="rounded-lg border border-border/40 bg-muted/20 p-3 text-xs">
             <div className="flex flex-wrap items-center gap-2">
-              <StatusBadge status={approval.status} />
-              <span className="text-muted-foreground">Submitted by <strong className="text-foreground">{approval.submitted_by?.full_name || approval.submitted_by?.fullName || "-"}</strong></span>
+              <SubmissionBadge status={approval.status} />
+              <span>Submitted by {approval.submitted_by?.full_name || "-"}</span>
               <span className="text-muted-foreground">{formatDateTime(approval.submitted_at)}</span>
             </div>
-            {approval.submission_note && <p className="mt-1 text-muted-foreground">Submission Note: <strong className="text-foreground">{approval.submission_note}</strong></p>}
-            {approval.review_note && <p className="mt-1 text-muted-foreground">Review Note: <strong className="text-foreground">{approval.review_note}</strong></p>}
-            {approval.reviewed_by && (
-              <p className="mt-1 text-muted-foreground">
-                Reviewed by <strong className="text-foreground">{approval.reviewed_by.full_name || approval.reviewed_by.fullName}</strong>
-                {approval.reviewed_at ? ` at ${formatDateTime(approval.reviewed_at)}` : ""}
-              </p>
-            )}
+            {approval.submission_note && <p className="mt-1 text-muted-foreground">Note: {approval.submission_note}</p>}
+            {approval.review_note && <p className="mt-1 text-muted-foreground">Review: {approval.review_note}</p>}
           </div>
         ))}
       </div>
@@ -712,17 +735,7 @@ function SubmissionHistoryPanel({ history }: { history: MilestoneSubmissionAppro
   );
 }
 
-function formatReviewType(type: "DEADLINE" | "INITIATION" | "SUBMISSION") {
-  if (type === "DEADLINE") return "Deadline";
-  if (type === "SUBMISSION") return "Submission";
-  return "Initiation";
-}
-
-function DeadlinePanel({
-  title,
-  deadline,
-  status,
-}: {
+function DeadlinePanel({ title, deadline, status }: {
   title: string;
   deadline?: { start_date?: string | null; duration_working_days?: number | null; due_date?: string | null; change_reason?: string | null } | null;
   status?: DeadlineApprovalStatus;
@@ -731,7 +744,7 @@ function DeadlinePanel({
     <div className="rounded-lg border border-border/50 bg-muted/20 p-3 text-xs">
       <div className="mb-2 flex items-center justify-between gap-2">
         <p className="font-semibold text-foreground">{title}</p>
-        {status && <DeadlineApprovalBadge status={status} />}
+        {status && <DeadlineBadge status={status} />}
       </div>
       <p>Start: <strong className="text-foreground">{formatDate(deadline?.start_date)}</strong></p>
       <p>Duration: <strong className="text-foreground">{deadline?.duration_working_days || "-"} working days</strong></p>
@@ -741,11 +754,11 @@ function DeadlinePanel({
   );
 }
 
-function Prerequisite({ label, ok, detail }: { label: string; ok: boolean; detail: string }) {
+function WorkflowDetail({ label, detail, ok }: { label: string; detail: string; ok: boolean }) {
   return (
     <div className="rounded-lg border border-border/40 bg-card/50 p-2">
       <div className="flex items-center gap-1.5">
-        {ok ? <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" /> : <CircleDashed className="h-3.5 w-3.5 text-muted-foreground" />}
+        {ok ? <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" /> : <CircleDashed className="h-3.5 w-3.5 text-muted-foreground" />}
         <span className="font-medium text-foreground">{label}</span>
       </div>
       <p className="mt-1 truncate text-muted-foreground">{detail}</p>
@@ -759,15 +772,26 @@ function StatusBadge({ status }: { status: string }) {
   if (status === "SUBMITTED") return <Badge className="border-blue-500/30 bg-blue-500/20 text-blue-300">SUBMITTED</Badge>;
   if (status === "REJECTED" || status === "CANCELLED") return <Badge variant="destructive">{status}</Badge>;
   if (status === "POSTPONED") return <Badge variant="warning">POSTPONED</Badge>;
-  if (status === "CREATED") return <Badge variant="outline">CREATED</Badge>;
   return <Badge variant="outline">{status}</Badge>;
 }
 
-function DeadlineApprovalBadge({ status }: { status: DeadlineApprovalStatus }) {
+function DeadlineBadge({ status }: { status: DeadlineApprovalStatus }) {
   if (status === "APPROVED") return <Badge variant="success">APPROVED</Badge>;
   if (status === "REJECTED") return <Badge variant="destructive">REJECTED</Badge>;
   if (status === "SUPERSEDED") return <Badge variant="outline">SUPERSEDED</Badge>;
-  return <Badge variant="warning">Pending HEAD_SA Approval</Badge>;
+  return <Badge variant="warning">PENDING</Badge>;
+}
+
+function SubmissionBadge({ status }: { status: string }) {
+  if (status === "APPROVED") return <Badge variant="success">APPROVED</Badge>;
+  if (status === "REJECTED") return <Badge variant="destructive">REJECTED</Badge>;
+  return <Badge variant="warning">PENDING</Badge>;
+}
+
+function PlanApprovalBadge({ status }: { status: string }) {
+  if (status === "APPROVED") return <Badge variant="success">APPROVED</Badge>;
+  if (status === "REJECTED") return <Badge variant="destructive">REJECTED</Badge>;
+  return <Badge variant="warning">PENDING</Badge>;
 }
 
 function Info({ label, value, badge }: { label: string; value: string; badge?: boolean }) {

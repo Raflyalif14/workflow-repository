@@ -1,4 +1,5 @@
 import { supabaseAdmin } from '../config/supabase';
+import { completeAssignPicStageIfCurrent } from './workflow-progression.service';
 
 type Actor = { userId: string; role: string; fullName: string };
 const userFields = 'id, full_name, email, role';
@@ -19,24 +20,29 @@ const mapAssignment = (row: any) => ({
   assigned_by: row.assigned_by_user || null,
 });
 
-async function logAssignment(actor: Actor, projectId: string, action: 'PIC_ASSIGNED' | 'PIC_REASSIGNED', details: string) {
-  try { await supabaseAdmin.from('activity_logs').insert({ user_id: actor.userId, project_id: projectId, action, entity_type: 'PROJECT_ASSIGNMENT', entity_id: projectId, details }); } catch { return; }
+async function logAssignment(actor: Actor, projectId: string, action: 'PIC_ASSIGNED' | 'PIC_REASSIGNED', description: string) {
+  const { error } = await supabaseAdmin
+    .from('activity_logs')
+    .insert({ user_id: actor.userId, project_id: projectId, action, description });
+  if (error) throw new Error(error.message);
 }
 
 export class AssignmentPhase5Service {
   static async availablePics() {
-    const { data, error } = await supabaseAdmin.from('users').select(userFields).in('role', ['SA', 'HEAD_SA']).eq('is_active', true).order('full_name');
+    const { data, error } = await supabaseAdmin.from('users').select(userFields).eq('role', 'SA').eq('is_active', true).order('full_name');
     if (error) throw new Error(error.message);
     return data || [];
   }
 
   static async assign(projectId: string, picId: string, reason: string | undefined, actor: Actor) {
-    const { data: project, error: projectError } = await supabaseAdmin.from('projects').select(`id,name,pic_id,scenario_id,pic:users!projects_pic_id_fkey(${userFields})`).eq('id', projectId).single();
+    if (actor.role !== 'HEAD_SA') throw new Error('Forbidden');
+    const { data: project, error: projectError } = await supabaseAdmin.from('projects').select(`id,name,pic_id,scenario_id,status,is_postponed,pic:users!projects_pic_id_fkey(${userFields})`).eq('id', projectId).single();
     if (projectError || !project) throw new Error('Project not found');
+    if (project.status === 'POSTPONED' || project.is_postponed) throw new Error('Project is postponed.');
     const { data: pic, error: picError } = await supabaseAdmin.from('users').select(`${userFields}, is_active`).eq('id', picId).single();
     if (picError || !pic) throw new Error('PIC not found');
     if (!pic.is_active) throw new Error('Selected user is inactive.');
-    if (!['SA', 'HEAD_SA'].includes(pic.role)) throw new Error('Selected user cannot be assigned as Solution Architect.');
+    if (pic.role !== 'SA') throw new Error('Selected user cannot be assigned as Solution Architect.');
     if (project.pic_id === picId) throw new Error('Project is already assigned to this PIC.');
     if (project.pic_id && !reason?.trim()) throw new Error('Reassignment reason is required.');
     const type = project.pic_id ? 'REASSIGNMENT' : 'INITIAL_ASSIGNMENT';
@@ -57,7 +63,8 @@ export class AssignmentPhase5Service {
       ? `${actor.fullName} reassigned project '${project.name}' from ${previousPic?.full_name || 'Unassigned'} to ${pic.full_name}${reason ? `. Reason: ${reason}` : ''}`
       : `${actor.fullName} assigned ${pic.full_name} as Solution Architect PIC for '${project.name}'`;
     await logAssignment(actor, projectId, action, details);
-    return mapAssignment(history);
+    const workflow = await completeAssignPicStageIfCurrent(projectId, actor);
+    return { ...mapAssignment(history), workflow };
   }
 
   static async history(projectId: string, actor: Actor) {

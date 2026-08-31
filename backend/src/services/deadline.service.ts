@@ -105,7 +105,8 @@ export function buildDeadlineProposalArtifacts(
   if (!milestone.project) throw new Error('Project not found');
   if (milestone.project.sales_id !== actor.userId) throw new Error('Forbidden');
   if (milestone.project.status === 'POSTPONED' || milestone.project.is_postponed) throw new Error('Project is postponed.');
-  if (milestone.status === 'COMPLETED') throw new Error('Completed milestone deadline cannot be changed.');
+  if (milestone.project.status !== 'ACTIVE') throw new Error('Deadline changes are only available for ACTIVE projects.');
+  if (milestone.status === 'COMPLETED' || milestone.status === 'APPROVED') throw new Error('Completed milestone deadline cannot be changed.');
   if (hasPendingApproval) throw new Error('A deadline change request is already pending approval.');
   if (hasExistingDeadline(milestone) && !reason?.trim()) throw new Error('Reason is required when changing an existing deadline.');
 

@@ -38,6 +38,12 @@ export type DashboardApprovalRow = {
   status: string;
 };
 
+export type DashboardProjectPlanApprovalRow = {
+  id?: string;
+  project_id: string;
+  status: string;
+};
+
 export type DashboardActivityRow = {
   id: string;
   project_id: string | null;
@@ -58,7 +64,7 @@ export type DashboardSourceRows = {
   milestones: DashboardMilestoneRow[];
   scenarios: DashboardScenarioRow[];
   deadlineApprovals: DashboardApprovalRow[];
-  initiationApprovals: DashboardApprovalRow[];
+  projectPlanApprovals: DashboardProjectPlanApprovalRow[];
   milestoneApprovals: DashboardApprovalRow[];
   activityLogs: DashboardActivityRow[];
   users: DashboardUserRow[];
@@ -99,6 +105,7 @@ export function countOverdueMilestones(
     const project = projectMap.get(milestone.project_id);
     if (
       !project ||
+      project.status === 'DRAFT' ||
       project.status === 'CANCELLED' ||
       project.status === 'POSTPONED' ||
       project.status === 'COMPLETED' ||
@@ -226,6 +233,14 @@ export function buildDashboardOverviewFromRows(
 
   const postponedProjects = projects.filter((project) => project.status === 'POSTPONED' || project.is_postponed).length;
   const cancelledProjects = statusCounts.get('CANCELLED') || 0;
+  const activeMilestoneIds = new Set(
+    milestones
+      .filter((milestone) => projectMap.get(milestone.project_id)?.status === 'ACTIVE')
+      .map((milestone) => milestone.id)
+  );
+  const pendingProjectPlans = rows.projectPlanApprovals.filter(
+    (approval) => approval.status === 'PENDING' && projectIds.has(approval.project_id)
+  ).length;
 
   return {
     summary: {
@@ -237,11 +252,10 @@ export function buildDashboardOverviewFromRows(
       cancelledProjects,
       overdueMilestones: countOverdueMilestones(milestones, projects, today),
       waitingApproval: countWaitingApprovals(
-        milestoneIds,
+        activeMilestoneIds,
         rows.deadlineApprovals,
-        rows.initiationApprovals,
         rows.milestoneApprovals
-      ),
+      ) + pendingProjectPlans,
     },
     scenarioDistribution: Array.from(scenarioCounts.values()).sort((a, b) => b.count - a.count),
     statusDistribution: LIVE_PROJECT_STATUSES.map((status) => ({
@@ -282,7 +296,7 @@ async function getRowsByProjectIds(projectIds: string[]) {
       activityLogs: [],
       users: [],
       deadlineApprovals: [],
-      initiationApprovals: [],
+      projectPlanApprovals: [],
       milestoneApprovals: [],
     };
   }
@@ -317,7 +331,7 @@ async function getRowsByProjectIds(projectIds: string[]) {
     ),
   ];
 
-  const [deadlineResult, initiationResult, submissionResult, userResult] = await Promise.all([
+  const [deadlineResult, projectPlanResult, submissionResult, userResult] = await Promise.all([
     milestoneIds.length
       ? supabaseAdmin
           .from('milestone_deadline_approvals')
@@ -325,13 +339,11 @@ async function getRowsByProjectIds(projectIds: string[]) {
           .eq('status', 'PENDING')
           .in('milestone_id', milestoneIds)
       : Promise.resolve({ data: [], error: null }),
-    milestoneIds.length
-      ? supabaseAdmin
-          .from('milestone_initiation_approvals')
-          .select('id,milestone_id,status')
-          .eq('status', 'PENDING')
-          .in('milestone_id', milestoneIds)
-      : Promise.resolve({ data: [], error: null }),
+    supabaseAdmin
+      .from('project_plan_approvals')
+      .select('id,project_id,status')
+      .eq('status', 'PENDING')
+      .in('project_id', projectIds),
     milestoneIds.length
       ? supabaseAdmin
           .from('milestone_approvals')
@@ -348,7 +360,7 @@ async function getRowsByProjectIds(projectIds: string[]) {
   ]);
 
   if (deadlineResult.error) throw toSafeDashboardError(deadlineResult.error, 'milestone_deadline_approvals');
-  if (initiationResult.error) throw toSafeDashboardError(initiationResult.error, 'milestone_initiation_approvals');
+  if (projectPlanResult.error) throw toSafeDashboardError(projectPlanResult.error, 'project_plan_approvals');
   if (submissionResult.error) throw toSafeDashboardError(submissionResult.error, 'milestone_approvals');
   if (userResult.error) throw toSafeDashboardError(userResult.error, 'users');
 
@@ -358,7 +370,7 @@ async function getRowsByProjectIds(projectIds: string[]) {
     activityLogs: (activityResult.data || []) as DashboardActivityRow[],
     users: (userResult.data || []) as DashboardUserRow[],
     deadlineApprovals: (deadlineResult.data || []) as DashboardApprovalRow[],
-    initiationApprovals: (initiationResult.data || []) as DashboardApprovalRow[],
+    projectPlanApprovals: (projectPlanResult.data || []) as DashboardProjectPlanApprovalRow[],
     milestoneApprovals: (submissionResult.data || []) as DashboardApprovalRow[],
   };
 }

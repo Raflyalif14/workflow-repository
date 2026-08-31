@@ -6,7 +6,6 @@ import {
   buildDeadlineApprovalReadResult,
   buildDeadlineApprovalResolution,
 } from './deadline-approval.service';
-import { buildInitiationApprovalRequest } from './milestone-initiation-approval.service';
 import { addWorkingDays } from '../utils/dates';
 
 const sales = { userId: 'sales-1', role: 'SALES', fullName: 'Sales Test' };
@@ -60,11 +59,11 @@ const assertThrows = (name: string, action: () => unknown) => {
 
 const toDateKey = (date: Date) => date.toISOString().slice(0, 10);
 
-const initialProposal = buildDeadlineProposalArtifacts(baseMilestone, effectiveDeadline, sales, false);
+const initialProposal = buildDeadlineProposalArtifacts(baseMilestone, effectiveDeadline, sales, false, 'Legacy active project needs a deadline');
 assert(initialProposal.history.due_date === '2026-09-02', 'Test 1: proposed due date should be stored in history');
 assert(initialProposal.approval.status === 'PENDING', 'Test 1: approval should be PENDING');
 assert(initialProposal.effectiveDeadline.due_date === null, 'Test 1: effective due date should remain null');
-console.log('Test 1 - Initial deadline creates proposal + PENDING approval without effective update: passed');
+console.log('Test 1 - ACTIVE project deadline request creates proposal + PENDING approval without effective update: passed');
 
 const approvedInitial = buildDeadlineApprovalResolution(
   'PENDING',
@@ -77,7 +76,7 @@ const approvedInitial = buildDeadlineApprovalResolution(
 );
 assert(approvedInitial.approval.status === 'APPROVED', 'Test 2: approval should be APPROVED');
 assert(approvedInitial.effectiveDeadline.due_date === '2026-09-02', 'Test 2: effective due date should come from history');
-console.log('Test 2 - Approve initial deadline applies proposal to effective milestone deadline: passed');
+console.log('Test 2 - Approve active deadline change applies proposal to effective milestone deadline: passed');
 
 const rejectedInitial = buildDeadlineApprovalResolution(
   'PENDING',
@@ -90,7 +89,7 @@ const rejectedInitial = buildDeadlineApprovalResolution(
 );
 assert(rejectedInitial.approval.status === 'REJECTED', 'Test 3: approval should be REJECTED');
 assert(rejectedInitial.effectiveDeadline.due_date === null, 'Test 3: effective due date should remain null');
-console.log('Test 3 - Reject initial deadline leaves effective milestone deadline unchanged: passed');
+console.log('Test 3 - Reject active deadline change leaves effective milestone deadline unchanged: passed');
 
 const existingDeadlineMilestone = {
   ...baseMilestone,
@@ -202,29 +201,16 @@ const historicalRead = buildDeadlineApprovalReadResult(
 assert(!Array.isArray(historicalRead) && historicalRead?.status === 'SUPERSEDED', 'Test 12: historical SUPERSEDED approvals should remain readable');
 console.log('Test 12 - Historical SUPERSEDED approval remains readable: passed');
 
-assertThrows('Test 13 - Pending initial deadline cannot satisfy initiation prerequisite', () =>
-  buildInitiationApprovalRequest(
+assertThrows('Test 13 - DRAFT initial timeline cannot use deadline change approval', () =>
+  buildDeadlineProposalArtifacts(
     {
       ...baseMilestone,
-      pic_id: 'sa-1',
+      project: { ...baseMilestone.project, status: 'DRAFT' },
     },
+    effectiveDeadline,
     sales,
     false,
-    'PENDING'
+    'Draft timeline should use project planning'
   )
 );
-
-const initiationRequest = buildInitiationApprovalRequest(
-  {
-    ...baseMilestone,
-    pic_id: 'sa-1',
-    start_date: approvedInitial.effectiveDeadline.start_date,
-    duration_working_days: approvedInitial.effectiveDeadline.duration_working_days,
-    due_date: approvedInitial.effectiveDeadline.due_date,
-  },
-  sales,
-  false,
-  'APPROVED'
-);
-assert(initiationRequest.status === 'PENDING', 'Test 14: approved initial deadline should allow initiation approval request');
-console.log('Test 14 - Approved initial deadline satisfies initiation prerequisite: passed');
+console.log('Test 13 - DRAFT timeline is kept out of per-milestone deadline approval flow: passed');

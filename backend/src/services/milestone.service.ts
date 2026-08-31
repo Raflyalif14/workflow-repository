@@ -1,8 +1,20 @@
 import { supabaseAdmin } from '../config/supabase';
-import { isMilestoneCompletedLike } from './milestone-approval.service';
+import {
+  completeMilestoneStage,
+  isMilestoneCompletedLike,
+  startMilestoneStage,
+} from './workflow-progression.service';
 
 type Actor = { userId: string; role: string; fullName: string };
-type MilestoneInput = { project_id: string; workflow_stage_id: string; name: string; description: string | null; step_order: number; status: typeof INITIAL_MILESTONE_STATUS };
+type MilestoneInput = {
+  project_id: string;
+  workflow_stage_id: string;
+  name: string;
+  description: string | null;
+  step_order: number;
+  status: 'CREATED' | 'IN_PROGRESS' | 'COMPLETED';
+  completed_at?: string | null;
+};
 type WorkflowStageMilestoneSource = { id: string; name: string; description: string | null; step_order: number };
 type SubmissionMilestoneState = {
   id?: string;
@@ -22,10 +34,11 @@ type RevisionMilestoneState = SubmissionMilestoneState & {
 export const selectMilestones = 'id, project_id, workflow_stage_id, name, description, step_order, status, pic_id, start_date, duration_working_days, due_date, completed_at, pic:users!project_milestones_pic_id_fkey(id,full_name,email,role), workflow_stage:workflow_stages!project_milestones_workflow_stage_id_fkey(id,default_role), created_at, updated_at';
 export const INITIAL_MILESTONE_STATUS = 'CREATED' as const;
 
-async function logMilestone(actor: Actor, projectId: string, details: string) {
-  try {
-    await supabaseAdmin.from('activity_logs').insert({ user_id: actor.userId, project_id: projectId, action: 'UPDATE', entity_type: 'PROJECT_MILESTONE', entity_id: projectId, details });
-  } catch { return; }
+async function logMilestone(actor: Actor, projectId: string, description: string) {
+  const { error } = await supabaseAdmin
+    .from('activity_logs')
+    .insert({ user_id: actor.userId, project_id: projectId, action: 'UPDATE', description });
+  if (error) throw new Error(error.message);
 }
 
 const normalizeRelatedOne = <T>(value: T | T[] | null): T | null => {
@@ -38,6 +51,7 @@ export function validateMilestoneSubmissionState(milestone: SubmissionMilestoneS
   if (!milestone.project) throw new Error('Project not found');
   if (milestone.pic_id !== actor.userId) throw new Error('Forbidden');
   if (milestone.project.status === 'POSTPONED' || milestone.project.is_postponed) throw new Error('Project is postponed.');
+  if (milestone.project.status !== 'ACTIVE') throw new Error('Project is not active.');
   if (milestone.status !== 'IN_PROGRESS') throw new Error('Only an IN_PROGRESS milestone can be submitted.');
 }
 
@@ -76,6 +90,7 @@ export function buildMilestoneRevisionStartResult(
   if (!milestone.project) throw new Error('Project not found');
   if (milestone.pic_id !== actor.userId) throw new Error('Only the assigned PIC can revise this milestone.');
   if (milestone.project.status === 'POSTPONED' || milestone.project.is_postponed) throw new Error('Project is postponed.');
+  if (milestone.project.status !== 'ACTIVE') throw new Error('Project is not active.');
   if (milestone.status !== 'REJECTED') throw new Error('Only rejected milestones can start revision.');
   if (!hasRejectedApproval) throw new Error('Milestone does not have a rejected approval.');
   if (hasPendingApproval) throw new Error('This milestone already has a pending approval.');
@@ -91,15 +106,28 @@ export function buildMilestoneRevisionStartResult(
   };
 }
 
-export function buildInitialMilestoneRows(projectId: string, stages: WorkflowStageMilestoneSource[]): MilestoneInput[] {
-  return stages.map((stage) => ({
-    project_id: projectId,
-    workflow_stage_id: stage.id,
-    name: stage.name,
-    description: stage.description,
-    step_order: stage.step_order,
-    status: INITIAL_MILESTONE_STATUS,
-  }));
+export function buildInitialMilestoneRows(
+  projectId: string,
+  stages: WorkflowStageMilestoneSource[],
+  createdAt = new Date().toISOString()
+): MilestoneInput[] {
+  return stages.map((stage) => {
+    const status = stage.step_order === 1
+      ? 'COMPLETED'
+      : stage.step_order === 2
+        ? 'IN_PROGRESS'
+        : INITIAL_MILESTONE_STATUS;
+
+    return {
+      project_id: projectId,
+      workflow_stage_id: stage.id,
+      name: stage.name,
+      description: stage.description,
+      step_order: stage.step_order,
+      status,
+      ...(status === 'COMPLETED' ? { completed_at: createdAt } : {}),
+    };
+  });
 }
 
 export function calculateMilestoneProgress(milestones: Array<{ status: string }>) {
@@ -168,8 +196,15 @@ export class MilestoneService {
       await supabaseAdmin.from('project_milestones').delete().eq('project_id', projectId);
       throw new Error(error?.message || 'Workflow initialization failed; no milestones were retained.');
     }
-    await logMilestone(actor, projectId, `${actor.fullName} initialized workflow for project '${project.name}'`);
     return data;
+  }
+
+  static startStage(milestoneId: string, actor: Actor) {
+    return startMilestoneStage(milestoneId, actor);
+  }
+
+  static completeStage(milestoneId: string, actor: Actor) {
+    return completeMilestoneStage(milestoneId, actor);
   }
 
   static async trigger(projectId: string, milestoneId: string, actor: Actor) {

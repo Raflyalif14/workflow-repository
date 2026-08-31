@@ -1,9 +1,9 @@
-export type ApprovalCategory = "ALL" | "DEADLINE" | "INITIATION" | "SUBMISSION";
+export type ApprovalCategory = "ALL" | "PROJECT_PLAN" | "DEADLINE" | "SUBMISSION";
 export type ApprovalStatus = "ALL" | "PENDING" | "APPROVED" | "REJECTED" | "SUPERSEDED";
 
 export interface ApprovalItem {
   id: string;
-  category: "DEADLINE" | "INITIATION" | "SUBMISSION";
+  category: "PROJECT_PLAN" | "DEADLINE" | "SUBMISSION";
   title: string;
   status: "PENDING" | "APPROVED" | "REJECTED" | "SUPERSEDED";
   isCurrentApproval?: boolean;
@@ -24,9 +24,9 @@ export interface ApprovalItem {
   fileName?: string;
   fileSize?: number;
   changelog?: string;
-  milestoneId: string;
-  milestoneName: string;
-  stepOrder: number;
+  milestoneId?: string;
+  milestoneName?: string;
+  stepOrder?: number;
   stageDefaultRole?: string | null;
   requester?: {
     id: string;
@@ -65,7 +65,7 @@ export interface ApprovalItem {
 
 export interface ApprovalStats {
   totalPending: number;
-  pendingInitiations: number;
+  pendingProjectPlans: number;
   pendingSubmissions: number;
   pendingMilestones: number;
   pendingDocs: number;

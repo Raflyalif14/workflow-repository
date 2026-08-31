@@ -3,6 +3,7 @@ import { buildMilestoneApprovalReview } from './milestone-approval.service';
 const headSa = { userId: 'head-sa-1', role: 'HEAD_SA', fullName: 'Head Solution Architect Test' };
 const sa = { userId: 'sa-1', role: 'SA', fullName: 'Solution Architect Test' };
 const activeProject = { status: 'ACTIVE', is_postponed: false };
+const draftProject = { status: 'DRAFT', is_postponed: false };
 const postponedProject = { status: 'POSTPONED', is_postponed: true };
 const reviewedAt = '2026-08-27T00:00:00.000Z';
 
@@ -53,4 +54,8 @@ assertThrows('Test 6 - Milestone not SUBMITTED', () =>
 
 assertThrows('Test 7 - Project POSTPONED', () =>
   buildMilestoneApprovalReview('PENDING', 'SUBMITTED', postponedProject, 'APPROVED', headSa, undefined, reviewedAt)
+);
+
+assertThrows('Test 8 - Project not ACTIVE', () =>
+  buildMilestoneApprovalReview('PENDING', 'SUBMITTED', draftProject, 'APPROVED', headSa, undefined, reviewedAt)
 );

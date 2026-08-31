@@ -11,6 +11,7 @@ import {
   calculateMilestoneProgress,
 } from './milestone.service';
 import { buildDeadlineProposalArtifacts } from './deadline.service';
+import { getAutoStartBlockReason } from './workflow-progression.service';
 
 const headSa = { userId: 'head-sa-1', role: 'HEAD_SA', fullName: 'Head Solution Architect Test' };
 const sales = { userId: 'sales-1', role: 'SALES', fullName: 'Sales Test' };
@@ -72,7 +73,7 @@ assert(approved.milestone.status === 'COMPLETED', 'Test 1: milestone should be C
 assert(approved.milestone.completed_at === reviewedAt, 'Test 1: completed_at should be set');
 assert(nextMilestone?.status === 'CREATED', 'Test 1: next milestone should remain CREATED');
 assert(!shouldCompleteProject('ACTIVE', milestones), 'Test 1: project should not be completed with remaining milestones');
-console.log('Test 1 - Approve non-final milestone: approval=APPROVED, current=COMPLETED, next=CREATED, project not completed');
+console.log('Test 1 - Approve non-final milestone: approval=APPROVED, current=COMPLETED, next is eligible for automatic progression');
 
 const outOfOrderMilestones = [
   { id: 'milestone-5', name: 'Later', step_order: 5, status: 'CREATED' },
@@ -83,8 +84,11 @@ const orderedNext = selectNextMilestone(currentMilestone, outOfOrderMilestones);
 assert(orderedNext?.id === 'milestone-3', 'Test 2: next milestone should be the smallest greater step_order');
 console.log('Test 2 - Next milestone selected by next step_order: milestone-3');
 
-assert(orderedNext?.status !== 'IN_PROGRESS', 'Test 3: next milestone should not auto-start');
-console.log('Test 3 - Next milestone does not auto become IN_PROGRESS: passed');
+assert(getAutoStartBlockReason('SALES', null) === null, 'Test 3: SALES stage should auto-start without a PIC');
+assert(getAutoStartBlockReason('HEAD_SA', null) === null, 'Test 3: HEAD_SA stage should auto-start without a PIC');
+assert(getAutoStartBlockReason('SA', null) === 'PIC_REQUIRED', 'Test 3: SA stage should wait for a PIC');
+assert(getAutoStartBlockReason('SA', saPic.userId) === null, 'Test 3: assigned SA stage should auto-start');
+console.log('Test 3 - Automatic start is role-aware: SALES/HEAD_SA start; SA waits only when PIC is missing');
 
 assert(nextMilestone?.start_date === null && nextMilestone.due_date === null, 'Test 4: next milestone deadline should not be assigned automatically');
 console.log('Test 4 - Next milestone does not receive automatic deadline: passed');

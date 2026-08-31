@@ -4,6 +4,8 @@ export const projectKeys = {
   detail: (projectId: string) => ["project", projectId] as const,
   milestones: (projectId: string) => ["project-milestones", projectId] as const,
   progress: (projectId: string) => ["project-progress", projectId] as const,
+  planApproval: (projectId: string) => ["project-plan-approval", projectId] as const,
+  planApprovalHistory: (projectId: string) => ["project-plan-approval-history", projectId] as const,
   assignmentHistory: (projectId: string) => ["assignment-history", projectId] as const,
 };
 

@@ -5,9 +5,9 @@ import {
   CalendarClock,
   Check,
   CheckCircle2,
+  ClipboardCheck,
   Eye,
   FileCheck2,
-  PlayCircle,
   Search,
   ShieldCheck,
   X,
@@ -63,7 +63,7 @@ function ApprovalCenterPageContent() {
           </div>
           <h1 className="text-3xl font-bold tracking-tight">Approval Center</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Review deadline proposals, milestone initiation requests, and SA submissions.
+            Review project plans, active deadline changes, and SA submissions.
           </p>
         </div>
       </div>
@@ -71,7 +71,7 @@ function ApprovalCenterPageContent() {
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-4">
         <Metric title="Total Pending" value={stats?.totalPending || 0} icon={<ShieldCheck className="h-4 w-4 text-primary" />} />
         <Metric title="Deadline Proposals" value={stats?.pendingDeadlines || 0} icon={<CalendarClock className="h-4 w-4 text-amber-400" />} />
-        <Metric title="Initiation Requests" value={stats?.pendingInitiations || 0} icon={<PlayCircle className="h-4 w-4 text-primary" />} />
+        <Metric title="Project Plans" value={stats?.pendingProjectPlans || 0} icon={<ClipboardCheck className="h-4 w-4 text-primary" />} />
         <Metric title="SA Submissions" value={stats?.pendingSubmissions || 0} icon={<FileCheck2 className="h-4 w-4 text-emerald-400" />} />
       </div>
 
@@ -80,7 +80,7 @@ function ApprovalCenterPageContent() {
           {[
             { key: "ALL", label: "All Requests", count: stats?.totalPending },
             { key: "DEADLINE", label: "Deadlines", count: stats?.pendingDeadlines },
-            { key: "INITIATION", label: "Initiation", count: stats?.pendingInitiations },
+            { key: "PROJECT_PLAN", label: "Project Plans", count: stats?.pendingProjectPlans },
             { key: "SUBMISSION", label: "Submission", count: stats?.pendingSubmissions },
           ].map((tab) => (
             <Button
@@ -133,7 +133,7 @@ function ApprovalCenterPageContent() {
         <div className="space-y-2 rounded-xl border border-dashed border-border py-16 text-center text-muted-foreground">
           <CheckCircle2 className="mx-auto h-8 w-8 text-emerald-400" />
           <p className="font-semibold text-foreground">All Caught Up</p>
-          <p className="text-xs">No matching deadline or initiation approval requests.</p>
+          <p className="text-xs">No matching project-plan, deadline, or submission requests.</p>
         </div>
       ) : (
         <div className="space-y-3">
@@ -146,9 +146,11 @@ function ApprovalCenterPageContent() {
                       <ApprovalCategoryIcon category={item.category} />
                       {item.category}
                     </span>
-                    <Badge variant="outline" className="text-[11px] font-mono">
-                      Step {item.stepOrder}
-                    </Badge>
+                    {item.stepOrder && (
+                      <Badge variant="outline" className="text-[11px] font-mono">
+                        Step {item.stepOrder}
+                      </Badge>
+                    )}
                     <StatusBadge status={item.status} />
                   </div>
                   <h3 className="text-base font-bold text-foreground">{item.title}</h3>
@@ -235,6 +237,15 @@ function StatusBadge({ status }: { status: ApprovalStatus }) {
 }
 
 function ApprovalSummary({ item }: { item: ApprovalItem }) {
+  if (item.category === "PROJECT_PLAN") {
+    return (
+      <div className="mt-2 rounded-lg border border-border/40 bg-muted/30 p-2 text-xs text-muted-foreground">
+        {item.requestNote ? <>Plan note: <strong className="text-foreground">{item.requestNote}</strong></> : "Initial timeline is ready for review."}
+        {item.reviewNote ? <>{" | "}Review: <strong className="text-foreground">{item.reviewNote}</strong></> : null}
+      </div>
+    );
+  }
+
   if (item.category === "DEADLINE") {
     return (
       <div className="mt-2 grid gap-2 text-xs sm:grid-cols-2">
@@ -256,14 +267,7 @@ function ApprovalSummary({ item }: { item: ApprovalItem }) {
     );
   }
 
-  return (
-    <div className="mt-2 rounded-lg border border-border/40 bg-muted/30 p-2 text-xs text-muted-foreground">
-      PIC: <strong className="text-foreground">{formatPicRequirement(item)}</strong>
-      {" | "}
-      Effective due: <strong className="text-foreground">{formatDate(item.currentDeadline?.due_date)}</strong>
-      {item.requestNote ? <>{" | "}Note: <strong className="text-foreground">{item.requestNote}</strong></> : null}
-    </div>
-  );
+  return null;
 }
 
 function DeadlineMini({
@@ -297,5 +301,5 @@ function formatPicRequirement(item: ApprovalItem) {
 function ApprovalCategoryIcon({ category }: { category: ApprovalItem["category"] }) {
   if (category === "DEADLINE") return <CalendarClock className="h-4 w-4 text-amber-400" />;
   if (category === "SUBMISSION") return <FileCheck2 className="h-4 w-4 text-emerald-400" />;
-  return <PlayCircle className="h-4 w-4 text-primary" />;
+  return <ClipboardCheck className="h-4 w-4 text-primary" />;
 }

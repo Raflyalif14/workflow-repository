@@ -7,6 +7,7 @@ import {
 } from './milestone.service';
 
 const saPic = { userId: 'sa-1', role: 'SA', fullName: 'Solution Architect Test' };
+const createdAt = '2026-08-31T03:00:00.000Z';
 
 const assert = (condition: boolean, message: string) => {
   if (!condition) throw new Error(message);
@@ -31,20 +32,22 @@ const makeStages = (count: number) =>
     step_order: index + 1,
   }));
 
-const assessmentRows = buildInitialMilestoneRows('project-assessment', makeStages(13));
+const assessmentRows = buildInitialMilestoneRows('project-assessment', makeStages(13), createdAt);
 assert(assessmentRows.length === 13, 'Test 1: Assessment should create 13 milestones');
-assert(assessmentRows.every((row) => row.status === INITIAL_MILESTONE_STATUS), 'Test 1: all Assessment milestones should be CREATED');
-console.log('Test 1 - Create project scenario Assessment: 13 milestones, all status=CREATED');
+assert(assessmentRows[0].status === 'COMPLETED' && assessmentRows[0].completed_at === createdAt, 'Test 1: Create Project must be completed');
+assert(assessmentRows[1].status === 'IN_PROGRESS', 'Test 1: Set Deadline must be in progress');
+assert(assessmentRows.slice(2).every((row) => row.status === INITIAL_MILESTONE_STATUS), 'Test 1: executable milestones should be CREATED');
+console.log('Test 1 - New project: step 1 COMPLETED, step 2 IN_PROGRESS, remaining stages CREATED');
 
-const existingTorRows = buildInitialMilestoneRows('project-existing-tor', makeStages(11));
-assert(existingTorRows.length === 11, 'Test 2: Existing TOR should create 11 milestones');
-assert(existingTorRows.every((row) => row.status === INITIAL_MILESTONE_STATUS), 'Test 2: all Existing TOR milestones should be CREATED');
-console.log('Test 2 - Create project scenario Existing TOR: 11 milestones, all status=CREATED');
+const existingTorRows = buildInitialMilestoneRows('project-existing-tor', makeStages(11), createdAt);
+assert(existingTorRows[0].status === 'COMPLETED' && existingTorRows[1].status === 'IN_PROGRESS', 'Test 2: Existing TOR planning states should match');
+assert(existingTorRows.slice(2).every((row) => row.status === 'CREATED'), 'Test 2: Existing TOR executable stages should be CREATED');
+console.log('Test 2 - Existing TOR receives the same DRAFT planning milestone states');
 
 const progress = calculateMilestoneProgress(assessmentRows);
-assert(progress.completed === 0, 'Test 3: CREATED milestones should not be completed');
-assert(progress.percentage === 0, 'Test 3: all CREATED milestones should return 0% progress');
-console.log('Test 3 - Progress with all CREATED milestones: completed=0, percentage=0');
+assert(progress.completed === 1, 'Test 3: Create Project should count as completed');
+assert(progress.percentage === 8, 'Test 3: 1 of 13 milestones should produce 8% progress');
+console.log('Test 3 - Initial progress includes the completed Create Project stage');
 
 assertThrows('Test 4 - CREATED milestone submit attempt', () =>
   buildMilestoneSubmissionResult(
@@ -59,7 +62,7 @@ assertThrows('Test 4 - CREATED milestone submit attempt', () =>
     false
   )
 );
-console.log('Test 4 - CREATED submit rejection keeps status=CREATED and creates no PENDING approval in service flow');
+console.log('Test 4 - CREATED SA stage cannot be submitted before it starts');
 
 const revision = buildMilestoneRevisionStartResult(
   {

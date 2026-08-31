@@ -16,6 +16,10 @@ const getStatusCode = (message?: string) => {
 };
 
 export class MilestoneInitiationApprovalController {
+  static retired(_req: AuthenticatedRequest, res: Response): void {
+    sendError(res, 'This workflow action has been retired. Milestones now progress automatically.', null, 410);
+  }
+
   static async initiate(req: AuthenticatedRequest, res: Response): Promise<void> {
     try {
       const result = await MilestoneInitiationApprovalService.initiateMilestone(

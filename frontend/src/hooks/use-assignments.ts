@@ -92,7 +92,7 @@ export function useAssignPic() {
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: projectKeys.detail(variables.projectId) });
-      queryClient.invalidateQueries({ queryKey: ["projects"] });
+      queryClient.invalidateQueries({ queryKey: projectKeys.all() });
       queryClient.invalidateQueries({ queryKey: projectKeys.milestones(variables.projectId) });
       queryClient.invalidateQueries({
         queryKey: projectKeys.assignmentHistory(variables.projectId),
