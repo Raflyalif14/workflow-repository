@@ -22,6 +22,8 @@ import {
   HelpCircle,
 } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
+import { useApprovalStats } from "@/hooks/use-approvals";
+import { useMyAssignedMilestones } from "@/hooks/use-projects";
 
 // ─── Sidebar Context ───
 interface SidebarContextType {
@@ -104,6 +106,22 @@ export function Sidebar() {
   const { user, logout } = useAuth();
 
   const userRole = user?.role || "GUEST";
+  const { data: approvalStats } = useApprovalStats();
+  const { data: assignedMilestones = [] } = useMyAssignedMilestones(userRole === "SA");
+
+  const pendingApprovalsCount =
+    userRole === "HEAD_SA" || userRole === "SUPER_ADMIN" ? approvalStats?.totalPending || 0 : 0;
+
+  const saActionableMilestonesCount =
+    userRole === "SA"
+      ? assignedMilestones.filter((m) => m.status === "IN_PROGRESS" || m.status === "REJECTED").length
+      : 0;
+
+  const getBadgeCount = (href: string) => {
+    if (href === "/approvals") return pendingApprovalsCount;
+    if (href === "/milestones" && userRole === "SA") return saActionableMilestonesCount;
+    return 0;
+  };
 
   // Filter navigation links based on user role
   const visibleNavItems = NAV_ITEMS.filter((item) => {
@@ -149,6 +167,7 @@ export function Sidebar() {
         {visibleNavItems.map((item) => {
           const active = isActive(item.href);
           const Icon = item.icon;
+          const badgeCount = getBadgeCount(item.href);
 
           return (
             <Link
@@ -171,24 +190,44 @@ export function Sidebar() {
                 <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 rounded-r-full bg-primary" />
               )}
 
-              <Icon
-                className={`h-[18px] w-[18px] shrink-0 transition-colors duration-200 ${
-                  active
-                    ? "text-primary"
-                    : "text-[hsl(var(--sidebar-foreground))] group-hover:text-foreground"
-                }`}
-              />
+              <div className="relative shrink-0">
+                <Icon
+                  className={`h-[18px] w-[18px] transition-colors duration-200 ${
+                    active
+                      ? "text-primary"
+                      : "text-[hsl(var(--sidebar-foreground))] group-hover:text-foreground"
+                  }`}
+                />
+                {collapsed && badgeCount > 0 && (
+                  <span className="absolute -top-1.5 -right-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[9px] font-bold text-primary-foreground">
+                    {badgeCount > 99 ? "99+" : badgeCount}
+                  </span>
+                )}
+              </div>
 
               {!collapsed && (
-                <div className="flex flex-col overflow-hidden animate-fade-in">
-                  <span className="truncate leading-tight">{item.label}</span>
-                  <span
-                    className={`text-[10px] truncate leading-tight ${
-                      active ? "text-primary/60" : "text-[hsl(var(--sidebar-foreground))]"
-                    }`}
-                  >
-                    {item.description}
-                  </span>
+                <div className="flex flex-1 items-center justify-between overflow-hidden animate-fade-in">
+                  <div className="flex flex-col overflow-hidden">
+                    <span className="truncate leading-tight">{item.label}</span>
+                    <span
+                      className={`text-[10px] truncate leading-tight ${
+                        active ? "text-primary/60" : "text-[hsl(var(--sidebar-foreground))]"
+                      }`}
+                    >
+                      {item.description}
+                    </span>
+                  </div>
+                  {badgeCount > 0 && (
+                    <span
+                      className={`ml-2 shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold tracking-tight ${
+                        active
+                          ? "bg-primary text-primary-foreground"
+                          : "bg-primary/20 text-primary group-hover:bg-primary group-hover:text-primary-foreground"
+                      }`}
+                    >
+                      {badgeCount > 99 ? "99+" : badgeCount}
+                    </span>
+                  )}
                 </div>
               )}
             </Link>

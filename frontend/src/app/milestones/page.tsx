@@ -1,66 +1,195 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useMemo, useState } from "react";
 import Link from "next/link";
-import { FileCheck2, FolderKanban, Milestone, RotateCcw, UserCheck } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  AlertCircle,
+  AlertTriangle,
+  ArrowUpRight,
+  CheckCircle2,
+  Clock,
+  FileCheck2,
+  FolderKanban,
+  Milestone,
+  RotateCcw,
+  UserCheck,
+} from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useAuth } from "@/components/auth/auth-provider";
 import { AssignedMilestone, useMyAssignedMilestones } from "@/hooks/use-projects";
 import { useStartMilestoneRevision, useSubmitMilestone } from "@/hooks/use-milestone-workflow";
+import { formatMilestoneStatusLabel } from "@/lib/workflow-ux-helpers";
 
 export default function MilestonesPage() {
   const { user } = useAuth();
-  const canLoadAssignments = user?.role === "SA" || user?.role === "HEAD_SA";
-  const { data: milestones = [], isLoading, isError } = useMyAssignedMilestones(canLoadAssignments);
+  const isSaOrHeadSa = user?.role === "SA" || user?.role === "HEAD_SA";
+  const { data: milestones = [], isLoading, isError } = useMyAssignedMilestones(isSaOrHeadSa);
+
+  const [activeTab, setActiveTab] = useState<"ACTION" | "REVIEW" | "COMPLETED" | "ALL">("ACTION");
+
+  const needsAction = useMemo(
+    () => milestones.filter((m) => m.status === "IN_PROGRESS" || m.status === "REJECTED"),
+    [milestones]
+  );
+  const underReview = useMemo(
+    () => milestones.filter((m) => m.status === "SUBMITTED"),
+    [milestones]
+  );
+  const completed = useMemo(
+    () => milestones.filter((m) => m.status === "COMPLETED" || m.status === "APPROVED"),
+    [milestones]
+  );
+
+  const filteredMilestones = useMemo(() => {
+    switch (activeTab) {
+      case "ACTION":
+        return needsAction;
+      case "REVIEW":
+        return underReview;
+      case "COMPLETED":
+        return completed;
+      default:
+        return milestones;
+    }
+  }, [activeTab, needsAction, underReview, completed, milestones]);
 
   return (
     <div className="container space-y-6 py-8">
+      {/* Header */}
       <div className="flex flex-col gap-4 border-b border-border/50 pb-6 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <div className="mb-1 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-primary">
             <Milestone className="h-4 w-4" />
-            Assigned Milestones
+            <span>Personal Work Queue</span>
           </div>
-          <h1 className="text-3xl font-bold tracking-tight">My Milestones</h1>
+          <h1 className="text-3xl font-bold tracking-tight">Assigned Milestones</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            {canLoadAssignments ? "Milestones assigned to your Solution Architect profile." : "Open a project to review its milestone timeline."}
+            {isSaOrHeadSa
+              ? "Track your assigned Solution Architect deliverables, start revisions, and submit completed work."
+              : "Open a project to review its full milestone execution timeline."}
           </p>
         </div>
         <Link href="/projects">
           <Button variant="outline" className="gap-2">
             <FolderKanban className="h-4 w-4" />
-            Projects
+            <span>Projects</span>
           </Button>
         </Link>
       </div>
 
-      {!canLoadAssignments ? (
-        <Card>
-          <CardContent className="py-12 text-center text-sm text-muted-foreground">
-            Assigned milestone visibility is available for SA and Head SA roles.
+      {!isSaOrHeadSa ? (
+        <Card className="border-dashed">
+          <CardContent className="py-16 text-center space-y-3">
+            <FolderKanban className="h-10 w-10 text-muted-foreground mx-auto" />
+            <div>
+              <h3 className="font-semibold text-foreground text-base">Project Milestone Management</h3>
+              <p className="text-xs text-muted-foreground mt-1 max-w-md mx-auto">
+                Assigned milestone work queues are designed for Solution Architects. As Sales, navigate directly to your projects to manage timelines.
+              </p>
+            </div>
+            <Link href="/projects" className="inline-block pt-2">
+              <Button size="sm">Go to Projects</Button>
+            </Link>
           </CardContent>
-        </Card>
-      ) : isLoading ? (
-        <p className="py-12 text-center text-muted-foreground">Loading assigned milestones...</p>
-      ) : isError ? (
-        <p className="py-12 text-center text-destructive">Unable to load assigned milestones.</p>
-      ) : milestones.length === 0 ? (
-        <Card>
-          <CardContent className="py-12 text-center text-sm text-muted-foreground">No assigned milestones found.</CardContent>
         </Card>
       ) : (
-        <Card>
-          <CardHeader className="flex flex-row items-center gap-2">
-            <UserCheck className="h-4 w-4 text-primary" />
-            <CardTitle className="text-base">Assigned Work</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {milestones.map((milestone) => <AssignedMilestoneRow key={milestone.id} milestone={milestone} />)}
-          </CardContent>
-        </Card>
+        <div className="space-y-4">
+          {/* Queue Filter Tabs */}
+          <div className="flex items-center gap-2 overflow-x-auto border-b border-border/60 pb-2">
+            <Button
+              variant={activeTab === "ACTION" ? "default" : "ghost"}
+              size="sm"
+              className="h-8 gap-2 text-xs"
+              onClick={() => setActiveTab("ACTION")}
+            >
+              <span>Needs Action</span>
+              {needsAction.length > 0 && (
+                <span className="rounded-full bg-primary-foreground text-primary px-1.5 py-0.2 text-[10px] font-bold">
+                  {needsAction.length}
+                </span>
+              )}
+            </Button>
+
+            <Button
+              variant={activeTab === "REVIEW" ? "default" : "ghost"}
+              size="sm"
+              className="h-8 gap-2 text-xs"
+              onClick={() => setActiveTab("REVIEW")}
+            >
+              <span>Under Review</span>
+              {underReview.length > 0 && (
+                <span className="rounded-full bg-primary/20 text-primary px-1.5 py-0.2 text-[10px] font-bold">
+                  {underReview.length}
+                </span>
+              )}
+            </Button>
+
+            <Button
+              variant={activeTab === "COMPLETED" ? "default" : "ghost"}
+              size="sm"
+              className="h-8 gap-2 text-xs"
+              onClick={() => setActiveTab("COMPLETED")}
+            >
+              <span>Completed</span>
+              {completed.length > 0 && (
+                <span className="rounded-full bg-muted text-muted-foreground px-1.5 py-0.2 text-[10px] font-bold">
+                  {completed.length}
+                </span>
+              )}
+            </Button>
+
+            <Button
+              variant={activeTab === "ALL" ? "default" : "ghost"}
+              size="sm"
+              className="h-8 gap-2 text-xs"
+              onClick={() => setActiveTab("ALL")}
+            >
+              <span>All ({milestones.length})</span>
+            </Button>
+          </div>
+
+          {/* List Content */}
+          {isLoading ? (
+            <div className="space-y-3">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="h-20 rounded-xl bg-card/40 border border-border/40 animate-pulse" />
+              ))}
+            </div>
+          ) : isError ? (
+            <Card>
+              <CardContent className="py-16 text-center text-destructive">
+                Unable to load assigned milestones. Please try again.
+              </CardContent>
+            </Card>
+          ) : filteredMilestones.length === 0 ? (
+            <div className="space-y-3 rounded-xl border border-dashed border-border py-16 text-center">
+              <CheckCircle2 className="mx-auto h-10 w-10 text-emerald-400" />
+              <div>
+                <h3 className="font-bold text-foreground text-base">
+                  {activeTab === "ACTION"
+                    ? "No Milestones Need Action"
+                    : activeTab === "REVIEW"
+                    ? "No Milestones Under Review"
+                    : "No Milestones Found"}
+                </h3>
+                <p className="text-xs text-muted-foreground mt-1 max-w-sm mx-auto">
+                  {activeTab === "ACTION"
+                    ? "You are all caught up! When a project advances to your stage, it will appear here."
+                    : "No milestones matching the selected queue."}
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {filteredMilestones.map((milestone) => (
+                <AssignedMilestoneRow key={milestone.id} milestone={milestone} />
+              ))}
+            </div>
+          )}
+        </div>
       )}
     </div>
   );
@@ -80,41 +209,79 @@ function AssignedMilestoneRow({ milestone }: { milestone: AssignedMilestone }) {
     setError("");
     try {
       await startRevision.mutateAsync();
-      setMessage("Revision started.");
+      setMessage("Revision started. You can now revise deliverables and resubmit.");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to start revision.");
     }
   };
 
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case "COMPLETED":
+      case "APPROVED":
+        return <Badge variant="success">Completed</Badge>;
+      case "IN_PROGRESS":
+        return <Badge variant="default">In Progress</Badge>;
+      case "SUBMITTED":
+        return <Badge className="border-blue-500/30 bg-blue-500/20 text-blue-300">Under Review</Badge>;
+      case "REJECTED":
+        return <Badge variant="destructive">Revision Required</Badge>;
+      default:
+        return <Badge variant="outline">{formatMilestoneStatusLabel(status)}</Badge>;
+    }
+  };
+
   return (
-    <div className="rounded-md border border-border/60 p-4">
+    <Card className="p-4 border-border/60 hover:border-primary/40 transition">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="min-w-0">
-          <p className="font-medium">{String(milestone.step_order).padStart(2, "0")} {milestone.name}</p>
-          <p className="mt-1 text-xs text-muted-foreground">
-            {milestone.project?.name || "Project"} | {milestone.project?.customer || "-"}
+        <div className="min-w-0 space-y-1">
+          <div className="flex items-center gap-2">
+            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/20 text-xs font-bold text-primary">
+              {String(milestone.step_order).padStart(2, "0")}
+            </span>
+            <p className="font-bold text-foreground text-sm">{milestone.name}</p>
+            {getStatusBadge(milestone.status)}
+          </div>
+          <p className="text-xs text-muted-foreground pl-8">
+            Project: <strong className="text-foreground">{milestone.project?.name || "Project"}</strong> • Customer:{" "}
+            <strong className="text-foreground">{milestone.project?.customer || "-"}</strong>
           </p>
-          {message && <p className="mt-2 text-xs text-emerald-400">{message}</p>}
-          {error && <p className="mt-2 text-xs text-destructive">{error}</p>}
+
+          {message && <p className="text-xs text-emerald-400 pl-8">{message}</p>}
+          {error && <p className="text-xs text-destructive pl-8">{error}</p>}
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <Badge variant={milestone.status === "COMPLETED" ? "success" : milestone.status === "IN_PROGRESS" || milestone.status === "SUBMITTED" ? "warning" : milestone.status === "REJECTED" ? "destructive" : "outline"}>{milestone.status}</Badge>
+
+        <div className="flex flex-wrap items-center gap-2 shrink-0 self-start sm:self-center">
           {isSa && milestone.status === "IN_PROGRESS" && (
-            <Button size="sm" className="gap-1.5" onClick={() => setSubmitOpen(true)}>
+            <Button size="sm" className="h-8 gap-1.5 text-xs shadow-sm" onClick={() => setSubmitOpen(true)}>
               <FileCheck2 className="h-3.5 w-3.5" />
-              Submit Milestone
+              <span>Submit Work</span>
             </Button>
           )}
-          {isSa && milestone.status === "SUBMITTED" && <Badge variant="warning">Waiting for HEAD_SA approval</Badge>}
+          {isSa && milestone.status === "SUBMITTED" && (
+            <span className="inline-flex items-center gap-1 text-xs text-amber-400 font-medium px-2 py-1 bg-amber-500/10 rounded-md border border-amber-500/30">
+              <Clock className="h-3.5 w-3.5" />
+              <span>Waiting for Head SA</span>
+            </span>
+          )}
           {isSa && milestone.status === "REJECTED" && (
-            <Button size="sm" variant="outline" className="gap-1.5" onClick={() => void handleStartRevision()} disabled={startRevision.isPending}>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-8 gap-1.5 text-xs border-destructive/40 text-destructive hover:bg-destructive/10"
+              onClick={() => void handleStartRevision()}
+              disabled={startRevision.isPending}
+            >
               <RotateCcw className="h-3.5 w-3.5" />
-              {startRevision.isPending ? "Starting..." : "Start Revision"}
+              <span>{startRevision.isPending ? "Starting..." : "Start Revision"}</span>
             </Button>
           )}
           {projectId && (
             <Link href={`/projects/${projectId}`}>
-              <Button size="sm" variant="outline">Open</Button>
+              <Button size="sm" variant="ghost" className="h-8 gap-1 text-xs text-muted-foreground hover:text-foreground">
+                <span>View Project</span>
+                <ArrowUpRight className="h-3.5 w-3.5" />
+              </Button>
             </Link>
           )}
         </div>
@@ -125,8 +292,9 @@ function AssignedMilestoneRow({ milestone }: { milestone: AssignedMilestone }) {
         onOpenChange={setSubmitOpen}
         projectId={projectId}
         milestone={milestone}
+        onSuccess={() => setMessage("Milestone submitted successfully for Head SA review.")}
       />
-    </div>
+    </Card>
   );
 }
 
@@ -135,11 +303,13 @@ function AssignedSubmitDialog({
   onOpenChange,
   projectId,
   milestone,
+  onSuccess,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   projectId: string;
   milestone: AssignedMilestone;
+  onSuccess: () => void;
 }) {
   const submitMilestone = useSubmitMilestone(projectId, milestone.id);
   const [note, setNote] = useState("");
@@ -152,7 +322,7 @@ function AssignedSubmitDialog({
       await submitMilestone.mutateAsync(note);
       onOpenChange(false);
       setNote("");
-      alert("Milestone submitted for HEAD_SA approval.");
+      onSuccess();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to submit milestone.");
     }
@@ -161,22 +331,35 @@ function AssignedSubmitDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogHeader>
-        <DialogTitle>Submit Milestone</DialogTitle>
+        <DialogTitle>Submit Work for Review</DialogTitle>
         <DialogDescription>{milestone.name}</DialogDescription>
       </DialogHeader>
       <form className="space-y-4" onSubmit={submit}>
-        <textarea
-          rows={3}
-          placeholder="Optional submission note"
-          value={note}
-          onChange={(event) => setNote(event.target.value)}
-          className="flex w-full rounded-md border border-input bg-card px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-primary"
-        />
-        {error && <p className="text-xs text-destructive">{error}</p>}
+        <div>
+          <label className="block text-xs font-semibold text-muted-foreground mb-1">
+            Submission Note (Optional)
+          </label>
+          <textarea
+            rows={3}
+            placeholder="Add deliverables summary or note for Head SA..."
+            value={note}
+            onChange={(event) => setNote(event.target.value)}
+            className="flex w-full rounded-md border border-input bg-card px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-primary"
+          />
+        </div>
+        {error && (
+          <div className="flex items-center gap-2 rounded-lg border border-destructive/40 bg-destructive/10 p-2.5 text-xs text-destructive">
+            <AlertCircle className="h-4 w-4 shrink-0" />
+            <span>{error}</span>
+          </div>
+        )}
         <DialogFooter>
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button type="submit" disabled={submitMilestone.isPending}>
-            {submitMilestone.isPending ? "Submitting..." : "Submit for Approval"}
+          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            Cancel
+          </Button>
+          <Button type="submit" disabled={submitMilestone.isPending} className="gap-1.5">
+            <FileCheck2 className="h-4 w-4" />
+            <span>{submitMilestone.isPending ? "Submitting..." : "Submit to Head SA"}</span>
           </Button>
         </DialogFooter>
       </form>

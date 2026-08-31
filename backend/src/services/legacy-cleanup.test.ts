@@ -21,7 +21,11 @@ assert(!Object.keys(backendPackage.scripts).some((script) => script.includes(old
 console.log('Test 1 - Backend package has no legacy ORM package or script: passed');
 
 const routeIndex = readFileSync(join(backendRoot, 'src', 'routes', 'index.ts'), 'utf8');
-assert(!routeIndex.includes("'/approvals'"), 'Test 2: obsolete approval route must not be mounted');
+assert(
+  !routeIndex.includes('approvalCenterRoutes') &&
+  !routeIndex.includes("'./approval-center.routes'"),
+  'Test 2: obsolete approval center route must not be mounted'
+);
 assert(!routeIndex.includes("'/engine'"), 'Test 2: obsolete workflow engine route must not be mounted');
 assert((routeIndex.match(/router\.use\('\/assignments'/g) || []).length === 1, 'Test 2: only the authoritative assignment route may be mounted');
 console.log('Test 2 - Legacy route mounts are removed: passed');

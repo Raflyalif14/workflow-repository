@@ -11,7 +11,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useUploadDocument } from "@/hooks/use-documents";
-import { useProjects } from "@/hooks/use-projects";
+import { useProjects, useProjectMilestones } from "@/hooks/use-projects";
 import { UploadCloud, FileText } from "lucide-react";
 
 interface UploadDocumentDialogProps {
@@ -32,10 +32,15 @@ export function UploadDocumentDialog({
   const projects = projectsData?.projects || [];
 
   const [projectId, setProjectId] = useState(defaultProjectId || "");
+  const [milestoneId, setMilestoneId] = useState(defaultMilestoneId || "");
+
+  const { data: milestones = [] } = useProjectMilestones(projectId);
+
   const [title, setTitle] = useState("");
   const [category, setCategory] = useState("PROPOSAL");
   const [changelog, setChangelog] = useState("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -51,7 +56,9 @@ export function UploadDocumentDialog({
     const formData = new FormData();
     formData.append("file", selectedFile);
     formData.append("projectId", projectId);
-    if (defaultMilestoneId) formData.append("milestoneId", defaultMilestoneId);
+    if (milestoneId) {
+      formData.append("milestoneId", milestoneId);
+    }
     formData.append("title", title);
     formData.append("category", category);
     formData.append("changelog", changelog || "Initial document upload");
@@ -88,7 +95,10 @@ export function UploadDocumentDialog({
           </label>
           <select
             value={projectId}
-            onChange={(e) => setProjectId(e.target.value)}
+            onChange={(e) => {
+              setProjectId(e.target.value);
+              setMilestoneId("");
+            }}
             className="flex h-10 w-full rounded-md border border-input bg-card px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-primary"
             required
             disabled={uploadMutation.isPending}
@@ -101,7 +111,27 @@ export function UploadDocumentDialog({
             ))}
           </select>
         </div>
+        {/* Milestone Selection */}
+        <div>
+          <label className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1">
+            Associated Milestone
+          </label>
 
+          <select
+            value={milestoneId}
+            onChange={(e) => setMilestoneId(e.target.value)}
+            className="flex h-10 w-full rounded-md border border-input bg-card px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-primary"
+            disabled={!projectId || uploadMutation.isPending}
+          >
+            <option value="">-- Project-level document --</option>
+
+            {milestones.map((milestone) => (
+              <option key={milestone.id} value={milestone.id}>
+                Step {milestone.step_order} - {milestone.name}
+              </option>
+            ))}
+          </select>
+        </div>
         {/* Title & Category */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>

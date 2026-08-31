@@ -168,50 +168,74 @@ async function getApprovalItems() {
   });
 }
 
-export function useApprovals(filters: ApprovalFilters = {}) {
-  const { type = "ALL", status = "PENDING", search = "" } = filters;
+type ApprovalOverviewResponse = {
+  stats: ApprovalStats;
+  items: ApprovalItem[];
+};
 
-  return useQuery<ApprovalItem[]>({
-    queryKey: approvalKeys.list({ type, status, search }),
-    queryFn: async () => {
-      const approvals = await getApprovalItems();
-      return approvals.filter((item) => {
-        const typeMatches = type === "ALL" || item.category === type;
-        const statusMatches = status === "ALL" || item.status === status;
+const approvalOverviewQueryKey = [
+  ...approvalKeys.all(),
+  'overview',
+] as const;
+
+async function getApprovalOverview(): Promise<ApprovalOverviewResponse> {
+  return apiClient<ApprovalOverviewResponse>('/approvals/overview');
+}
+
+export function useApprovals(filters: ApprovalFilters = {}) {
+  const {
+    type = 'ALL',
+    status = 'PENDING',
+    search = '',
+  } = filters;
+
+  return useQuery<
+    ApprovalOverviewResponse,
+    Error,
+    ApprovalItem[]
+  >({
+    queryKey: approvalOverviewQueryKey,
+    queryFn: getApprovalOverview,
+
+    select: (overview) =>
+      overview.items.filter((item) => {
+        const typeMatches =
+          type === 'ALL' || item.category === type;
+
+        const statusMatches =
+          status === 'ALL' || item.status === status;
+
         const currentPendingMatches =
-          status !== "PENDING" || item.category !== "SUBMISSION" || item.isCurrentApproval !== false;
-        return typeMatches && statusMatches && currentPendingMatches && matchesSearch(item, search);
-      });
-    },
-    refetchInterval: status === "PENDING" ? 15000 : false,
-    staleTime: 0,
-    refetchOnWindowFocus: true,
+          status !== 'PENDING' ||
+          item.isCurrentApproval !== false;
+
+        return (
+          typeMatches &&
+          statusMatches &&
+          currentPendingMatches &&
+          matchesSearch(item, search)
+        );
+      }),
+
+    staleTime: 30_000,
+    refetchInterval: 60_000,
+    refetchOnWindowFocus: false,
   });
 }
 
 export function useApprovalStats() {
-  return useQuery<ApprovalStats>({
-    queryKey: approvalKeys.stats(),
-    queryFn: async () => {
-      const approvals = await getApprovalItems();
-      const pendingProjectPlans = approvals.filter((item) => item.category === "PROJECT_PLAN" && item.status === "PENDING").length;
-      const pendingDeadlines = approvals.filter((item) => item.category === "DEADLINE" && item.status === "PENDING").length;
-      const pendingSubmissions = approvals.filter(
-        (item) => item.category === "SUBMISSION" && item.status === "PENDING" && item.isCurrentApproval !== false
-      ).length;
+  return useQuery<
+    ApprovalOverviewResponse,
+    Error,
+    ApprovalStats
+  >({
+    queryKey: approvalOverviewQueryKey,
+    queryFn: getApprovalOverview,
+    select: (overview) => overview.stats,
 
-      return {
-        totalPending: pendingProjectPlans + pendingDeadlines + pendingSubmissions,
-        pendingProjectPlans,
-        pendingDeadlines,
-        pendingSubmissions,
-        pendingMilestones: pendingSubmissions,
-        pendingDocs: 0,
-      };
-    },
-    refetchInterval: 15000,
-    staleTime: 0,
-    refetchOnWindowFocus: true,
+    staleTime: 30_000,
+    refetchInterval: 60_000,
+    refetchOnWindowFocus: false,
   });
 }
 

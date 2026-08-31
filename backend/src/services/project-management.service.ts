@@ -66,7 +66,54 @@ export class ProjectManagementService {
     const { data, error, count } = await request;
     if (error) throw new Error(error.message);
     const total = count || 0;
-    return { projects: (data || []).map(mapProject), pagination: { page, limit, total, totalPages: Math.ceil(total / limit), hasNextPage: page * limit < total, hasPrevPage: page > 1 } };
+    const projects = (data || []).map(mapProject);
+    const projectIds = projects.map((p: any) => p.id);
+
+    if (projectIds.length > 0) {
+      const { data: milestonesData } = await supabaseAdmin
+        .from('project_milestones')
+        .select('id,project_id,step_order,name,status,pic_id,workflow_stage:workflow_stages!project_milestones_workflow_stage_id_fkey(id,default_role),pic:users!project_milestones_pic_id_fkey(id,full_name)')
+        .in('project_id', projectIds)
+        .order('step_order', { ascending: true });
+
+      const milestonesByProject = new Map<string, any[]>();
+      for (const m of (milestonesData || [])) {
+        const list = milestonesByProject.get(m.project_id) || [];
+        list.push(m);
+        milestonesByProject.set(m.project_id, list);
+      }
+
+      for (const p of projects as any[]) {
+        const pMilestones = milestonesByProject.get(p.id) || [];
+        const totalMilestones = pMilestones.length;
+        const completedMilestones = p.status === 'COMPLETED'
+          ? totalMilestones
+          : pMilestones.filter((m) => ['COMPLETED', 'APPROVED'].includes(m.status)).length;
+        const progressPct = p.status === 'COMPLETED' ? 100 : totalMilestones > 0 ? Math.round((completedMilestones / totalMilestones) * 100) : 0;
+
+        let currentMilestone = null;
+        if (p.status === 'ACTIVE') {
+          currentMilestone = pMilestones.find((m) => ['IN_PROGRESS', 'SUBMITTED', 'REJECTED'].includes(m.status))
+            || pMilestones.find((m) => !['COMPLETED', 'APPROVED'].includes(m.status))
+            || null;
+        } else if (p.status === 'DRAFT') {
+          currentMilestone = { name: 'Project Plan Setup', workflow_stage: { default_role: 'SALES' } };
+        } else if (p.status === 'COMPLETED') {
+          currentMilestone = { name: 'Workflow Completed', workflow_stage: null };
+        }
+
+        const stageRole = currentMilestone?.workflow_stage?.default_role || (p.status === 'DRAFT' ? 'SALES' : null);
+        const stagePic = currentMilestone?.pic?.full_name || (stageRole === 'SA' ? p.pic?.full_name : null);
+
+        p.totalMilestones = totalMilestones;
+        p.completedMilestones = completedMilestones;
+        p.progress = progressPct;
+        p.currentStage = currentMilestone?.name || (p.status === 'COMPLETED' ? 'Workflow Completed' : null);
+        p.currentRole = stageRole ? (stagePic ? `${stageRole} (${stagePic})` : stageRole) : null;
+      }
+    }
+
+    return { projects, pagination: { page, limit, total, totalPages: Math.ceil(total / limit), hasNextPage: page * limit < total, hasPrevPage: page > 1 } };
   }
 
   static async get(id: string, actor: Actor) {

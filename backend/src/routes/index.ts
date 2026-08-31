@@ -14,6 +14,7 @@ import deadlineApprovalRoutes from './deadline-approval.routes';
 import milestoneApprovalRoutes from './milestone-approval.routes';
 import milestoneInitiationApprovalRoutes from './milestone-initiation-approval.routes';
 import projectPlanApprovalRoutes from './project-plan-approval.routes';
+import approvalOverviewRoutes from './approval-overview.routes';
 
 const router = Router();
 
@@ -49,5 +50,7 @@ router.use('/documents', documentRoutes);
 
 // Dashboard Overview endpoints: /api/dashboard
 router.use('/dashboard', dashboardRoutes);
+
+router.use('/approvals', approvalOverviewRoutes);
 
 export default router;

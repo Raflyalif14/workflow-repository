@@ -17,8 +17,10 @@ import {
   CalendarClock,
   ClipboardCheck,
   FileCheck2,
+  AlertCircle,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { getApprovalTypeDisplay } from "@/lib/workflow-ux-helpers";
 
 interface ApprovalActionDialogProps {
   open: boolean;
@@ -37,6 +39,7 @@ export function ApprovalActionDialog({
 
   const [action, setAction] = useState<"APPROVE" | "REJECT">(initialAction || "APPROVE");
   const [feedback, setFeedback] = useState("");
+  const [error, setError] = useState("");
 
   // Sync action state when dialog opens or initialAction prop changes
   React.useEffect(() => {
@@ -45,6 +48,7 @@ export function ApprovalActionDialog({
     }
     if (!open) {
       setFeedback("");
+      setError("");
     }
   }, [initialAction, open]);
 
@@ -56,22 +60,23 @@ export function ApprovalActionDialog({
   const handleDecision = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!canProcess) return;
-    if (action === "REJECT" && (!feedback || feedback.length < 5)) {
-      alert("Please provide at least 5 characters of feedback for rejection.");
+
+    if (action === "REJECT" && (!feedback.trim() || feedback.trim().length < 5)) {
+      setError("Please provide a specific rejection reason (at least 5 characters) so the requester knows what to fix.");
       return;
     }
 
+    setError("");
     try {
       await processMutation.mutateAsync({
         item,
         action,
-        feedback,
+        feedback: feedback.trim() || undefined,
       });
-      alert(`Approval request ${action.toLowerCase()}d successfully.`);
       onOpenChange(false);
       setFeedback("");
     } catch (err: any) {
-      alert(err.message || "Failed to process decision");
+      setError(err.message || "Failed to process decision. Please try again.");
     }
   };
 
@@ -93,8 +98,8 @@ export function ApprovalActionDialog({
         {/* Ticket Summary Box */}
         <div className="rounded-xl border border-border/70 bg-card p-4 space-y-2.5 text-xs">
           <div className="flex items-center justify-between">
-            <Badge variant="outline" className="font-mono">
-              {item.category}
+            <Badge variant="outline" className="font-semibold">
+              {getApprovalTypeDisplay(item.category)}
             </Badge>
             <span className="text-muted-foreground">
               Submitted: {new Date(item.submittedAt).toLocaleString("id-ID", { dateStyle: "medium", timeStyle: "short" })}
@@ -112,19 +117,19 @@ export function ApprovalActionDialog({
           )}
 
           {item.category === "PROJECT_PLAN" && (
-            <div className="rounded-lg border border-border/40 bg-muted/30 p-2.5">
+            <div className="rounded-lg border border-border/40 bg-muted/30 p-2.5 space-y-1">
               <p>Project: <strong className="text-foreground">{item.projectName}</strong></p>
-              {item.requestNote && <p>Plan note: <strong className="text-foreground">{item.requestNote}</strong></p>}
-              {item.reviewNote && <p>Review note: <strong className="text-foreground">{item.reviewNote}</strong></p>}
+              {item.requestNote && <p>Plan note: <strong className="text-foreground">&quot;{item.requestNote}&quot;</strong></p>}
+              {item.reviewNote && <p>Review note: <strong className="text-foreground">&quot;{item.reviewNote}&quot;</strong></p>}
             </div>
           )}
 
           {item.category === "SUBMISSION" && (
-            <div className="rounded-lg border border-border/40 bg-muted/30 p-2.5">
+            <div className="rounded-lg border border-border/40 bg-muted/30 p-2.5 space-y-1">
               <p>Milestone: <strong className="text-foreground">{item.milestoneName}</strong></p>
               <p>Submitted by: <strong className="text-foreground">{item.submittedBy}</strong></p>
-              <p>Submission note: <strong className="text-foreground">{item.submissionNote || "-"}</strong></p>
-              {item.reviewNote && <p>Review note: <strong className="text-foreground">{item.reviewNote}</strong></p>}
+              <p>Submission note: <strong className="text-foreground">{item.submissionNote ? `"${item.submissionNote}"` : "-"}</strong></p>
+              {item.reviewNote && <p>Review note: <strong className="text-foreground">&quot;{item.reviewNote}&quot;</strong></p>}
               {item.currentDeadline?.due_date && <p>Effective due: <strong className="text-foreground">{formatDate(item.currentDeadline.due_date)}</strong></p>}
             </div>
           )}
@@ -139,73 +144,89 @@ export function ApprovalActionDialog({
 
         {/* Decision Form */}
         {canProcess ? (
-        <form onSubmit={handleDecision} className="space-y-3">
-          <div className="flex items-center gap-3">
-            <Button
-              type="button"
-              variant={action === "APPROVE" ? "default" : "outline"}
-              className={`flex-1 gap-1.5 text-xs h-9 ${
-                action === "APPROVE" ? "bg-emerald-500 hover:bg-emerald-600 text-black font-semibold" : ""
-              }`}
-              onClick={() => setAction("APPROVE")}
-            >
-              <CheckCircle2 className="h-4 w-4" />
-              <span>Approve Request</span>
-            </Button>
-            <Button
-              type="button"
-              variant={action === "REJECT" ? "destructive" : "outline"}
-              className="flex-1 gap-1.5 text-xs h-9"
-              onClick={() => setAction("REJECT")}
-            >
-              <XCircle className="h-4 w-4" />
-              <span>Reject (Needs Revision)</span>
-            </Button>
-          </div>
+          <form onSubmit={handleDecision} className="space-y-3">
+            <div className="flex items-center gap-3">
+              <Button
+                type="button"
+                variant={action === "APPROVE" ? "default" : "outline"}
+                className={`flex-1 gap-1.5 text-xs h-9 ${
+                  action === "APPROVE" ? "bg-emerald-500 hover:bg-emerald-600 text-black font-semibold shadow-sm" : ""
+                }`}
+                onClick={() => {
+                  setAction("APPROVE");
+                  setError("");
+                }}
+              >
+                <CheckCircle2 className="h-4 w-4" />
+                <span>Approve Request</span>
+              </Button>
+              <Button
+                type="button"
+                variant={action === "REJECT" ? "destructive" : "outline"}
+                className="flex-1 gap-1.5 text-xs h-9"
+                onClick={() => {
+                  setAction("REJECT");
+                  setError("");
+                }}
+              >
+                <XCircle className="h-4 w-4" />
+                <span>Reject (Needs Revision)</span>
+              </Button>
+            </div>
 
-          <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1">
-              {action === "REJECT" ? "Rejection Reason / Revision Notes *" : "Approval Remarks (Optional)"}
-            </label>
-            <textarea
-              rows={3}
-              placeholder={
-                action === "REJECT"
-                  ? "Specify reasons for rejection and required corrections..."
-                  : "Add optional sign-off remarks..."
-              }
-              value={feedback}
-              onChange={(e) => setFeedback(e.target.value)}
-              className="flex w-full rounded-md border border-input bg-card px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-primary"
-              required={action === "REJECT"}
-            />
-          </div>
+            <div>
+              <label className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1">
+                {action === "REJECT" ? "Rejection Reason / Revision Notes *" : "Approval Remarks (Optional)"}
+              </label>
+              <textarea
+                rows={3}
+                placeholder={
+                  action === "REJECT"
+                    ? "Specify reasons for rejection and required corrections (required)..."
+                    : "Add optional sign-off remarks..."
+                }
+                value={feedback}
+                onChange={(e) => {
+                  setFeedback(e.target.value);
+                  setError("");
+                }}
+                className="flex w-full rounded-md border border-input bg-card px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                required={action === "REJECT"}
+              />
+            </div>
 
-          <DialogFooter className="pt-2">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-              disabled={processMutation.isPending}
-            >
-              Cancel
-            </Button>
-            <Button
-              type="submit"
-              disabled={processMutation.isPending}
-              variant={action === "REJECT" ? "destructive" : "default"}
-              className={action === "APPROVE" ? "bg-emerald-500 hover:bg-emerald-600 text-black font-semibold" : ""}
-            >
-              {processMutation.isPending ? "Processing..." : `Confirm ${action}`}
-            </Button>
-          </DialogFooter>
-        </form>
+            {error && (
+              <div className="flex items-center gap-2 rounded-lg border border-destructive/40 bg-destructive/10 p-2.5 text-xs text-destructive">
+                <AlertCircle className="h-4 w-4 shrink-0" />
+                <span>{error}</span>
+              </div>
+            )}
+
+            <DialogFooter className="pt-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => onOpenChange(false)}
+                disabled={processMutation.isPending}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                disabled={processMutation.isPending}
+                variant={action === "REJECT" ? "destructive" : "default"}
+                className={action === "APPROVE" ? "bg-emerald-500 hover:bg-emerald-600 text-black font-semibold" : ""}
+              >
+                {processMutation.isPending ? "Processing..." : `Confirm ${action === "APPROVE" ? "Approval" : "Rejection"}`}
+              </Button>
+            </DialogFooter>
+          </form>
         ) : (
           <div className="space-y-3">
-            <div className="rounded-lg border border-border/50 bg-muted/30 p-3 text-xs">
+            <div className="rounded-lg border border-border/50 bg-muted/30 p-3 text-xs space-y-1">
               <p>Status: <strong className="text-foreground">{item.status}</strong></p>
               <p>Reviewed by: <strong className="text-foreground">{item.reviewer?.full_name || item.reviewer?.fullName || "-"}</strong></p>
-              {item.reviewNote && <p>Review note: <strong className="text-foreground">{item.reviewNote}</strong></p>}
+              {item.reviewNote && <p>Review note: <strong className="text-foreground">&quot;{item.reviewNote}&quot;</strong></p>}
             </div>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
@@ -237,12 +258,12 @@ function DeadlineBox({
   } | null;
 }) {
   return (
-    <div className="rounded-lg border border-border/40 bg-muted/30 p-2.5 text-[11px]">
+    <div className="rounded-lg border border-border/40 bg-muted/30 p-2.5 text-[11px] space-y-0.5">
       <p className="font-semibold text-foreground">{title}</p>
       <p>Start: {formatDate(deadline?.start_date)}</p>
       <p>Duration: {deadline?.duration_working_days || "-"} working days</p>
       <p>Due: {formatDate(deadline?.due_date)}</p>
-      {deadline?.change_reason && <p>Reason: {deadline.change_reason}</p>}
+      {deadline?.change_reason && <p className="text-muted-foreground italic">Reason: &quot;{deadline.change_reason}&quot;</p>}
     </div>
   );
 }

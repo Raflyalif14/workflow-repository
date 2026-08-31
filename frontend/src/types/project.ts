@@ -200,7 +200,9 @@ export interface Project {
   activity_logs?: Array<{ id: string; user_id?: string; action: string; description?: string; details?: string; created_at: string }>;
   totalMilestones?: number;
   completedMilestones?: number;
-  progress?: number; // Legacy field retained for older screens.
+  progress?: number;
+  currentStage?: string | null;
+  currentRole?: string | null;
   is_postponed?: boolean;
   postponed_at?: string | null;
   postpone_reason?: string | null;

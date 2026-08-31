@@ -15,6 +15,11 @@ import {
   FolderKanban,
   Sparkles,
   PauseCircle,
+  Bell,
+  Users,
+  FileCheck2,
+  CalendarClock,
+  Check,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -25,7 +30,11 @@ import {
   CardTitle,
   CardDescription,
 } from "@/components/ui/card";
+import { useAuth } from "@/components/auth/auth-provider";
 import { useDashboard } from "@/hooks/use-dashboard";
+import { useApprovalStats } from "@/hooks/use-approvals";
+import { useMyAssignedMilestones, useProjects } from "@/hooks/use-projects";
+import { formatProjectStatusLabel } from "@/lib/workflow-ux-helpers";
 import {
   BarChart,
   Bar,
@@ -60,13 +69,20 @@ const renderPieLabel = ({ name, percent }: any) =>
   `${name} ${(percent * 100).toFixed(0)}%`;
 
 export default function DashboardPage() {
+  const { user } = useAuth();
+  const userRole = user?.role || "GUEST";
+
   const { data, isLoading, isError } = useDashboard();
+  const { data: approvalStats } = useApprovalStats();
+  const { data: assignedMilestones = [] } = useMyAssignedMilestones(userRole === "SA" || userRole === "HEAD_SA");
+  const { data: projectsData } = useProjects({ limit: 100 });
 
   const summary = data?.summary;
   const scenarioDistribution = data?.scenarioDistribution || [];
   const statusDistribution = data?.statusDistribution || [];
   const projectProgress = data?.projectProgress || [];
   const recentActivity = data?.recentActivity || [];
+  const allProjects = projectsData?.projects || [];
 
   const statusColors: Record<string, string> = {
     DRAFT: "#64748b",
@@ -74,14 +90,6 @@ export default function DashboardPage() {
     POSTPONED: "#f59e0b",
     COMPLETED: "#22c55e",
     CANCELLED: "#ef4444",
-  };
-
-  const statusLabels: Record<string, string> = {
-    DRAFT: "Draft",
-    ACTIVE: "Active",
-    POSTPONED: "Postponed",
-    COMPLETED: "Completed",
-    CANCELLED: "Cancelled",
   };
 
   const getProgressColor = (pct: number) => {
@@ -111,11 +119,145 @@ export default function DashboardPage() {
     }
   };
 
+  // Build role-aware "Needs Attention" items
+  const attentionItems: Array<{
+    id: string;
+    title: string;
+    description: string;
+    href: string;
+    actionLabel: string;
+    icon: React.ReactNode;
+    badgeVariant?: "default" | "warning" | "destructive" | "outline" | "success";
+    badgeText?: string;
+  }> = [];
+
+  if (userRole === "HEAD_SA") {
+    const pendingTotal = approvalStats?.totalPending || 0;
+    if (pendingTotal > 0) {
+      attentionItems.push({
+        id: "head-sa-approvals",
+        title: `${pendingTotal} Approval${pendingTotal > 1 ? "s" : ""} Waiting Review`,
+        description: `${approvalStats?.pendingProjectPlans || 0} Project Plans, ${approvalStats?.pendingDeadlines || 0} Deadline Changes, ${approvalStats?.pendingSubmissions || 0} SA Submissions.`,
+        href: "/approvals",
+        actionLabel: "Review Now",
+        icon: <ShieldCheck className="h-4 w-4 text-amber-400" />,
+        badgeVariant: "warning",
+        badgeText: `${pendingTotal} Pending`,
+      });
+    }
+
+    const unassignedPicProjects = allProjects.filter(
+      (p) => p.status === "ACTIVE" && (!p.pic || p.currentStage === "Assign PIC")
+    );
+    if (unassignedPicProjects.length > 0) {
+      attentionItems.push({
+        id: "head-sa-unassigned",
+        title: `${unassignedPicProjects.length} Project${unassignedPicProjects.length > 1 ? "s" : ""} Need PIC Assignment`,
+        description: `Active projects waiting for Solution Architect assignment: ${unassignedPicProjects.map((p) => p.name).slice(0, 2).join(", ")}${unassignedPicProjects.length > 2 ? "..." : ""}`,
+        href: `/projects/${unassignedPicProjects[0].id}`,
+        actionLabel: "Assign PIC",
+        icon: <Users className="h-4 w-4 text-blue-400" />,
+        badgeVariant: "default",
+        badgeText: "Action Required",
+      });
+    }
+  } else if (userRole === "SALES") {
+    const draftProjects = allProjects.filter((p) => p.status === "DRAFT");
+    if (draftProjects.length > 0) {
+      attentionItems.push({
+        id: "sales-drafts",
+        title: `${draftProjects.length} Draft Project${draftProjects.length > 1 ? "s" : ""} Ready for Plan Submission`,
+        description: "Configure timeline start dates and working durations, then submit for Head SA review.",
+        href: `/projects/${draftProjects[0].id}`,
+        actionLabel: "Open Project",
+        icon: <FolderKanban className="h-4 w-4 text-primary" />,
+        badgeVariant: "outline",
+        badgeText: `${draftProjects.length} Draft`,
+      });
+    }
+
+    const postponedProjects = allProjects.filter((p) => p.status === "POSTPONED" || p.is_postponed);
+    if (postponedProjects.length > 0) {
+      attentionItems.push({
+        id: "sales-postponed",
+        title: `${postponedProjects.length} Postponed Project${postponedProjects.length > 1 ? "s" : ""}`,
+        description: "These projects are temporarily paused. Resume execution whenever ready.",
+        href: `/projects/${postponedProjects[0].id}`,
+        actionLabel: "Resume Workflow",
+        icon: <PauseCircle className="h-4 w-4 text-amber-400" />,
+        badgeVariant: "warning",
+        badgeText: "Postponed",
+      });
+    }
+  } else if (userRole === "SA") {
+    const rejectedMilestones = assignedMilestones.filter((m) => m.status === "REJECTED");
+    if (rejectedMilestones.length > 0) {
+      attentionItems.push({
+        id: "sa-revisions",
+        title: `${rejectedMilestones.length} Milestone${rejectedMilestones.length > 1 ? "s" : ""} Need Revision`,
+        description: `Head SA requested revisions for: ${rejectedMilestones.map((m) => m.name).join(", ")}.`,
+        href: "/milestones",
+        actionLabel: "Start Revision",
+        icon: <AlertTriangle className="h-4 w-4 text-destructive" />,
+        badgeVariant: "destructive",
+        badgeText: "Revision Required",
+      });
+    }
+
+    const inProgressMilestones = assignedMilestones.filter((m) => m.status === "IN_PROGRESS");
+    if (inProgressMilestones.length > 0) {
+      attentionItems.push({
+        id: "sa-inprogress",
+        title: `${inProgressMilestones.length} Milestone${inProgressMilestones.length > 1 ? "s" : ""} In Progress`,
+        description: `Deliverables ready for your execution and submission: ${inProgressMilestones.map((m) => m.name).slice(0, 2).join(", ")}.`,
+        href: "/milestones",
+        actionLabel: "Submit Work",
+        icon: <FileCheck2 className="h-4 w-4 text-emerald-400" />,
+        badgeVariant: "default",
+        badgeText: "In Progress",
+      });
+    }
+  } else if (userRole === "SUPER_ADMIN") {
+    const pendingTotal = approvalStats?.totalPending || 0;
+    if (pendingTotal > 0) {
+      attentionItems.push({
+        id: "admin-approvals",
+        title: `${pendingTotal} Approvals in Pipeline`,
+        description: "Global queue of project plans, deadline change requests, and milestone submissions.",
+        href: "/approvals",
+        actionLabel: "View Approvals",
+        icon: <ShieldCheck className="h-4 w-4 text-amber-400" />,
+        badgeVariant: "warning",
+        badgeText: `${pendingTotal} Pending`,
+      });
+    }
+    if ((summary?.overdueMilestones || 0) > 0) {
+      attentionItems.push({
+        id: "admin-overdue",
+        title: `${summary?.overdueMilestones} Overdue Milestone${(summary?.overdueMilestones || 0) > 1 ? "s" : ""}`,
+        description: "Stages past their effective calculated due date across active projects.",
+        href: "/projects",
+        actionLabel: "Track Projects",
+        icon: <AlertTriangle className="h-4 w-4 text-destructive" />,
+        badgeVariant: "destructive",
+        badgeText: "Overdue",
+      });
+    }
+  }
+
   if (isLoading) {
     return (
-      <div className="container py-20 text-center text-muted-foreground">
-        <Activity className="h-8 w-8 mx-auto mb-3 animate-spin text-primary" />
-        <p className="font-medium">Loading Dashboard...</p>
+      <div className="container py-12 space-y-6">
+        <div className="h-16 rounded-xl bg-card/40 border border-border/40 animate-pulse" />
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="h-28 rounded-xl bg-card/40 border border-border/40 animate-pulse" />
+          ))}
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="h-72 rounded-xl bg-card/40 border border-border/40 animate-pulse" />
+          <div className="h-72 rounded-xl bg-card/40 border border-border/40 animate-pulse" />
+        </div>
       </div>
     );
   }
@@ -136,7 +278,7 @@ export default function DashboardPage() {
         <div>
           <div className="flex items-center gap-2 text-primary text-xs font-semibold uppercase tracking-wider mb-1">
             <Sparkles className="h-4 w-4" />
-            <span>Workflow Repository Management System</span>
+            <span>WorkflowHub Operations</span>
           </div>
           <h1 className="text-3xl font-bold tracking-tight">Dashboard Overview</h1>
           <p className="text-sm text-muted-foreground mt-1">
@@ -144,12 +286,14 @@ export default function DashboardPage() {
           </p>
         </div>
         <div className="flex items-center gap-3 self-start sm:self-auto">
-          <Link href="/approvals">
-            <Button variant="outline" className="gap-2">
-              <ShieldCheck className="h-4 w-4" />
-              <span>Approval Center</span>
-            </Button>
-          </Link>
+          {(userRole === "HEAD_SA" || userRole === "SUPER_ADMIN") && (
+            <Link href="/approvals">
+              <Button variant="outline" className="gap-2">
+                <ShieldCheck className="h-4 w-4" />
+                <span>Approval Center</span>
+              </Button>
+            </Link>
+          )}
           <Link href="/projects">
             <Button className="gap-2 shadow-md">
               <FolderKanban className="h-4 w-4" />
@@ -157,6 +301,70 @@ export default function DashboardPage() {
             </Button>
           </Link>
         </div>
+      </div>
+
+      {/* ─── Compact Role-Aware Needs Attention Section ─── */}
+      <div className="rounded-xl border border-primary/20 bg-gradient-to-r from-primary/5 via-card/70 to-primary/5 p-4 sm:p-5 shadow-sm space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/20 text-primary">
+              <Bell className="h-4 w-4" />
+            </div>
+            <div>
+              <h2 className="text-sm sm:text-base font-bold text-foreground tracking-tight">
+                Needs Attention
+              </h2>
+              <p className="text-[11px] text-muted-foreground">
+                Action items requiring your role&apos;s prompt execution or review
+              </p>
+            </div>
+          </div>
+          <Badge variant="outline" className="text-[10px] font-mono uppercase tracking-wider">
+            {userRole.replace(/_/g, " ")}
+          </Badge>
+        </div>
+
+        {attentionItems.length === 0 ? (
+          <div className="flex items-center gap-3 rounded-lg border border-border/40 bg-card/60 px-4 py-3 text-xs text-muted-foreground">
+            <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
+            <span>All caught up! No urgent workflow actions currently require your attention.</span>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 pt-1">
+            {attentionItems.map((item) => (
+              <div
+                key={item.id}
+                className="flex flex-col justify-between rounded-lg border border-border/60 bg-card/90 p-3.5 space-y-3 hover:border-primary/40 transition shadow-sm"
+              >
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
+                      {item.icon}
+                      <span className="truncate">{item.title}</span>
+                    </div>
+                    {item.badgeText && (
+                      <Badge variant={item.badgeVariant || "outline"} className="text-[10px] shrink-0">
+                        {item.badgeText}
+                      </Badge>
+                    )}
+                  </div>
+                  <p className="text-[11px] text-muted-foreground leading-relaxed">
+                    {item.description}
+                  </p>
+                </div>
+
+                <div className="pt-2 border-t border-border/40 flex justify-end">
+                  <Link href={item.href}>
+                    <Button size="sm" variant="default" className="h-7 text-xs gap-1.5 shadow-none">
+                      <span>{item.actionLabel}</span>
+                      <ArrowUpRight className="h-3 w-3" />
+                    </Button>
+                  </Link>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* ─── KPI Summary Cards ─── */}
@@ -305,7 +513,7 @@ export default function DashboardPage() {
                   <Pie
                     data={statusDistribution.map((d) => ({
                       ...d,
-                      name: statusLabels[d.status] || d.status,
+                      name: formatProjectStatusLabel(d.status),
                     }))}
                     cx="50%"
                     cy="50%"
@@ -401,7 +609,7 @@ export default function DashboardPage() {
                         }
                         className="text-[10px]"
                       >
-                        {statusLabels[p.status] || p.status}
+                        {formatProjectStatusLabel(p.status)}
                       </Badge>
                     </div>
 

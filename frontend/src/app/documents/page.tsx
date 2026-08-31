@@ -94,7 +94,10 @@ export default function DocumentsPage() {
     setCommentsState({ docId: doc.id, docTitle: doc.title });
   };
 
+  const [downloadError, setDownloadError] = useState("");
+
   const handleDownload = async (versionId: string) => {
+    setDownloadError("");
     try {
       const { url } = await documentDownload.mutateAsync(versionId);
       const link = window.document.createElement("a");
@@ -103,7 +106,7 @@ export default function DocumentsPage() {
       link.rel = "noopener noreferrer";
       link.click();
     } catch (error) {
-      alert(error instanceof Error ? error.message : "Failed to download document");
+      setDownloadError(error instanceof Error ? error.message : "Failed to download document.");
     }
   };
 
@@ -174,6 +177,15 @@ export default function DocumentsPage() {
         </div>
       </div>
 
+      {downloadError && (
+        <div className="rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-xs text-destructive flex items-center justify-between">
+          <span>{downloadError}</span>
+          <Button variant="ghost" size="sm" className="h-6 px-2 text-xs" onClick={() => setDownloadError("")}>
+            Dismiss
+          </Button>
+        </div>
+      )}
+
       {/* Documents Grid */}
       {isLoading ? (
         <div className="py-16 text-center text-muted-foreground">Loading repository documents...</div>
@@ -205,8 +217,8 @@ export default function DocumentsPage() {
                       </h3>
                     </div>
                     {latestVersion && (
-                      <Badge variant="outline" className="font-mono text-xs text-primary font-bold">
-                        v{latestVersion.versionNumber}
+                      <Badge variant="outline" className="text-xs text-primary font-semibold">
+                        Version {latestVersion.versionNumber}
                       </Badge>
                     )}
                   </div>
