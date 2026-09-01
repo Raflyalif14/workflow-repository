@@ -15,6 +15,7 @@ import milestoneApprovalRoutes from './milestone-approval.routes';
 import milestoneInitiationApprovalRoutes from './milestone-initiation-approval.routes';
 import projectPlanApprovalRoutes from './project-plan-approval.routes';
 import approvalOverviewRoutes from './approval-overview.routes';
+import notificationRoutes from './notification.routes';
 
 const router = Router();
 
@@ -35,6 +36,7 @@ router.use('/scenarios', scenarioRoutes);
 router.use('/workflow-stages', workflowStageRoutes);
 router.use('/assignments', assignmentPhase5Routes);
 router.use('/me', meRoutes);
+router.use('/notifications', notificationRoutes);
 router.use('/deadlines', deadlineRoutes);
 router.use('/milestones', milestoneRoutes);
 router.use('/deadline-approvals', deadlineApprovalRoutes);
