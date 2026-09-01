@@ -6,6 +6,11 @@ import {
   SubmitProjectPlanInput,
 } from '../validators/project-plan.validator';
 import { DeadlineService } from './deadline.service';
+import {
+  notifyProjectPlanApproved,
+  notifyProjectPlanRejected,
+  notifyProjectPlanSubmitted,
+} from './project-plan-notification.service';
 import { advanceToNextMilestone } from './workflow-progression.service';
 
 type Actor = { userId: string; role: string; fullName: string };
@@ -15,7 +20,7 @@ type ProjectRow = {
   id: string;
   name: string;
   customer: string;
-  sales_id: string;
+  sales_id: string | null;
   pic_id: string | null;
   status: string;
   is_postponed: boolean | null;
@@ -292,6 +297,7 @@ export class ProjectPlanApprovalService {
 
     if (error || !data) throw new Error(error?.message || 'Failed to submit project plan approval.');
     await logActivity(actor, projectId, 'PROJECT_PLAN_SUBMITTED', `${actor.fullName} submitted the project plan for '${project.name}'`);
+    await notifyProjectPlanSubmitted(project);
 
     return {
       id: data.id,
@@ -334,6 +340,7 @@ export class ProjectPlanApprovalService {
 
     if (decision === 'REJECTED') {
       await logActivity(actor, projectId, 'PROJECT_PLAN_REJECTED', `${actor.fullName} rejected the project plan for '${project.name}'`);
+      await notifyProjectPlanRejected(project);
       return { ...updatedApproval, project_status: project.status, next_milestone: null };
     }
 
@@ -411,6 +418,7 @@ export class ProjectPlanApprovalService {
 
     await logActivity(actor, projectId, 'PROJECT_PLAN_APPROVED', `${actor.fullName} approved the project plan for '${project.name}'`);
     const progression = await advanceToNextMilestone(projectId, completedTimelineMilestone.id, actor);
+    await notifyProjectPlanApproved(project);
 
     return {
       ...updatedApproval,
