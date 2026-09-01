@@ -35,9 +35,9 @@ interface SidebarContextType {
 
 const SidebarContext = createContext<SidebarContextType>({
   collapsed: false,
-  setCollapsed: () => {},
+  setCollapsed: () => { },
   mobileOpen: false,
-  setMobileOpen: () => {},
+  setMobileOpen: () => { },
 });
 
 export const useSidebar = () => useContext(SidebarContext);
@@ -163,7 +163,7 @@ export function Sidebar() {
       )}
 
       {/* Dynamic Role Navigation */}
-      <nav className="flex-1 px-3 py-2 space-y-1 overflow-y-auto">
+      <nav className="flex-1 space-y-1.5 overflow-y-auto px-3 py-2">
         {visibleNavItems.map((item) => {
           const active = isActive(item.href);
           const Icon = item.icon;
@@ -176,12 +176,11 @@ export function Sidebar() {
               onClick={() => setMobileOpen(false)}
               title={collapsed ? item.label : undefined}
               className={`
-                group flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200 relative
+                group relative flex min-h-11 items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200
                 ${collapsed ? "justify-center px-0" : ""}
-                ${
-                  active
-                    ? "bg-primary/10 text-primary"
-                    : "text-[hsl(var(--sidebar-foreground))] hover:bg-[hsl(var(--sidebar-hover))] hover:text-foreground"
+                ${active
+                  ? "bg-primary/10 text-primary shadow-sm ring-1 ring-primary/10"
+                  : "text-[hsl(var(--sidebar-foreground))] hover:bg-[hsl(var(--sidebar-hover))] hover:text-foreground"
                 }
               `}
             >
@@ -192,11 +191,10 @@ export function Sidebar() {
 
               <div className="relative shrink-0">
                 <Icon
-                  className={`h-[18px] w-[18px] transition-colors duration-200 ${
-                    active
+                  className={`h-[18px] w-[18px] transition-colors duration-200 ${active
                       ? "text-primary"
                       : "text-[hsl(var(--sidebar-foreground))] group-hover:text-foreground"
-                  }`}
+                    }`}
                 />
                 {collapsed && badgeCount > 0 && (
                   <span className="absolute -top-1.5 -right-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[9px] font-bold text-primary-foreground">
@@ -210,20 +208,18 @@ export function Sidebar() {
                   <div className="flex flex-col overflow-hidden">
                     <span className="truncate leading-tight">{item.label}</span>
                     <span
-                      className={`text-[10px] truncate leading-tight ${
-                        active ? "text-primary/60" : "text-[hsl(var(--sidebar-foreground))]"
-                      }`}
+                      className={`text-[10px] truncate leading-tight ${active ? "text-primary/60" : "text-[hsl(var(--sidebar-foreground))]"
+                        }`}
                     >
                       {item.description}
                     </span>
                   </div>
                   {badgeCount > 0 && (
                     <span
-                      className={`ml-2 shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold tracking-tight ${
-                        active
+                      className={`ml-2 shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold tracking-tight ${active
                           ? "bg-primary text-primary-foreground"
                           : "bg-primary/20 text-primary group-hover:bg-primary group-hover:text-primary-foreground"
-                      }`}
+                        }`}
                     >
                       {badgeCount > 99 ? "99+" : badgeCount}
                     </span>
@@ -270,9 +266,8 @@ export function Sidebar() {
     <>
       {/* Desktop Sidebar */}
       <aside
-        className={`hidden lg:flex flex-col fixed top-0 left-0 bottom-0 z-40 border-r border-[hsl(var(--sidebar-border))] transition-all duration-300 ease-in-out ${
-          collapsed ? "w-[var(--sidebar-collapsed-width)]" : "w-[var(--sidebar-width)]"
-        }`}
+        className={`hidden lg:flex flex-col fixed top-0 left-0 bottom-0 z-40 border-r border-[hsl(var(--sidebar-border))] transition-all duration-300 ease-in-out ${collapsed ? "w-[var(--sidebar-collapsed-width)]" : "w-[var(--sidebar-width)]"
+          }`}
         style={{ background: "hsl(var(--sidebar-bg))" }}
       >
         {sidebarContent}
@@ -288,9 +283,8 @@ export function Sidebar() {
 
       {/* Mobile Sidebar */}
       <aside
-        className={`lg:hidden fixed top-0 left-0 bottom-0 z-50 w-[var(--sidebar-width)] border-r border-[hsl(var(--sidebar-border))] transition-transform duration-300 ease-in-out ${
-          mobileOpen ? "translate-x-0" : "-translate-x-full"
-        }`}
+        className={`lg:hidden fixed top-0 left-0 bottom-0 z-50 w-[var(--sidebar-width)] border-r border-[hsl(var(--sidebar-border))] transition-transform duration-300 ease-in-out ${mobileOpen ? "translate-x-0" : "-translate-x-full"
+          }`}
         style={{ background: "hsl(var(--sidebar-bg))" }}
       >
         {/* Mobile Close Button */}
@@ -322,8 +316,8 @@ export function TopBar() {
   };
 
   return (
-    <header className="sticky top-0 z-30 h-14 border-b border-border/60 glass">
-      <div className="flex items-center justify-between h-full px-4 lg:px-6">
+    <header className="sticky top-0 z-30 h-16 border-b border-border/60 bg-background/85 backdrop-blur-xl">
+      <div className="flex h-full items-center justify-between px-4 sm:px-5 lg:px-7">
         {/* Left: Mobile Hamburger + Global Search */}
         <div className="flex items-center gap-3">
           <button
@@ -334,11 +328,11 @@ export function TopBar() {
           </button>
 
           {/* Global Search */}
-          <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-secondary/50 border border-border/50 text-muted-foreground text-sm w-72 hover:border-primary/40 transition">
+          <div className="hidden sm:flex h-9 w-72 lg:w-80 items-center gap-2 rounded-xl border border-border/60 bg-muted/30 px-3 text-muted-foreground transition-all hover:border-primary/30 hover:bg-muted/50">
             <Search className="h-3.5 w-3.5" />
             <span className="text-xs">Search projects, documents...</span>
-            <kbd className="ml-auto text-[10px] font-mono bg-background/60 px-1.5 py-0.5 rounded border border-border/50">
-              ⌘K
+            <kbd className="ml-auto rounded-md border border-border/60 bg-background px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+              Ctrl K
             </kbd>
           </div>
         </div>
@@ -347,16 +341,15 @@ export function TopBar() {
         <div className="flex items-center gap-3">
           {/* Notifications */}
           <button
-            className="relative p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition"
-            title="Notifications"
+            className="relative flex h-9 w-9 items-center justify-center rounded-xl border border-transparent text-muted-foreground transition-all hover:border-border/60 hover:bg-muted/50 hover:text-foreground"
           >
             <Bell className="h-[18px] w-[18px]" />
             <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-primary animate-pulse" />
           </button>
 
           {/* User Profile Pill */}
-          <div className="flex items-center gap-2.5 pl-2 pr-3 py-1.5 rounded-lg bg-secondary/30 border border-border/40">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-primary/80 to-primary text-primary-foreground text-xs font-bold shadow-sm shrink-0">
+          <div className="flex h-10 items-center gap-2.5 rounded-xl border border-border/60 bg-muted/25 pl-1.5 pr-2 shadow-sm">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary text-xs font-bold text-primary-foreground shadow-sm">
               {getInitials(user?.fullName)}
             </div>
             <div className="hidden sm:block text-left">
@@ -397,14 +390,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
         {/* Main Content Area - offset by sidebar width */}
         <div
-          className={`transition-all duration-300 ease-in-out ${
-            collapsed
+          className={`transition-all duration-300 ease-in-out ${collapsed
               ? "lg:ml-[var(--sidebar-collapsed-width)]"
               : "lg:ml-[var(--sidebar-width)]"
-          }`}
+            }`}
         >
           <TopBar />
-          <main className="animate-fade-in">{children}</main>
+          <main className="min-h-[calc(100vh-4rem)] animate-fade-in">
+            {children}
+          </main>
         </div>
       </div>
     </SidebarContext.Provider>

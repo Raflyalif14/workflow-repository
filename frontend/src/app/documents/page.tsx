@@ -111,13 +111,15 @@ export default function DocumentsPage() {
   };
 
   return (
-    <div className="container py-8 space-y-6">
+    <div className="container space-y-6 py-8">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-border/50 pb-6">
-        <div>
-          <div className="flex items-center gap-2 text-primary text-xs font-semibold uppercase tracking-wider mb-1">
-            <FolderArchive className="h-4 w-4" />
-            <span>Document Repository & Supabase Storage</span>
+      <div className="flex flex-col gap-5 border-b border-border/60 pb-6 sm:flex-row sm:items-start sm:justify-between">
+        <div className="max-w-3xl">
+          <div className="mb-3 flex items-center gap-3">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-primary/15 bg-primary/10 text-primary">
+              <FolderArchive className="h-4 w-4" />
+            </span>
+            <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-primary">Document Repository & Supabase Storage</span>
           </div>
           <h1 className="text-3xl font-bold tracking-tight">Document Repository</h1>
           <p className="text-sm text-muted-foreground mt-1">
@@ -125,22 +127,22 @@ export default function DocumentsPage() {
           </p>
         </div>
 
-        <Button onClick={() => setIsUploadOpen(true)} className="gap-2 self-start sm:self-auto shadow-md">
+        <Button onClick={() => setIsUploadOpen(true)} className="h-9 self-start gap-2 rounded-lg shadow-md sm:self-auto">
           <UploadCloud className="h-4 w-4" />
           <span>Upload Document</span>
         </Button>
       </div>
 
       {/* Filter Toolbar */}
-      <div className="grid grid-cols-1 sm:grid-cols-12 gap-3">
-        <div className="sm:col-span-6 relative">
+      <div className="grid grid-cols-1 gap-3 rounded-xl border border-border/60 bg-card/70 p-3 shadow-sm sm:grid-cols-12 sm:p-4">
+        <div className="relative sm:col-span-6">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             type="text"
             placeholder="Search documents by title..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="pl-9"
+            className="h-10 border-border/60 bg-background/50 pl-9"
           />
         </div>
 
@@ -148,7 +150,7 @@ export default function DocumentsPage() {
           <select
             value={categoryFilter}
             onChange={(e) => setCategoryFilter(e.target.value as any)}
-            className="flex h-9 w-full rounded-md border border-input bg-card px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-primary"
+            className="flex h-10 w-full rounded-lg border border-border/60 bg-background/50 px-3 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-primary"
           >
             <option value="ALL">All Categories</option>
             <option value="PROPOSAL">Proposal</option>
@@ -166,7 +168,7 @@ export default function DocumentsPage() {
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value as any)}
-            className="flex h-9 w-full rounded-md border border-input bg-card px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-primary"
+            className="flex h-10 w-full rounded-lg border border-border/60 bg-background/50 px-3 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-primary"
           >
             <option value="ALL">All Statuses</option>
             <option value="APPROVED">Approved</option>
@@ -178,9 +180,9 @@ export default function DocumentsPage() {
       </div>
 
       {downloadError && (
-        <div className="rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-xs text-destructive flex items-center justify-between">
+        <div className="flex flex-col gap-2 rounded-xl border border-destructive/40 bg-destructive/10 p-3 text-xs text-destructive shadow-sm sm:flex-row sm:items-center sm:justify-between">
           <span>{downloadError}</span>
-          <Button variant="ghost" size="sm" className="h-6 px-2 text-xs" onClick={() => setDownloadError("")}>
+          <Button variant="ghost" size="sm" className="h-7 self-start rounded-md px-2 text-xs sm:self-auto" onClick={() => setDownloadError("")}>
             Dismiss
           </Button>
         </div>
@@ -188,22 +190,32 @@ export default function DocumentsPage() {
 
       {/* Documents Grid */}
       {isLoading ? (
-        <div className="py-16 text-center text-muted-foreground">Loading repository documents...</div>
-      ) : isError ? (
-        <div className="py-16 text-center text-destructive">Failed to load documents.</div>
-      ) : documents.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-border py-16 text-center text-muted-foreground">
-          No documents found matching your filter criteria. Click &quot;Upload Document&quot; to add a new file.
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          {[1, 2, 3, 4].map((item) => (
+            <div key={item} className="h-56 animate-pulse rounded-xl border border-border/60 bg-card/70 shadow-sm" />
+          ))}
         </div>
+      ) : isError ? (
+        <Card className="border-border/60 bg-card/70 shadow-sm">
+          <CardContent className="py-16 text-center text-destructive">
+            <p className="mx-auto max-w-sm font-semibold">Failed to load documents.</p>
+          </CardContent>
+        </Card>
+      ) : documents.length === 0 ? (
+        <Card className="border-dashed border-border/60 bg-card/70 shadow-sm">
+          <CardContent className="py-16 text-center text-muted-foreground">
+            <p className="mx-auto max-w-sm text-sm">No documents found matching your filter criteria. Click &quot;Upload Document&quot; to add a new file.</p>
+          </CardContent>
+        </Card>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           {documents.map((doc) => {
             const latestVersion = doc.versions?.[0];
 
             return (
               <Card
                 key={doc.id}
-                className="flex flex-col justify-between hover:border-primary/50 transition duration-200"
+                className="flex flex-col justify-between border-border/60 bg-card/70 shadow-sm transition-colors duration-200 hover:border-primary/25 hover:bg-muted/10"
               >
                 <CardHeader className="space-y-2 pb-3">
                   <div className="flex items-start justify-between gap-2">
@@ -212,18 +224,18 @@ export default function DocumentsPage() {
                         {getCategoryBadge(doc.category)}
                         {getStatusBadge(doc.status)}
                       </div>
-                      <h3 className="text-lg font-bold text-foreground">
+                      <h3 className="text-lg font-semibold tracking-tight text-foreground">
                         {doc.title}
                       </h3>
                     </div>
                     {latestVersion && (
-                      <Badge variant="outline" className="text-xs text-primary font-semibold">
+                      <Badge variant="outline" className="border-primary/20 bg-primary/5 text-xs font-semibold text-primary">
                         Version {latestVersion.versionNumber}
                       </Badge>
                     )}
                   </div>
 
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1 border-t border-border/40 pt-2 text-xs text-muted-foreground">
                     <span>
                       Project: <strong className="text-foreground">{doc.project?.projectCode}</strong> (
                       {doc.project?.clientName})
@@ -240,8 +252,8 @@ export default function DocumentsPage() {
                 <CardContent className="space-y-4 pt-0">
                   {/* Latest Version Info */}
                   {latestVersion && (
-                    <div className="rounded-lg bg-muted/30 border border-border/40 p-3 text-xs space-y-1.5">
-                      <div className="flex items-center justify-between font-medium text-foreground">
+                    <div className="space-y-1.5 rounded-xl border border-border/40 bg-muted/15 p-3 text-xs">
+                      <div className="flex items-center justify-between gap-3 font-medium text-foreground">
                         <span className="flex items-center gap-1.5 truncate max-w-[260px]" title={latestVersion.fileName}>
                           <FileText className="h-4 w-4 text-primary shrink-0" />
                           <span className="truncate">{latestVersion.fileName}</span>
@@ -255,7 +267,7 @@ export default function DocumentsPage() {
                           &quot;{latestVersion.changelog}&quot;
                         </p>
                       )}
-                      <div className="flex items-center justify-between text-[11px] text-muted-foreground pt-1 border-t border-border/30">
+                      <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border/30 pt-2 text-[11px] text-muted-foreground">
                         <span>Uploaded by: <strong className="text-foreground">{latestVersion.uploadedBy?.fullName}</strong></span>
                         <span>
                           {new Date(latestVersion.createdAt).toLocaleDateString("id-ID", {
@@ -267,14 +279,14 @@ export default function DocumentsPage() {
                   )}
 
                   {/* Actions Footer */}
-                  <div className="flex items-center justify-between pt-2 border-t border-border/40 text-xs">
+                  <div className="flex flex-col gap-3 border-t border-border/40 pt-3 text-xs sm:flex-row sm:items-center sm:justify-between">
                     {/* Left: Comments & Download */}
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                       {latestVersion && (
                         <Button
                           size="sm"
                           variant="outline"
-                          className="h-8 text-xs gap-1.5"
+                          className="h-8 gap-1.5 rounded-lg text-xs"
                           onClick={() => handleDownload(latestVersion.id)}
                           disabled={documentDownload.isPending}
                         >
@@ -286,7 +298,7 @@ export default function DocumentsPage() {
                       <Button
                         size="sm"
                         variant="ghost"
-                        className="h-8 text-xs gap-1.5 text-muted-foreground hover:text-foreground"
+                        className="h-8 gap-1.5 rounded-lg text-xs text-muted-foreground hover:bg-muted/40 hover:text-foreground"
                         onClick={() => handleOpenComments(doc)}
                       >
                         <MessageSquare className="h-3.5 w-3.5" />
@@ -295,11 +307,11 @@ export default function DocumentsPage() {
                     </div>
 
                     {/* Right: Versioning & Review Actions */}
-                    <div className="flex items-center gap-1.5">
+                    <div className="flex flex-wrap items-center gap-1.5 self-start sm:self-auto">
                       <Button
                         size="sm"
                         variant="outline"
-                        className="h-8 text-xs gap-1.5 border-primary/30 text-primary hover:bg-primary/10"
+                        className="h-8 gap-1.5 rounded-lg border-primary/30 text-xs text-primary hover:bg-primary/10"
                         onClick={() => {
                           setSelectedDocForVersion(doc);
                           setIsUploadVersionOpen(true);
@@ -314,7 +326,7 @@ export default function DocumentsPage() {
                           <Button
                             size="sm"
                             variant="ghost"
-                            className="h-8 w-8 p-0 text-destructive hover:bg-destructive/10"
+                            className="h-8 w-8 rounded-lg p-0 text-destructive hover:bg-destructive/10"
                             title="Reject Version (Head SA)"
                             onClick={() => handleOpenReview(doc, latestVersion, "REJECT")}
                           >
@@ -323,7 +335,7 @@ export default function DocumentsPage() {
                           <Button
                             size="sm"
                             variant="ghost"
-                            className="h-8 w-8 p-0 text-emerald-400 hover:bg-emerald-500/10"
+                            className="h-8 w-8 rounded-lg p-0 text-emerald-400 hover:bg-emerald-500/10"
                             title="Approve Version (Head SA)"
                             onClick={() => handleOpenReview(doc, latestVersion, "APPROVE")}
                           >

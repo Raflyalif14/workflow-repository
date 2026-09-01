@@ -116,21 +116,25 @@ export function ProjectTimelineEditor({
   if (!rows.length) return null;
 
   return (
-    <Card className="border-border/60">
-      <CardHeader className="flex flex-row items-center justify-between gap-3 pb-3">
-        <div className="space-y-0.5">
-          <div className="flex items-center gap-2">
-            <CalendarDays className="h-4 w-4 text-primary" />
-            <CardTitle className="text-base font-bold">Project Timeline Setup</CardTitle>
+    <Card className="border-border/60 bg-card/70 shadow-sm">
+      <CardHeader className="flex flex-col gap-3 pb-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex items-start gap-3">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-primary/15 bg-primary/10 text-primary">
+            <CalendarDays className="h-4 w-4" />
+          </span>
+          <div className="min-w-0 space-y-2">
+            <CardTitle className="text-base font-semibold tracking-tight">Project Timeline Setup</CardTitle>
+            <div className="rounded-lg border border-border/50 bg-muted/15 px-3 py-2">
+              <CardDescription className="text-xs leading-relaxed">
+                Specify start dates and durations in working days for all executable milestones
+              </CardDescription>
+            </div>
           </div>
-          <CardDescription className="text-xs">
-            Specify start dates and durations in working days for all executable milestones
-          </CardDescription>
         </div>
         {canEdit && (
           <Button
             size="sm"
-            className="gap-1.5 shadow-sm"
+            className="h-9 self-start gap-1.5 rounded-lg shadow-sm sm:self-auto"
             onClick={() => void save()}
             disabled={!isValid || saveTimeline.isPending || !hasUnsavedChanges}
           >
@@ -139,10 +143,10 @@ export function ProjectTimelineEditor({
           </Button>
         )}
       </CardHeader>
-      <CardContent className="space-y-3">
-        <div className="overflow-x-auto">
-          <div className="min-w-[720px] divide-y divide-border/50 text-sm">
-            <div className="grid grid-cols-[50px_minmax(180px,1.8fr)_90px_150px_110px_150px] gap-3 px-2 pb-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+      <CardContent className="space-y-4">
+        <div className="overflow-hidden">
+          <div className="space-y-2 text-sm">
+            <div className="hidden grid-cols-[50px_minmax(180px,1.8fr)_90px_150px_110px_150px] gap-3 border-b border-border/60 px-3 pb-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground xl:grid">
               <span>Step</span>
               <span>Milestone</span>
               <span>Role</span>
@@ -162,52 +166,70 @@ export function ProjectTimelineEditor({
               return (
                 <div
                   key={row.milestoneId}
-                  className={`grid grid-cols-[50px_minmax(180px,1.8fr)_90px_150px_110px_150px] items-center gap-3 py-2.5 px-2 rounded-md ${
-                    isRowIncomplete && canEdit ? "bg-amber-500/5" : ""
+                  className={`grid grid-cols-1 gap-3 rounded-xl border p-3 transition-colors duration-200 xl:grid-cols-[50px_minmax(180px,1.8fr)_90px_150px_110px_150px] xl:items-center xl:px-3 xl:py-3 ${
+                    isRowIncomplete && canEdit
+                      ? "border-destructive/40 bg-destructive/5"
+                      : "border-border/40 bg-muted/10 hover:border-primary/25"
                   }`}
                 >
-                  <span className="font-mono text-xs text-muted-foreground">
+                  <span className="flex items-center gap-2 font-mono text-xs text-muted-foreground">
+                    <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground xl:hidden">Step</span>
                     {String(row.stepOrder).padStart(2, "0")}
                   </span>
                   <div className="min-w-0">
-                    <span className="truncate font-medium text-foreground text-xs" title={row.name}>
+                    <span className="truncate text-sm font-semibold tracking-tight text-foreground" title={row.name}>
                       {row.name}
                     </span>
                     {isRowIncomplete && canEdit && (
-                      <p className="text-[10px] text-amber-400 font-medium">Missing start date or duration</p>
+                      <p className="mt-1 flex items-center gap-1 text-[10px] font-medium text-destructive">
+                        <AlertCircle className="h-3 w-3 shrink-0" />
+                        <span>Missing start date or duration</span>
+                      </p>
                     )}
                   </div>
-                  <span className="text-xs text-muted-foreground font-mono">{row.role}</span>
-                  {canEdit ? (
-                    <Input
-                      type="date"
-                      className="h-8 text-xs"
-                      value={row.startDate}
-                      onChange={(event) => updateRow(row.milestoneId, "startDate", event.target.value)}
-                    />
-                  ) : (
-                    <span className="text-xs text-foreground font-mono">{formatDate(row.startDate)}</span>
-                  )}
-                  {canEdit ? (
-                    <Input
-                      type="number"
-                      min="1"
-                      step="1"
-                      className="h-8 text-xs"
-                      placeholder="Days"
-                      value={row.durationWorkingDays}
-                      onChange={(event) => updateRow(row.milestoneId, "durationWorkingDays", event.target.value)}
-                    />
-                  ) : (
-                    <span className="text-xs text-foreground font-mono">{row.durationWorkingDays || "-"} days</span>
-                  )}
-                  <span
-                    className={`text-xs font-mono ${
-                      changed ? "text-amber-400 italic" : "font-medium text-foreground"
-                    }`}
-                  >
-                    {changed ? "Save to calculate" : formatDate(row.dueDate)}
-                  </span>
+                  <div className="flex items-center justify-between gap-2 xl:block">
+                    <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground xl:hidden">Role</span>
+                    <span className="inline-flex rounded-md bg-muted/50 px-2 py-1 font-mono text-xs text-foreground">{row.role}</span>
+                  </div>
+                  <div className="space-y-1">
+                    <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground xl:hidden">Start Date</span>
+                    {canEdit ? (
+                      <Input
+                        type="date"
+                        className="h-9 rounded-lg border-input bg-background/50 text-xs"
+                        value={row.startDate}
+                        onChange={(event) => updateRow(row.milestoneId, "startDate", event.target.value)}
+                      />
+                    ) : (
+                      <span className="flex h-9 items-center rounded-lg border border-input bg-muted/20 px-3 font-mono text-xs text-foreground">{formatDate(row.startDate)}</span>
+                    )}
+                  </div>
+                  <div className="space-y-1">
+                    <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground xl:hidden">Duration</span>
+                    {canEdit ? (
+                      <Input
+                        type="number"
+                        min="1"
+                        step="1"
+                        className="h-9 rounded-lg border-input bg-background/50 text-xs"
+                        placeholder="Days"
+                        value={row.durationWorkingDays}
+                        onChange={(event) => updateRow(row.milestoneId, "durationWorkingDays", event.target.value)}
+                      />
+                    ) : (
+                      <span className="flex h-9 items-center rounded-lg border border-input bg-muted/20 px-3 font-mono text-xs text-foreground">{row.durationWorkingDays || "-"} days</span>
+                    )}
+                  </div>
+                  <div className="space-y-1">
+                    <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground xl:hidden">Calculated Due Date</span>
+                    <span
+                      className={`flex h-9 items-center rounded-lg border border-border/40 bg-muted/20 px-3 font-mono text-xs ${
+                        changed ? "italic text-amber-400" : "font-semibold text-foreground"
+                      }`}
+                    >
+                      {changed ? "Save to calculate" : formatDate(row.dueDate)}
+                    </span>
+                  </div>
                 </div>
               );
             })}
@@ -215,13 +237,13 @@ export function ProjectTimelineEditor({
         </div>
 
         {error && (
-          <div className="flex items-center gap-2 rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-xs text-destructive">
+          <div className="flex items-start gap-2 rounded-xl border border-destructive/40 bg-destructive/10 p-3 text-xs text-destructive shadow-sm">
             <AlertCircle className="h-4 w-4 shrink-0" />
             <span>{error}</span>
           </div>
         )}
         {message && (
-          <div className="flex items-center gap-2 rounded-lg border border-emerald-500/40 bg-emerald-500/10 p-3 text-xs text-emerald-400">
+          <div className="flex items-start gap-2 rounded-xl border border-emerald-500/40 bg-emerald-500/10 p-3 text-xs text-emerald-400 shadow-sm">
             <CheckCircle2 className="h-4 w-4 shrink-0" />
             <span>{message}</span>
           </div>

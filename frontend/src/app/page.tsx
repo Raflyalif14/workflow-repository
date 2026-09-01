@@ -368,73 +368,101 @@ export default function DashboardPage() {
       </div>
 
       {/* ─── KPI Summary Cards ─── */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
         {/* Total Projects */}
-        <Card className="bg-card/50 backdrop-blur border-border/60">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              Total Projects
-            </CardTitle>
-            <FolderKanban className="h-4 w-4 text-primary" />
+        <Card className="group flex min-h-[184px] flex-col border-border/60 bg-card/70 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md">
+          <CardHeader className="flex flex-row items-start justify-between gap-4 space-y-0 pb-5">
+            <div className="space-y-1">
+              <CardTitle className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                Total Projects
+              </CardTitle>
+              <CardDescription className="text-[11px] text-muted-foreground/80">
+                Across all scenarios
+              </CardDescription>
+            </div>
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-primary/15 bg-primary/10 text-primary">
+              <FolderKanban className="h-4 w-4" />
+            </div>
           </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold">{summary?.totalProjects ?? 0}</div>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              All registered projects across scenarios
+          <CardContent className="mt-auto pt-0">
+            <div className="text-4xl font-bold tracking-tight text-primary">{summary?.totalProjects ?? 0}</div>
+            <p className="mt-1.5 text-xs text-muted-foreground">
+              Registered workflow projects
             </p>
           </CardContent>
         </Card>
 
         {/* Active Projects */}
-        <Card className="bg-card/50 backdrop-blur border-border/60">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              Active Projects
-            </CardTitle>
-            <Activity className="h-4 w-4 text-blue-400" />
+        <Card className="group flex min-h-[184px] flex-col border-border/60 bg-card/70 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-blue-400/40 hover:shadow-md">
+          <CardHeader className="flex flex-row items-start justify-between gap-4 space-y-0 pb-5">
+            <div className="space-y-1">
+              <CardTitle className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                Active Projects
+              </CardTitle>
+              <CardDescription className="text-[11px] text-muted-foreground/80">
+                Currently executing
+              </CardDescription>
+            </div>
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-blue-400/15 bg-blue-400/10 text-blue-400">
+              <Activity className="h-4 w-4" />
+            </div>
           </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-blue-400">
+          <CardContent className="mt-auto pt-0">
+            <div className="text-4xl font-bold tracking-tight text-blue-400">
               {summary?.activeProjects ?? 0}
             </div>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              Currently active workflows
+            <p className="mt-1.5 text-xs text-muted-foreground">
+              Workflows currently active
             </p>
           </CardContent>
         </Card>
 
         {/* Overdue Milestones */}
-        <Card className="bg-card/50 backdrop-blur border-border/60">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              Overdue Milestones
-            </CardTitle>
-            <AlertTriangle className="h-4 w-4 text-red-400" />
+        <Card className="group flex min-h-[184px] flex-col border-border/60 bg-card/70 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-red-400/40 hover:shadow-md">
+          <CardHeader className="flex flex-row items-start justify-between gap-4 space-y-0 pb-5">
+            <div className="space-y-1">
+              <CardTitle className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                Overdue Milestones
+              </CardTitle>
+              <CardDescription className="text-[11px] text-muted-foreground/80">
+                Past effective deadline
+              </CardDescription>
+            </div>
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-red-400/15 bg-red-400/10 text-red-400">
+              <AlertTriangle className="h-4 w-4" />
+            </div>
           </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-red-400">
+          <CardContent className="mt-auto pt-0">
+            <div className="text-4xl font-bold tracking-tight text-red-400">
               {summary?.overdueMilestones ?? 0}
             </div>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              Stages past their deadline
+            <p className="mt-1.5 text-xs text-muted-foreground">
+              Milestones requiring attention
             </p>
           </CardContent>
         </Card>
 
         {/* Waiting Approval */}
-        <Card className="bg-card/50 backdrop-blur border-border/60">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              Waiting Approval
-            </CardTitle>
-            <ShieldCheck className="h-4 w-4 text-amber-400" />
+        <Card className="group flex min-h-[184px] flex-col border-border/60 bg-card/70 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-amber-400/40 hover:shadow-md">
+          <CardHeader className="flex flex-row items-start justify-between gap-4 space-y-0 pb-5">
+            <div className="space-y-1">
+              <CardTitle className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                Waiting Approval
+              </CardTitle>
+              <CardDescription className="text-[11px] text-muted-foreground/80">
+                Pending Head SA review
+              </CardDescription>
+            </div>
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-amber-400/15 bg-amber-400/10 text-amber-400">
+              <ShieldCheck className="h-4 w-4" />
+            </div>
           </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-amber-400">
+          <CardContent className="mt-auto pt-0">
+            <div className="text-4xl font-bold tracking-tight text-amber-400">
               {summary?.waitingApproval ?? 0}
             </div>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              Pending Head SA sign-off
+            <p className="mt-1.5 text-xs text-muted-foreground">
+              Items awaiting sign-off
             </p>
           </CardContent>
         </Card>
@@ -443,17 +471,21 @@ export default function DashboardPage() {
       {/* ─── Charts Row ─── */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Project by Scenario — Bar Chart */}
-        <Card className="bg-card/50 backdrop-blur">
-          <CardHeader>
-            <div className="flex items-center gap-2">
-              <BarChart3 className="h-4 w-4 text-primary" />
-              <CardTitle className="text-base">Project by Scenario</CardTitle>
+        <Card className="border-border/60 bg-card/70 shadow-sm transition-all duration-200 hover:border-primary/20 hover:shadow-md">
+          <CardHeader className="pb-4">
+            <div className="flex items-center gap-3">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-primary/15 bg-primary/10 text-primary">
+                <BarChart3 className="h-4 w-4" />
+              </div>
+              <div className="min-w-0 space-y-0.5">
+                <CardTitle className="text-base font-semibold tracking-tight">Project by Scenario</CardTitle>
+                <CardDescription className="text-xs text-muted-foreground">
+                  Distribution of projects across workflow scenarios
+                </CardDescription>
+              </div>
             </div>
-            <CardDescription className="text-xs">
-              Distribution of projects across workflow scenarios
-            </CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="pt-0">
             {scenarioDistribution.length === 0 ? (
               <div className="h-[260px] flex items-center justify-center text-xs text-muted-foreground">
                 No scenario data available yet.
@@ -492,17 +524,21 @@ export default function DashboardPage() {
         </Card>
 
         {/* Project Status Distribution — Pie Chart */}
-        <Card className="bg-card/50 backdrop-blur">
-          <CardHeader>
-            <div className="flex items-center gap-2">
-              <Layers className="h-4 w-4 text-primary" />
-              <CardTitle className="text-base">Status Distribution</CardTitle>
+        <Card className="border-border/60 bg-card/70 shadow-sm transition-all duration-200 hover:border-primary/20 hover:shadow-md">
+          <CardHeader className="pb-4">
+            <div className="flex items-center gap-3">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-primary/15 bg-primary/10 text-primary">
+                <Layers className="h-4 w-4" />
+              </div>
+              <div className="min-w-0 space-y-0.5">
+                <CardTitle className="text-base font-semibold tracking-tight">Status Distribution</CardTitle>
+                <CardDescription className="text-xs text-muted-foreground">
+                  Current status breakdown across all projects
+                </CardDescription>
+              </div>
             </div>
-            <CardDescription className="text-xs">
-              Current status breakdown across all projects
-            </CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="pt-0">
             {statusDistribution.length === 0 ? (
               <div className="h-[260px] flex items-center justify-center text-xs text-muted-foreground">
                 No projects to display.
@@ -548,25 +584,29 @@ export default function DashboardPage() {
       </div>
 
       {/* ─── Progress Project Table ─── */}
-      <Card className="bg-card/50 backdrop-blur">
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <TrendingUp className="h-4 w-4 text-primary" />
-              <CardTitle className="text-base">Project Progress Tracker</CardTitle>
+      <Card className="border-border/60 bg-card/70 shadow-sm transition-all duration-200 hover:border-primary/20 hover:shadow-md">
+        <CardHeader className="pb-4">
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex min-w-0 items-center gap-3">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-primary/15 bg-primary/10 text-primary">
+                <TrendingUp className="h-4 w-4" />
+              </div>
+              <div className="min-w-0 space-y-0.5">
+                <CardTitle className="text-base font-semibold tracking-tight">Project Progress Tracker</CardTitle>
+                <CardDescription className="text-xs text-muted-foreground">
+                  Active, postponed, and completed projects with milestone completion percentage
+                </CardDescription>
+              </div>
             </div>
             <Link href="/projects">
-              <Button variant="ghost" size="sm" className="gap-1 text-xs text-muted-foreground hover:text-foreground">
+              <Button variant="ghost" size="sm" className="h-8 gap-1.5 rounded-lg px-2.5 text-xs text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground">
                 <span>View All</span>
                 <ArrowUpRight className="h-3.5 w-3.5" />
               </Button>
             </Link>
           </div>
-          <CardDescription className="text-xs">
-            Active, postponed, and completed projects with milestone completion percentage
-          </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="pt-0">
           {projectProgress.length === 0 ? (
             <div className="py-10 text-center text-xs text-muted-foreground">
               No active projects to track.
@@ -574,7 +614,7 @@ export default function DashboardPage() {
           ) : (
             <div className="space-y-3">
               {/* Table Header */}
-              <div className="hidden sm:grid sm:grid-cols-12 gap-3 text-[10px] uppercase tracking-wider font-semibold text-muted-foreground px-3 pb-1 border-b border-border/40">
+              <div className="mb-2 hidden border-b border-border/60 px-3 pb-2.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground sm:grid sm:grid-cols-12 sm:gap-3">
                 <div className="col-span-4">Project</div>
                 <div className="col-span-2 text-center">Status</div>
                 <div className="col-span-2 text-center">Milestones</div>
@@ -584,7 +624,7 @@ export default function DashboardPage() {
 
               {projectProgress.map((p) => (
                 <Link key={p.id} href={`/projects/${p.id}`}>
-                  <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-center px-3 py-3 rounded-lg border border-border/40 hover:border-primary/40 hover:bg-muted/20 transition cursor-pointer">
+                  <div className="grid grid-cols-1 items-center gap-3 rounded-xl border border-border/40 bg-muted/10 px-3 py-3.5 transition-all duration-200 hover:border-primary/30 hover:bg-muted/30 sm:grid-cols-12 sm:px-4 cursor-pointer">
                     {/* Project Name */}
                     <div className="col-span-4 space-y-0.5">
                       <p className="text-sm font-semibold text-foreground truncate">
@@ -631,7 +671,7 @@ export default function DashboardPage() {
                           </span>
                         )}
                       </div>
-                      <div className="w-full h-2 rounded-full bg-muted/40 overflow-hidden">
+                      <div className="h-2.5 w-full overflow-hidden rounded-full bg-muted/60 ring-1 ring-inset ring-border/40">
                         <div
                           className={`h-full rounded-full transition-all duration-500 ${getProgressBarColor(p.percentage)}`}
                           style={{ width: `${p.percentage}%` }}

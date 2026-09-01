@@ -59,11 +59,13 @@ export default function MilestonesPage() {
   return (
     <div className="container space-y-6 py-8">
       {/* Header */}
-      <div className="flex flex-col gap-4 border-b border-border/50 pb-6 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <div className="mb-1 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-primary">
-            <Milestone className="h-4 w-4" />
-            <span>Personal Work Queue</span>
+      <div className="flex flex-col gap-5 border-b border-border/60 pb-6 sm:flex-row sm:items-start sm:justify-between">
+        <div className="max-w-3xl">
+          <div className="mb-3 flex items-center gap-3">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-primary/15 bg-primary/10 text-primary">
+              <Milestone className="h-4 w-4" />
+            </span>
+            <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-primary">Personal Work Queue</span>
           </div>
           <h1 className="text-3xl font-bold tracking-tight">Assigned Milestones</h1>
           <p className="mt-1 text-sm text-muted-foreground">
@@ -72,8 +74,8 @@ export default function MilestonesPage() {
               : "Open a project to review its full milestone execution timeline."}
           </p>
         </div>
-        <Link href="/projects">
-          <Button variant="outline" className="gap-2">
+        <Link href="/projects" className="self-start sm:self-auto">
+          <Button variant="outline" className="h-9 gap-2 rounded-lg">
             <FolderKanban className="h-4 w-4" />
             <span>Projects</span>
           </Button>
@@ -81,7 +83,7 @@ export default function MilestonesPage() {
       </div>
 
       {!isSaOrHeadSa ? (
-        <Card className="border-dashed">
+        <Card className="border-dashed border-border/60 bg-card/70 shadow-sm">
           <CardContent className="py-16 text-center space-y-3">
             <FolderKanban className="h-10 w-10 text-muted-foreground mx-auto" />
             <div>
@@ -98,11 +100,11 @@ export default function MilestonesPage() {
       ) : (
         <div className="space-y-4">
           {/* Queue Filter Tabs */}
-          <div className="flex items-center gap-2 overflow-x-auto border-b border-border/60 pb-2">
+          <div className="flex items-center gap-2 overflow-x-auto rounded-xl border border-border/60 bg-card/70 p-3 shadow-sm sm:p-4">
             <Button
               variant={activeTab === "ACTION" ? "default" : "ghost"}
               size="sm"
-              className="h-8 gap-2 text-xs"
+              className="h-9 shrink-0 gap-2 rounded-lg text-xs font-semibold"
               onClick={() => setActiveTab("ACTION")}
             >
               <span>Needs Action</span>
@@ -116,7 +118,7 @@ export default function MilestonesPage() {
             <Button
               variant={activeTab === "REVIEW" ? "default" : "ghost"}
               size="sm"
-              className="h-8 gap-2 text-xs"
+              className="h-9 shrink-0 gap-2 rounded-lg text-xs font-semibold"
               onClick={() => setActiveTab("REVIEW")}
             >
               <span>Under Review</span>
@@ -130,7 +132,7 @@ export default function MilestonesPage() {
             <Button
               variant={activeTab === "COMPLETED" ? "default" : "ghost"}
               size="sm"
-              className="h-8 gap-2 text-xs"
+              className="h-9 shrink-0 gap-2 rounded-lg text-xs font-semibold"
               onClick={() => setActiveTab("COMPLETED")}
             >
               <span>Completed</span>
@@ -144,7 +146,7 @@ export default function MilestonesPage() {
             <Button
               variant={activeTab === "ALL" ? "default" : "ghost"}
               size="sm"
-              className="h-8 gap-2 text-xs"
+              className="h-9 shrink-0 gap-2 rounded-lg text-xs font-semibold"
               onClick={() => setActiveTab("ALL")}
             >
               <span>All ({milestones.length})</span>
@@ -155,33 +157,39 @@ export default function MilestonesPage() {
           {isLoading ? (
             <div className="space-y-3">
               {[1, 2, 3].map((i) => (
-                <div key={i} className="h-20 rounded-xl bg-card/40 border border-border/40 animate-pulse" />
+                <div key={i} className="h-20 animate-pulse rounded-xl border border-border/60 bg-card/70 shadow-sm" />
               ))}
             </div>
           ) : isError ? (
-            <Card>
+            <Card className="border-border/60 bg-card/70 shadow-sm">
               <CardContent className="py-16 text-center text-destructive">
-                Unable to load assigned milestones. Please try again.
+                <p className="mx-auto max-w-sm font-semibold">Unable to load assigned milestones. Please try again.</p>
               </CardContent>
             </Card>
           ) : filteredMilestones.length === 0 ? (
-            <div className="space-y-3 rounded-xl border border-dashed border-border py-16 text-center">
-              <CheckCircle2 className="mx-auto h-10 w-10 text-emerald-400" />
+            <Card className="border-dashed border-border/60 bg-card/70 shadow-sm">
+              <CardContent className="space-y-3 py-16 text-center">
+              {activeTab === "ACTION" ? (
+                <CheckCircle2 className="mx-auto h-10 w-10 text-emerald-400" />
+              ) : (
+                <Milestone className="mx-auto h-10 w-10 text-muted-foreground" />
+              )}
               <div>
-                <h3 className="font-bold text-foreground text-base">
+                <h3 className="text-base font-semibold tracking-tight text-foreground">
                   {activeTab === "ACTION"
                     ? "No Milestones Need Action"
                     : activeTab === "REVIEW"
                     ? "No Milestones Under Review"
                     : "No Milestones Found"}
                 </h3>
-                <p className="text-xs text-muted-foreground mt-1 max-w-sm mx-auto">
+                <p className="mx-auto mt-1 max-w-sm text-xs text-muted-foreground">
                   {activeTab === "ACTION"
                     ? "You are all caught up! When a project advances to your stage, it will appear here."
                     : "No milestones matching the selected queue."}
                 </p>
               </div>
-            </div>
+              </CardContent>
+            </Card>
           ) : (
             <div className="space-y-3">
               {filteredMilestones.map((milestone) => (
@@ -232,34 +240,46 @@ function AssignedMilestoneRow({ milestone }: { milestone: AssignedMilestone }) {
   };
 
   return (
-    <Card className="p-4 border-border/60 hover:border-primary/40 transition">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="min-w-0 space-y-1">
-          <div className="flex items-center gap-2">
-            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/20 text-xs font-bold text-primary">
+    <Card
+      className={`border-border/60 bg-card/70 p-4 shadow-sm transition-colors duration-200 hover:border-primary/25 ${
+        milestone.status === "IN_PROGRESS"
+          ? "border-primary/40 bg-primary/5"
+          : milestone.status === "REJECTED"
+          ? "border-destructive/40 bg-destructive/5"
+          : milestone.status === "SUBMITTED"
+          ? "border-amber-500/30 bg-amber-500/5"
+          : milestone.status === "COMPLETED" || milestone.status === "APPROVED"
+          ? "border-emerald-500/30 bg-emerald-500/5"
+          : ""
+      }`}
+    >
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0 space-y-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-primary/15 bg-primary/10 font-mono text-xs font-bold text-primary">
               {String(milestone.step_order).padStart(2, "0")}
             </span>
-            <p className="font-bold text-foreground text-sm">{milestone.name}</p>
+            <p className="text-sm font-semibold tracking-tight text-foreground">{milestone.name}</p>
             {getStatusBadge(milestone.status)}
           </div>
-          <p className="text-xs text-muted-foreground pl-8">
+          <p className="border-t border-border/40 pt-2 text-xs text-muted-foreground sm:pl-10">
             Project: <strong className="text-foreground">{milestone.project?.name || "Project"}</strong> • Customer:{" "}
             <strong className="text-foreground">{milestone.project?.customer || "-"}</strong>
           </p>
 
-          {message && <p className="text-xs text-emerald-400 pl-8">{message}</p>}
-          {error && <p className="text-xs text-destructive pl-8">{error}</p>}
+          {message && <p className="text-xs text-emerald-400 sm:pl-10">{message}</p>}
+          {error && <p className="text-xs text-destructive sm:pl-10">{error}</p>}
         </div>
 
-        <div className="flex flex-wrap items-center gap-2 shrink-0 self-start sm:self-center">
+        <div className="flex shrink-0 flex-wrap items-center gap-2 self-start sm:self-center">
           {isSa && milestone.status === "IN_PROGRESS" && (
-            <Button size="sm" className="h-8 gap-1.5 text-xs shadow-sm" onClick={() => setSubmitOpen(true)}>
+            <Button size="sm" className="h-8 gap-1.5 rounded-lg text-xs shadow-sm" onClick={() => setSubmitOpen(true)}>
               <FileCheck2 className="h-3.5 w-3.5" />
               <span>Submit Work</span>
             </Button>
           )}
           {isSa && milestone.status === "SUBMITTED" && (
-            <span className="inline-flex items-center gap-1 text-xs text-amber-400 font-medium px-2 py-1 bg-amber-500/10 rounded-md border border-amber-500/30">
+            <span className="inline-flex items-center gap-1 rounded-lg border border-amber-500/30 bg-amber-500/10 px-2 py-1 text-xs font-medium text-amber-400">
               <Clock className="h-3.5 w-3.5" />
               <span>Waiting for Head SA</span>
             </span>
@@ -268,7 +288,7 @@ function AssignedMilestoneRow({ milestone }: { milestone: AssignedMilestone }) {
             <Button
               size="sm"
               variant="outline"
-              className="h-8 gap-1.5 text-xs border-destructive/40 text-destructive hover:bg-destructive/10"
+              className="h-8 gap-1.5 rounded-lg border-destructive/40 text-xs text-destructive hover:bg-destructive/10"
               onClick={() => void handleStartRevision()}
               disabled={startRevision.isPending}
             >
@@ -278,7 +298,7 @@ function AssignedMilestoneRow({ milestone }: { milestone: AssignedMilestone }) {
           )}
           {projectId && (
             <Link href={`/projects/${projectId}`}>
-              <Button size="sm" variant="ghost" className="h-8 gap-1 text-xs text-muted-foreground hover:text-foreground">
+              <Button size="sm" variant="ghost" className="h-8 gap-1 rounded-lg text-xs text-muted-foreground hover:bg-muted/40 hover:text-foreground">
                 <span>View Project</span>
                 <ArrowUpRight className="h-3.5 w-3.5" />
               </Button>
@@ -330,13 +350,20 @@ function AssignedSubmitDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogHeader>
-        <DialogTitle>Submit Work for Review</DialogTitle>
-        <DialogDescription>{milestone.name}</DialogDescription>
+      <DialogHeader className="mb-5 space-y-0">
+        <div className="flex items-start gap-3">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-primary/15 bg-primary/10 text-primary">
+            <FileCheck2 className="h-4 w-4" />
+          </span>
+          <div className="min-w-0 space-y-1">
+            <DialogTitle className="text-base font-semibold tracking-tight">Submit Work for Review</DialogTitle>
+            <DialogDescription className="mt-0 text-xs">{milestone.name}</DialogDescription>
+          </div>
+        </div>
       </DialogHeader>
       <form className="space-y-4" onSubmit={submit}>
         <div>
-          <label className="block text-xs font-semibold text-muted-foreground mb-1">
+          <label className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
             Submission Note (Optional)
           </label>
           <textarea
@@ -344,20 +371,20 @@ function AssignedSubmitDialog({
             placeholder="Add deliverables summary or note for Head SA..."
             value={note}
             onChange={(event) => setNote(event.target.value)}
-            className="flex w-full rounded-md border border-input bg-card px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-primary"
+            className="flex w-full rounded-lg border border-input bg-background/50 px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-primary"
           />
         </div>
         {error && (
-          <div className="flex items-center gap-2 rounded-lg border border-destructive/40 bg-destructive/10 p-2.5 text-xs text-destructive">
+          <div className="flex items-start gap-2 rounded-xl border border-destructive/40 bg-destructive/10 p-3 text-xs text-destructive">
             <AlertCircle className="h-4 w-4 shrink-0" />
             <span>{error}</span>
           </div>
         )}
-        <DialogFooter>
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+        <DialogFooter className="border-t border-border/40 pt-4">
+          <Button type="button" variant="outline" className="h-9 rounded-lg" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button type="submit" disabled={submitMilestone.isPending} className="gap-1.5">
+          <Button type="submit" disabled={submitMilestone.isPending} className="h-9 gap-1.5 rounded-lg">
             <FileCheck2 className="h-4 w-4" />
             <span>{submitMilestone.isPending ? "Submitting..." : "Submit to Head SA"}</span>
           </Button>

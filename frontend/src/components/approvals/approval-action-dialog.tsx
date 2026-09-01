@@ -82,21 +82,25 @@ export function ApprovalActionDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogHeader>
-        <div className="flex items-center gap-2 mb-1">
-          {item.category === "DEADLINE" && <CalendarClock className="h-5 w-5 text-amber-400" />}
-          {item.category === "PROJECT_PLAN" && <ClipboardCheck className="h-5 w-5 text-primary" />}
-          {item.category === "SUBMISSION" && <FileCheck2 className="h-5 w-5 text-emerald-400" />}
-          <DialogTitle>Head SA Review & Sign-Off</DialogTitle>
+      <DialogHeader className="mb-5 space-y-0">
+        <div className="flex items-start gap-3">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-primary/15 bg-primary/10 text-primary">
+            {item.category === "DEADLINE" && <CalendarClock className="h-4 w-4 text-amber-400" />}
+            {item.category === "PROJECT_PLAN" && <ClipboardCheck className="h-4 w-4" />}
+            {item.category === "SUBMISSION" && <FileCheck2 className="h-4 w-4 text-emerald-400" />}
+          </span>
+          <div className="min-w-0 space-y-1">
+            <DialogTitle className="text-base font-semibold tracking-tight">Head SA Review & Sign-Off</DialogTitle>
+            <DialogDescription className="mt-0 text-xs leading-relaxed">
+              Review submission for <span className="font-semibold text-foreground">{item.projectName}</span> ({item.clientName}).
+            </DialogDescription>
+          </div>
         </div>
-        <DialogDescription>
-          Review submission for <span className="font-semibold text-foreground">{item.projectName}</span> ({item.clientName}).
-        </DialogDescription>
       </DialogHeader>
 
       <div className="space-y-4">
         {/* Ticket Summary Box */}
-        <div className="rounded-xl border border-border/70 bg-card p-4 space-y-2.5 text-xs">
+        <div className="space-y-3 rounded-xl border border-border/60 bg-muted/10 p-4 text-xs shadow-sm">
           <div className="flex items-center justify-between">
             <Badge variant="outline" className="font-semibold">
               {getApprovalTypeDisplay(item.category)}
@@ -106,7 +110,7 @@ export function ApprovalActionDialog({
             </span>
           </div>
 
-          <h3 className="text-sm font-bold text-foreground">{item.title}</h3>
+          <h3 className="text-sm font-semibold tracking-tight text-foreground">{item.title}</h3>
           <p className="text-muted-foreground">{item.details}</p>
 
           {item.category === "DEADLINE" && (
@@ -117,7 +121,7 @@ export function ApprovalActionDialog({
           )}
 
           {item.category === "PROJECT_PLAN" && (
-            <div className="rounded-lg border border-border/40 bg-muted/30 p-2.5 space-y-1">
+            <div className="space-y-1 rounded-xl border border-border/40 bg-card/70 p-3">
               <p>Project: <strong className="text-foreground">{item.projectName}</strong></p>
               {item.requestNote && <p>Plan note: <strong className="text-foreground">&quot;{item.requestNote}&quot;</strong></p>}
               {item.reviewNote && <p>Review note: <strong className="text-foreground">&quot;{item.reviewNote}&quot;</strong></p>}
@@ -125,7 +129,7 @@ export function ApprovalActionDialog({
           )}
 
           {item.category === "SUBMISSION" && (
-            <div className="rounded-lg border border-border/40 bg-muted/30 p-2.5 space-y-1">
+            <div className="space-y-1 rounded-xl border border-border/40 bg-card/70 p-3">
               <p>Milestone: <strong className="text-foreground">{item.milestoneName}</strong></p>
               <p>Submitted by: <strong className="text-foreground">{item.submittedBy}</strong></p>
               <p>Submission note: <strong className="text-foreground">{item.submissionNote ? `"${item.submissionNote}"` : "-"}</strong></p>
@@ -134,7 +138,7 @@ export function ApprovalActionDialog({
             </div>
           )}
 
-          <div className="flex items-center justify-between pt-2 border-t border-border/40 text-[11px] text-muted-foreground">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border/40 pt-3 text-[11px] text-muted-foreground">
             <span>Requested by: <strong className="text-foreground">{item.submittedBy}</strong></span>
             {item.deadline && (
               <span>Target: <strong className="text-foreground">{new Date(item.deadline).toLocaleDateString("id-ID", { dateStyle: "medium" })}</strong></span>
@@ -145,12 +149,12 @@ export function ApprovalActionDialog({
         {/* Decision Form */}
         {canProcess ? (
           <form onSubmit={handleDecision} className="space-y-3">
-            <div className="flex items-center gap-3">
+            <div className="flex flex-col gap-2 rounded-xl border border-border/40 bg-muted/10 p-1.5 sm:flex-row">
               <Button
                 type="button"
                 variant={action === "APPROVE" ? "default" : "outline"}
-                className={`flex-1 gap-1.5 text-xs h-9 ${
-                  action === "APPROVE" ? "bg-emerald-500 hover:bg-emerald-600 text-black font-semibold shadow-sm" : ""
+                className={`h-9 flex-1 gap-1.5 rounded-lg text-xs ${
+                  action === "APPROVE" ? "bg-emerald-500 text-black font-semibold shadow-sm hover:bg-emerald-600" : ""
                 }`}
                 onClick={() => {
                   setAction("APPROVE");
@@ -163,7 +167,7 @@ export function ApprovalActionDialog({
               <Button
                 type="button"
                 variant={action === "REJECT" ? "destructive" : "outline"}
-                className="flex-1 gap-1.5 text-xs h-9"
+                className="h-9 flex-1 gap-1.5 rounded-lg text-xs"
                 onClick={() => {
                   setAction("REJECT");
                   setError("");
@@ -175,7 +179,7 @@ export function ApprovalActionDialog({
             </div>
 
             <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1">
+              <label className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
                 {action === "REJECT" ? "Rejection Reason / Revision Notes *" : "Approval Remarks (Optional)"}
               </label>
               <textarea
@@ -190,24 +194,25 @@ export function ApprovalActionDialog({
                   setFeedback(e.target.value);
                   setError("");
                 }}
-                className="flex w-full rounded-md border border-input bg-card px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                className="flex w-full rounded-lg border border-input bg-background/50 px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-primary"
                 required={action === "REJECT"}
               />
             </div>
 
             {error && (
-              <div className="flex items-center gap-2 rounded-lg border border-destructive/40 bg-destructive/10 p-2.5 text-xs text-destructive">
+              <div className="flex items-start gap-2 rounded-xl border border-destructive/40 bg-destructive/10 p-3 text-xs text-destructive">
                 <AlertCircle className="h-4 w-4 shrink-0" />
                 <span>{error}</span>
               </div>
             )}
 
-            <DialogFooter className="pt-2">
+            <DialogFooter className="border-t border-border/40 pt-4">
               <Button
                 type="button"
                 variant="outline"
                 onClick={() => onOpenChange(false)}
                 disabled={processMutation.isPending}
+                className="h-9 rounded-lg"
               >
                 Cancel
               </Button>
@@ -215,7 +220,7 @@ export function ApprovalActionDialog({
                 type="submit"
                 disabled={processMutation.isPending}
                 variant={action === "REJECT" ? "destructive" : "default"}
-                className={action === "APPROVE" ? "bg-emerald-500 hover:bg-emerald-600 text-black font-semibold" : ""}
+                className={action === "APPROVE" ? "h-9 rounded-lg bg-emerald-500 font-semibold text-black hover:bg-emerald-600" : "h-9 rounded-lg"}
               >
                 {processMutation.isPending ? "Processing..." : `Confirm ${action === "APPROVE" ? "Approval" : "Rejection"}`}
               </Button>
@@ -223,13 +228,13 @@ export function ApprovalActionDialog({
           </form>
         ) : (
           <div className="space-y-3">
-            <div className="rounded-lg border border-border/50 bg-muted/30 p-3 text-xs space-y-1">
+            <div className="space-y-1 rounded-xl border border-border/40 bg-muted/15 p-3 text-xs">
               <p>Status: <strong className="text-foreground">{item.status}</strong></p>
               <p>Reviewed by: <strong className="text-foreground">{item.reviewer?.full_name || item.reviewer?.fullName || "-"}</strong></p>
               {item.reviewNote && <p>Review note: <strong className="text-foreground">&quot;{item.reviewNote}&quot;</strong></p>}
             </div>
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            <DialogFooter className="border-t border-border/40 pt-4">
+              <Button type="button" variant="outline" className="h-9 rounded-lg" onClick={() => onOpenChange(false)}>
                 Close
               </Button>
             </DialogFooter>
@@ -258,7 +263,7 @@ function DeadlineBox({
   } | null;
 }) {
   return (
-    <div className="rounded-lg border border-border/40 bg-muted/30 p-2.5 text-[11px] space-y-0.5">
+    <div className="space-y-0.5 rounded-xl border border-border/40 bg-card/70 p-3 text-[11px]">
       <p className="font-semibold text-foreground">{title}</p>
       <p>Start: {formatDate(deadline?.start_date)}</p>
       <p>Duration: {deadline?.duration_working_days || "-"} working days</p>

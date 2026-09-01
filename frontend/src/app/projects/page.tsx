@@ -80,8 +80,8 @@ export default function ProjectsPage() {
     <div className="container space-y-6 py-8">
       {/* Header */}
       <div className="flex flex-col gap-4 border-b border-border/50 pb-6 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <div className="mb-1 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-primary">
+        <div className="max-w-2xl">
+          <div className="mb-1 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.12em] text-primary">
             <Briefcase className="h-4 w-4" />
             <span>Workflow Repository System</span>
           </div>
@@ -92,8 +92,8 @@ export default function ProjectsPage() {
         </div>
 
         {userRole === "SALES" && (
-          <Link href="/projects/new">
-            <Button className="gap-2 shadow-md">
+          <Link href="/projects/new" className="self-start sm:self-auto">
+            <Button className="h-10 gap-2 shadow-md">
               <Plus className="h-4 w-4" />
               <span>Create Project</span>
             </Button>
@@ -102,7 +102,7 @@ export default function ProjectsPage() {
       </div>
 
       {/* Filter Tabs & Search Toolbar */}
-      <div className="space-y-3">
+      <div className="space-y-3 rounded-xl border border-border/60 bg-card/70 p-3 shadow-sm sm:p-4">
         {/* Status Filter Pills */}
         <div className="flex items-center gap-2 overflow-x-auto pb-1">
           {statuses.map((s) => (
@@ -110,7 +110,7 @@ export default function ProjectsPage() {
               key={s.key}
               variant={status === s.key ? "default" : "outline"}
               size="sm"
-              className="h-8 text-xs font-medium shrink-0"
+              className="h-9 shrink-0 rounded-lg px-3 text-xs font-medium shadow-none"
               onClick={() => {
                 setStatus(s.key);
                 setPage(1);
@@ -126,7 +126,7 @@ export default function ProjectsPage() {
           <div className="relative sm:col-span-8">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
-              className="pl-9 text-sm"
+              className="h-10 border-border/60 bg-background/50 pl-9 text-sm"
               placeholder="Search by project name or customer..."
               value={search}
               onChange={(event) => {
@@ -138,7 +138,7 @@ export default function ProjectsPage() {
 
           <div className="sm:col-span-4">
             <select
-              className="flex h-9 w-full rounded-md border border-input bg-card px-3 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-primary"
+              className="flex h-10 w-full rounded-md border border-border/60 bg-background/50 px-3 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-primary"
               value={scenarioId}
               onChange={(event) => {
                 setScenarioId(event.target.value);
@@ -160,17 +160,20 @@ export default function ProjectsPage() {
       {isLoading ? (
         <div className="space-y-3">
           {[1, 2, 3, 4, 5].map((i) => (
-            <div key={i} className="h-20 rounded-xl bg-card/40 border border-border/40 animate-pulse" />
+            <div key={i} className="h-20 animate-pulse rounded-xl border border-border/60 bg-card/70 shadow-sm" />
           ))}
         </div>
       ) : isError ? (
-        <Card>
+        <Card className="border-border/60 bg-card/70 shadow-sm">
           <CardContent className="py-16 text-center text-destructive">
-            Failed to load projects. Please try again.
+            <div className="mx-auto max-w-sm space-y-2">
+              <p className="font-semibold">Failed to load projects.</p>
+              <p className="text-xs text-muted-foreground">Please try again.</p>
+            </div>
           </CardContent>
         </Card>
       ) : projects.length === 0 ? (
-        <Card className="border-dashed">
+        <Card className="border-dashed border-border/60 bg-card/70 shadow-sm">
           <CardContent className="py-16 text-center space-y-3">
             <FolderKanban className="h-10 w-10 text-muted-foreground mx-auto" />
             <div>
@@ -192,21 +195,21 @@ export default function ProjectsPage() {
           </CardContent>
         </Card>
       ) : (
-        <Card className="overflow-hidden border-border/60">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead className="border-b border-border/60 bg-muted/40 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+        <Card className="overflow-hidden border-border/60 bg-card/70 shadow-sm">
+          <div className="overflow-x-auto px-3 py-2 sm:px-4">
+            <table className="w-full border-separate border-spacing-y-2 text-left text-sm">
+              <thead className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
                 <tr>
-                  <th className="px-4 py-3.5">Project & Customer</th>
-                  <th className="px-4 py-3.5">Scenario</th>
-                  <th className="px-4 py-3.5 text-center">Status</th>
-                  <th className="px-4 py-3.5">Progress</th>
-                  <th className="px-4 py-3.5">Current Stage</th>
-                  <th className="px-4 py-3.5">Responsible</th>
-                  <th className="px-4 py-3.5 text-right">Actions</th>
+                  <th className="border-b border-border/60 px-4 py-3">Project & Customer</th>
+                  <th className="border-b border-border/60 px-4 py-3">Scenario</th>
+                  <th className="border-b border-border/60 px-4 py-3 text-center">Status</th>
+                  <th className="border-b border-border/60 px-4 py-3">Progress</th>
+                  <th className="border-b border-border/60 px-4 py-3">Current Stage</th>
+                  <th className="border-b border-border/60 px-4 py-3">Responsible</th>
+                  <th className="border-b border-border/60 px-4 py-3 text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-border/40">
+              <tbody className="[&>tr>td]:border-y [&>tr>td]:border-border/40 [&>tr>td]:bg-card/70 [&>tr>td]:transition-colors [&>tr:hover>td]:border-primary/30 [&>tr:hover>td]:bg-muted/20">
                 {projects.map((project) => {
                   const progressPct = project.progress ?? (project.status === "COMPLETED" ? 100 : 0);
                   const totalMilestones = project.totalMilestones ?? 0;
@@ -215,9 +218,9 @@ export default function ProjectsPage() {
                   const currentRole = project.currentRole || (project.status === "DRAFT" ? "SALES" : project.pic?.full_name ? `SA (${project.pic.full_name})` : "-");
 
                   return (
-                    <tr key={project.id} className="hover:bg-muted/20 transition duration-150">
+                    <tr key={project.id} className="transition-colors duration-200">
                       {/* Project Name & Customer */}
-                      <td className="px-4 py-4 min-w-[220px]">
+                      <td className="min-w-[220px] rounded-l-xl border-l px-4 py-4.5">
                         <div className="space-y-0.5">
                           <Link
                             href={`/projects/${project.id}`}
@@ -232,17 +235,17 @@ export default function ProjectsPage() {
                       </td>
 
                       {/* Scenario */}
-                      <td className="px-4 py-4 min-w-[140px] text-xs text-muted-foreground">
+                      <td className="min-w-[140px] px-4 py-4.5 text-xs text-muted-foreground">
                         <span className="font-medium text-foreground">{project.scenario?.name || "-"}</span>
                       </td>
 
                       {/* Status */}
-                      <td className="px-4 py-4 text-center min-w-[100px]">
+                      <td className="min-w-[100px] px-4 py-4.5 text-center">
                         {getStatusBadge(project.status)}
                       </td>
 
                       {/* Progress Bar & Counter */}
-                      <td className="px-4 py-4 min-w-[160px]">
+                      <td className="min-w-[160px] px-4 py-4.5">
                         <div className="space-y-1">
                           <div className="flex items-center justify-between text-[11px]">
                             <span className="font-bold text-foreground">{progressPct}%</span>
@@ -252,7 +255,7 @@ export default function ProjectsPage() {
                               </span>
                             )}
                           </div>
-                          <div className="h-1.5 w-full rounded-full bg-muted/60 overflow-hidden">
+                          <div className="h-2 w-full overflow-hidden rounded-full bg-muted/60 ring-1 ring-inset ring-border/40">
                             <div
                               className={`h-full rounded-full transition-all duration-300 ${getProgressColor(progressPct)}`}
                               style={{ width: `${progressPct}%` }}
@@ -262,23 +265,23 @@ export default function ProjectsPage() {
                       </td>
 
                       {/* Current Stage */}
-                      <td className="px-4 py-4 min-w-[170px] text-xs">
+                      <td className="min-w-[170px] px-4 py-4.5 text-xs">
                         <div className="flex items-center gap-1.5">
                           <span className="font-medium text-foreground">{currentStage}</span>
                         </div>
                       </td>
 
                       {/* Responsible Role */}
-                      <td className="px-4 py-4 min-w-[140px] text-xs text-muted-foreground">
-                        <span className="inline-flex items-center gap-1 rounded bg-muted/40 px-2 py-0.5 font-medium text-foreground">
+                      <td className="min-w-[140px] px-4 py-4.5 text-xs text-muted-foreground">
+                        <span className="inline-flex items-center gap-1 rounded-md bg-muted/50 px-2 py-0.5 font-medium text-foreground">
                           {currentRole}
                         </span>
                       </td>
 
                       {/* Action */}
-                      <td className="px-4 py-4 text-right">
+                      <td className="rounded-r-xl border-r px-4 py-4.5 text-right">
                         <Link href={`/projects/${project.id}`}>
-                          <Button size="sm" variant="ghost" className="h-8 gap-1 text-xs">
+                          <Button size="sm" variant="ghost" className="h-8 gap-1 rounded-lg text-xs text-muted-foreground hover:bg-muted/40 hover:text-foreground">
                             <span>Open</span>
                             <ArrowUpRight className="h-3.5 w-3.5" />
                           </Button>
@@ -292,16 +295,16 @@ export default function ProjectsPage() {
           </div>
 
           {/* Pagination Footer */}
-          <div className="flex items-center justify-between border-t border-border/60 px-4 py-3 text-xs text-muted-foreground">
+          <div className="flex flex-col gap-3 border-t border-border/60 bg-muted/10 px-4 py-3 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
             <span>
               Showing <strong className="text-foreground">{projects.length}</strong> of{" "}
               <strong className="text-foreground">{pagination?.total || 0}</strong> projects
             </span>
-            <div className="flex gap-2">
+            <div className="flex gap-2 self-end sm:self-auto">
               <Button
                 size="sm"
                 variant="outline"
-                className="h-8 text-xs"
+                className="h-8 rounded-lg text-xs"
                 disabled={page <= 1}
                 onClick={() => setPage(page - 1)}
               >
@@ -310,7 +313,7 @@ export default function ProjectsPage() {
               <Button
                 size="sm"
                 variant="outline"
-                className="h-8 text-xs"
+                className="h-8 rounded-lg text-xs"
                 disabled={!pagination?.hasNextPage}
                 onClick={() => setPage(page + 1)}
               >

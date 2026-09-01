@@ -14,6 +14,7 @@ import {
   CircleDashed,
   Clock,
   FileCheck2,
+  Layers,
   PauseCircle,
   Play,
   RotateCcw,
@@ -170,36 +171,36 @@ export default function ProjectDetailPage() {
   return (
     <div className="container space-y-6 py-8">
       {/* Back Button */}
-      <Button variant="ghost" size="sm" className="gap-2 -ml-2 text-muted-foreground hover:text-foreground" onClick={() => router.push("/projects")}>
+      <Button variant="ghost" size="sm" className="-ml-2 gap-2 rounded-lg text-muted-foreground hover:text-foreground" onClick={() => router.push("/projects")}>
         <ArrowLeft className="h-4 w-4" />
         <span>Back to Projects</span>
       </Button>
 
       {/* Header */}
-      <div className="flex flex-col gap-4 border-b border-border/50 pb-6 sm:flex-row sm:items-start sm:justify-between">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2">
-            <span className="font-mono text-xs text-muted-foreground font-semibold">
+      <div className="flex flex-col gap-5 border-b border-border/60 pb-6 sm:flex-row sm:items-start sm:justify-between">
+        <div className="max-w-3xl space-y-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="rounded-md bg-muted/50 px-2 py-1 font-mono text-xs font-semibold text-muted-foreground">
               {project.id.slice(0, 8)}
             </span>
             <StatusBadge status={project.status} />
           </div>
-          <h1 className="text-3xl font-bold tracking-tight text-foreground">{project.name}</h1>
-          <p className="text-sm text-muted-foreground">
+          <h1 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl">{project.name}</h1>
+          <p className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-sm text-muted-foreground">
             Customer: <strong className="text-foreground">{project.customer}</strong> • Scenario:{" "}
             <strong className="text-foreground">{project.scenario?.name || "No scenario"}</strong>
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
           {isActive && isSalesOwner && (
-            <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setPostponeOpen(true)}>
+            <Button size="sm" variant="outline" className="h-9 gap-1.5 rounded-lg" onClick={() => setPostponeOpen(true)}>
               <PauseCircle className="h-4 w-4 text-amber-400" />
               <span>Postpone Project</span>
             </Button>
           )}
           {isPostponed && isSalesOwner && (
-            <Button size="sm" onClick={() => void resume()} disabled={resumeProject.isPending} className="gap-1.5 bg-amber-500 hover:bg-amber-600 text-black font-semibold">
+            <Button size="sm" onClick={() => void resume()} disabled={resumeProject.isPending} className="h-9 gap-1.5 rounded-lg bg-amber-500 font-semibold text-black hover:bg-amber-600">
               <Play className="h-4 w-4" />
               <span>{resumeProject.isPending ? "Resuming..." : "Resume Project"}</span>
             </Button>
@@ -209,13 +210,13 @@ export default function ProjectDetailPage() {
 
       {/* Global Alerts */}
       {error && (
-        <div className="rounded-lg border border-destructive/40 bg-destructive/10 p-3.5 text-xs text-destructive flex items-center gap-2">
+        <div className="flex items-start gap-2 rounded-xl border border-destructive/40 bg-destructive/10 p-3.5 text-xs text-destructive shadow-sm">
           <AlertCircle className="h-4 w-4 shrink-0" />
           <span>{error}</span>
         </div>
       )}
       {message && (
-        <div className="rounded-lg border border-emerald-500/40 bg-emerald-500/10 p-3.5 text-xs text-emerald-400 flex items-center gap-2">
+        <div className="flex items-start gap-2 rounded-xl border border-emerald-500/40 bg-emerald-500/10 p-3.5 text-xs text-emerald-400 shadow-sm">
           <CheckCircle2 className="h-4 w-4 shrink-0" />
           <span>{message}</span>
         </div>
@@ -234,8 +235,8 @@ export default function ProjectDetailPage() {
 
       {/* ─── Postponed Banner ─── */}
       {isPostponed && (
-        <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 sm:p-5 space-y-2">
-          <div className="flex items-center gap-2 text-amber-400 font-bold text-sm">
+        <div className="space-y-3 rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 shadow-sm sm:p-5">
+          <div className="flex items-center gap-2 text-sm font-semibold tracking-tight text-amber-400">
             <PauseCircle className="h-5 w-5 shrink-0" />
             <span>Project Postponed</span>
           </div>
@@ -255,9 +256,9 @@ export default function ProjectDetailPage() {
 
       {/* ─── Completed Success Banner ─── */}
       {isCompleted && (
-        <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 sm:p-5 flex items-center justify-between gap-4">
+        <div className="flex flex-col gap-4 rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between sm:p-5">
           <div className="space-y-1">
-            <div className="flex items-center gap-2 text-emerald-400 font-bold text-sm">
+            <div className="flex items-center gap-2 text-sm font-semibold tracking-tight text-emerald-400">
               <CheckCircle2 className="h-5 w-5 shrink-0" />
               <span>Project Completed — 100%</span>
             </div>
@@ -265,7 +266,7 @@ export default function ProjectDetailPage() {
               All workflow milestones have been fulfilled and approved. No further actions are required.
             </p>
           </div>
-          <Badge variant="success" className="px-3 py-1 text-xs">
+          <Badge variant="success" className="self-start px-3 py-1 text-xs sm:self-auto">
             COMPLETED
           </Badge>
         </div>
@@ -280,7 +281,7 @@ export default function ProjectDetailPage() {
       )}
 
       {/* Project Meta Summary Grid */}
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
         <Info label="Scenario" value={project.scenario?.name || "-"} />
         <Info label="Sales Owner" value={project.sales?.full_name || project.sales?.fullName || "-"} />
         <Info label="Project Status" value={project.status} badge />
@@ -324,17 +325,24 @@ export default function ProjectDetailPage() {
       </div>
 
       {/* ─── Workflow Progress Bar ─── */}
-      <Card>
+      <Card className="border-border/60 bg-card/70 shadow-sm">
         <CardHeader className="pb-3">
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-base font-bold">Workflow Progress</CardTitle>
-            <span className="font-mono text-xs font-bold text-primary">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div className="flex items-start gap-3">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-primary/15 bg-primary/10 text-primary">
+                <Activity className="h-4 w-4" />
+              </span>
+              <div className="space-y-1">
+                <CardTitle className="text-base font-semibold tracking-tight">Workflow Progress</CardTitle>
+                <CardDescription className="text-xs">
+                  Overall progression through configured workflow scenario stages
+                </CardDescription>
+              </div>
+            </div>
+            <span className="self-start font-mono text-xs font-bold text-primary sm:self-auto">
               {progress?.percentage || 0}% Complete
             </span>
           </div>
-          <CardDescription className="text-xs">
-            Overall progression through configured workflow scenario stages
-          </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="space-y-2">
@@ -343,7 +351,7 @@ export default function ProjectDetailPage() {
                 <strong className="text-base text-foreground">{progress?.completed || 0}</strong> / {progress?.total || milestones.length} Stages Completed
               </span>
             </div>
-            <div className="h-2 w-full overflow-hidden rounded-full bg-secondary/80">
+            <div className="h-2 w-full overflow-hidden rounded-full bg-secondary/80 ring-1 ring-inset ring-border/40">
               <div
                 className="h-full rounded-full bg-primary transition-all duration-500"
                 style={{ width: `${progress?.percentage || 0}%` }}
@@ -355,17 +363,24 @@ export default function ProjectDetailPage() {
 
       {/* ─── Milestones Execution List & Activity Log ─── */}
       <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
-        <Card>
+        <Card className="border-border/60 bg-card/70 shadow-sm">
           <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-base font-bold">Workflow Stages & Execution</CardTitle>
-              <Badge variant="outline" className="text-xs">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div className="flex items-start gap-3">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-primary/15 bg-primary/10 text-primary">
+                  <Layers className="h-4 w-4" />
+                </span>
+                <div className="space-y-1">
+                  <CardTitle className="text-base font-semibold tracking-tight">Workflow Stages & Execution</CardTitle>
+                  <CardDescription className="text-xs">
+                    Sequential milestones. Completed stages recede, and current active stage is highlighted.
+                  </CardDescription>
+                </div>
+              </div>
+              <Badge variant="outline" className="self-start text-xs sm:self-auto">
                 {milestones.length} Stages
               </Badge>
             </div>
-            <CardDescription className="text-xs">
-              Sequential milestones. Completed stages recede, and current active stage is highlighted.
-            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
             {milestonesLoading ? (
@@ -387,16 +402,20 @@ export default function ProjectDetailPage() {
         </Card>
 
         {/* Activity Log */}
-        <Card>
-          <CardHeader className="flex flex-row items-center gap-2 pb-3">
-            <Activity className="h-4 w-4 text-primary" />
-            <CardTitle className="text-base font-bold">Activity Log</CardTitle>
+        <Card className="border-border/60 bg-card/70 shadow-sm">
+          <CardHeader className="flex flex-row items-start gap-3 pb-3">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-primary/15 bg-primary/10 text-primary">
+              <Activity className="h-4 w-4" />
+            </span>
+            <div className="space-y-1">
+              <CardTitle className="text-base font-semibold tracking-tight">Activity Log</CardTitle>
+            </div>
           </CardHeader>
           <CardContent className="space-y-3">
             {project.activity_logs?.length ? (
               <div className="space-y-2.5 max-h-[500px] overflow-y-auto pr-1">
                 {project.activity_logs.map((log) => (
-                  <div key={log.id} className="rounded-lg border border-border/40 bg-muted/20 p-2.5 text-xs space-y-1">
+                  <div key={log.id} className="space-y-1 rounded-xl border border-border/40 bg-muted/20 p-3 text-xs transition-colors hover:border-primary/20 hover:bg-muted/30">
                     <p className="text-foreground leading-relaxed">
                       {log.description || log.details || log.action}
                     </p>
@@ -437,24 +456,26 @@ function NextActionCard({
   isResuming: boolean;
 }) {
   return (
-    <div className="rounded-xl border border-primary/30 bg-gradient-to-r from-primary/10 via-card to-card p-4 sm:p-5 shadow-sm space-y-2">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2">
-            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/20 text-primary">
-              <Sparkles className="h-3.5 w-3.5" />
-            </span>
-            <span className="text-xs font-bold uppercase tracking-wider text-primary">Next Action</span>
-            {nextAction.isWaiting && (
-              <Badge variant="outline" className="text-[10px] border-amber-500/40 text-amber-400">
-                Waiting on {nextAction.waitingForRole}
-              </Badge>
-            )}
+    <div className="space-y-3 rounded-xl border border-primary/30 bg-card/70 p-4 shadow-sm sm:p-5">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-start gap-3">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-primary/15 bg-primary/10 text-primary">
+            <Sparkles className="h-4 w-4" />
+          </span>
+          <div className="min-w-0 space-y-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-primary">Next Action</span>
+              {nextAction.isWaiting && (
+                <Badge variant="outline" className="border-amber-500/40 text-[10px] text-amber-400">
+                  Waiting on {nextAction.waitingForRole}
+                </Badge>
+              )}
+            </div>
+            <h3 className="text-base font-semibold tracking-tight text-foreground">{nextAction.title}</h3>
+            <p className="max-w-2xl text-xs leading-relaxed text-muted-foreground">
+              {nextAction.description}
+            </p>
           </div>
-          <h3 className="text-base font-bold text-foreground">{nextAction.title}</h3>
-          <p className="text-xs text-muted-foreground leading-relaxed max-w-2xl">
-            {nextAction.description}
-          </p>
         </div>
 
         {/* Primary Action Button */}
@@ -514,8 +535,8 @@ function DraftProgressionTracker({
   ];
 
   return (
-    <Card className="bg-card/60">
-      <CardContent className="py-4">
+    <Card className="border-border/60 bg-card/70 shadow-sm">
+      <CardContent className="py-4 sm:py-5">
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {steps.map((step) => (
             <div key={step.number} className="flex items-center gap-2.5">
@@ -571,19 +592,24 @@ function ProjectPlanCard({
 
   return (
     <>
-      <Card className={approval?.status === "REJECTED" ? "border-destructive/40 bg-destructive/5" : ""}>
-        <CardHeader className="flex flex-row items-center justify-between gap-3 pb-3">
-          <div className="space-y-0.5">
-            <CardTitle className="text-base font-bold">Project Plan Sign-Off</CardTitle>
-            <CardDescription className="text-xs">
-              Single gatekeeper approval by Head SA before project execution starts
-            </CardDescription>
+      <Card className={approval?.status === "REJECTED" ? "border-destructive/40 bg-destructive/5 shadow-sm" : "border-border/60 bg-card/70 shadow-sm"}>
+        <CardHeader className="flex flex-col gap-3 pb-3 sm:flex-row sm:items-start sm:justify-between">
+          <div className="flex items-start gap-3">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-primary/15 bg-primary/10 text-primary">
+              <ShieldCheck className="h-4 w-4" />
+            </span>
+            <div className="space-y-1">
+              <CardTitle className="text-base font-semibold tracking-tight">Project Plan Sign-Off</CardTitle>
+              <CardDescription className="text-xs">
+                Single gatekeeper approval by Head SA before project execution starts
+              </CardDescription>
+            </div>
           </div>
-          {approval ? <PlanApprovalBadge status={approval.status} /> : <Badge variant="outline">Not Submitted</Badge>}
+          {approval ? <PlanApprovalBadge status={approval.status} /> : <Badge variant="outline" className="self-start sm:self-auto">Not Submitted</Badge>}
         </CardHeader>
         <CardContent className="space-y-3">
           {approval ? (
-            <div className="space-y-2 text-xs">
+            <div className="space-y-2 rounded-xl border border-border/40 bg-muted/15 p-3 text-xs">
               <div className="flex flex-wrap items-center gap-2 text-muted-foreground">
                 <span>Submitted by: <strong className="text-foreground">{approval.requested_by?.full_name || "-"}</strong></span>
                 <span>•</span>
@@ -611,7 +637,7 @@ function ProjectPlanCard({
             </p>
           )}
 
-          <div className="flex shrink-0 flex-wrap gap-2 pt-1 border-t border-border/40">
+          <div className="flex shrink-0 flex-wrap gap-2 border-t border-border/40 pt-3">
             {canSubmit && (
               <Button size="sm" className="gap-1.5 shadow-sm" onClick={onSubmit} disabled={isSubmitting}>
                 <Send className="h-3.5 w-3.5" />
@@ -733,12 +759,12 @@ function MilestoneRow({
 
   return (
     <div
-      className={`rounded-xl border transition duration-200 p-4 ${
+      className={`rounded-xl border p-4 transition-colors duration-200 ${
         isCurrentStage
-          ? "border-primary/60 bg-gradient-to-r from-primary/10 via-card to-card shadow-sm"
+          ? "border-primary/40 bg-card/70 shadow-sm"
           : isCompleted
-          ? "border-border/40 bg-muted/10 opacity-85"
-          : "border-border/50 bg-card/60"
+          ? "border-emerald-500/30 bg-emerald-500/5"
+          : "border-border/60 bg-card/70 hover:border-primary/30 hover:bg-muted/20"
       }`}
     >
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -1277,8 +1303,8 @@ function DeadlinePanel({
   const hasData = Boolean(deadline?.start_date || deadline?.due_date);
 
   return (
-    <div className="rounded-lg border border-border/50 bg-muted/20 p-3 text-xs space-y-1">
-      <div className="flex items-center justify-between gap-2 pb-1 border-b border-border/30">
+    <div className="space-y-1 rounded-xl border border-border/60 bg-muted/15 p-3 text-xs">
+      <div className="flex items-center justify-between gap-2 border-b border-border/30 pb-1">
         <p className="font-semibold text-foreground">{title}</p>
         {status && <DeadlineBadge status={status} />}
       </div>
@@ -1298,7 +1324,7 @@ function DeadlinePanel({
 
 function WorkflowDetail({ label, detail, ok }: { label: string; detail: string; ok: boolean }) {
   return (
-    <div className="rounded-lg border border-border/40 bg-card/50 p-2 text-xs">
+    <div className="rounded-xl border border-border/40 bg-card/70 p-2.5 text-xs">
       <div className="flex items-center gap-1.5">
         {ok ? <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" /> : <CircleDashed className="h-3.5 w-3.5 text-muted-foreground" />}
         <span className="font-medium text-foreground">{label}</span>
@@ -1354,13 +1380,13 @@ function PlanApprovalBadge({ status }: { status: string }) {
 
 function Info({ label, value, badge }: { label: string; value: string; badge?: boolean }) {
   return (
-    <Card>
-      <CardContent className="pt-4 pb-4">
-        <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">{label}</p>
+    <Card className="h-full border-border/60 bg-card/70 shadow-sm">
+      <CardContent className="p-4">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">{label}</p>
         {badge ? (
           <div className="mt-1.5"><StatusBadge status={value} /></div>
         ) : (
-          <p className="mt-1 text-base font-bold text-foreground truncate">{value}</p>
+          <p className="mt-1.5 truncate text-base font-semibold tracking-tight text-foreground">{value}</p>
         )}
       </CardContent>
     </Card>
