@@ -1,5 +1,6 @@
 import { supabaseAdmin } from '../config/supabase';
 import { ApproveMilestoneApprovalInput, RejectMilestoneApprovalInput } from '../validators/milestone-approval.validator';
+import { notifyMilestoneApproved, notifyMilestoneRejected } from './milestone-notification.service';
 import { advanceToNextMilestone, isMilestoneCompletedLike } from './workflow-progression.service';
 
 export { isMilestoneCompletedLike } from './workflow-progression.service';
@@ -26,7 +27,10 @@ type MilestoneApprovalMilestone = {
   name: string;
   step_order: number;
   status: string;
+  pic_id: string | null;
   project: {
+    id: string;
+    name: string;
     status: string;
     is_postponed: boolean;
   } | null;
@@ -158,7 +162,7 @@ export class MilestoneApprovalService {
 
     const { data: milestone, error: milestoneError } = await supabaseAdmin
       .from('project_milestones')
-      .select('id, project_id, name, step_order, status, project:projects!project_milestones_project_id_fkey(id,status,is_postponed)')
+      .select('id, project_id, name, step_order, status, pic_id, project:projects!project_milestones_project_id_fkey(id,name,status,is_postponed)')
       .eq('id', approval.milestone_id)
       .single();
 
@@ -234,6 +238,21 @@ export class MilestoneApprovalService {
       context,
       decision === 'APPROVED' ? 'MILESTONE_APPROVED' : 'MILESTONE_REJECTED'
     );
+    const projectName = context.milestone.project?.name;
+    if (projectName) {
+      const notificationContext = {
+        projectId: context.milestone.project_id,
+        projectName,
+        milestoneId: updatedMilestone.id,
+        milestoneName: updatedMilestone.name,
+        picId: context.milestone.pic_id,
+      };
+      if (decision === 'APPROVED') {
+        await notifyMilestoneApproved(notificationContext);
+      } else {
+        await notifyMilestoneRejected(notificationContext);
+      }
+    }
 
     return {
       milestone_id: updatedMilestone.id,

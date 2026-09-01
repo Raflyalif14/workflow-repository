@@ -4,6 +4,7 @@ import {
   isMilestoneCompletedLike,
   startMilestoneStage,
 } from './workflow-progression.service';
+import { notifyMilestoneSubmitted } from './milestone-notification.service';
 
 type Actor = { userId: string; role: string; fullName: string };
 type MilestoneInput = {
@@ -203,7 +204,7 @@ export class MilestoneService {
   static async submitMilestone(milestoneId: string, actor: Actor, note?: string) {
     const { data: milestone, error } = await supabaseAdmin
       .from('project_milestones')
-      .select('id, project_id, name, status, pic_id, project:projects!project_milestones_project_id_fkey(id,status,is_postponed)')
+      .select('id, project_id, name, status, pic_id, project:projects!project_milestones_project_id_fkey(id,name,status,is_postponed)')
       .eq('id', milestoneId)
       .single();
 
@@ -260,6 +261,15 @@ export class MilestoneService {
     }
 
     await logMilestoneSubmitted(actor, updated.project_id, updated.name, note?.trim());
+    if (project?.name) {
+      await notifyMilestoneSubmitted({
+        projectId: updated.project_id,
+        projectName: project.name,
+        milestoneId: updated.id,
+        milestoneName: updated.name,
+        picId: milestone.pic_id,
+      });
+    }
 
     return {
       milestone_id: updated.id,
