@@ -1,5 +1,9 @@
 import { supabaseAdmin } from '../config/supabase';
 import { ApproveDeadlineApprovalInput, RejectDeadlineApprovalInput } from '../validators/deadline-approval.validator';
+import {
+  notifyDeadlineChangeApproved,
+  notifyDeadlineChangeRejected,
+} from './deadline-notification.service';
 
 type Actor = { userId: string; role: string; fullName: string };
 type ReviewDecision = 'APPROVED' | 'REJECTED';
@@ -41,6 +45,9 @@ type DeadlineApprovalContext = {
     duration_working_days: number | null;
     due_date: string | null;
     project: {
+      id: string;
+      name: string;
+      sales_id: string | null;
       status: string;
       is_postponed: boolean;
     } | null;
@@ -190,7 +197,7 @@ export class DeadlineApprovalService {
     const [milestoneResult, historyResult] = await Promise.all([
       supabaseAdmin
         .from('project_milestones')
-        .select('id, project_id, name, start_date, duration_working_days, due_date, project:projects!project_milestones_project_id_fkey(id,status,is_postponed)')
+        .select('id, project_id, name, start_date, duration_working_days, due_date, project:projects!project_milestones_project_id_fkey(id,name,sales_id,status,is_postponed)')
         .eq('id', approval.milestone_id)
         .single(),
       supabaseAdmin
@@ -280,6 +287,19 @@ export class DeadlineApprovalService {
       context,
       decision === 'APPROVED' ? 'DEADLINE_APPROVED' : 'DEADLINE_REJECTED'
     );
+
+    const notificationContext = {
+      projectId: context.milestone.project.id,
+      projectName: context.milestone.project.name,
+      salesId: context.milestone.project.sales_id,
+      milestoneId: context.milestone.id,
+      milestoneName: context.milestone.name,
+    };
+    if (decision === 'APPROVED') {
+      await notifyDeadlineChangeApproved(notificationContext);
+    } else {
+      await notifyDeadlineChangeRejected(notificationContext);
+    }
 
     return {
       ...updated,

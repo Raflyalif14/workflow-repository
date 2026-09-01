@@ -1,6 +1,7 @@
 import { supabaseAdmin } from '../config/supabase';
 import { HolidayInput, addWorkingDays, calculateWorkingDaysBetween, getRemainingWorkingDays } from '../utils/dates';
 import { SaveMilestoneDeadlineInput } from '../validators/deadline.validator';
+import { notifyDeadlineChangeRequested } from './deadline-notification.service';
 import { HolidayService } from './holiday.service';
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
@@ -18,7 +19,7 @@ type DeadlineMilestone = {
   project: {
     id: string;
     name: string;
-    sales_id: string;
+    sales_id: string | null;
     status: string;
     is_postponed: boolean;
     pic_id?: string | null;
@@ -290,6 +291,13 @@ export class DeadlineService {
     }
 
     await logDeadlineChangeRequested(actor, milestone, calculated.due_date);
+    await notifyDeadlineChangeRequested({
+      projectId: milestone.project!.id,
+      projectName: milestone.project!.name,
+      salesId: milestone.project!.sales_id,
+      milestoneId: milestone.id,
+      milestoneName: milestone.name,
+    });
 
     return {
       ...proposal.response,
