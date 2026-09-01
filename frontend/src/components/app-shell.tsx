@@ -14,7 +14,6 @@ import {
   ChevronLeft,
   ChevronRight,
   LogOut,
-  Bell,
   Search,
   Menu,
   X,
@@ -24,6 +23,7 @@ import {
 import { useAuth } from "@/components/auth/auth-provider";
 import { useApprovalStats } from "@/hooks/use-approvals";
 import { useMyAssignedMilestones } from "@/hooks/use-projects";
+import { NotificationBell } from "@/components/notifications/notification-bell";
 
 // ─── Sidebar Context ───
 interface SidebarContextType {
@@ -339,13 +339,7 @@ export function TopBar() {
 
         {/* Right: User Profile & Actions */}
         <div className="flex items-center gap-3">
-          {/* Notifications */}
-          <button
-            className="relative flex h-9 w-9 items-center justify-center rounded-xl border border-transparent text-muted-foreground transition-all hover:border-border/60 hover:bg-muted/50 hover:text-foreground"
-          >
-            <Bell className="h-[18px] w-[18px]" />
-            <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-primary animate-pulse" />
-          </button>
+          <NotificationBell enabled={Boolean(user)} />
 
           {/* User Profile Pill */}
           <div className="flex h-10 items-center gap-2.5 rounded-xl border border-border/60 bg-muted/25 pl-1.5 pr-2 shadow-sm">
