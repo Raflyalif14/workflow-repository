@@ -320,7 +320,10 @@ export default function ProjectDetailPage() {
 
       {/* ─── PIC Assignment & History ─── */}
       <div className="grid gap-6 lg:grid-cols-2">
-        <PicAssignmentCard project={project} canAssign={isHeadSa && isActive && assignPicIsCurrent && !isPostponed} />
+        <PicAssignmentCard
+          project={project}
+          canAssign={isHeadSa && isActive && !isPostponed && (Boolean(project.pic) || assignPicIsCurrent)}
+        />
         <AssignmentHistoryCard projectId={id} />
       </div>
 

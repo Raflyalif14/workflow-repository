@@ -1,5 +1,6 @@
 import { supabaseAdmin } from '../config/supabase';
 import { completeAssignPicStageIfCurrent } from './workflow-progression.service';
+import { notifyPicAssignment } from './pic-assignment-notification.service';
 
 type Actor = { userId: string; role: string; fullName: string };
 const userFields = 'id, full_name, email, role';
@@ -64,6 +65,12 @@ export class AssignmentPhase5Service {
       : `${actor.fullName} assigned ${pic.full_name} as Solution Architect PIC for '${project.name}'`;
     await logAssignment(actor, projectId, action, details);
     const workflow = await completeAssignPicStageIfCurrent(projectId, actor);
+    await notifyPicAssignment({
+      projectId: project.id,
+      projectName: project.name,
+      previousPicId: history.previous_pic_id,
+      currentPicId: history.pic_id,
+    });
     return { ...mapAssignment(history), workflow };
   }
 
