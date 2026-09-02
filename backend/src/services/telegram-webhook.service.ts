@@ -20,6 +20,12 @@ export const parseTelegramStartToken = (text: string | undefined): string | null
   return match?.[1] || null;
 };
 
+const isTelegramIdentityConflict = (error: unknown): boolean =>
+  typeof error === 'object' &&
+  error !== null &&
+  'code' in error &&
+  (error as { code?: unknown }).code === '23505';
+
 export class TelegramWebhookService {
   static isWebhookSecretValid(providedSecret: string | undefined): boolean {
     const configuredSecret = ENV.TELEGRAM_WEBHOOK_SECRET.trim();
@@ -53,8 +59,8 @@ export class TelegramWebhookService {
 
     try {
       return { linked: await this.linkTelegramAccount(rawToken, String(message.chat.id), message.from?.username ?? null) };
-    } catch (error) {
-      console.error('[TelegramWebhook] Failed to process Telegram link request', error);
+    } catch {
+      console.error('[TelegramWebhook] Failed to process Telegram link request.');
       return { linked: false };
     }
   }
@@ -119,7 +125,13 @@ export class TelegramWebhookService {
           { onConflict: 'user_id' }
         );
 
-      if (upsertError) throw upsertError;
+      if (upsertError) {
+        if (isTelegramIdentityConflict(upsertError)) {
+          await this.restoreTokenClaim(token.id, linkedAt);
+          return false;
+        }
+        throw upsertError;
+      }
       return true;
     } catch (error) {
       await this.restoreTokenClaim(token.id, linkedAt);
@@ -136,8 +148,8 @@ export class TelegramWebhookService {
         .eq('consumed_at', linkedAt);
 
       if (error) throw error;
-    } catch (error) {
-      console.error('[TelegramWebhook] Failed to restore Telegram link token claim', error);
+    } catch {
+      console.error('[TelegramWebhook] Failed to restore Telegram link token claim.');
     }
   }
 }

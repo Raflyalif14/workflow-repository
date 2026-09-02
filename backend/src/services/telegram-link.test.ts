@@ -18,6 +18,7 @@ const asMockRow = (value: unknown): Record<string, unknown> => value as Record<s
 const originalFrom = supabaseAdmin.from;
 const originalBotUsername = ENV.TELEGRAM_BOT_USERNAME;
 const originalWebhookSecret = ENV.TELEGRAM_WEBHOOK_SECRET;
+const originalConsoleError = console.error;
 
 const webhookToken = 'A'.repeat(43);
 const validExpiry = new Date(Date.now() + 60_000).toISOString();
@@ -143,10 +144,10 @@ async function run(): Promise<void> {
     let failedClaimAt: string | undefined;
     let rollbackAttempted = false;
     const rollbackFilters: Array<[string, unknown]> = [];
-    const originalConsoleError = console.error;
-    let persistenceFailureLogged = false;
+    const persistenceFailureLogEntries: unknown[][] = [];
+    const unexpectedFailureDetails = `telegram_chat_id=private-chat-id token=${webhookToken}`;
     console.error = (...args: unknown[]) => {
-      persistenceFailureLogged = String(args[0]).includes('[TelegramWebhook]');
+      persistenceFailureLogEntries.push(args);
     };
     (supabaseAdmin as any).from = (table: string) => {
       if (table === 'telegram_link_tokens') {
@@ -199,7 +200,7 @@ async function run(): Promise<void> {
       };
       return {
         select: () => preferencesQuery,
-        upsert: () => ({ error: new Error('notification preference upsert failed') }),
+        upsert: () => ({ error: { code: 'XX000', details: unexpectedFailureDetails } }),
       };
     };
     const persistenceFailure = await TelegramWebhookService.processUpdate({
@@ -207,11 +208,199 @@ async function run(): Promise<void> {
     });
     console.error = originalConsoleError;
     assert(Boolean(failedClaimAt), 'Test 3b: token must be claimed before preference persistence');
-    assert(!persistenceFailure.linked && persistenceFailureLogged, 'Test 3b: failed preference persistence must return linked:false safely');
+    assert(!persistenceFailure.linked, 'Test 3b: failed preference persistence must return linked:false safely');
     assert(rollbackAttempted, 'Test 3b: failed preference persistence must attempt to restore the token claim');
     assert(rollbackFilters.some(([field, value]) => field === 'id' && value === 'token-rollback'), 'Test 3b: rollback must target the exact token ID');
     assert(rollbackFilters.some(([field, value]) => field === 'consumed_at' && value === failedClaimAt), 'Test 3b: rollback must guard the exact token claim timestamp');
-    console.log('Test 3b - Failed preference persistence restores the exact token claim safely: passed');
+    assert(
+      persistenceFailureLogEntries.length === 1 &&
+        persistenceFailureLogEntries[0].length === 1 &&
+        persistenceFailureLogEntries[0][0] === '[TelegramWebhook] Failed to process Telegram link request.' &&
+        !String(persistenceFailureLogEntries).includes(unexpectedFailureDetails) &&
+        !String(persistenceFailureLogEntries).includes(webhookToken),
+      'Test 3b: unexpected persistence failures must log only a generic safe message'
+    );
+    console.log('Test 3b - Failed preference persistence restores the exact token claim and logs safely: passed');
+
+    const conflictChatId = '-100999000111';
+    const conflictDetails = `telegram_chat_id=${conflictChatId} token=${webhookToken}`;
+    const ownerPreferences = { userId: 'user-a', telegramChatId: conflictChatId };
+    let requesterTelegramChatId: string | null = null;
+    let conflictClaimAt: string | undefined;
+    const conflictRollbackFilters: Array<[string, unknown]> = [];
+    let conflictUpsert: Record<string, unknown> | null = null;
+    const conflictLogEntries: unknown[][] = [];
+    console.error = (...args: unknown[]) => {
+      conflictLogEntries.push(args);
+    };
+    (supabaseAdmin as any).from = (table: string) => {
+      if (table === 'telegram_link_tokens') {
+        const lookupQuery: any = {
+          eq: () => lookupQuery,
+          maybeSingle: async () => ({
+            data: { id: 'token-user-b', user_id: 'user-b', expires_at: validExpiry, consumed_at: null },
+            error: null,
+          }),
+        };
+        const claimQuery: any = {
+          eq: () => claimQuery,
+          is: () => claimQuery,
+          gt: () => claimQuery,
+          select: () => ({ maybeSingle: async () => ({ data: { id: 'token-user-b', user_id: 'user-b' }, error: null }) }),
+        };
+        const rollbackQuery: any = {
+          eq: (field: string, value: unknown) => {
+            conflictRollbackFilters.push([field, value]);
+            return rollbackQuery;
+          },
+          then: (resolve: (value: unknown) => unknown, reject: (reason: unknown) => unknown) =>
+            Promise.resolve({ error: null }).then(resolve, reject),
+        };
+        return {
+          select: () => lookupQuery,
+          update: (value: { consumed_at: string | null }) => {
+            if (value.consumed_at === null) return rollbackQuery;
+            conflictClaimAt = value.consumed_at;
+            return claimQuery;
+          },
+        };
+      }
+
+      if (table === 'users') {
+        const query: any = {
+          eq: () => query,
+          maybeSingle: async () => ({ data: { id: 'user-b', is_active: true }, error: null }),
+        };
+        return { select: () => query };
+      }
+
+      assert(table === 'notification_preferences', 'Test 3c: duplicate identity must fail at notification preferences persistence');
+      const preferencesQuery: any = {
+        eq: () => preferencesQuery,
+        maybeSingle: async () => ({ data: { in_app_enabled: true }, error: null }),
+      };
+      return {
+        select: () => preferencesQuery,
+        upsert: (value: Record<string, unknown>) => {
+          conflictUpsert = value;
+          return { error: { code: '23505', details: conflictDetails } };
+        },
+      };
+    };
+    const duplicateIdentity = await TelegramWebhookService.processUpdate({
+      message: { text: `/start ${webhookToken}`, chat: { id: Number(conflictChatId) } },
+    });
+    console.error = originalConsoleError;
+    const attemptedConflictUpsert = asMockRow(conflictUpsert);
+    assert(!duplicateIdentity.linked, 'Test 3c: a Telegram identity owned by another user must not link');
+    assert(ownerPreferences.userId === 'user-a' && ownerPreferences.telegramChatId === conflictChatId, 'Test 3c: existing Telegram identity owner must remain unchanged');
+    assert(requesterTelegramChatId === null, 'Test 3c: requesting user must remain unlinked after identity conflict');
+    assert(attemptedConflictUpsert.user_id === 'user-b', 'Test 3c: identity write must target the token owner only');
+    assert(conflictRollbackFilters.some(([field, value]) => field === 'id' && value === 'token-user-b'), 'Test 3c: identity conflict rollback must target the exact token ID');
+    assert(conflictRollbackFilters.some(([field, value]) => field === 'consumed_at' && value === conflictClaimAt), 'Test 3c: identity conflict rollback must guard the exact claim timestamp');
+    assert(conflictLogEntries.length === 0, 'Test 3c: expected identity conflicts must not log raw database details');
+    console.log('Test 3c - Duplicate Telegram identity safely restores the requester token claim without takeover: passed');
+
+    let reconnectPreferences: Record<string, unknown> | null = null;
+    let reconnectRollbackAttempts = 0;
+    (supabaseAdmin as any).from = (table: string) => {
+      if (table === 'telegram_link_tokens') {
+        const lookupQuery: any = {
+          eq: () => lookupQuery,
+          maybeSingle: async () => ({
+            data: { id: 'token-user-a', user_id: 'user-a', expires_at: validExpiry, consumed_at: null },
+            error: null,
+          }),
+        };
+        const claimQuery: any = {
+          eq: () => claimQuery,
+          is: () => claimQuery,
+          gt: () => claimQuery,
+          select: () => ({ maybeSingle: async () => ({ data: { id: 'token-user-a', user_id: 'user-a' }, error: null }) }),
+        };
+        return {
+          select: () => lookupQuery,
+          update: (value: { consumed_at: string | null }) => {
+            if (value.consumed_at === null) reconnectRollbackAttempts += 1;
+            return claimQuery;
+          },
+        };
+      }
+
+      if (table === 'users') {
+        const query: any = {
+          eq: () => query,
+          maybeSingle: async () => ({ data: { id: 'user-a', is_active: true }, error: null }),
+        };
+        return { select: () => query };
+      }
+
+      const preferencesQuery: any = {
+        eq: () => preferencesQuery,
+        maybeSingle: async () => ({ data: { in_app_enabled: true }, error: null }),
+      };
+      return {
+        select: () => preferencesQuery,
+        upsert: (value: Record<string, unknown>) => {
+          reconnectPreferences = value;
+          return { error: null };
+        },
+      };
+    };
+    const reconnect = await TelegramWebhookService.processUpdate({
+      message: { text: `/start ${webhookToken}`, chat: { id: 777001 } },
+    });
+    const reconnectWrite = asMockRow(reconnectPreferences);
+    assert(reconnect.linked && reconnectWrite.user_id === 'user-a' && reconnectWrite.telegram_chat_id === '777001', 'Test 3d: a user may reconnect their own Telegram identity');
+    assert(reconnectRollbackAttempts === 0, 'Test 3d: successful reconnect must leave its token consumed');
+    console.log('Test 3d - Same application user can reconnect an existing Telegram identity: passed');
+
+    let switchPreferences: Record<string, unknown> | null = null;
+    (supabaseAdmin as any).from = (table: string) => {
+      if (table === 'telegram_link_tokens') {
+        const lookupQuery: any = {
+          eq: () => lookupQuery,
+          maybeSingle: async () => ({
+            data: { id: 'token-switch', user_id: 'user-a', expires_at: validExpiry, consumed_at: null },
+            error: null,
+          }),
+        };
+        const claimQuery: any = {
+          eq: () => claimQuery,
+          is: () => claimQuery,
+          gt: () => claimQuery,
+          select: () => ({ maybeSingle: async () => ({ data: { id: 'token-switch', user_id: 'user-a' }, error: null }) }),
+        };
+        return { select: () => lookupQuery, update: () => claimQuery };
+      }
+
+      if (table === 'users') {
+        const query: any = {
+          eq: () => query,
+          maybeSingle: async () => ({ data: { id: 'user-a', is_active: true }, error: null }),
+        };
+        return { select: () => query };
+      }
+
+      const preferencesQuery: any = {
+        eq: () => preferencesQuery,
+        maybeSingle: async () => ({ data: { in_app_enabled: false }, error: null }),
+      };
+      return {
+        select: () => preferencesQuery,
+        upsert: (value: Record<string, unknown>) => {
+          switchPreferences = value;
+          return { error: null };
+        },
+      };
+    };
+    const switched = await TelegramWebhookService.processUpdate({
+      message: { text: `/start ${webhookToken}`, chat: { id: 777002 } },
+    });
+    const switchWrite = asMockRow(switchPreferences);
+    assert(switched.linked && switchWrite.user_id === 'user-a' && switchWrite.telegram_chat_id === '777002', 'Test 3e: a user may switch to an unowned Telegram identity');
+    assert(switchWrite.in_app_enabled === false && switchWrite.telegram_enabled === false, 'Test 3e: identity switch preserves in-app state and leaves Telegram delivery disabled');
+    console.log('Test 3e - User can switch to a different unowned Telegram identity: passed');
 
     let replayMutationAttempted = false;
     (supabaseAdmin as any).from = (table: string) => {
@@ -331,6 +520,7 @@ async function run(): Promise<void> {
     (supabaseAdmin as any).from = originalFrom;
     ENV.TELEGRAM_BOT_USERNAME = originalBotUsername;
     ENV.TELEGRAM_WEBHOOK_SECRET = originalWebhookSecret;
+    console.error = originalConsoleError;
   }
 }
 

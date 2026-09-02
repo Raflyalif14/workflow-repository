@@ -27,6 +27,8 @@ import {
 
 const TELEGRAM_POLL_INTERVAL_MS = 2_000;
 const TELEGRAM_POLL_MAX_DURATION_MS = 60_000;
+const TELEGRAM_LINK_FAILURE_MESSAGE =
+  "Telegram connection could not be completed. The account may already be linked, the link may have expired, or the connection was cancelled. Please try again.";
 
 const getValidatedTelegramLink = (linkUrl: string): string | null => {
   try {
@@ -105,6 +107,7 @@ export default function NotificationSettingsPage() {
   const [linkExpiresAt, setLinkExpiresAt] = useState<number | null>(null);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [linkFailure, setLinkFailure] = useState<string | null>(null);
   const [disconnectOpen, setDisconnectOpen] = useState(false);
 
   const {
@@ -134,6 +137,7 @@ export default function NotificationSettingsPage() {
     if (preferences?.telegram_linked) {
       setIsWaitingForTelegram(false);
       setLinkExpiresAt(null);
+      setLinkFailure(null);
       setFeedback("Telegram connected. Enable Telegram Notifications when you are ready.");
       return;
     }
@@ -146,7 +150,8 @@ export default function NotificationSettingsPage() {
     if (remaining <= 0) {
       setIsWaitingForTelegram(false);
       setLinkExpiresAt(null);
-      setFeedback("Connection not detected yet. You can try connecting again.");
+      setFeedback(null);
+      setLinkFailure(TELEGRAM_LINK_FAILURE_MESSAGE);
       return;
     }
 
@@ -156,7 +161,8 @@ export default function NotificationSettingsPage() {
     const timeout = window.setTimeout(() => {
       setIsWaitingForTelegram(false);
       setLinkExpiresAt(null);
-      setFeedback("Connection not detected yet. You can try connecting again.");
+      setFeedback(null);
+      setLinkFailure(TELEGRAM_LINK_FAILURE_MESSAGE);
     }, remaining);
 
     void refetchPreferences();
@@ -183,6 +189,7 @@ export default function NotificationSettingsPage() {
   const handleConnectTelegram = async () => {
     setActionError(null);
     setFeedback(null);
+    setLinkFailure(null);
 
     const popup = window.open("", "_blank");
     if (!popup) {
@@ -216,7 +223,10 @@ export default function NotificationSettingsPage() {
       }
 
       if (popup.closed) {
-        setActionError("Telegram window was closed. Please try connecting again.");
+        setFeedback("Telegram window was closed. Waiting briefly for a connection before you try again.");
+        const parsedExpiry = Date.parse(result.expiresAt);
+        setLinkExpiresAt(Number.isNaN(parsedExpiry) ? Date.now() + TELEGRAM_POLL_MAX_DURATION_MS : parsedExpiry);
+        setIsWaitingForTelegram(true);
         return;
       }
 
@@ -233,6 +243,7 @@ export default function NotificationSettingsPage() {
 
   const handleCancelTelegramLink = async () => {
     setActionError(null);
+    setLinkFailure(null);
     try {
       await invalidateTelegramLink.mutateAsync();
       setIsWaitingForTelegram(false);
@@ -275,6 +286,12 @@ export default function NotificationSettingsPage() {
         <div className="flex items-start gap-2 rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
           <CircleAlert className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
           <p>{actionError}</p>
+        </div>
+      )}
+      {linkFailure && (
+        <div className="flex items-start gap-2 rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
+          <CircleAlert className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+          <p>{linkFailure}</p>
         </div>
       )}
       {feedback && (
