@@ -35,4 +35,5 @@ export const notificationKeys = {
   list: () => ["notifications", "list"] as const,
   unreadCount: () => ["notifications", "unread-count"] as const,
   preferences: () => ["notifications", "preferences"] as const,
+  deliveryHealth: () => ["notifications", "admin", "telegram-delivery-health"] as const,
 };

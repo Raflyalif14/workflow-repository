@@ -27,3 +27,35 @@ export type TelegramLinkResponse = {
   linkUrl: string;
   expiresAt: string;
 };
+
+export type TelegramDeliveryFailureKind = "RETRYABLE" | "AMBIGUOUS" | "TERMINAL";
+
+export type TelegramDeliveryHealthSummary = {
+  total: number;
+  sent: number;
+  pending: number;
+  failed: number;
+  retryable: number;
+  ambiguous: number;
+  terminal: number;
+  dueRetryable: number;
+};
+
+export type TelegramDeliveryRecentFailure = {
+  deliveryId: string;
+  notificationId: string;
+  notificationType: string;
+  status: "FAILED";
+  failureKind: TelegramDeliveryFailureKind | null;
+  attemptCount: number;
+  lastAttemptAt: string | null;
+  nextRetryAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type TelegramDeliveryHealth = {
+  generatedAt: string;
+  summary: TelegramDeliveryHealthSummary;
+  recentFailures: TelegramDeliveryRecentFailure[];
+};

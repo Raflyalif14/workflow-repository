@@ -4,6 +4,7 @@ import { notificationKeys } from "@/lib/query-keys";
 import {
   AppNotification,
   NotificationPreferences,
+  TelegramDeliveryHealth,
   TelegramLinkResponse,
   UnreadNotificationCount,
 } from "@/types/notification";
@@ -72,6 +73,7 @@ type UpdateNotificationPreferencesInput = {
 };
 
 const notificationPreferencesPath = "/notifications/preferences";
+const telegramDeliveryHealthPath = "/notifications/admin/telegram-delivery-health";
 
 export function useNotificationPreferences(enabled = true) {
   return useQuery<NotificationPreferences>({
@@ -79,6 +81,17 @@ export function useNotificationPreferences(enabled = true) {
     queryFn: () => apiClient<NotificationPreferences>(notificationPreferencesPath),
     enabled,
     staleTime: 15_000,
+    refetchOnWindowFocus: true,
+  });
+}
+
+export function useTelegramDeliveryHealth(enabled = true) {
+  return useQuery<TelegramDeliveryHealth>({
+    queryKey: notificationKeys.deliveryHealth(),
+    queryFn: () => apiClient<TelegramDeliveryHealth>(telegramDeliveryHealthPath),
+    enabled,
+    staleTime: 15_000,
+    refetchInterval: 30_000,
     refetchOnWindowFocus: true,
   });
 }

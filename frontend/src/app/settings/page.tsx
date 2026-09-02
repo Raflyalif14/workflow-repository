@@ -1,12 +1,13 @@
 "use client";
 
 import React from "react";
-import { Settings, Shield, Server, Database, Key, Bell, Palette, Workflow } from "lucide-react";
+import { Settings, Shield, Server, Database, Key, Bell, Palette, RadioTower, Workflow } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 
+import { useAuth } from "@/components/auth/auth-provider";
 import { RoleGuard } from "@/components/auth/role-guard";
 
 export default function SettingsPage() {
@@ -18,6 +19,8 @@ export default function SettingsPage() {
 }
 
 function SettingsPageContent() {
+  const { user } = useAuth();
+
   return (
     <div className="container py-8 space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-border/50 pb-6">
@@ -41,6 +44,29 @@ function SettingsPageContent() {
           </CardHeader>
           <CardContent><Link href="/settings/workflows"><Button className="gap-2"><Workflow className="h-4 w-4" />Open Workflow Management</Button></Link></CardContent>
         </Card>
+        {user?.role === "SUPER_ADMIN" && (
+          <Card className="border-border/60 bg-card/70 shadow-sm transition-all duration-200 hover:border-primary/20 hover:shadow-md">
+            <CardHeader className="space-y-3">
+              <span className="flex h-9 w-9 items-center justify-center rounded-xl border border-primary/15 bg-primary/10 text-primary">
+                <RadioTower className="h-4 w-4" aria-hidden="true" />
+              </span>
+              <div>
+                <CardTitle className="text-base font-semibold tracking-tight">Telegram Delivery Health</CardTitle>
+                <CardDescription className="mt-1 text-xs">
+                  Monitor Telegram delivery status, retry backlog, and recent failures.
+                </CardDescription>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <Link href="/settings/telegram-delivery-health">
+                <Button className="gap-2">
+                  <RadioTower className="h-4 w-4" aria-hidden="true" />
+                  Open Delivery Monitoring
+                </Button>
+              </Link>
+            </CardContent>
+          </Card>
+        )}
         <Card className="bg-card/50 border-border/60">
           <CardHeader>
             <div className="flex items-center gap-2">
