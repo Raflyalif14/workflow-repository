@@ -44,7 +44,6 @@ export function UserFormDialog({
     resolver: zodResolver(isEditing ? (updateUserFormSchema as any) : createUserFormSchema),
     defaultValues: {
       email: "",
-      password: "",
       fullName: "",
       role: "SA",
       isActive: true,
@@ -62,7 +61,6 @@ export function UserFormDialog({
     } else {
       reset({
         email: "",
-        password: "",
         fullName: "",
         role: "SA",
         isActive: true,
@@ -97,7 +95,7 @@ export function UserFormDialog({
         <DialogDescription>
           {isEditing
             ? "Update user details, assign roles, and manage account status."
-            : "Fill in the required information to register a new user in the system."}
+            : "Create an account with role and access status managed by the system."}
         </DialogDescription>
       </DialogHeader>
 
@@ -135,20 +133,9 @@ export function UserFormDialog({
         </div>
 
         {!isEditing && (
-          <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1">
-              Initial Password *
-            </label>
-            <Input
-              type="password"
-              placeholder="Minimum 8 characters"
-              {...register("password")}
-              disabled={isSubmitting}
-            />
-            {errors.password && (
-              <p className="text-xs text-destructive mt-1">{errors.password.message}</p>
-            )}
-          </div>
+          <p className="rounded-lg border border-primary/20 bg-primary/5 px-3 py-2.5 text-xs leading-relaxed text-muted-foreground">
+            An initial password will be generated securely and sent to the user&apos;s email. The user will be required to change it after first login.
+          </p>
         )}
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

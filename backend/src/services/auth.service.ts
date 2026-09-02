@@ -176,9 +176,10 @@ export function buildForgotPasswordResponse() {
   return forgotPasswordGenericResponse;
 }
 
-const isDuplicateAuthError = (error: any) => {
-  const message = String(error?.message || '').toLowerCase();
-  return message.includes('already') || message.includes('registered') || error?.status === 422;
+export const isDuplicateAuthError = (error: unknown) => {
+  const candidate = error as { message?: unknown; status?: unknown } | null;
+  const message = String(candidate?.message || '').toLowerCase();
+  return message.includes('already') || message.includes('registered') || candidate?.status === 422;
 };
 
 export function buildLoginResult(row: any, session: { access_token: string; refresh_token: string }) {
@@ -333,7 +334,10 @@ export class AuthService {
       defaultRegisterRole: ENV.DEFAULT_REGISTER_ROLE,
       findPublicUserByEmail: async (email) => {
         const { data, error } = await supabaseAdmin.from('users').select('id').eq('email', email).maybeSingle();
-        if (error) throw new Error(error.message);
+        if (error) {
+          console.error('[AuthService] Failed to check registration email.');
+          throw new Error('Failed to create user.');
+        }
         return Boolean(data);
       },
       createAuthUser: async (email, password) => {

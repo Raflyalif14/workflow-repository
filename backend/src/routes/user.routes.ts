@@ -5,6 +5,7 @@ import { validateBody } from '../middlewares/validate.middleware';
 import {
   createUserSchema,
   updateUserSchema,
+  updateUserStatusSchema,
 } from '../validators/user.validator';
 
 const router = Router();
@@ -18,6 +19,6 @@ router.use(requireRoles(['SUPER_ADMIN']));
 router.get('/', UserController.listUsers);
 router.post('/', validateBody(createUserSchema), UserController.createUser);
 router.patch('/:id', validateBody(updateUserSchema), UserController.updateUser);
-router.patch('/:id/status', UserController.updateStatus);
+router.patch('/:id/status', validateBody(updateUserStatusSchema), UserController.updateStatus);
 
 export default router;

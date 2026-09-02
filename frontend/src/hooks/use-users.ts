@@ -1,6 +1,15 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "@/lib/api-client";
-import { User, UsersResponse, UserFilters } from "@/types/user";
+import { User, UserFilters, UserRole, UsersResponse } from "@/types/user";
+
+type CreateUserInput = {
+  email: string;
+  fullName: string;
+  role: UserRole;
+  isActive: boolean;
+};
+
+type UpdateUserInput = Omit<CreateUserInput, "email">;
 
 export function useUsers(filters: UserFilters = {}) {
   const { page = 1, limit = 10, search = "", role = "ALL", isActive } = filters;
@@ -24,7 +33,7 @@ export function useCreateUser() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (data: any) => {
+    mutationFn: async (data: CreateUserInput) => {
       return apiClient<User>("/users", {
         method: "POST",
         body: JSON.stringify(data),
@@ -40,7 +49,7 @@ export function useUpdateUser() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ id, data }: { id: string; data: any }) => {
+    mutationFn: async ({ id, data }: { id: string; data: UpdateUserInput }) => {
       return apiClient<User>(`/users/${id}`, {
         method: "PATCH", // This line is already correct
         body: JSON.stringify(data),
@@ -58,31 +67,5 @@ export function useUpdateUserStatus() {
     mutationFn: async ({ id, isActive }: { id: string; isActive: boolean }) =>
       apiClient<User>(`/users/${id}/status`, { method: "PATCH", body: JSON.stringify({ isActive }) }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["users"] }),
-  });
-}
-
-export function useResetPassword() {
-  return useMutation({
-    mutationFn: async ({ id, newPassword }: { id: string; newPassword: string }) => {
-      return apiClient<{ message: string }>(`/users/${id}/reset-password`, {
-        method: "POST",
-        body: JSON.stringify({ newPassword }),
-      });
-    },
-  });
-}
-
-export function useDeleteUser() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async (id: string) => {
-      return apiClient<User>(`/users/${id}`, {
-        method: "DELETE",
-      });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["users"] });
-    },
   });
 }
