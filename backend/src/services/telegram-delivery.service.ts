@@ -15,10 +15,15 @@ type TelegramPreferenceRow = {
 };
 
 type DeliveryRow = { id: string };
+type TelegramDeliveryFailureKind = 'RETRYABLE' | 'AMBIGUOUS' | 'TERMINAL';
+type TelegramSendResult =
+  | { status: 'SUCCESS' }
+  | { status: 'FAILURE'; kind: TelegramDeliveryFailureKind; message: string };
 
 export const TELEGRAM_MESSAGE_MAX_LENGTH = 4000;
 const TELEGRAM_REQUEST_TIMEOUT_MS = 10_000;
 const DELIVERY_ERROR_MAX_LENGTH = 240;
+const RETRYABLE_DELIVERY_DELAY_MS = 5 * 60 * 1000;
 
 const safeDeliveryError = (message: string): string => message.slice(0, DELIVERY_ERROR_MAX_LENGTH);
 
@@ -79,24 +84,31 @@ export class TelegramDeliveryService {
     const delivery = await this.createPendingDelivery(notification.notificationId);
     if (!delivery) return;
 
+    const attemptAt = new Date().toISOString();
+    await this.markDeliveryAttemptStarted(delivery.id, attemptAt);
+
     const botToken = ENV.TELEGRAM_BOT_TOKEN.trim();
     if (!botToken) {
-      await this.markDeliveryFailed(delivery.id, 'Telegram bot is not configured.');
+      await this.markDeliveryFailed(delivery.id, {
+        status: 'FAILURE',
+        kind: 'TERMINAL',
+        message: 'Telegram bot is not configured.',
+      }, attemptAt);
       return;
     }
 
-    const failureMessage = await this.sendMessage(
+    const sendResult = await this.sendMessage(
       botToken,
       recipientPreferences.telegram_chat_id,
       buildTelegramNotificationText(notification)
     );
 
-    if (failureMessage) {
-      await this.markDeliveryFailed(delivery.id, failureMessage);
+    if (sendResult.status === 'FAILURE') {
+      await this.markDeliveryFailed(delivery.id, sendResult, attemptAt);
       return;
     }
 
-    await this.markDeliverySent(delivery.id);
+    await this.markDeliverySent(delivery.id, attemptAt);
   }
 
   private static async createPendingDelivery(notificationId: string): Promise<DeliveryRow | null> {
@@ -116,7 +128,7 @@ export class TelegramDeliveryService {
     return data as DeliveryRow;
   }
 
-  private static async sendMessage(botToken: string, chatId: string, text: string): Promise<string | null> {
+  private static async sendMessage(botToken: string, chatId: string, text: string): Promise<TelegramSendResult> {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), TELEGRAM_REQUEST_TIMEOUT_MS);
 
@@ -129,25 +141,61 @@ export class TelegramDeliveryService {
       });
       const payload: unknown = await response.json().catch(() => null);
 
-      if (!response.ok || !payload || typeof payload !== 'object' || (payload as { ok?: unknown }).ok !== true) {
-        return 'Telegram API request failed.';
+      if (response.ok && payload && typeof payload === 'object' && (payload as { ok?: unknown }).ok === true) {
+        return { status: 'SUCCESS' };
       }
 
-      return null;
+      if (response.status === 429) {
+        return {
+          status: 'FAILURE',
+          kind: 'RETRYABLE',
+          message: 'Telegram API temporarily unavailable.',
+        };
+      }
+
+      if (response.status === 408 || response.status >= 500) {
+        return {
+          status: 'FAILURE',
+          kind: 'AMBIGUOUS',
+          message: 'Telegram delivery outcome is unknown.',
+        };
+      }
+
+      return {
+        status: 'FAILURE',
+        kind: 'TERMINAL',
+        message: 'Telegram API rejected the request.',
+      };
     } catch {
-      return 'Telegram delivery request failed.';
+      return {
+        status: 'FAILURE',
+        kind: 'AMBIGUOUS',
+        message: 'Telegram delivery outcome is unknown.',
+      };
     } finally {
       clearTimeout(timeout);
     }
   }
 
-  private static async markDeliverySent(deliveryId: string): Promise<void> {
+  private static async markDeliveryAttemptStarted(deliveryId: string, attemptAt: string): Promise<void> {
+    const { error } = await supabaseAdmin
+      .from('notification_deliveries')
+      .update({ last_attempt_at: attemptAt })
+      .eq('id', deliveryId);
+
+    if (error) throw error;
+  }
+
+  private static async markDeliverySent(deliveryId: string, attemptAt: string): Promise<void> {
     const { error } = await supabaseAdmin
       .from('notification_deliveries')
       .update({
         status: 'SENT',
         attempt_count: 1,
         sent_at: new Date().toISOString(),
+        last_attempt_at: attemptAt,
+        failure_kind: null,
+        next_retry_at: null,
         error_message: null,
       })
       .eq('id', deliveryId);
@@ -155,14 +203,25 @@ export class TelegramDeliveryService {
     if (error) throw error;
   }
 
-  private static async markDeliveryFailed(deliveryId: string, message: string): Promise<void> {
+  private static async markDeliveryFailed(
+    deliveryId: string,
+    failure: Extract<TelegramSendResult, { status: 'FAILURE' }>,
+    attemptAt: string
+  ): Promise<void> {
+    const nextRetryAt =
+      failure.kind === 'RETRYABLE'
+        ? new Date(new Date(attemptAt).getTime() + RETRYABLE_DELIVERY_DELAY_MS).toISOString()
+        : null;
     const { error } = await supabaseAdmin
       .from('notification_deliveries')
       .update({
         status: 'FAILED',
         attempt_count: 1,
         sent_at: null,
-        error_message: safeDeliveryError(message),
+        last_attempt_at: attemptAt,
+        failure_kind: failure.kind,
+        next_retry_at: nextRetryAt,
+        error_message: safeDeliveryError(failure.message),
       })
       .eq('id', deliveryId);
 

@@ -24,10 +24,14 @@ const originalFetch = globalThis.fetch;
 const originalBotToken = ENV.TELEGRAM_BOT_TOKEN;
 const originalAppBaseUrl = ENV.APP_BASE_URL;
 
-const asFetchResponse = (ok: boolean, body: unknown) => ({
-  ok,
+const asFetchResponse = (status: boolean | number, body: unknown) => {
+  const resolvedStatus = typeof status === 'number' ? status : status ? 200 : 400;
+  return {
+  ok: resolvedStatus >= 200 && resolvedStatus < 300,
+  status: resolvedStatus,
   json: async () => body,
-});
+  };
+};
 
 async function run(): Promise<void> {
   try {
@@ -113,12 +117,23 @@ async function run(): Promise<void> {
     assert(request?.body.chat_id === 'chat-from-database', 'Test 3: chat ID must come from trusted database preferences');
     assert(request?.body.text === buildTelegramNotificationText(notification), 'Test 3: Telegram request must use the sanitized plain-text message');
     assert(!request?.url.includes('chat-from-database'), 'Test 3: chat ID must not be placed in Telegram request URL');
-    assert(sentUpdates.length === 1 && sentUpdates[0].status === 'SENT' && sentUpdates[0].attempt_count === 1, 'Test 3: successful send must mark delivery SENT once');
-    assert(typeof sentUpdates[0].sent_at === 'string' && sentUpdates[0].error_message === null, 'Test 3: successful delivery must record sent_at without an error');
-    console.log('Test 3 - Eligible linked Telegram notification creates PENDING then SENT delivery: passed');
+    const attemptUpdate = sentUpdates[0];
+    const sentUpdate = sentUpdates[1];
+    assert(typeof attemptUpdate?.last_attempt_at === 'string', 'Test 3: delivery must record last_attempt_at before sending');
+    assert(sentUpdates.length === 2 && sentUpdate?.status === 'SENT' && sentUpdate?.attempt_count === 1, 'Test 3: successful send must mark delivery SENT once');
+    assert(
+      typeof sentUpdate?.sent_at === 'string' &&
+        sentUpdate?.last_attempt_at === attemptUpdate?.last_attempt_at &&
+        sentUpdate?.failure_kind === null &&
+        sentUpdate?.next_retry_at === null &&
+        sentUpdate?.error_message === null,
+      'Test 3: successful delivery must clear failure metadata and retain the attempt timestamp'
+    );
+    console.log('Test 3 - Eligible linked Telegram notification creates PENDING, records an attempt, then marks SENT: passed');
 
     const failedUpdates: Array<Record<string, unknown>> = [];
-    (globalThis as any).fetch = async () => asFetchResponse(false, { ok: false, description: 'Forbidden' });
+    (globalThis as any).fetch = async () =>
+      asFetchResponse(429, { ok: false, description: 'raw Telegram response for chat-from-database and test-bot-token' });
     (supabaseAdmin as any).from = (table: string) => {
       if (table === 'notification_preferences') {
         const query: any = {
@@ -138,10 +153,127 @@ async function run(): Promise<void> {
       };
     };
     await TelegramDeliveryService.dispatchBestEffort(notification);
-    assert(failedUpdates.length === 1 && failedUpdates[0].status === 'FAILED' && failedUpdates[0].attempt_count === 1, 'Test 4: Telegram API failure must mark delivery FAILED once');
-    assert(failedUpdates[0].sent_at === null, 'Test 4: failed delivery must not have sent_at');
-    assert(typeof failedUpdates[0].error_message === 'string' && String(failedUpdates[0].error_message).length <= 240, 'Test 4: failed delivery error must be safe and bounded');
-    console.log('Test 4 - Telegram API failure records a safe FAILED delivery without throwing: passed');
+    const retryableFailure = failedUpdates[1];
+    assert(failedUpdates.length === 2 && retryableFailure?.status === 'FAILED' && retryableFailure?.attempt_count === 1, 'Test 4: HTTP 429 must mark delivery FAILED once');
+    assert(
+      retryableFailure?.sent_at === null &&
+        retryableFailure?.failure_kind === 'RETRYABLE' &&
+        typeof retryableFailure?.last_attempt_at === 'string' &&
+        typeof retryableFailure?.next_retry_at === 'string' &&
+        Date.parse(String(retryableFailure.next_retry_at)) > Date.parse(String(retryableFailure.last_attempt_at)),
+      'Test 4: HTTP 429 must produce retryable metadata with a future retry time'
+    );
+    assert(
+      retryableFailure?.error_message === 'Telegram API temporarily unavailable.' &&
+        !String(retryableFailure.error_message).includes('chat-from-database') &&
+        !String(retryableFailure.error_message).includes('test-bot-token') &&
+        !String(retryableFailure.error_message).includes('raw Telegram response'),
+      'Test 4: retryable error message must stay generic'
+    );
+    console.log('Test 4 - HTTP 429 records a safe RETRYABLE failure with retry metadata: passed');
+
+    const executeFailureScenario = async (
+      deliveryId: string,
+      fetchImpl: () => Promise<unknown>
+    ): Promise<Array<Record<string, unknown>>> => {
+      const updates: Array<Record<string, unknown>> = [];
+      (globalThis as any).fetch = fetchImpl;
+      (supabaseAdmin as any).from = (table: string) => {
+        if (table === 'notification_preferences') {
+          const query: any = {
+            eq: () => query,
+            maybeSingle: async () => ({ data: { telegram_enabled: true, telegram_chat_id: 'chat-from-database' }, error: null }),
+          };
+          return { select: () => query };
+        }
+
+        assert(table === 'notification_deliveries', 'Failure scenarios must update delivery records');
+        return {
+          insert: () => ({ select: () => ({ maybeSingle: async () => ({ data: { id: deliveryId }, error: null }) }) }),
+          update: (value: Record<string, unknown>) => {
+            updates.push(value);
+            return { eq: () => ({ error: null }) };
+          },
+        };
+      };
+      await TelegramDeliveryService.dispatchBestEffort(notification);
+      return updates;
+    };
+
+    const serviceUnavailableUpdates = await executeFailureScenario(
+      'delivery-503',
+      async () => asFetchResponse(503, { ok: false, description: 'temporary provider failure' })
+    );
+    const serviceUnavailableFailure = serviceUnavailableUpdates[1];
+    assert(
+      serviceUnavailableUpdates.length === 2 &&
+        serviceUnavailableFailure?.failure_kind === 'AMBIGUOUS' &&
+        serviceUnavailableFailure?.next_retry_at === null &&
+        serviceUnavailableFailure?.error_message === 'Telegram delivery outcome is unknown.',
+      'Test 4b: HTTP 5xx must be ambiguous without retry metadata'
+    );
+    console.log('Test 4b - HTTP 5xx records AMBIGUOUS failure metadata: passed');
+
+    const requestTimeoutUpdates = await executeFailureScenario(
+      'delivery-408',
+      async () => asFetchResponse(408, { ok: false, description: 'request timeout response' })
+    );
+    const requestTimeoutFailure = requestTimeoutUpdates[1];
+    assert(
+      requestTimeoutUpdates.length === 2 &&
+        requestTimeoutFailure?.failure_kind === 'AMBIGUOUS' &&
+        requestTimeoutFailure?.next_retry_at === null &&
+        requestTimeoutFailure?.error_message === 'Telegram delivery outcome is unknown.',
+      'Test 4c: HTTP 408 must be ambiguous without retry metadata'
+    );
+    console.log('Test 4c - HTTP 408 records AMBIGUOUS failure metadata: passed');
+
+    for (const status of [400, 401, 403, 404]) {
+      const terminalUpdates = await executeFailureScenario(
+        `delivery-terminal-${status}`,
+        async () => asFetchResponse(status, { ok: false, description: `raw terminal response ${status}` })
+      );
+      const terminalFailure = terminalUpdates[1];
+      assert(
+        terminalUpdates.length === 2 &&
+          terminalFailure?.status === 'FAILED' &&
+          terminalFailure?.failure_kind === 'TERMINAL' &&
+          terminalFailure?.next_retry_at === null &&
+          terminalFailure?.error_message === 'Telegram API rejected the request.',
+        `Test 4d: HTTP ${status} must be a terminal failure without retry metadata`
+      );
+    }
+    console.log('Test 4d - HTTP 400, 401, 403, and 404 record TERMINAL failure metadata: passed');
+
+    const networkFailureUpdates = await executeFailureScenario('delivery-network', async () => {
+      throw new Error('network failure for chat-from-database with test-bot-token');
+    });
+    const networkFailure = networkFailureUpdates[1];
+    assert(
+      networkFailureUpdates.length === 2 &&
+        networkFailure?.failure_kind === 'AMBIGUOUS' &&
+        networkFailure?.next_retry_at === null &&
+        networkFailure?.error_message === 'Telegram delivery outcome is unknown.' &&
+        !String(networkFailure?.error_message).includes('chat-from-database') &&
+        !String(networkFailure?.error_message).includes('test-bot-token'),
+      'Test 4e: network failure must be ambiguous with no leaked exception details'
+    );
+    console.log('Test 4e - Network failures record AMBIGUOUS metadata without a retry time: passed');
+
+    const abortFailureUpdates = await executeFailureScenario('delivery-abort', async () => {
+      const abortError = new Error('AbortError with chat-from-database and test-bot-token');
+      abortError.name = 'AbortError';
+      throw abortError;
+    });
+    const abortFailure = abortFailureUpdates[1];
+    assert(
+      abortFailureUpdates.length === 2 &&
+        abortFailure?.failure_kind === 'AMBIGUOUS' &&
+        abortFailure?.next_retry_at === null &&
+        abortFailure?.error_message === 'Telegram delivery outcome is unknown.',
+      'Test 4f: timeout or abort failures must be ambiguous without retry metadata'
+    );
+    console.log('Test 4f - Abort or timeout failures record AMBIGUOUS metadata: passed');
 
     ENV.TELEGRAM_BOT_TOKEN = '';
     const missingTokenUpdates: Array<Record<string, unknown>> = [];
@@ -170,8 +302,17 @@ async function run(): Promise<void> {
     };
     await TelegramDeliveryService.dispatchBestEffort(notification);
     assert(missingTokenFetchCalls === 0, 'Test 5: missing bot token must not call Telegram');
-    assert(missingTokenUpdates[0]?.status === 'FAILED' && !String(missingTokenUpdates[0]?.error_message).includes('test-bot-token'), 'Test 5: missing token failure must not leak token data');
-    console.log('Test 5 - Missing bot token records FAILED delivery without leaking credentials: passed');
+    const missingTokenFailure = missingTokenUpdates[1];
+    assert(
+      missingTokenUpdates.length === 2 &&
+        missingTokenFailure?.status === 'FAILED' &&
+        missingTokenFailure?.failure_kind === 'TERMINAL' &&
+        typeof missingTokenFailure?.last_attempt_at === 'string' &&
+        missingTokenFailure?.next_retry_at === null &&
+        !String(missingTokenFailure?.error_message).includes('test-bot-token'),
+      'Test 5: missing token must record a terminal failure without leaking credentials'
+    );
+    console.log('Test 5 - Missing bot token records terminal FAILED delivery without leaking credentials: passed');
     ENV.TELEGRAM_BOT_TOKEN = 'test-bot-token';
 
     const unsafeDoubleSlash = buildTelegramNotificationText({ ...notification, actionUrl: '//evil.example' });
@@ -225,7 +366,7 @@ async function run(): Promise<void> {
     };
     await TelegramDeliveryService.dispatchBestEffort(notification);
     await TelegramDeliveryService.dispatchBestEffort(notification);
-    assert(deliveryInsertCount === 2 && duplicateSendCalls === 1 && duplicateUpdates.length === 1, 'Test 9: duplicate dispatch must not send a second Telegram message');
+    assert(deliveryInsertCount === 2 && duplicateSendCalls === 1 && duplicateUpdates.length === 2, 'Test 9: duplicate dispatch must not send a second Telegram message');
     console.log('Test 9 - Duplicate Telegram dispatch is idempotent: passed');
 
     const dispatchRelease: { current: (() => void) | null } = { current: null };
