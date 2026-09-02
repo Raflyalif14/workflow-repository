@@ -10,6 +10,20 @@ import {
   updateNotificationPreferencesSchema,
 } from '../validators/notification.validator';
 
+const toPublicNotificationPreferences = (preferences: {
+  in_app_enabled: boolean;
+  telegram_enabled: boolean;
+  telegram_chat_id: string | null;
+  telegram_username: string | null;
+  telegram_linked_at: string | null;
+}) => ({
+  in_app_enabled: preferences.in_app_enabled,
+  telegram_enabled: preferences.telegram_enabled,
+  telegram_linked: Boolean(preferences.telegram_chat_id),
+  telegram_username: preferences.telegram_username,
+  telegram_linked_at: preferences.telegram_linked_at,
+});
+
 const sendNotificationError = (res: Response, error: unknown, fallback: string): void => {
   if (error instanceof ZodError) {
     sendError(
@@ -76,7 +90,7 @@ export class NotificationController {
   static async getPreferences(req: AuthenticatedRequest, res: Response): Promise<void> {
     try {
       const preferences = await NotificationService.getPreferences(req.user!.userId);
-      sendSuccess(res, 'Notification preferences retrieved successfully', preferences);
+      sendSuccess(res, 'Notification preferences retrieved successfully', toPublicNotificationPreferences(preferences));
     } catch (error) {
       sendNotificationError(res, error, 'Failed to retrieve notification preferences');
     }
@@ -88,7 +102,7 @@ export class NotificationController {
         req.user!.userId,
         updateNotificationPreferencesSchema.parse(req.body)
       );
-      sendSuccess(res, 'Notification preferences updated successfully', preferences);
+      sendSuccess(res, 'Notification preferences updated successfully', toPublicNotificationPreferences(preferences));
     } catch (error) {
       sendNotificationError(res, error, 'Failed to update notification preferences');
     }

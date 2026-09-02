@@ -16,6 +16,7 @@ import milestoneInitiationApprovalRoutes from './milestone-initiation-approval.r
 import projectPlanApprovalRoutes from './project-plan-approval.routes';
 import approvalOverviewRoutes from './approval-overview.routes';
 import notificationRoutes from './notification.routes';
+import telegramWebhookRoutes from './telegram-webhook.routes';
 
 const router = Router();
 
@@ -37,6 +38,7 @@ router.use('/workflow-stages', workflowStageRoutes);
 router.use('/assignments', assignmentPhase5Routes);
 router.use('/me', meRoutes);
 router.use('/notifications', notificationRoutes);
+router.use('/telegram', telegramWebhookRoutes);
 router.use('/deadlines', deadlineRoutes);
 router.use('/milestones', milestoneRoutes);
 router.use('/deadline-approvals', deadlineApprovalRoutes);

@@ -27,4 +27,7 @@ export const ENV = {
   INTERNAL_EMAIL_DOMAIN: process.env.INTERNAL_EMAIL_DOMAIN || '',
   DEFAULT_REGISTER_ROLE: defaultRegisterRole as (typeof userRoles)[number],
   SUPABASE_DOCUMENT_BUCKET: process.env.SUPABASE_DOCUMENT_BUCKET || 'workflow-documents',
+  TELEGRAM_BOT_USERNAME: process.env.TELEGRAM_BOT_USERNAME || '',
+  TELEGRAM_BOT_TOKEN: process.env.TELEGRAM_BOT_TOKEN || '',
+  TELEGRAM_WEBHOOK_SECRET: process.env.TELEGRAM_WEBHOOK_SECRET || '',
 };
