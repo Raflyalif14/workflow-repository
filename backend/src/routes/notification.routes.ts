@@ -1,9 +1,17 @@
 import { Router } from 'express';
 import { NotificationController } from '../controllers/notification.controller';
+import { TelegramDeliveryHealthController } from '../controllers/telegram-delivery-health.controller';
 import { TelegramLinkController } from '../controllers/telegram-link.controller';
-import { authenticateUser } from '../middlewares/auth.middleware';
+import { authenticateUser, requireRoles } from '../middlewares/auth.middleware';
 
 const router = Router();
+
+router.get(
+  '/admin/telegram-delivery-health',
+  authenticateUser,
+  requireRoles(['SUPER_ADMIN']),
+  TelegramDeliveryHealthController.getHealth
+);
 
 router.use(authenticateUser);
 
