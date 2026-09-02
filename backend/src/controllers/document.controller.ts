@@ -3,6 +3,7 @@ import { AuthenticatedRequest } from '../middlewares/auth.middleware';
 import { DocumentService, DocumentServiceError } from '../services/document.service';
 import { getRouteParam } from '../utils/request.util';
 import { sendError, sendSuccess } from '../utils/response.util';
+import { ZodError } from 'zod';
 import {
   createCommentSchema,
   createDocumentSchema,
@@ -12,9 +13,23 @@ import {
 } from '../validators/document.validator';
 
 const sendDocumentError = (res: Response, error: unknown, fallback: string): void => {
-  const message = error instanceof Error && error.message ? error.message : fallback;
-  const statusCode = error instanceof DocumentServiceError ? error.statusCode : 400;
-  sendError(res, message, null, statusCode);
+  if (error instanceof DocumentServiceError) {
+    sendError(res, error.message, null, error.statusCode);
+    return;
+  }
+
+  if (error instanceof ZodError) {
+    sendError(
+      res,
+      'Validation failed',
+      error.errors.map((issue) => ({ field: issue.path.join('.'), message: issue.message })),
+      422
+    );
+    return;
+  }
+
+  console.error('[DocumentController] Unexpected document operation failure.');
+  sendError(res, fallback, null, 500);
 };
 
 export class DocumentController {

@@ -48,7 +48,7 @@ export const uploadMiddleware = multer({
 export class DocumentStorageService {
   private static get bucketName(): string {
     if (!ENV.SUPABASE_DOCUMENT_BUCKET.trim()) {
-      throw new Error('SUPABASE_DOCUMENT_BUCKET must be configured.');
+      throw new Error('Document storage is not configured.');
     }
 
     return ENV.SUPABASE_DOCUMENT_BUCKET;
@@ -63,7 +63,7 @@ export class DocumentStorageService {
       });
 
     if (error) {
-      throw new Error(`Failed to upload document file: ${error.message}`);
+      throw new Error('Failed to upload document file.');
     }
   }
 
@@ -71,7 +71,7 @@ export class DocumentStorageService {
     const { error } = await supabaseAdmin.storage.from(this.bucketName).remove([storagePath]);
 
     if (error) {
-      throw new Error(`Failed to remove document file: ${error.message}`);
+      throw new Error('Failed to remove document file.');
     }
   }
 
@@ -81,7 +81,7 @@ export class DocumentStorageService {
       .createSignedUrl(storagePath, expiresInSeconds);
 
     if (error || !data?.signedUrl) {
-      throw new Error(error?.message || 'Failed to create document download URL.');
+      throw new Error('Failed to create document download URL.');
     }
 
     return data.signedUrl;
