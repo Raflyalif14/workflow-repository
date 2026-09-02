@@ -1,7 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "@/lib/api-client";
 import { notificationKeys } from "@/lib/query-keys";
-import { AppNotification, UnreadNotificationCount } from "@/types/notification";
+import {
+  AppNotification,
+  NotificationPreferences,
+  TelegramLinkResponse,
+  UnreadNotificationCount,
+} from "@/types/notification";
 
 const notificationListPath = "/notifications?limit=20&offset=0";
 
@@ -57,6 +62,74 @@ export function useMarkAllNotificationsAsRead() {
       );
       queryClient.setQueryData<UnreadNotificationCount>(notificationKeys.unreadCount(), { unreadCount: 0 });
       queryClient.invalidateQueries({ queryKey: notificationKeys.all() });
+    },
+  });
+}
+
+type UpdateNotificationPreferencesInput = {
+  in_app_enabled?: boolean;
+  telegram_enabled?: boolean;
+};
+
+const notificationPreferencesPath = "/notifications/preferences";
+
+export function useNotificationPreferences(enabled = true) {
+  return useQuery<NotificationPreferences>({
+    queryKey: notificationKeys.preferences(),
+    queryFn: () => apiClient<NotificationPreferences>(notificationPreferencesPath),
+    enabled,
+    staleTime: 15_000,
+    refetchOnWindowFocus: true,
+  });
+}
+
+export function useUpdateNotificationPreferences() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (input: UpdateNotificationPreferencesInput) =>
+      apiClient<NotificationPreferences>(notificationPreferencesPath, {
+        method: "PUT",
+        body: JSON.stringify(input),
+      }),
+    onSuccess: async (preferences) => {
+      queryClient.setQueryData(notificationKeys.preferences(), preferences);
+      await queryClient.invalidateQueries({ queryKey: notificationKeys.preferences() });
+    },
+  });
+}
+
+export function useCreateTelegramLink() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: () =>
+      apiClient<TelegramLinkResponse>("/notifications/telegram/link", { method: "POST" }),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: notificationKeys.preferences() });
+    },
+  });
+}
+
+export function useInvalidateTelegramLink() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: () => apiClient<{ invalidated: true }>("/notifications/telegram/link", { method: "DELETE" }),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: notificationKeys.preferences() });
+    },
+  });
+}
+
+export function useUnlinkTelegram() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: () => apiClient<NotificationPreferences>("/notifications/telegram", { method: "DELETE" }),
+    onSuccess: async (preferences) => {
+      queryClient.setQueryData(notificationKeys.preferences(), preferences);
+      await queryClient.invalidateQueries({ queryKey: notificationKeys.preferences() });
     },
   });
 }

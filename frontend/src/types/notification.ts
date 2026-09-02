@@ -14,3 +14,16 @@ export type AppNotification = {
 export type UnreadNotificationCount = {
   unreadCount: number;
 };
+
+export type NotificationPreferences = {
+  in_app_enabled: boolean;
+  telegram_enabled: boolean;
+  telegram_linked: boolean;
+  telegram_username: string | null;
+  telegram_linked_at: string | null;
+};
+
+export type TelegramLinkResponse = {
+  linkUrl: string;
+  expiresAt: string;
+};

@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Bell, CheckCheck, CircleAlert, LoaderCircle } from "lucide-react";
+import { Bell, CheckCheck, CircleAlert, LoaderCircle, Settings } from "lucide-react";
 import {
   useMarkAllNotificationsAsRead,
   useMarkNotificationAsRead,
@@ -103,6 +103,11 @@ export function NotificationBell({ enabled }: { enabled: boolean }) {
     }
   };
 
+  const handleOpenNotificationSettings = () => {
+    setIsOpen(false);
+    router.push("/settings/notifications");
+  };
+
   return (
     <div ref={containerRef} className="relative">
       <button
@@ -201,6 +206,17 @@ export function NotificationBell({ enabled }: { enabled: boolean }) {
                 ))}
               </ul>
             )}
+          </div>
+
+          <div className="border-t border-border/60 p-2">
+            <button
+              type="button"
+              onClick={handleOpenNotificationSettings}
+              className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs font-semibold text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+            >
+              <Settings className="h-3.5 w-3.5" aria-hidden="true" />
+              Notification Settings
+            </button>
           </div>
         </div>
       )}
