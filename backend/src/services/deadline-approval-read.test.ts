@@ -1,4 +1,9 @@
-import { buildDeadlineApprovalReadResult } from './deadline-approval.service';
+import {
+  assertCanViewDeadlineApproval,
+  assertDeadlineApprovalMilestoneIsReviewable,
+  assertDeadlineApprovalReviewer,
+  buildDeadlineApprovalReadResult,
+} from './deadline-approval.service';
 
 const users = [
   { id: 'sales-1', full_name: 'Sales Test', email: 'sales@test.com' },
@@ -74,3 +79,51 @@ try {
   assert(error.message === 'Milestone not found', 'Test 5: expected Milestone not found');
   console.log('Test 5 - Milestone not found: error');
 }
+
+const project = { id: 'project-1', sales_id: 'sales-1', pic_id: 'sa-1' };
+const superAdmin = { userId: 'admin-1', role: 'SUPER_ADMIN', fullName: 'Admin Test' };
+const headSa = { userId: 'headsa-1', role: 'HEAD_SA', fullName: 'Head SA Test' };
+const salesOwner = { userId: 'sales-1', role: 'SALES', fullName: 'Sales Test' };
+const assignedSa = { userId: 'sa-1', role: 'SA', fullName: 'SA Test' };
+
+assertCanViewDeadlineApproval(project, superAdmin);
+assertCanViewDeadlineApproval(project, headSa);
+assertCanViewDeadlineApproval(project, salesOwner);
+assertCanViewDeadlineApproval(project, assignedSa);
+console.log('Test 6 - Authorized project roles can read deadline approvals: passed');
+
+for (const actor of [
+  { userId: 'sales-other', role: 'SALES', fullName: 'Other Sales' },
+  { userId: 'sa-other', role: 'SA', fullName: 'Other SA' },
+]) {
+  try {
+    assertCanViewDeadlineApproval(project, actor);
+    throw new Error('Expected non-disclosure denial');
+  } catch (error: any) {
+    assert(error.message === 'Milestone not found', 'Test 7: unrelated project readers must receive non-disclosure error');
+  }
+}
+console.log('Test 7 - Unrelated SALES/SA cannot read deadline approvals: passed');
+
+try {
+  assertDeadlineApprovalReviewer(assignedSa);
+  throw new Error('Expected reviewer denial');
+} catch (error: any) {
+  assert(error.message === 'Forbidden', 'Test 8: non-HEAD_SA reviewer must be denied');
+}
+assertDeadlineApprovalReviewer(headSa);
+console.log('Test 8 - Deadline reviewer defense-in-depth: passed');
+
+for (const status of ['COMPLETED', 'APPROVED']) {
+  try {
+    assertDeadlineApprovalMilestoneIsReviewable(status);
+    throw new Error('Expected stale deadline rejection');
+  } catch (error: any) {
+    assert(
+      error.message === 'Completed milestone deadline approval cannot be reviewed.',
+      `Test 9: ${status} milestone must reject stale deadline approval`
+    );
+  }
+}
+assertDeadlineApprovalMilestoneIsReviewable('IN_PROGRESS');
+console.log('Test 9 - Completed-equivalent milestones reject stale deadline approval; active milestone remains reviewable: passed');

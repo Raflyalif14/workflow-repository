@@ -3,6 +3,7 @@ import { CreateProjectManagementInput, ProjectQuery, UpdateProjectManagementInpu
 import { MilestoneService } from './milestone.service';
 
 type Actor = { userId: string; role: string; fullName: string };
+type ResumeProjectState = { status: string; is_postponed: boolean | null };
 const mapUser = (user: any) => user ? { id: user.id, full_name: user.full_name, email: user.email } : null;
 const mapProject = (row: any) => ({
   id: row.id,
@@ -46,6 +47,12 @@ async function logProject(actor: Actor, projectId: string, action: string, descr
     .from('activity_logs')
     .insert({ user_id: actor.userId, project_id: projectId, action, description });
   if (error) throw new Error(error.message);
+}
+
+export function assertProjectCanResume(project: ResumeProjectState): void {
+  if (project.status !== 'POSTPONED' || project.is_postponed !== true) {
+    throw new Error('Only POSTPONED projects can be resumed.');
+  }
 }
 
 export class ProjectManagementService {
@@ -177,9 +184,17 @@ export class ProjectManagementService {
   static async resume(id: string, actor: Actor) {
     const existing = await this.get(id, actor);
     if (actor.role !== 'SALES' || existing.sales_id !== actor.userId) throw new Error('Forbidden');
-    if (existing.status !== 'POSTPONED' && !existing.is_postponed) throw new Error('Only POSTPONED projects can be resumed.');
-    const { data, error } = await supabaseAdmin.from('projects').update({ status: 'ACTIVE', is_postponed: false, updated_at: new Date().toISOString() }).eq('id', id).eq('status', 'POSTPONED').select(projectSelect).single();
-    if (error || !data) throw new Error('Project not found');
+    assertProjectCanResume(existing);
+    const { data, error } = await supabaseAdmin
+      .from('projects')
+      .update({ status: 'ACTIVE', is_postponed: false, updated_at: new Date().toISOString() })
+      .eq('id', id)
+      .eq('status', 'POSTPONED')
+      .eq('is_postponed', true)
+      .select(projectSelect)
+      .maybeSingle();
+    if (error) throw new Error('Failed to resume project.');
+    if (!data) throw new Error('Only POSTPONED projects can be resumed.');
     await logProject(actor, id, 'PROJECT_RESUMED', `${actor.fullName} resumed project '${data.name}'`);
     return mapProject(data);
   }

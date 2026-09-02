@@ -41,6 +41,7 @@ type DeadlineApprovalContext = {
     id: string;
     project_id: string;
     name: string;
+    status: string;
     start_date: string | null;
     duration_working_days: number | null;
     due_date: string | null;
@@ -58,6 +59,12 @@ type DeadlineApprovalContext = {
     duration_working_days: number;
     due_date: string;
   };
+};
+
+type DeadlineApprovalReadProject = {
+  id: string;
+  sales_id: string | null;
+  pic_id: string | null;
 };
 
 const normalizeRelatedOne = <T>(value: T | T[] | null): T | null => {
@@ -174,15 +181,37 @@ export function buildDeadlineApprovalResolution(
   return { approval, effectiveDeadline };
 }
 
+export const isDeadlineCompletedEquivalent = (status: string): boolean =>
+  status === 'COMPLETED' || status === 'APPROVED';
+
+export function assertDeadlineApprovalReviewer(actor: Actor): void {
+  if (actor.role !== 'HEAD_SA') throw new Error('Forbidden');
+}
+
+export function assertDeadlineApprovalMilestoneIsReviewable(milestoneStatus: string): void {
+  if (isDeadlineCompletedEquivalent(milestoneStatus)) {
+    throw new Error('Completed milestone deadline approval cannot be reviewed.');
+  }
+}
+
+export function assertCanViewDeadlineApproval(project: DeadlineApprovalReadProject | null, actor: Actor): void {
+  if (!project) throw new Error('Project not found');
+  if (actor.role === 'SUPER_ADMIN' || actor.role === 'HEAD_SA') return;
+  if (actor.role === 'SALES' && project.sales_id === actor.userId) return;
+  if (actor.role === 'SA' && project.pic_id === actor.userId) return;
+  throw new Error('Milestone not found');
+}
+
 export class DeadlineApprovalService {
-  private static async ensureMilestoneExists(milestoneId: string) {
+  private static async ensureCanViewDeadlineApproval(milestoneId: string, actor: Actor) {
     const { data, error } = await supabaseAdmin
       .from('project_milestones')
-      .select('id')
+      .select('id, project:projects!project_milestones_project_id_fkey(id,sales_id,pic_id)')
       .eq('id', milestoneId)
       .single();
 
     if (error || !data) throw new Error('Milestone not found');
+    assertCanViewDeadlineApproval(normalizeRelatedOne(data.project), actor);
   }
 
   private static async getApprovalContext(approvalId: string): Promise<DeadlineApprovalContext> {
@@ -197,7 +226,7 @@ export class DeadlineApprovalService {
     const [milestoneResult, historyResult] = await Promise.all([
       supabaseAdmin
         .from('project_milestones')
-        .select('id, project_id, name, start_date, duration_working_days, due_date, project:projects!project_milestones_project_id_fkey(id,name,sales_id,status,is_postponed)')
+        .select('id, project_id, name, status, start_date, duration_working_days, due_date, project:projects!project_milestones_project_id_fkey(id,name,sales_id,status,is_postponed)')
         .eq('id', approval.milestone_id)
         .single(),
       supabaseAdmin
@@ -221,7 +250,9 @@ export class DeadlineApprovalService {
   }
 
   private static async review(approvalId: string, decision: ReviewDecision, note: string | undefined, actor: Actor) {
+    assertDeadlineApprovalReviewer(actor);
     const context = await this.getApprovalContext(approvalId);
+    assertDeadlineApprovalMilestoneIsReviewable(context.milestone.status);
     if (!context.milestone.project) throw new Error('Project not found');
     if (context.milestone.project.status === 'POSTPONED' || context.milestone.project.is_postponed) throw new Error('Project is postponed.');
     if (context.milestone.project.status !== 'ACTIVE') throw new Error('Deadline changes can only be reviewed for ACTIVE projects.');
@@ -260,6 +291,7 @@ export class DeadlineApprovalService {
           updated_at: new Date().toISOString(),
         })
         .eq('id', context.milestone.id)
+        .not('status', 'in', '(COMPLETED,APPROVED)')
         .select('id')
         .maybeSingle();
 
@@ -315,8 +347,8 @@ export class DeadlineApprovalService {
     return this.review(approvalId, 'REJECTED', input.note, actor);
   }
 
-  private static async getReadData(milestoneId: string) {
-    await this.ensureMilestoneExists(milestoneId);
+  private static async getReadData(milestoneId: string, actor: Actor) {
+    await this.ensureCanViewDeadlineApproval(milestoneId, actor);
 
     const { data: approvals, error: approvalError } = await supabaseAdmin
       .from('milestone_deadline_approvals')
@@ -324,7 +356,7 @@ export class DeadlineApprovalService {
       .eq('milestone_id', milestoneId)
       .order('requested_at', { ascending: false });
 
-    if (approvalError) throw new Error(approvalError.message);
+    if (approvalError) throw new Error('Failed to retrieve deadline approval history.');
     if (!approvals?.length) return { approvals: [], histories: [], users: [] };
 
     const historyIds = [...new Set(approvals.map((approval) => approval.deadline_history_id).filter(Boolean))];
@@ -351,8 +383,7 @@ export class DeadlineApprovalService {
         : Promise.resolve({ data: [], error: null }),
     ]);
 
-    if (historyResult.error) throw new Error(historyResult.error.message);
-    if (userResult.error) throw new Error(userResult.error.message);
+    if (historyResult.error || userResult.error) throw new Error('Failed to retrieve deadline approval history.');
 
     return {
       approvals: approvals as DeadlineApproval[],
@@ -361,13 +392,13 @@ export class DeadlineApprovalService {
     };
   }
 
-  static async getCurrentApproval(milestoneId: string) {
-    const data = await this.getReadData(milestoneId);
+  static async getCurrentApproval(milestoneId: string, actor: Actor) {
+    const data = await this.getReadData(milestoneId, actor);
     return buildDeadlineApprovalReadResult(true, data.approvals, data.histories, data.users, true);
   }
 
-  static async getApprovalHistory(milestoneId: string) {
-    const data = await this.getReadData(milestoneId);
+  static async getApprovalHistory(milestoneId: string, actor: Actor) {
+    const data = await this.getReadData(milestoneId, actor);
     return buildDeadlineApprovalReadResult(true, data.approvals, data.histories, data.users, false);
   }
 }

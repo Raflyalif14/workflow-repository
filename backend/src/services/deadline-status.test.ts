@@ -52,6 +52,14 @@ const cases: Case[] = [
     expectedStatus: 'COMPLETED',
     expectedRemaining: 0,
   },
+  {
+    name: 'Test 6 - Historical APPROVED is completed-equivalent',
+    milestoneStatus: 'APPROVED',
+    dueDate: '2026-09-01',
+    today: '2026-09-10',
+    expectedStatus: 'COMPLETED',
+    expectedRemaining: 0,
+  },
 ];
 
 for (const item of cases) {

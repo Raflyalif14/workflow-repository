@@ -47,6 +47,12 @@ type UserSummary = {
   email: string;
 };
 
+type MilestoneApprovalReadProject = {
+  id: string;
+  sales_id: string | null;
+  pic_id: string | null;
+};
+
 type NextMilestoneSummary = {
   id: string;
   name: string;
@@ -134,6 +140,17 @@ export function buildProjectCompletedActivityLog(actor: Actor, projectId: string
   };
 }
 
+export function assertCanViewMilestoneApprovalHistory(
+  project: MilestoneApprovalReadProject | null,
+  actor: Actor
+): void {
+  if (!project) throw new Error('Project not found');
+  if (actor.role === 'SUPER_ADMIN' || actor.role === 'HEAD_SA') return;
+  if (actor.role === 'SALES' && project.sales_id === actor.userId) return;
+  if (actor.role === 'SA' && project.pic_id === actor.userId) return;
+  throw new Error('Milestone not found');
+}
+
 async function logProjectCompleted(actor: Actor, projectId: string, milestoneName: string) {
   const { error } = await supabaseAdmin.from('activity_logs').insert(buildProjectCompletedActivityLog(actor, projectId, milestoneName));
 
@@ -141,14 +158,15 @@ async function logProjectCompleted(actor: Actor, projectId: string, milestoneNam
 }
 
 export class MilestoneApprovalService {
-  private static async ensureMilestoneExists(milestoneId: string) {
+  private static async ensureCanViewMilestoneApprovalHistory(milestoneId: string, actor: Actor) {
     const { data, error } = await supabaseAdmin
       .from('project_milestones')
-      .select('id')
+      .select('id, project:projects!project_milestones_project_id_fkey(id,sales_id,pic_id)')
       .eq('id', milestoneId)
       .single();
 
     if (error || !data) throw new Error('Milestone not found');
+    assertCanViewMilestoneApprovalHistory(normalizeRelatedOne(data.project), actor);
   }
 
   private static async getApprovalContext(approvalId: string): Promise<MilestoneApprovalContext> {
@@ -286,8 +304,8 @@ export class MilestoneApprovalService {
     return this.review(approvalId, 'REJECTED', input.note, actor);
   }
 
-  static async getApprovalHistory(milestoneId: string) {
-    await this.ensureMilestoneExists(milestoneId);
+  static async getApprovalHistory(milestoneId: string, actor: Actor) {
+    await this.ensureCanViewMilestoneApprovalHistory(milestoneId, actor);
 
     const { data: approvals, error } = await supabaseAdmin
       .from('milestone_approvals')
@@ -295,7 +313,7 @@ export class MilestoneApprovalService {
       .eq('milestone_id', milestoneId)
       .order('submitted_at', { ascending: false });
 
-    if (error) throw new Error(error.message);
+    if (error) throw new Error('Failed to retrieve milestone approval history.');
     if (!approvals?.length) return [];
 
     const userIds = [
@@ -313,7 +331,7 @@ export class MilestoneApprovalService {
         .select('id, full_name, email')
         .in('id', userIds);
 
-      if (userError) throw new Error(userError.message);
+      if (userError) throw new Error('Failed to retrieve milestone approval history.');
       (userRows || []).forEach((user) => users.set(user.id, user));
     }
 

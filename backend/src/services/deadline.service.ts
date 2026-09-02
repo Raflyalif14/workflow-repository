@@ -163,7 +163,7 @@ export class DeadlineService {
       };
     }
 
-    if (milestoneStatus === 'COMPLETED') {
+    if (milestoneStatus === 'COMPLETED' || milestoneStatus === 'APPROVED') {
       return {
         deadline_status: 'COMPLETED' as DeadlineStatus,
         remaining_working_days: 0,

@@ -62,15 +62,37 @@ function getExecutableMilestones(milestones: TimelineMilestone[]) {
   return milestones.filter((milestone) => milestone.step_order > TIMELINE_PLANNING_STEP_ORDER);
 }
 
-function assertSalesOwner(project: ProjectRow, actor: Actor) {
+export function assertSalesOwner(project: ProjectRow, actor: Actor) {
   if (actor.role !== 'SALES' || project.sales_id !== actor.userId) {
     throw new Error('Only the project owner can manage this project plan.');
   }
 }
 
-function assertDraftProject(project: ProjectRow) {
+export function assertDraftProject(project: ProjectRow) {
   if (project.status === 'POSTPONED' || project.is_postponed) throw new Error('Project is postponed.');
   if (project.status !== 'DRAFT') throw new Error('Project plan can only be changed while the project is DRAFT.');
+}
+
+export function assertNoPendingProjectPlanApproval(hasPendingApproval: boolean, message: string): void {
+  if (hasPendingApproval) throw new Error(message);
+}
+
+export function assertSetDeadlineMilestoneReady(milestone: TimelineMilestone | undefined): asserts milestone is TimelineMilestone {
+  if (!milestone || milestone.status !== 'IN_PROGRESS') {
+    throw new Error('Set Deadline milestone is no longer ready for project plan approval.');
+  }
+}
+
+export function assertProjectPlanApprovalProgressionState(
+  project: ProjectRow,
+  timelineMilestone: TimelineMilestone | undefined
+): asserts timelineMilestone is TimelineMilestone {
+  assertDraftProject(project);
+  assertSetDeadlineMilestoneReady(timelineMilestone);
+}
+
+export function buildRejectedProjectPlanReviewResult(projectStatus: string) {
+  return { project_status: projectStatus, next_milestone: null };
 }
 
 function mapUser(user: any) {
@@ -196,9 +218,10 @@ export class ProjectPlanApprovalService {
     assertSalesOwner(project, actor);
     assertDraftProject(project);
 
-    if (await this.getPendingApproval(projectId)) {
-      throw new Error('Project plan is pending review.');
-    }
+    assertNoPendingProjectPlanApproval(
+      Boolean(await this.getPendingApproval(projectId)),
+      'Project plan is pending review.'
+    );
 
     const milestones = await this.getTimelineMilestones(projectId);
     const milestoneMap = new Map(milestones.map((milestone) => [milestone.id, milestone]));
@@ -277,9 +300,10 @@ export class ProjectPlanApprovalService {
     assertDraftProject(project);
     await this.assertTimelineValid(projectId);
 
-    if (await this.getPendingApproval(projectId)) {
-      throw new Error('A project plan approval is already pending.');
-    }
+    assertNoPendingProjectPlanApproval(
+      Boolean(await this.getPendingApproval(projectId)),
+      'A project plan approval is already pending.'
+    );
 
     const { data, error } = await supabaseAdmin
       .from('project_plan_approvals')
@@ -341,12 +365,14 @@ export class ProjectPlanApprovalService {
     if (decision === 'REJECTED') {
       await logActivity(actor, projectId, 'PROJECT_PLAN_REJECTED', `${actor.fullName} rejected the project plan for '${project.name}'`);
       await notifyProjectPlanRejected(project);
-      return { ...updatedApproval, project_status: project.status, next_milestone: null };
+      return { ...updatedApproval, ...buildRejectedProjectPlanReviewResult(project.status) };
     }
 
     const milestones = await this.getTimelineMilestones(projectId);
     const timelineMilestone = milestones.find((milestone) => milestone.step_order === TIMELINE_PLANNING_STEP_ORDER);
-    if (!timelineMilestone || timelineMilestone.status !== 'IN_PROGRESS') {
+    try {
+      assertProjectPlanApprovalProgressionState(project, timelineMilestone);
+    } catch (error) {
       const { error: rollbackError } = await supabaseAdmin
         .from('project_plan_approvals')
         .update({ status: 'PENDING', reviewed_by: null, review_note: null, reviewed_at: null, updated_at: new Date().toISOString() })
@@ -356,7 +382,7 @@ export class ProjectPlanApprovalService {
         throw new Error('Set Deadline milestone is no longer ready for project plan approval.; rollback failed: ' + rollbackError.message);
       }
 
-      throw new Error('Set Deadline milestone is no longer ready for project plan approval.');
+      throw error;
     }
 
     const { data: completedTimelineMilestone, error: milestoneError } = await supabaseAdmin

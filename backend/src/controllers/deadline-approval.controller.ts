@@ -14,7 +14,7 @@ const getStatusCode = (message?: string) => {
 export class DeadlineApprovalController {
   static async getCurrent(req: AuthenticatedRequest, res: Response): Promise<void> {
     try {
-      const result = await DeadlineApprovalService.getCurrentApproval(getRouteParam(req, 'milestoneId'));
+      const result = await DeadlineApprovalService.getCurrentApproval(getRouteParam(req, 'milestoneId'), req.user!);
       sendSuccess(res, 'Current deadline approval retrieved successfully', result);
     } catch (error: any) {
       sendError(res, error.message || 'Failed to retrieve current deadline approval', null, getStatusCode(error.message));
@@ -23,7 +23,7 @@ export class DeadlineApprovalController {
 
   static async getHistory(req: AuthenticatedRequest, res: Response): Promise<void> {
     try {
-      const result = await DeadlineApprovalService.getApprovalHistory(getRouteParam(req, 'milestoneId'));
+      const result = await DeadlineApprovalService.getApprovalHistory(getRouteParam(req, 'milestoneId'), req.user!);
       sendSuccess(res, 'Deadline approval history retrieved successfully', result);
     } catch (error: any) {
       sendError(res, error.message || 'Failed to retrieve deadline approval history', null, getStatusCode(error.message));

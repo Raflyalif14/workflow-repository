@@ -14,7 +14,7 @@ const getStatusCode = (message?: string) => {
 export class MilestoneApprovalController {
   static async getHistory(req: AuthenticatedRequest, res: Response): Promise<void> {
     try {
-      const result = await MilestoneApprovalService.getApprovalHistory(getRouteParam(req, 'milestoneId'));
+      const result = await MilestoneApprovalService.getApprovalHistory(getRouteParam(req, 'milestoneId'), req.user!);
       sendSuccess(res, 'Milestone approval history retrieved successfully', result);
     } catch (error: any) {
       sendError(res, error.message || 'Failed to retrieve milestone approval history', null, getStatusCode(error.message));
