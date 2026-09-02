@@ -3,6 +3,7 @@ import {
   ListNotificationsQuery,
   UpdateNotificationPreferencesInput,
 } from '../validators/notification.validator';
+import { TelegramDeliveryService } from './telegram-delivery.service';
 
 type NotificationRow = {
   id: string;
@@ -186,6 +187,16 @@ export class NotificationService {
       .single();
 
     if (error || !data) throw databaseError('create notification', error);
-    return data as NotificationRow;
+
+    const notification = data as NotificationRow;
+    void TelegramDeliveryService.dispatchBestEffort({
+      notificationId: notification.id,
+      recipientUserId: userId,
+      title: notification.title,
+      message: notification.message,
+      actionUrl: notification.action_url,
+    });
+
+    return notification;
   }
 }
