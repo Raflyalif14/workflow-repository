@@ -15,17 +15,20 @@ type TelegramPreferenceRow = {
 };
 
 type DeliveryRow = { id: string };
-type TelegramDeliveryFailureKind = 'RETRYABLE' | 'AMBIGUOUS' | 'TERMINAL';
-type TelegramSendResult =
+export type TelegramDeliveryFailureKind = 'RETRYABLE' | 'AMBIGUOUS' | 'TERMINAL';
+export type TelegramSendResult =
   | { status: 'SUCCESS' }
   | { status: 'FAILURE'; kind: TelegramDeliveryFailureKind; message: string };
 
 export const TELEGRAM_MESSAGE_MAX_LENGTH = 4000;
 const TELEGRAM_REQUEST_TIMEOUT_MS = 10_000;
 const DELIVERY_ERROR_MAX_LENGTH = 240;
-const RETRYABLE_DELIVERY_DELAY_MS = 5 * 60 * 1000;
+export const TELEGRAM_RETRY_DELAY_MS = 5 * 60 * 1000;
 
-const safeDeliveryError = (message: string): string => message.slice(0, DELIVERY_ERROR_MAX_LENGTH);
+export const safeTelegramDeliveryError = (message: string): string => message.slice(0, DELIVERY_ERROR_MAX_LENGTH);
+
+export const getTelegramRetryAt = (attemptAt: string): string =>
+  new Date(new Date(attemptAt).getTime() + TELEGRAM_RETRY_DELAY_MS).toISOString();
 
 const isDuplicateDeliveryError = (error: unknown): boolean =>
   typeof error === 'object' && error !== null && 'code' in error && (error as { code?: string }).code === '23505';
@@ -128,7 +131,7 @@ export class TelegramDeliveryService {
     return data as DeliveryRow;
   }
 
-  private static async sendMessage(botToken: string, chatId: string, text: string): Promise<TelegramSendResult> {
+  static async sendMessage(botToken: string, chatId: string, text: string): Promise<TelegramSendResult> {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), TELEGRAM_REQUEST_TIMEOUT_MS);
 
@@ -208,10 +211,7 @@ export class TelegramDeliveryService {
     failure: Extract<TelegramSendResult, { status: 'FAILURE' }>,
     attemptAt: string
   ): Promise<void> {
-    const nextRetryAt =
-      failure.kind === 'RETRYABLE'
-        ? new Date(new Date(attemptAt).getTime() + RETRYABLE_DELIVERY_DELAY_MS).toISOString()
-        : null;
+    const nextRetryAt = failure.kind === 'RETRYABLE' ? getTelegramRetryAt(attemptAt) : null;
     const { error } = await supabaseAdmin
       .from('notification_deliveries')
       .update({
@@ -221,7 +221,7 @@ export class TelegramDeliveryService {
         last_attempt_at: attemptAt,
         failure_kind: failure.kind,
         next_retry_at: nextRetryAt,
-        error_message: safeDeliveryError(failure.message),
+        error_message: safeTelegramDeliveryError(failure.message),
       })
       .eq('id', deliveryId);
 
