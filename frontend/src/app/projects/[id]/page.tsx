@@ -36,6 +36,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Dialog, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import {
+  DeadlineHealthPresentation,
+  getDeadlineHealthPresentation,
   getEffectiveDeadline,
   getLatestSubmissionApproval,
   getMilestoneDisplayStatus,
@@ -61,6 +63,7 @@ import {
   MilestoneApprovalState,
   useCompleteMilestone,
   useMilestoneApprovalStates,
+  useMilestoneDeadlineStatus,
   useReviewDeadlineApproval,
   useReviewSubmissionApproval,
   useSaveMilestoneDeadline,
@@ -704,6 +707,7 @@ function MilestoneRow({
   const [message, setMessage] = useState("");
 
   const deadlineApproval = approvalState?.deadlineApproval || null;
+  const deadlineStatusQuery = useMilestoneDeadlineStatus(milestone.id);
   const submissionHistory = approvalState?.submissionApprovalHistory || [];
   const submissionApproval = getLatestSubmissionApproval(submissionHistory);
   const milestoneStatus = getMilestoneDisplayStatus(milestone);
@@ -720,6 +724,15 @@ function MilestoneRow({
 
   const hasPendingDeadline = deadlineApproval?.status === "PENDING";
   const hasPendingSubmission = submissionApproval?.status === "PENDING";
+  const deadlineHealth: DeadlineHealthPresentation = deadlineStatusQuery.isLoading
+    ? { label: "Checking...", tone: "neutral" }
+    : deadlineStatusQuery.isError || !deadlineStatusQuery.data
+    ? { label: "Unavailable", tone: "neutral" }
+    : getDeadlineHealthPresentation(
+        deadlineStatusQuery.data.deadline_status,
+        deadlineStatusQuery.data.remaining_working_days
+      );
+  const isDeadlineOverdue = deadlineStatusQuery.data?.deadline_status === "OVERDUE";
 
   const canStart =
     projectIsActive &&
@@ -874,7 +887,7 @@ function MilestoneRow({
 
       {/* ─── Timeline Panels (Effective vs Proposed) ─── */}
       <div className="mt-3.5 grid gap-3 lg:grid-cols-2">
-        <DeadlinePanel title="Effective Deadline" deadline={effectiveDeadline} />
+        <DeadlinePanel title="Effective Deadline" deadline={effectiveDeadline} health={deadlineHealth} />
         <DeadlinePanel
           title={deadlineApproval?.status === "PENDING" ? "Pending Deadline Change Request" : "Latest Deadline Change History"}
           deadline={deadlineApproval?.deadline}
@@ -890,14 +903,19 @@ function MilestoneRow({
           detail={requiresPic ? milestone.pic?.full_name || milestone.pic?.fullName || "Unassigned" : "Not Required"}
           ok={!requiresPic || hasPic}
         />
-        <WorkflowDetail
-          label="Deadline State"
-          detail={deadlineApproval?.status || (hasEffectiveDeadline(milestone) ? project.status === "DRAFT" ? "Draft Timeline" : "Approved Plan" : "Not Set")}
-          ok={!hasPendingDeadline}
-        />
+        <DeadlineHealthDetail presentation={deadlineHealth} />
       </div>
 
       {/* ─── Informative Waiting State Alerts ─── */}
+      {isDeadlineOverdue && (
+        <div className="mt-3 flex items-start gap-2 rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-xs text-destructive">
+          <CalendarClock className="h-4 w-4 shrink-0" />
+          <div className="space-y-0.5">
+            <p className="font-semibold">Deadline Overdue</p>
+            <p>{deadlineHealth.detail ? `This milestone is ${deadlineHealth.detail.toLowerCase()}.` : "This milestone is overdue."}</p>
+          </div>
+        </div>
+      )}
       {isAssignPic && milestoneStatus === "IN_PROGRESS" && (
         <div className="mt-3 rounded-lg border border-blue-500/30 bg-blue-500/10 p-3 text-xs text-blue-300 flex items-center gap-2">
           <Users className="h-4 w-4 shrink-0 text-blue-400" />
@@ -1298,10 +1316,12 @@ function DeadlinePanel({
   title,
   deadline,
   status,
+  health,
 }: {
   title: string;
   deadline?: { start_date?: string | null; duration_working_days?: number | null; due_date?: string | null; change_reason?: string | null } | null;
   status?: DeadlineApprovalStatus;
+  health?: DeadlineHealthPresentation;
 }) {
   const hasData = Boolean(deadline?.start_date || deadline?.due_date);
 
@@ -1309,7 +1329,7 @@ function DeadlinePanel({
     <div className="space-y-1 rounded-xl border border-border/60 bg-muted/15 p-3 text-xs">
       <div className="flex items-center justify-between gap-2 border-b border-border/30 pb-1">
         <p className="font-semibold text-foreground">{title}</p>
-        {status && <DeadlineBadge status={status} />}
+        {health ? <DeadlineHealthBadge presentation={health} /> : status && <DeadlineBadge status={status} />}
       </div>
       {hasData ? (
         <>
@@ -1322,6 +1342,47 @@ function DeadlinePanel({
         <p className="text-muted-foreground italic py-1">No separate change request recorded.</p>
       )}
     </div>
+  );
+}
+
+function DeadlineHealthDetail({ presentation }: { presentation: DeadlineHealthPresentation }) {
+  const toneClasses = {
+    destructive: "border-destructive/40 bg-destructive/10 text-destructive",
+    warning: "border-amber-500/40 bg-amber-500/10 text-amber-400",
+    success: "border-emerald-500/40 bg-emerald-500/10 text-emerald-400",
+    neutral: "border-border/40 bg-card/70 text-muted-foreground",
+  };
+
+  return (
+    <div className={`rounded-xl border p-2.5 text-xs ${toneClasses[presentation.tone]}`}>
+      <div className="flex items-center gap-1.5">
+        {presentation.tone === "destructive" ? (
+          <AlertTriangle className="h-3.5 w-3.5" />
+        ) : presentation.tone === "success" ? (
+          <CheckCircle2 className="h-3.5 w-3.5" />
+        ) : (
+          <CalendarClock className="h-3.5 w-3.5" />
+        )}
+        <span className="font-medium text-foreground">Deadline State</span>
+      </div>
+      <p className="mt-1 font-mono font-semibold">{presentation.label}</p>
+      {presentation.detail && <p className="mt-1 text-[11px] text-muted-foreground">{presentation.detail}</p>}
+    </div>
+  );
+}
+
+function DeadlineHealthBadge({ presentation }: { presentation: DeadlineHealthPresentation }) {
+  const toneClasses = {
+    destructive: "border-destructive/40 bg-destructive/10 text-destructive",
+    warning: "border-amber-500/40 bg-amber-500/10 text-amber-400",
+    success: "border-emerald-500/40 bg-emerald-500/10 text-emerald-400",
+    neutral: "border-border/50 bg-muted/40 text-muted-foreground",
+  };
+
+  return (
+    <span className={`rounded-md border px-1.5 py-0.5 text-[10px] font-semibold ${toneClasses[presentation.tone]}`}>
+      {presentation.label}
+    </span>
   );
 }
 

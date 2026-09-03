@@ -5,6 +5,39 @@ import {
 } from "@/types/project";
 
 export type DeadlinePrerequisiteStatus = "APPROVED" | "PENDING" | "REJECTED" | "NOT_SET";
+export type DeadlineHealthStatus = "NOT_SET" | "ON_TRACK" | "DUE_SOON" | "OVERDUE" | "COMPLETED";
+export type DeadlineHealthTone = "neutral" | "success" | "warning" | "destructive";
+
+export type DeadlineHealthPresentation = {
+  label: string;
+  detail?: string;
+  tone: DeadlineHealthTone;
+};
+
+export function getDeadlineHealthPresentation(
+  status: DeadlineHealthStatus,
+  remainingWorkingDays: number | null
+): DeadlineHealthPresentation {
+  const remaining = Math.abs(remainingWorkingDays ?? 0);
+  const workingDays = `${remaining} working day${remaining === 1 ? "" : "s"}`;
+
+  switch (status) {
+    case "OVERDUE":
+      return { label: "OVERDUE", detail: `Overdue by ${workingDays}`, tone: "destructive" };
+    case "DUE_SOON":
+      return { label: "DUE SOON", detail: `${workingDays} remaining`, tone: "warning" };
+    case "ON_TRACK":
+      return {
+        label: "ON TRACK",
+        detail: remainingWorkingDays === null ? undefined : `${workingDays} remaining`,
+        tone: "success",
+      };
+    case "COMPLETED":
+      return { label: "COMPLETED", tone: "success" };
+    case "NOT_SET":
+      return { label: "NOT SET", tone: "neutral" };
+  }
+}
 
 export function getMilestoneDisplayStatus(milestone: Pick<ProjectMilestonePhase4, "status">) {
   return milestone.status;

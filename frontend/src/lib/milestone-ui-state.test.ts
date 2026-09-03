@@ -1,4 +1,5 @@
 import {
+  getDeadlineHealthPresentation,
   getDeadlinePrerequisiteStatus,
   getEffectiveDeadline,
   getLatestSubmissionApproval,
@@ -105,4 +106,34 @@ if (getMilestoneDisplayStatus({ ...completedMilestone, status: "REJECTED" }) !==
 
 if (getMilestoneDisplayStatus({ ...completedMilestone, status: "SUBMITTED" }) !== "SUBMITTED") {
   throw new Error("Submitted milestone badge must use milestone.status");
+}
+
+const overdueTwoDays = getDeadlineHealthPresentation("OVERDUE", -2);
+if (overdueTwoDays.tone !== "destructive" || overdueTwoDays.label !== "OVERDUE" || overdueTwoDays.detail !== "Overdue by 2 working days") {
+  throw new Error("Deadline health must show an overdue two-working-day state");
+}
+
+const overdueOneDay = getDeadlineHealthPresentation("OVERDUE", -1);
+if (overdueOneDay.detail !== "Overdue by 1 working day") {
+  throw new Error("Deadline health must use singular working day copy");
+}
+
+const dueSoon = getDeadlineHealthPresentation("DUE_SOON", 2);
+if (dueSoon.tone !== "warning" || dueSoon.detail !== "2 working days remaining") {
+  throw new Error("Deadline health must show due-soon remaining working days");
+}
+
+const onTrack = getDeadlineHealthPresentation("ON_TRACK", 5);
+if (onTrack.tone !== "success" || onTrack.detail !== "5 working days remaining") {
+  throw new Error("Deadline health must show on-track remaining working days");
+}
+
+const completedDeadline = getDeadlineHealthPresentation("COMPLETED", 0);
+if (completedDeadline.tone !== "success" || completedDeadline.label !== "COMPLETED") {
+  throw new Error("Deadline health must show completed separately from workflow approval state");
+}
+
+const notSet = getDeadlineHealthPresentation("NOT_SET", null);
+if (notSet.tone !== "neutral" || notSet.label !== "NOT SET") {
+  throw new Error("Deadline health must show a neutral not-set state");
 }

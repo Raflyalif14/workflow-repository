@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "@/lib/api-client";
-import { approvalKeys, assignmentKeys, dashboardKeys, projectKeys } from "@/lib/query-keys";
+import { approvalKeys, assignmentKeys, dashboardKeys, milestoneKeys, projectKeys } from "@/lib/query-keys";
 import {
   Project,
   ProjectMilestonePhase4,
@@ -181,7 +181,12 @@ export function useSaveProjectTimeline(projectId: string) {
         method: "PUT",
         body: JSON.stringify({ milestones }),
       }),
-    onSuccess: () => invalidateProjectRuntime(queryClient, projectId),
+    onSuccess: (_, milestones) => {
+      invalidateProjectRuntime(queryClient, projectId);
+      milestones.forEach((milestone) => {
+        queryClient.invalidateQueries({ queryKey: milestoneKeys.deadlineStatus(milestone.milestoneId) });
+      });
+    },
   });
 }
 

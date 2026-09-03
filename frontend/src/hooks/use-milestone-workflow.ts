@@ -1,4 +1,4 @@
-import { useMutation, useQueries, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "@/lib/api-client";
 import { approvalKeys, assignmentKeys, milestoneKeys, projectKeys } from "@/lib/query-keys";
 import {
@@ -12,6 +12,13 @@ export type MilestoneApprovalState = {
   deadlineApprovalHistory: MilestoneDeadlineApproval[];
   submissionApproval: MilestoneSubmissionApproval | null;
   submissionApprovalHistory: MilestoneSubmissionApproval[];
+};
+
+export type MilestoneDeadlineStatus = {
+  milestone_id: string;
+  due_date: string | null;
+  deadline_status: "NOT_SET" | "ON_TRACK" | "DUE_SOON" | "OVERDUE" | "COMPLETED";
+  remaining_working_days: number | null;
 };
 
 type DeadlineInput = {
@@ -38,8 +45,19 @@ const invalidateMilestoneWorkflow = (
   }
   if (milestoneId) {
     queryClient.invalidateQueries({ queryKey: milestoneKeys.workflowState(milestoneId) });
+    queryClient.invalidateQueries({ queryKey: milestoneKeys.deadlineStatus(milestoneId) });
   }
 };
+
+export function useMilestoneDeadlineStatus(milestoneId: string, enabled = true) {
+  return useQuery<MilestoneDeadlineStatus>({
+    queryKey: milestoneKeys.deadlineStatus(milestoneId),
+    queryFn: () => apiClient<MilestoneDeadlineStatus>(`/milestones/${milestoneId}/deadline-status`),
+    enabled: Boolean(milestoneId) && enabled,
+    staleTime: 0,
+    refetchOnWindowFocus: true,
+  });
+}
 
 export function useMilestoneApprovalStates(
   milestones: ProjectMilestonePhase4[],
