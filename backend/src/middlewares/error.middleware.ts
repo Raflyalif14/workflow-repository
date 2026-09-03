@@ -7,10 +7,20 @@ export const errorHandler = (
   res: Response,
   _next: NextFunction
 ): void => {
-  console.error('Unhandled Error:', err);
+  const requestedStatusCode = Number(err?.statusCode);
+  const statusCode =
+    Number.isInteger(requestedStatusCode) && requestedStatusCode >= 400 && requestedStatusCode <= 599
+      ? requestedStatusCode
+      : 500;
+  const isExpectedClientError = statusCode >= 400 && statusCode < 500;
+  const isProduction = process.env.NODE_ENV === 'production';
+  const isDevelopment = process.env.NODE_ENV === 'development';
+  const message =
+    isProduction && !isExpectedClientError
+      ? 'Internal Server Error'
+      : err?.message || 'Internal Server Error';
 
-  const statusCode = err.statusCode || 500;
-  const message = err.message || 'Internal Server Error';
+  console.error('Unhandled request error.', { statusCode, isExpectedClientError });
 
-  sendError(res, message, process.env.NODE_ENV === 'development' ? err.stack : undefined, statusCode);
+  sendError(res, message, isDevelopment ? err?.stack : undefined, statusCode);
 };

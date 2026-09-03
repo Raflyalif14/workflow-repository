@@ -10,7 +10,7 @@ if (!userRoles.includes(defaultRegisterRole as (typeof userRoles)[number])) {
 }
 
 export const ENV = {
-  PORT: process.env.PORT || '4000',
+  PORT: process.env.PORT || '5000',
   NODE_ENV: process.env.NODE_ENV || 'development',
   SUPABASE_URL: process.env.SUPABASE_URL || '',
   SUPABASE_ANON_KEY: process.env.SUPABASE_ANON_KEY || '',

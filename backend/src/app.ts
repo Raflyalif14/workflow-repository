@@ -1,5 +1,6 @@
 import express, { Application } from 'express';
 import cors from 'cors';
+import helmet from 'helmet';
 import { ENV } from './config/env';
 import apiRoutes from './routes';
 import { errorHandler } from './middlewares/error.middleware';
@@ -10,6 +11,7 @@ const isLocalDevOrigin = (origin: string) =>
   ENV.NODE_ENV === 'development' && /^http:\/\/(localhost|127\.0\.0\.1):\d+$/.test(origin);
 
 // Middlewares
+app.use(helmet());
 app.use(
   cors({
     origin: (origin, callback) => {

@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "test": "npx tsx src/lib/milestone-ui-state.test.ts && npx tsx src/lib/workflow-ux-helpers.test.ts && npx tsx src/lib/settings-access.test.ts"
+    "test": "npx tsx src/lib/milestone-ui-state.test.ts && npx tsx src/lib/workflow-ux-helpers.test.ts && npx tsx src/lib/settings-access.test.ts && npx tsx src/lib/auth-registration-regression.test.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
