@@ -96,8 +96,6 @@ const passwordChars = {
 };
 
 const allPasswordChars = Object.values(passwordChars).join('');
-const userRoles: UserRole[] = ['SUPER_ADMIN', 'SALES', 'HEAD_SA', 'SA'];
-
 const pickSecureChar = (chars: string) => chars[crypto.randomInt(0, chars.length)];
 
 export function generateInitialPassword(length = 16) {
@@ -155,10 +153,10 @@ export function validateInternalEmailDomain(email: string, internalEmailDomain: 
 }
 
 export function parseDefaultRegisterRole(role: string): UserRole {
-  if (!userRoles.includes(role as UserRole)) {
-    throw new Error('DEFAULT_REGISTER_ROLE must be one of SUPER_ADMIN, SALES, HEAD_SA, SA');
+  if (role !== 'SA') {
+    throw new Error('DEFAULT_REGISTER_ROLE must be SA for public registration.');
   }
-  return role as UserRole;
+  return 'SA';
 }
 
 const forgotPasswordGenericResponse = {

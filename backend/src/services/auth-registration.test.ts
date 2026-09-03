@@ -5,6 +5,8 @@ import {
   validateInitialPassword,
 } from './auth.service';
 import { buildInitialPasswordEmail } from './email.service';
+import { validatePublicRegistrationRole } from '../config/env';
+import { registerSchema } from '../validators/auth.validator';
 
 const assert = (condition: boolean, message: string) => {
   if (!condition) throw new Error(message);
@@ -13,6 +15,17 @@ const assert = (condition: boolean, message: string) => {
 const assertThrowsAsync = async (name: string, action: () => Promise<unknown>) => {
   try {
     await action();
+  } catch {
+    console.log(`${name}: rejected`);
+    return;
+  }
+
+  throw new Error(`${name}: expected rejection`);
+};
+
+const assertThrows = (name: string, action: () => unknown) => {
+  try {
+    action();
   } catch {
     console.log(`${name}: rejected`);
     return;
@@ -91,6 +104,24 @@ async function run() {
   assert(registered.email === 'user@r17.co.id', 'Test 1: email should be normalized');
   console.log('Test 1 - Valid internal email: Auth created, public.users created, role default, SMTP called');
 
+  assert(validatePublicRegistrationRole(undefined) === 'SA', 'Test 1b: unset public registration role must default to SA');
+  assert(validatePublicRegistrationRole('SA') === 'SA', 'Test 1b: SA public registration role must be accepted');
+  for (const role of ['SUPER_ADMIN', 'SALES', 'HEAD_SA', 'UNEXPECTED', '']) {
+    assertThrows(`Test 1b - Configured ${role} public registration role`, () =>
+      validatePublicRegistrationRole(role)
+    );
+  }
+
+  for (const role of ['SUPER_ADMIN', 'SALES', 'HEAD_SA']) {
+    const privilegedRole = createDeps({ defaultRegisterRole: role as any });
+    await assertThrowsAsync(`Test 1c - Direct ${role} public registration role`, () =>
+      registerUserWithDependencies({ full_name: 'User R17', email: 'user@r17.co.id' }, privilegedRole.deps)
+    );
+    assert(privilegedRole.calls.authCreates.length === 0, `Test 1c: ${role} must not create an Auth user`);
+    assert(privilegedRole.calls.publicCreates.length === 0, `Test 1c: ${role} must not create a public user`);
+  }
+  console.log('Test 1c - Privileged public registration defaults are rejected before user creation');
+
   const test2 = createDeps();
   await assertThrowsAsync('Test 2 - Non-internal email', () =>
     registerUserWithDependencies({ full_name: 'User Gmail', email: 'user@gmail.com' }, test2.deps)
@@ -106,12 +137,18 @@ async function run() {
   assert(test3.calls.authCreates.length === 0, 'Test 3: duplicate should not create Auth user');
 
   const test4 = createDeps();
+  const registrationPayload = registerSchema.parse({
+    full_name: 'User R17',
+    email: 'user@r17.co.id',
+    role: 'SUPER_ADMIN',
+  });
+  assert(!('role' in registrationPayload), 'Test 4: registerSchema must not expose a role field');
   await registerUserWithDependencies(
-    { full_name: 'User R17', email: 'user@r17.co.id', role: 'SUPER_ADMIN' } as any,
+    registrationPayload,
     test4.deps
   );
-  assert(test4.calls.publicCreates[0].role === 'SA', 'Test 4: frontend role should not be used');
-  console.log('Test 4 - Frontend role SUPER_ADMIN ignored: role remains DEFAULT_REGISTER_ROLE');
+  assert(test4.calls.publicCreates[0].role === 'SA', 'Test 4: request role must not determine the created role');
+  console.log('Test 4 - registerSchema strips request role and public registration remains SA');
 
   const test5 = createDeps();
   await registerUserWithDependencies(

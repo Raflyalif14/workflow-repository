@@ -2,12 +2,17 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-const userRoles = ['SUPER_ADMIN', 'SALES', 'HEAD_SA', 'SA'] as const;
-const defaultRegisterRole = process.env.DEFAULT_REGISTER_ROLE || 'SA';
+export const validatePublicRegistrationRole = (configuredRole: string | undefined): 'SA' => {
+  const defaultRegisterRole = configuredRole ?? 'SA';
 
-if (!userRoles.includes(defaultRegisterRole as (typeof userRoles)[number])) {
-  throw new Error('DEFAULT_REGISTER_ROLE must be one of SUPER_ADMIN, SALES, HEAD_SA, SA');
-}
+  if (defaultRegisterRole !== 'SA') {
+    throw new Error('DEFAULT_REGISTER_ROLE must be SA for public registration.');
+  }
+
+  return 'SA';
+};
+
+const defaultRegisterRole = validatePublicRegistrationRole(process.env.DEFAULT_REGISTER_ROLE);
 
 export const ENV = {
   PORT: process.env.PORT || '5000',
@@ -25,7 +30,7 @@ export const ENV = {
   SMTP_FROM: process.env.SMTP_FROM || '',
   PASSWORD_RESET_URL: process.env.PASSWORD_RESET_URL || 'http://localhost:3000/reset-password',
   INTERNAL_EMAIL_DOMAIN: process.env.INTERNAL_EMAIL_DOMAIN || '',
-  DEFAULT_REGISTER_ROLE: defaultRegisterRole as (typeof userRoles)[number],
+  DEFAULT_REGISTER_ROLE: defaultRegisterRole,
   SUPABASE_DOCUMENT_BUCKET: process.env.SUPABASE_DOCUMENT_BUCKET || 'workflow-documents',
   TELEGRAM_BOT_USERNAME: process.env.TELEGRAM_BOT_USERNAME || '',
   TELEGRAM_BOT_TOKEN: process.env.TELEGRAM_BOT_TOKEN || '',
