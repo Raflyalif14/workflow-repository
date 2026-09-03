@@ -28,8 +28,11 @@ import { UploadDocumentDialog } from "@/components/documents/upload-document-dia
 import { UploadVersionDialog } from "@/components/documents/upload-version-dialog";
 import { DocumentReviewDialog } from "@/components/documents/document-review-dialog";
 import { DocumentCommentsDrawer } from "@/components/documents/document-comments-drawer";
+import { useAuth } from "@/components/auth/auth-provider";
 
 export default function DocumentsPage() {
+  const { user } = useAuth();
+  const canReview = user?.role === "HEAD_SA";
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<DocumentCategory | "ALL">("ALL");
   const [statusFilter, setStatusFilter] = useState<DocumentStatus | "ALL">("ALL");
@@ -321,7 +324,7 @@ export default function DocumentsPage() {
                         <span>New Version</span>
                       </Button>
 
-                      {latestVersion && latestVersion.status === "SUBMITTED" && (
+                      {canReview && latestVersion && latestVersion.status === "SUBMITTED" && (
                         <>
                           <Button
                             size="sm"

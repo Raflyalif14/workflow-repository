@@ -84,7 +84,7 @@ export function DocumentCommentsDrawer({
                     </span>
                   </div>
                   <span className="text-[10px] text-muted-foreground font-mono">
-                    {new Date(c.createdAt).toLocaleDateString("id-ID", {
+                    {new Date(c.createdAt).toLocaleString("id-ID", {
                       dateStyle: "short",
                       timeStyle: "short",
                     })}
