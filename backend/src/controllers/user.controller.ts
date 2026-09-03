@@ -5,6 +5,7 @@ import { sendSuccess, sendError } from '../utils/response.util';
 import { listUsersQuerySchema } from '../validators/user.validator';
 import { getRouteParam } from '../utils/request.util';
 import { AssignmentPhase5Service } from '../services/assignment-phase5.service';
+import { AuthenticatedRequest } from '../middlewares/auth.middleware';
 
 const sendUserError = (res: Response, error: unknown, fallback: string): void => {
   if (error instanceof ZodError) {
@@ -27,8 +28,8 @@ const sendUserError = (res: Response, error: unknown, fallback: string): void =>
 };
 
 export class UserController {
-  static async listSolutionArchitects(req: Request, res: Response): Promise<void> {
-    try { sendSuccess(res, 'Solution Architects retrieved successfully', await AssignmentPhase5Service.availablePics()); }
+  static async listSolutionArchitects(req: AuthenticatedRequest, res: Response): Promise<void> {
+    try { sendSuccess(res, 'Solution Architects retrieved successfully', await AssignmentPhase5Service.availablePics(req.user!)); }
     catch { sendError(res, 'Failed to retrieve Solution Architects', null, 500); }
   }
   static async listUsers(req: Request, res: Response): Promise<void> {

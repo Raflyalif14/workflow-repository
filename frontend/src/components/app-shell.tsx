@@ -108,19 +108,20 @@ export function Sidebar() {
 
   const userRole = user?.role || "GUEST";
   const { data: approvalStats } = useApprovalStats();
-  const { data: assignedMilestones = [] } = useMyAssignedMilestones(userRole === "SA");
+  const isAssignedMilestoneRole = userRole === "SA" || userRole === "HEAD_SA";
+  const { data: assignedMilestones = [] } = useMyAssignedMilestones(isAssignedMilestoneRole);
 
   const pendingApprovalsCount =
     userRole === "HEAD_SA" || userRole === "SUPER_ADMIN" ? approvalStats?.totalPending || 0 : 0;
 
-  const saActionableMilestonesCount =
-    userRole === "SA"
+  const assignedActionableMilestonesCount =
+    isAssignedMilestoneRole
       ? assignedMilestones.filter((m) => m.status === "IN_PROGRESS" || m.status === "REJECTED").length
       : 0;
 
   const getBadgeCount = (href: string) => {
     if (href === "/approvals") return pendingApprovalsCount;
-    if (href === "/milestones" && userRole === "SA") return saActionableMilestonesCount;
+    if (href === "/milestones" && isAssignedMilestoneRole) return assignedActionableMilestonesCount;
     return 0;
   };
 

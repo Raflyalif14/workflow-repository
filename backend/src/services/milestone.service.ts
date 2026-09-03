@@ -41,7 +41,7 @@ const normalizeRelatedOne = <T>(value: T | T[] | null): T | null => {
 };
 
 export function validateMilestoneSubmissionState(milestone: SubmissionMilestoneState, actor: Actor) {
-  if (actor.role !== 'SA') throw new Error('Forbidden');
+  if (!['SA', 'HEAD_SA'].includes(actor.role)) throw new Error('Forbidden');
   if (!milestone.project) throw new Error('Project not found');
   if (milestone.pic_id !== actor.userId) throw new Error('Forbidden');
   if (milestone.project.status === 'POSTPONED' || milestone.project.is_postponed) throw new Error('Project is postponed.');
@@ -80,7 +80,7 @@ export function buildMilestoneRevisionStartResult(
   hasRejectedApproval: boolean,
   hasPendingApproval: boolean
 ) {
-  if (actor.role !== 'SA') throw new Error('Forbidden');
+  if (!['SA', 'HEAD_SA'].includes(actor.role)) throw new Error('Forbidden');
   if (!milestone.project) throw new Error('Project not found');
   if (milestone.pic_id !== actor.userId) throw new Error('Only the assigned PIC can revise this milestone.');
   if (milestone.project.status === 'POSTPONED' || milestone.project.is_postponed) throw new Error('Project is postponed.');

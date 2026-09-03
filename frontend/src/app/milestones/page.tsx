@@ -209,7 +209,8 @@ function AssignedMilestoneRow({ milestone }: { milestone: AssignedMilestone }) {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const projectId = milestone.project?.id || milestone.project_id;
-  const isSa = user?.role === "SA";
+  const isAssignedPic =
+    (user?.role === "SA" || user?.role === "HEAD_SA") && milestone.pic_id === user?.id;
   const startRevision = useStartMilestoneRevision(projectId, milestone.id);
 
   const handleStartRevision = async () => {
@@ -272,19 +273,19 @@ function AssignedMilestoneRow({ milestone }: { milestone: AssignedMilestone }) {
         </div>
 
         <div className="flex shrink-0 flex-wrap items-center gap-2 self-start sm:self-center">
-          {isSa && milestone.status === "IN_PROGRESS" && (
+          {isAssignedPic && milestone.status === "IN_PROGRESS" && (
             <Button size="sm" className="h-8 gap-1.5 rounded-lg text-xs shadow-sm" onClick={() => setSubmitOpen(true)}>
               <FileCheck2 className="h-3.5 w-3.5" />
               <span>Submit Work</span>
             </Button>
           )}
-          {isSa && milestone.status === "SUBMITTED" && (
+          {isAssignedPic && milestone.status === "SUBMITTED" && (
             <span className="inline-flex items-center gap-1 rounded-lg border border-amber-500/30 bg-amber-500/10 px-2 py-1 text-xs font-medium text-amber-400">
               <Clock className="h-3.5 w-3.5" />
               <span>Waiting for Head SA</span>
             </span>
           )}
-          {isSa && milestone.status === "REJECTED" && (
+          {isAssignedPic && milestone.status === "REJECTED" && (
             <Button
               size="sm"
               variant="outline"

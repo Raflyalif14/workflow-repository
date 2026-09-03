@@ -2,6 +2,8 @@ import { buildMilestoneSubmissionResult } from './milestone.service';
 
 const saPic = { userId: 'sa-1', role: 'SA', fullName: 'Solution Architect Test 2' };
 const saOther = { userId: 'sa-2', role: 'SA', fullName: 'Solution Architect Other' };
+const headSaPic = { userId: 'head-sa-1', role: 'HEAD_SA', fullName: 'Head SA Test' };
+const headSaOther = { userId: 'head-sa-2', role: 'HEAD_SA', fullName: 'Head SA Other' };
 
 const assertThrows = (name: string, action: () => unknown) => {
   try {
@@ -89,6 +91,36 @@ assertThrows('Test 5 - Milestone not IN_PROGRESS', () =>
       project: { status: 'ACTIVE', is_postponed: false },
     },
     saPic,
+    false
+  )
+);
+
+const headSaSubmission = buildMilestoneSubmissionResult(
+  {
+    id: 'milestone-6',
+    name: 'Requirement Gathering',
+    status: 'IN_PROGRESS',
+    pic_id: 'head-sa-1',
+    project: { status: 'ACTIVE', is_postponed: false },
+  },
+  headSaPic,
+  false
+);
+if (headSaSubmission.status !== 'SUBMITTED' || headSaSubmission.approval.submitted_by !== 'head-sa-1') {
+  throw new Error('Test 6 failed');
+}
+console.log('Test 6 - Assigned HEAD_SA PIC can submit an IN_PROGRESS SA milestone');
+
+assertThrows('Test 7 - Unassigned HEAD_SA cannot submit milestone', () =>
+  buildMilestoneSubmissionResult(
+    {
+      id: 'milestone-7',
+      name: 'Requirement Gathering',
+      status: 'IN_PROGRESS',
+      pic_id: 'head-sa-1',
+      project: { status: 'ACTIVE', is_postponed: false },
+    },
+    headSaOther,
     false
   )
 );

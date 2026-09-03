@@ -40,10 +40,12 @@ export function assertPicAssignmentProjectState(project: AssignmentProjectState)
   }
 }
 
-export function assertAssignablePic(pic: AssignmentPicState | null): asserts pic is AssignmentPicState {
+export function assertAssignablePic(pic: AssignmentPicState | null, actor: Actor): asserts pic is AssignmentPicState {
   if (!pic) throw new Error('PIC not found');
   if (!pic.is_active) throw new Error('Selected user is inactive.');
-  if (pic.role !== 'SA') throw new Error('Selected user cannot be assigned as Solution Architect.');
+  if (pic.role === 'SA') return;
+  if (actor.role === 'HEAD_SA' && pic.role === 'HEAD_SA' && pic.id === actor.userId) return;
+  throw new Error('Selected user cannot be assigned as Solution Architect.');
 }
 
 export function assertPicAssignmentChange(project: AssignmentProjectState, picId: string, reason?: string): void {
@@ -52,8 +54,12 @@ export function assertPicAssignmentChange(project: AssignmentProjectState, picId
 }
 
 export class AssignmentPhase5Service {
-  static async availablePics() {
-    const { data, error } = await supabaseAdmin.from('users').select(userFields).eq('role', 'SA').eq('is_active', true).order('full_name');
+  static async availablePics(actor: Actor) {
+    let query = supabaseAdmin.from('users').select(userFields).eq('is_active', true);
+    query = actor.role === 'HEAD_SA'
+      ? query.or(`role.eq.SA,and(role.eq.HEAD_SA,id.eq.${actor.userId})`)
+      : query.eq('role', 'SA');
+    const { data, error } = await query.order('full_name');
     if (error) throw new Error(error.message);
     return data || [];
   }
@@ -65,7 +71,7 @@ export class AssignmentPhase5Service {
     assertPicAssignmentProjectState(project);
     const { data: pic, error: picError } = await supabaseAdmin.from('users').select(`${userFields}, is_active`).eq('id', picId).single();
     const selectedPic = picError ? null : pic;
-    assertAssignablePic(selectedPic);
+    assertAssignablePic(selectedPic, actor);
     assertPicAssignmentChange(project, picId, reason);
     const type = project.pic_id ? 'REASSIGNMENT' : 'INITIAL_ASSIGNMENT';
     const { error: updateError } = await supabaseAdmin.from('projects').update({ pic_id: picId }).eq('id', projectId);

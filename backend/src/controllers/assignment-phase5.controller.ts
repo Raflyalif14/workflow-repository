@@ -14,5 +14,5 @@ export class AssignmentPhase5Controller {
   static history = (req: AuthenticatedRequest, res: Response) => run(res, () => AssignmentPhase5Service.history(getRouteParam(req, 'projectId'), req.user!), 'Assignment history retrieved successfully');
   static assignedProjects = (req: AuthenticatedRequest, res: Response) => run(res, () => AssignmentPhase5Service.assignedProjects(req.user!), 'Assigned projects retrieved successfully');
   static assignedMilestones = (req: AuthenticatedRequest, res: Response) => run(res, () => AssignmentPhase5Service.assignedMilestones(req.user!), 'Assigned milestones retrieved successfully');
-  static availablePics = (req: AuthenticatedRequest, res: Response) => run(res, () => AssignmentPhase5Service.availablePics(), 'Solution Architects retrieved successfully');
+  static availablePics = (req: AuthenticatedRequest, res: Response) => run(res, () => AssignmentPhase5Service.availablePics(req.user!), 'Solution Architects retrieved successfully');
 }

@@ -203,6 +203,49 @@ if (!saActionOther.isWaiting || saActionOther.waitingForRole !== "SA") {
 }
 
 // ─── Test 8: Postponed & Completed states ───
+const headSaPicMilestone = {
+  ...milestone3,
+  pic_id: "head-1",
+  pic: { id: "head-1", full_name: "Head SA", email: "head@work.com", role: "HEAD_SA" },
+};
+const headSaAssignedSubmit = resolveNextAction(
+  activeProject,
+  [milestone1, { ...milestone2, status: "COMPLETED" }, { ...headSaPicMilestone, status: "IN_PROGRESS" }],
+  null,
+  { id: "head-1", role: "HEAD_SA" }
+);
+if (headSaAssignedSubmit.actionType !== "SUBMIT_WORK" || !headSaAssignedSubmit.canPerformAction) {
+  throw new Error("Assigned HEAD_SA PIC should have SUBMIT_WORK action on an SA stage");
+}
+
+const headSaOtherSubmit = resolveNextAction(activeProject, saMilestones, null, {
+  id: "head-1",
+  role: "HEAD_SA",
+});
+if (headSaOtherSubmit.actionType === "SUBMIT_WORK" || headSaOtherSubmit.canPerformAction) {
+  throw new Error("Unassigned HEAD_SA must not receive SA-stage worker actions");
+}
+
+const headSaAssignedRevision = resolveNextAction(
+  activeProject,
+  [milestone1, { ...milestone2, status: "COMPLETED" }, { ...headSaPicMilestone, status: "REJECTED" }],
+  null,
+  { id: "head-1", role: "HEAD_SA" }
+);
+if (headSaAssignedRevision.actionType !== "START_REVISION" || !headSaAssignedRevision.canPerformAction) {
+  throw new Error("Assigned HEAD_SA PIC should have START_REVISION action on an SA stage");
+}
+
+const headSaSelfReview = resolveNextAction(
+  activeProject,
+  [milestone1, { ...milestone2, status: "COMPLETED" }, { ...headSaPicMilestone, status: "SUBMITTED" }],
+  null,
+  { id: "head-1", role: "HEAD_SA" }
+);
+if (headSaSelfReview.actionType !== "REVIEW_SUBMISSION" || !headSaSelfReview.canPerformAction) {
+  throw new Error("HEAD_SA should retain REVIEW_SUBMISSION after self-submission");
+}
+
 const postponedProject: Project = { ...baseProject, status: "POSTPONED", is_postponed: true };
 const postponedSales = resolveNextAction(postponedProject, saMilestones, null, {
   id: "sales-1",

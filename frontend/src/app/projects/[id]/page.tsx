@@ -717,7 +717,8 @@ function MilestoneRow({
   const hasPic = Boolean(milestone.pic_id || milestone.pic?.id);
   const isSalesOwner = user?.role === "SALES" && project.sales_id === user.id;
   const isHeadSa = user?.role === "HEAD_SA";
-  const isAssignedSa = user?.role === "SA" && milestone.pic_id === user.id;
+  const isAssignedPic =
+    (user?.role === "SA" || user?.role === "HEAD_SA") && milestone.pic_id === user.id;
   const projectIsActive = project.status === "ACTIVE" && !project.is_postponed;
   const isAssignPic = milestone.name.trim().toLowerCase() === "assign pic";
   const isCompleted = isMilestoneCompleted(milestone);
@@ -739,7 +740,7 @@ function MilestoneRow({
     milestoneStatus === "CREATED" &&
     ((stageRole === "SALES" && isSalesOwner) ||
       (stageRole === "HEAD_SA" && isHeadSa) ||
-      (stageRole === "SA" && isAssignedSa));
+      (stageRole === "SA" && isAssignedPic));
 
   const canComplete =
     projectIsActive &&
@@ -747,8 +748,8 @@ function MilestoneRow({
     !isAssignPic &&
     ((stageRole === "SALES" && isSalesOwner) || (stageRole === "HEAD_SA" && isHeadSa));
 
-  const canSubmit = projectIsActive && stageRole === "SA" && isAssignedSa && milestoneStatus === "IN_PROGRESS";
-  const canRevise = projectIsActive && stageRole === "SA" && isAssignedSa && milestoneStatus === "REJECTED";
+  const canSubmit = projectIsActive && stageRole === "SA" && isAssignedPic && milestoneStatus === "IN_PROGRESS";
+  const canRevise = projectIsActive && stageRole === "SA" && isAssignedPic && milestoneStatus === "REJECTED";
   const canReviewSubmission = projectIsActive && isHeadSa && milestoneStatus === "SUBMITTED" && hasPendingSubmission;
   const canReviewDeadline = projectIsActive && isHeadSa && hasPendingDeadline;
   const canRequestDeadlineChange =

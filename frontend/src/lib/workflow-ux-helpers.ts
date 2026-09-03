@@ -293,7 +293,8 @@ export function resolveNextAction(
 
     const stageRole = currentMilestone.workflow_stage?.default_role;
     const isAssignPic = currentMilestone.name.trim().toLowerCase() === "assign pic";
-    const isAssignedSa = role === "SA" && currentMilestone.pic_id === actor?.id;
+    const isAssignedPic =
+      (role === "SA" || role === "HEAD_SA") && currentMilestone.pic_id === actor?.id;
 
     // Case 5a: Assign PIC stage
     if (isAssignPic && currentMilestone.status === "IN_PROGRESS") {
@@ -347,7 +348,7 @@ export function resolveNextAction(
 
     // Case 5c: Stage in REJECTED state (Needs SA revision)
     if (currentMilestone.status === "REJECTED") {
-      if (isAssignedSa) {
+      if (stageRole === "SA" && isAssignedPic) {
         return {
           title: `Revision Required: ${currentMilestone.name}`,
           description: "Submission was rejected by Head SA. Start revision and make necessary updates.",
@@ -421,7 +422,7 @@ export function resolveNextAction(
       }
 
       if (stageRole === "SA") {
-        if (isAssignedSa) {
+        if (isAssignedPic) {
           return {
             title: `Submit Work: ${currentMilestone.name}`,
             description: `Complete your deliverables for '${currentMilestone.name}' and submit for Head SA review.`,
@@ -450,7 +451,7 @@ export function resolveNextAction(
       const canStart =
         (stageRole === "SALES" && isSalesOwner) ||
         (stageRole === "HEAD_SA" && isHeadSa) ||
-        (stageRole === "SA" && isAssignedSa);
+        (stageRole === "SA" && isAssignedPic);
 
       if (canStart) {
         return {

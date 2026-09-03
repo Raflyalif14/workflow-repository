@@ -15,14 +15,14 @@ router.use(authenticateUser);
 
 router.post(
   '/:milestoneId/submit',
-  requireRoles(['SA']),
+  requireRoles(['SA', 'HEAD_SA']),
   validateBody(submitMilestoneSchema),
   MilestoneController.submit
 );
 
 router.post(
   '/:milestoneId/start-revision',
-  requireRoles(['SA']),
+  requireRoles(['SA', 'HEAD_SA']),
   MilestoneController.startRevision
 );
 

@@ -2,6 +2,7 @@ import { buildMilestoneRevisionStartResult, buildMilestoneSubmissionResult } fro
 
 const saPic = { userId: 'sa-1', role: 'SA', fullName: 'Solution Architect Test 2' };
 const saOther = { userId: 'sa-2', role: 'SA', fullName: 'Solution Architect Other' };
+const headSaPic = { userId: 'head-sa-1', role: 'HEAD_SA', fullName: 'Head SA Test' };
 
 const assert = (condition: boolean, message: string) => {
   if (!condition) throw new Error(message);
@@ -118,3 +119,19 @@ console.log('Test 6 - Start revision then submit existing endpoint: SUBMITTED, n
 
 assert(resubmission.approval.submission_note === 'Pain point sudah diperbaiki sesuai feedback.', 'Test 7: resubmit note should be saved');
 console.log('Test 7 - Resubmit note saved on new PENDING approval');
+
+const headSaRevision = buildMilestoneRevisionStartResult(
+  {
+    id: 'milestone-7',
+    project_id: 'project-1',
+    name: 'Pain Point Analysis',
+    status: 'REJECTED',
+    pic_id: 'head-sa-1',
+    project: { status: 'ACTIVE', is_postponed: false },
+  },
+  headSaPic,
+  true,
+  false
+);
+assert(headSaRevision.status === 'IN_PROGRESS', 'Test 8: assigned HEAD_SA PIC should start revision');
+console.log('Test 8 - Assigned HEAD_SA PIC can start revision on a rejected milestone');
