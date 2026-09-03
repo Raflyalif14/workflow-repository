@@ -10,9 +10,10 @@ import { Input } from "@/components/ui/input";
 import { RoleGuard } from "@/components/auth/role-guard";
 import { useAuth } from "@/components/auth/auth-provider";
 import { useCreateScenario, useScenarios, useUpdateScenario, useUpdateScenarioStatus } from "@/hooks/use-scenarios";
+import { SYSTEM_SETTINGS_ALLOWED_ROLES } from "@/lib/settings-access";
 
 export default function WorkflowManagementPage() {
-  return <RoleGuard allowedRoles={["SUPER_ADMIN", "SALES", "HEAD_SA", "SA"]}><WorkflowManagement /></RoleGuard>;
+  return <RoleGuard allowedRoles={SYSTEM_SETTINGS_ALLOWED_ROLES}><WorkflowManagement /></RoleGuard>;
 }
 
 function WorkflowManagement() {

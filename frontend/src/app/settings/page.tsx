@@ -9,10 +9,11 @@ import { Badge } from "@/components/ui/badge";
 
 import { useAuth } from "@/components/auth/auth-provider";
 import { RoleGuard } from "@/components/auth/role-guard";
+import { SYSTEM_SETTINGS_ALLOWED_ROLES } from "@/lib/settings-access";
 
 export default function SettingsPage() {
   return (
-    <RoleGuard allowedRoles={["SUPER_ADMIN", "HEAD_SA"]}>
+    <RoleGuard allowedRoles={SYSTEM_SETTINGS_ALLOWED_ROLES}>
       <SettingsPageContent />
     </RoleGuard>
   );

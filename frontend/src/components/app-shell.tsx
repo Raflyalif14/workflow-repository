@@ -24,6 +24,7 @@ import { useAuth } from "@/components/auth/auth-provider";
 import { useApprovalStats } from "@/hooks/use-approvals";
 import { useMyAssignedMilestones } from "@/hooks/use-projects";
 import { NotificationBell } from "@/components/notifications/notification-bell";
+import { SYSTEM_SETTINGS_ALLOWED_ROLES } from "@/lib/settings-access";
 
 // ─── Sidebar Context ───
 interface SidebarContextType {
@@ -95,7 +96,7 @@ const NAV_ITEMS: NavItem[] = [
     href: "/settings",
     icon: Settings,
     description: "System Configuration",
-    allowedRoles: ["SUPER_ADMIN", "HEAD_SA"],
+    allowedRoles: SYSTEM_SETTINGS_ALLOWED_ROLES,
   },
 ];
 

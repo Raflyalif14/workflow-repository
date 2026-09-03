@@ -13,6 +13,7 @@ import {
   Unplug,
 } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
+import { RoleGuard } from "@/components/auth/role-guard";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -24,6 +25,7 @@ import {
   useUnlinkTelegram,
   useUpdateNotificationPreferences,
 } from "@/hooks/use-notifications";
+import { PERSONAL_NOTIFICATION_SETTINGS_ALLOWED_ROLES } from "@/lib/settings-access";
 
 const TELEGRAM_POLL_INTERVAL_MS = 2_000;
 const TELEGRAM_POLL_MAX_DURATION_MS = 60_000;
@@ -102,6 +104,14 @@ function PreferencesToggle({ id, checked, disabled, label, onCheckedChange }: Pr
 }
 
 export default function NotificationSettingsPage() {
+  return (
+    <RoleGuard allowedRoles={PERSONAL_NOTIFICATION_SETTINGS_ALLOWED_ROLES}>
+      <NotificationSettingsContent />
+    </RoleGuard>
+  );
+}
+
+function NotificationSettingsContent() {
   const { user } = useAuth();
   const [isWaitingForTelegram, setIsWaitingForTelegram] = useState(false);
   const [linkExpiresAt, setLinkExpiresAt] = useState<number | null>(null);

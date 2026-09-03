@@ -11,8 +11,9 @@ import { RoleGuard } from "@/components/auth/role-guard";
 import { useAuth } from "@/components/auth/auth-provider";
 import { useCreateStage, useDeleteStage, useReorderStages, useUpdateStage, useWorkflow } from "@/hooks/use-scenarios";
 import { ScenarioRole, WorkflowStage } from "@/types/scenario";
+import { SYSTEM_SETTINGS_ALLOWED_ROLES } from "@/lib/settings-access";
 
-export default function WorkflowDetailPage() { return <RoleGuard allowedRoles={["SUPER_ADMIN", "SALES", "HEAD_SA", "SA"]}><WorkflowDetail /></RoleGuard>; }
+export default function WorkflowDetailPage() { return <RoleGuard allowedRoles={SYSTEM_SETTINGS_ALLOWED_ROLES}><WorkflowDetail /></RoleGuard>; }
 function WorkflowDetail() {
   const { id } = useParams<{ id: string }>();
   const { user } = useAuth();
