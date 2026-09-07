@@ -18,6 +18,30 @@ export interface CurrentActor {
   fullName?: string;
 }
 
+export type TimelineWorkflowMode = "LEGACY" | "OPERATIONAL_V2";
+
+export function resolveTimelineWorkflowMode(
+  workflowModel?: string | null,
+  workflowVersion?: number | null
+): TimelineWorkflowMode | null {
+  if (workflowModel === "LEGACY" && workflowVersion === 1) return "LEGACY";
+  if (workflowModel === "OPERATIONAL_V2" && workflowVersion === 2) return "OPERATIONAL_V2";
+  return null;
+}
+
+export function getTimelinePlanningMilestones(
+  milestones: ProjectMilestonePhase4[] = [],
+  workflowModel?: string | null,
+  workflowVersion?: number | null
+): ProjectMilestonePhase4[] {
+  const workflowMode = resolveTimelineWorkflowMode(workflowModel, workflowVersion);
+  if (!workflowMode) return [];
+
+  return workflowMode === "OPERATIONAL_V2"
+    ? milestones
+    : milestones.filter((milestone) => milestone.step_order > 2);
+}
+
 export interface NextActionInfo {
   title: string;
   description: string;
@@ -126,13 +150,22 @@ export function resolveCurrentStage(
 }
 
 /**
- * Checks whether all executable milestones (step > 2) have start date and working days duration set.
+ * Checks whether every model-required timeline milestone has start date and working days duration set.
  */
-export function isTimelineComplete(milestones: ProjectMilestonePhase4[] = []): {
+export function isTimelineComplete(
+  milestones: ProjectMilestonePhase4[] = [],
+  workflowModel?: string | null,
+  workflowVersion?: number | null
+): {
   isComplete: boolean;
   incompleteMilestoneNames: string[];
 } {
-  const executable = milestones.filter((m) => m.step_order > 2);
+  const workflowMode = resolveTimelineWorkflowMode(workflowModel, workflowVersion);
+  if (!workflowMode) {
+    return { isComplete: false, incompleteMilestoneNames: ["Unsupported scenario workflow model"] };
+  }
+
+  const executable = getTimelinePlanningMilestones(milestones, workflowModel, workflowVersion);
   if (!executable.length) {
     return { isComplete: false, incompleteMilestoneNames: ["No executable milestones found"] };
   }
@@ -213,7 +246,11 @@ export function resolveNextAction(
     const planStatus = planApproval?.status;
 
     if (!planApproval || planStatus === undefined) {
-      const { isComplete, incompleteMilestoneNames } = isTimelineComplete(milestones);
+      const { isComplete, incompleteMilestoneNames } = isTimelineComplete(
+        milestones,
+        project.scenario?.workflow_model,
+        project.scenario?.workflow_version
+      );
       if (isSalesOwner) {
         return {
           title: "Submit Project Plan",

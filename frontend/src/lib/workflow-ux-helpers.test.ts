@@ -2,6 +2,7 @@ import {
   formatMilestoneStatusLabel,
   formatProjectStatusLabel,
   getApprovalTypeDisplay,
+  getTimelinePlanningMilestones,
   isTimelineComplete,
   resolveCurrentStage,
   resolveNextAction,
@@ -14,6 +15,12 @@ const baseProject: Project = {
   customer: "Bank Mega",
   status: "DRAFT",
   sales_id: "sales-1",
+  scenario: {
+    id: "scenario-legacy",
+    name: "Assessment",
+    workflow_model: "LEGACY",
+    workflow_version: 1,
+  },
   pic: null,
   createdAt: "2026-08-28T00:00:00.000Z",
   updatedAt: "2026-08-28T00:00:00.000Z",
@@ -99,7 +106,7 @@ if (current3 !== null) {
 }
 
 // ─── Test 3: Timeline Completeness ───
-const completeness1 = isTimelineComplete([milestone1, milestone2, milestone3]);
+const completeness1 = isTimelineComplete([milestone1, milestone2, milestone3], "LEGACY", 1);
 if (!completeness1.isComplete) {
   throw new Error("Timeline with valid milestone3 should be complete");
 }
@@ -108,9 +115,62 @@ const completeness2 = isTimelineComplete([
   milestone1,
   milestone2,
   { ...milestone3, start_date: null },
-]);
+], "LEGACY", 1);
 if (completeness2.isComplete || completeness2.incompleteMilestoneNames.length === 0) {
   throw new Error("Timeline with missing start_date should be incomplete");
+}
+
+const legacyTimelineMilestones = getTimelinePlanningMilestones(
+  [milestone1, milestone2, milestone3],
+  "LEGACY",
+  1
+);
+if (legacyTimelineMilestones.length !== 1 || legacyTimelineMilestones[0].id !== milestone3.id) {
+  throw new Error("LEGACY timeline should ignore steps 1 and 2");
+}
+
+const operationalV2Milestones = Array.from({ length: 8 }, (_, index) => ({
+  ...milestone3,
+  id: `v2-milestone-${index + 1}`,
+  step_order: index + 1,
+  name: `Operational milestone ${index + 1}`,
+}));
+
+const operationalV2TimelineMilestones = getTimelinePlanningMilestones(
+  operationalV2Milestones,
+  "OPERATIONAL_V2",
+  2
+);
+if (operationalV2TimelineMilestones.length !== 8) {
+  throw new Error("OPERATIONAL_V2 timeline should include all eight milestones");
+}
+
+if (
+  isTimelineComplete(
+    [{ ...operationalV2Milestones[0], start_date: null }, ...operationalV2Milestones.slice(1)],
+    "OPERATIONAL_V2",
+    2
+  ).isComplete
+) {
+  throw new Error("OPERATIONAL_V2 timeline should require step 1");
+}
+
+if (
+  isTimelineComplete(
+    [
+      operationalV2Milestones[0],
+      { ...operationalV2Milestones[1], duration_working_days: null },
+      ...operationalV2Milestones.slice(2),
+    ],
+    "OPERATIONAL_V2",
+    2
+  ).isComplete
+) {
+  throw new Error("OPERATIONAL_V2 timeline should require step 2");
+}
+
+if (!isTimelineComplete(operationalV2Milestones, "OPERATIONAL_V2", 2).isComplete) {
+  throw new Error("OPERATIONAL_V2 timeline should be complete only when all eight milestones are planned");
 }
 
 // ─── Test 4: Next Action in DRAFT state ───

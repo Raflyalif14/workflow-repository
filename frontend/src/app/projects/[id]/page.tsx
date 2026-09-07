@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
   Activity,
@@ -13,7 +13,9 @@ import {
   ChevronRight,
   CircleDashed,
   Clock,
+  Download,
   FileCheck2,
+  FileText,
   Layers,
   PauseCircle,
   Play,
@@ -21,6 +23,7 @@ import {
   Send,
   ShieldCheck,
   Sparkles,
+  UploadCloud,
   Users,
   X,
   XCircle,
@@ -28,8 +31,13 @@ import {
 import { useAuth } from "@/components/auth/auth-provider";
 import { AssignmentHistoryCard } from "@/components/projects/assignment-history-card";
 import { PicAssignmentCard } from "@/components/projects/pic-assignment-card";
+import { MilestoneSubmissionDialog } from "@/components/projects/milestone-submission-dialog";
+import { MilestoneContributionsPanel } from "@/components/milestones/milestone-contributions-panel";
+import { MilestoneSubmissionReviewDialog } from "@/components/milestones/milestone-submission-review-dialog";
 import { PostponeProjectDialog } from "@/components/projects/postpone-project-dialog";
+import { ProjectDeletionDangerZone } from "@/components/projects/project-deletion-danger-zone";
 import { ProjectTimelineEditor } from "@/components/projects/project-timeline-editor";
+import { SalesMilestoneDocumentUploadDialog } from "@/components/projects/sales-milestone-document-upload-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -51,14 +59,20 @@ import {
   resolveNextAction,
 } from "@/lib/workflow-ux-helpers";
 import {
+  canAddMilestoneContribution,
+  canViewMilestoneContributions,
+} from "@/lib/milestone-contribution-access";
+import {
   useProject,
   useProjectMilestones,
   useProjectPlanApproval,
   useProjectProgress,
   useResumeProject,
   useReviewProjectPlan,
+  useSolutionArchitects,
   useSubmitProjectPlan,
 } from "@/hooks/use-projects";
+import { useDocumentDownloadUrl, useDocuments } from "@/hooks/use-documents";
 import {
   MilestoneApprovalState,
   useCompleteMilestone,
@@ -69,7 +83,6 @@ import {
   useSaveMilestoneDeadline,
   useStartMilestone,
   useStartMilestoneRevision,
-  useSubmitMilestone,
 } from "@/hooks/use-milestone-workflow";
 import {
   DeadlineApprovalStatus,
@@ -297,6 +310,8 @@ export default function ProjectDetailPage() {
             projectId={id}
             milestones={milestones}
             canEdit={isSalesOwner && planApproval?.status !== "PENDING"}
+            workflowModel={project.scenario?.workflow_model}
+            workflowVersion={project.scenario?.workflow_version}
           />
           <ProjectPlanCard
             project={project}
@@ -366,6 +381,8 @@ export default function ProjectDetailPage() {
           </div>
         </CardContent>
       </Card>
+
+      <ProjectDocumentsSection projectId={project.id} />
 
       {/* ─── Milestones Execution List & Activity Log ─── */}
       <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
@@ -438,8 +455,112 @@ export default function ProjectDetailPage() {
         </Card>
       </div>
 
+      {user?.role === "SUPER_ADMIN" && <ProjectDeletionDangerZone project={project} />}
       <PostponeProjectDialog open={postponeOpen} onOpenChange={setPostponeOpen} project={project} />
     </div>
+  );
+}
+
+// Project Documents
+function ProjectDocumentsSection({ projectId }: { projectId: string }) {
+  const { data: documents = [], isLoading, isError } = useDocuments({ projectId });
+  const documentDownload = useDocumentDownloadUrl();
+  const [downloadError, setDownloadError] = useState("");
+
+  const handleDownload = async (versionId: string) => {
+    setDownloadError("");
+    try {
+      const { url } = await documentDownload.mutateAsync(versionId);
+      window.open(url, "_blank", "noopener,noreferrer");
+    } catch {
+      setDownloadError("Unable to create a document download link.");
+    }
+  };
+
+  return (
+    <Card className="border-border/60 bg-card/70 shadow-sm">
+      <CardHeader className="pb-3">
+        <div className="flex items-start gap-3">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-primary/15 bg-primary/10 text-primary">
+            <FileText className="h-4 w-4" />
+          </span>
+          <div className="space-y-1">
+            <CardTitle className="text-base font-semibold tracking-tight">Project Documents</CardTitle>
+            <CardDescription className="text-xs">
+              Official project and milestone documents available in the repository.
+            </CardDescription>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {downloadError && (
+          <p className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+            {downloadError}
+          </p>
+        )}
+        {isLoading ? (
+          <div className="space-y-2">
+            {[1, 2].map((item) => (
+              <div key={item} className="h-16 animate-pulse rounded-xl border border-border/40 bg-muted/20" />
+            ))}
+          </div>
+        ) : isError ? (
+          <p className="py-4 text-center text-xs text-destructive">Unable to load project documents.</p>
+        ) : documents.length === 0 ? (
+          <p className="py-5 text-center text-sm text-muted-foreground">No project documents yet.</p>
+        ) : (
+          <div className="space-y-2">
+            {documents.map((document) => {
+              const latestVersion = document.versions?.[0];
+              const sourceLabel =
+                document.category === "MOM"
+                  ? "MoM"
+                  : document.milestoneId
+                  ? document.milestone?.name || "Milestone document"
+                  : document.category === "OTHER"
+                  ? "Project document"
+                  : document.category.replaceAll("_", " ");
+
+              return (
+                <div
+                  key={document.id}
+                  className="flex flex-col gap-3 rounded-xl border border-border/40 bg-muted/10 p-3 transition-colors hover:border-primary/25 hover:bg-muted/20 sm:flex-row sm:items-center sm:justify-between"
+                >
+                  <div className="min-w-0 space-y-1.5">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="truncate text-sm font-semibold text-foreground">{document.title}</p>
+                      <Badge variant="secondary" className="text-[10px] uppercase">{sourceLabel}</Badge>
+                      {latestVersion && (
+                        <Badge variant="outline" className="text-[10px]">Version {latestVersion.versionNumber}</Badge>
+                      )}
+                    </div>
+                    <p className="truncate text-xs text-muted-foreground">
+                      {latestVersion?.fileName || "No file version available"}
+                    </p>
+                    <p className="text-[11px] text-muted-foreground">
+                      {latestVersion?.uploadedBy?.fullName && <>Uploaded by {latestVersion.uploadedBy.fullName} - </>}
+                      {formatDate(latestVersion?.createdAt || document.createdAt)}
+                    </p>
+                  </div>
+                  {latestVersion && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-8 shrink-0 gap-1.5 self-start text-xs sm:self-auto"
+                      onClick={() => void handleDownload(latestVersion.id)}
+                      disabled={documentDownload.isPending}
+                    >
+                      <Download className="h-3.5 w-3.5" />
+                      <span>View / Download</span>
+                    </Button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 
@@ -590,9 +711,9 @@ function ProjectPlanCard({
   const [decision, setDecision] = useState<"APPROVE" | "REJECT" | null>(null);
   const reviewProjectPlan = useReviewProjectPlan(project.id);
 
-  const review = async (note?: string) => {
+  const review = async (note?: string, picId?: string) => {
     if (!decision) return;
-    await reviewProjectPlan.mutateAsync({ decision, note });
+    await reviewProjectPlan.mutateAsync({ decision, note, picId });
     setDecision(null);
   };
 
@@ -680,6 +801,8 @@ function ProjectPlanCard({
         onOpenChange={(open) => !open && setDecision(null)}
         decision={decision || "APPROVE"}
         projectName={project.name}
+        workflowModel={project.scenario?.workflow_model}
+        workflowVersion={project.scenario?.workflow_version}
         isPending={reviewProjectPlan.isPending}
         onSubmit={review}
       />
@@ -702,7 +825,9 @@ function MilestoneRow({
   const { user } = useAuth();
   const [deadlineOpen, setDeadlineOpen] = useState(false);
   const [submitOpen, setSubmitOpen] = useState(false);
+  const [salesDocumentUploadOpen, setSalesDocumentUploadOpen] = useState(false);
   const [review, setReview] = useState<null | { type: "DEADLINE" | "SUBMISSION"; decision: "APPROVE" | "REJECT" }>(null);
+  const [submissionReviewOpen, setSubmissionReviewOpen] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
 
@@ -758,6 +883,22 @@ function MilestoneRow({
     milestone.step_order > 2 &&
     !isCompleted &&
     !hasPendingDeadline;
+  const canUploadSalesMilestoneDocuments =
+    stageRole === "SALES" && (isSalesOwner || user?.role === "SUPER_ADMIN");
+  const contributionProject = {
+    salesId: project.sales_id,
+    status: project.status,
+    isPostponed: project.is_postponed,
+    workflowModel: project.scenario?.workflow_model,
+    workflowVersion: project.scenario?.workflow_version,
+  };
+  const contributionMilestone = {
+    stepOrder: milestone.step_order,
+    status: milestone.status,
+    picId: milestone.pic_id,
+  };
+  const canReadContributions = canViewMilestoneContributions(user, contributionProject, contributionMilestone);
+  const canCreateContribution = canAddMilestoneContribution(user, contributionProject, contributionMilestone);
 
   const start = useStartMilestone(project.id, milestone.id);
   const complete = useCompleteMilestone(project.id, milestone.id);
@@ -823,6 +964,17 @@ function MilestoneRow({
             </Button>
           )}
           {hasPendingDeadline && <Badge variant="warning">Deadline change pending review</Badge>}
+          {canUploadSalesMilestoneDocuments && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-8 gap-1.5 text-xs"
+              onClick={() => setSalesDocumentUploadOpen(true)}
+            >
+              <UploadCloud className="h-3.5 w-3.5" />
+              <span>Upload Document</span>
+            </Button>
+          )}
           {canStart && (
             <Button
               size="sm"
@@ -874,14 +1026,14 @@ function MilestoneRow({
             </>
           )}
           {canReviewSubmission && (
-            <>
-              <Button size="sm" variant="outline" className="h-8 text-xs border-destructive/30 text-destructive" onClick={() => setReview({ type: "SUBMISSION", decision: "REJECT" })}>
-                Reject Work
-              </Button>
-              <Button size="sm" className="h-8 text-xs bg-emerald-500 hover:bg-emerald-600 text-black font-semibold" onClick={() => setReview({ type: "SUBMISSION", decision: "APPROVE" })}>
-                Approve Work
-              </Button>
-            </>
+            <Button
+              size="sm"
+              className="h-8 gap-1.5 text-xs bg-primary hover:bg-primary/90 shadow-sm"
+              onClick={() => setSubmissionReviewOpen(true)}
+            >
+              <FileCheck2 className="h-3.5 w-3.5" />
+              <span>Review Submission</span>
+            </Button>
           )}
         </div>
       </div>
@@ -906,6 +1058,13 @@ function MilestoneRow({
         />
         <DeadlineHealthDetail presentation={deadlineHealth} />
       </div>
+
+      <MilestoneContributionsPanel
+        milestoneId={milestone.id}
+        milestoneName={milestone.name}
+        canRead={canReadContributions}
+        canCreate={canCreateContribution}
+      />
 
       {/* ─── Informative Waiting State Alerts ─── */}
       {isDeadlineOverdue && (
@@ -953,15 +1112,46 @@ function MilestoneRow({
 
       {/* Dialogs */}
       <DeadlineDialog open={deadlineOpen} onOpenChange={setDeadlineOpen} projectId={project.id} milestone={milestone} />
-      <SubmitDialog open={submitOpen} onOpenChange={setSubmitOpen} projectId={project.id} milestone={milestone} />
+      <MilestoneSubmissionDialog
+        open={submitOpen}
+        onOpenChange={setSubmitOpen}
+        projectId={project.id}
+        milestoneId={milestone.id}
+        milestoneName={milestone.name}
+        onSuccess={() => {
+          setError("");
+          setMessage("Work submitted for Head SA review.");
+        }}
+      />
+      <SalesMilestoneDocumentUploadDialog
+        open={salesDocumentUploadOpen}
+        onOpenChange={setSalesDocumentUploadOpen}
+        projectId={project.id}
+        milestoneId={milestone.id}
+        milestoneName={milestone.name}
+        onSuccess={(uploadedCount) => {
+          setError("");
+          setMessage(`${uploadedCount} document${uploadedCount === 1 ? "" : "s"} uploaded.`);
+        }}
+      />
       <ReviewDialog
-        open={Boolean(review)}
+        open={Boolean(review) && review?.type === "DEADLINE"}
         onOpenChange={(open) => !open && setReview(null)}
         projectId={project.id}
         milestoneId={milestone.id}
-        approvalId={review?.type === "DEADLINE" ? deadlineApproval?.id : submissionApproval?.id}
-        type={review?.type || "DEADLINE"}
+        approvalId={deadlineApproval?.id}
+        type="DEADLINE"
         decision={review?.decision || "APPROVE"}
+      />
+      <MilestoneSubmissionReviewDialog
+        open={submissionReviewOpen}
+        onOpenChange={setSubmissionReviewOpen}
+        milestoneId={milestone.id}
+        milestoneName={milestone.name}
+        projectId={project.id}
+        projectName={project.name}
+        approvalId={submissionApproval?.id}
+        submissionNote={submissionApproval?.submission_note}
       />
     </div>
   );
@@ -1053,66 +1243,6 @@ function DeadlineDialog({
           </Button>
           <Button type="submit" disabled={saveDeadline.isPending}>
             {saveDeadline.isPending ? "Submitting..." : "Submit Change Request"}
-          </Button>
-        </DialogFooter>
-      </form>
-    </Dialog>
-  );
-}
-
-// ─── Submit Work Dialog ───
-function SubmitDialog({
-  open,
-  onOpenChange,
-  projectId,
-  milestone,
-}: {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  projectId: string;
-  milestone: ProjectMilestonePhase4;
-}) {
-  const submitMilestone = useSubmitMilestone(projectId, milestone.id);
-  const [note, setNote] = useState("");
-  const [error, setError] = useState("");
-
-  const submit = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    setError("");
-    try {
-      await submitMilestone.mutateAsync(note);
-      setNote("");
-      onOpenChange(false);
-    } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : "Failed to submit work.");
-    }
-  };
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogHeader>
-        <DialogTitle>Submit Work for Review</DialogTitle>
-        <DialogDescription>{milestone.name}</DialogDescription>
-      </DialogHeader>
-      <form className="space-y-4" onSubmit={submit}>
-        <div>
-          <label className="block text-xs font-semibold text-muted-foreground mb-1">Submission Notes (Optional)</label>
-          <textarea
-            rows={4}
-            value={note}
-            onChange={(event) => setNote(event.target.value)}
-            placeholder="Summarize deliverables completed, documents uploaded, or notes for Head SA..."
-            className="flex w-full rounded-md border border-input bg-card px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-primary"
-          />
-        </div>
-        {error && <p className="text-sm text-destructive">{error}</p>}
-        <DialogFooter>
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-            Cancel
-          </Button>
-          <Button type="submit" disabled={submitMilestone.isPending} className="gap-1.5">
-            <FileCheck2 className="h-4 w-4" />
-            <span>{submitMilestone.isPending ? "Submitting..." : "Submit to Head SA"}</span>
           </Button>
         </DialogFooter>
       </form>
@@ -1213,6 +1343,8 @@ function PlanReviewDialog({
   onOpenChange,
   decision,
   projectName,
+  workflowModel,
+  workflowVersion,
   onSubmit,
   isPending,
 }: {
@@ -1220,11 +1352,23 @@ function PlanReviewDialog({
   onOpenChange: (open: boolean) => void;
   decision: "APPROVE" | "REJECT";
   projectName: string;
-  onSubmit: (note?: string) => Promise<void>;
+  workflowModel?: string | null;
+  workflowVersion?: number | null;
+  onSubmit: (note?: string, picId?: string) => Promise<void>;
   isPending: boolean;
 }) {
   const [note, setNote] = useState("");
+  const [picId, setPicId] = useState("");
   const [error, setError] = useState("");
+  const requiresPic = decision === "APPROVE" && workflowModel === "OPERATIONAL_V2" && workflowVersion === 2;
+  const { data: pics = [], isLoading: picsLoading, isError: picsError } = useSolutionArchitects(open && requiresPic);
+
+  useEffect(() => {
+    if (!open) return;
+    setNote("");
+    setPicId("");
+    setError("");
+  }, [decision, open]);
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -1232,10 +1376,15 @@ function PlanReviewDialog({
       setError("A rejection reason is strictly required so Sales can adjust the timeline.");
       return;
     }
+    if (requiresPic && !picId) {
+      setError("Select a Solution Architect PIC before approving this project plan.");
+      return;
+    }
     setError("");
     try {
-      await onSubmit(note.trim() || undefined);
+      await onSubmit(note.trim() || undefined, requiresPic ? picId : undefined);
       setNote("");
+      setPicId("");
     } catch (reviewError) {
       setError(reviewError instanceof Error ? reviewError.message : "Failed to review project plan.");
     }
@@ -1265,6 +1414,37 @@ function PlanReviewDialog({
             required={decision === "REJECT"}
           />
         </div>
+        {requiresPic && (
+          <div className="space-y-2">
+            <label htmlFor="project-plan-pic" className="block text-xs font-semibold text-muted-foreground">
+              Solution Architect PIC *
+            </label>
+            {picsLoading ? (
+              <p className="rounded-lg border border-border/50 bg-muted/20 px-3 py-2 text-sm text-muted-foreground">
+                Loading eligible Solution Architects...
+              </p>
+            ) : picsError ? (
+              <p className="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                Unable to load eligible Solution Architects.
+              </p>
+            ) : (
+              <select
+                id="project-plan-pic"
+                value={picId}
+                onChange={(event) => setPicId(event.target.value)}
+                className="flex h-10 w-full rounded-md border border-input bg-card px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                required
+              >
+                <option value="">Select Solution Architect</option>
+                {pics.map((pic) => (
+                  <option key={pic.id} value={pic.id}>
+                    {pic.full_name} ({pic.role}) - {pic.email}
+                  </option>
+                ))}
+              </select>
+            )}
+          </div>
+        )}
         {error && <p className="text-sm text-destructive">{error}</p>}
         <DialogFooter>
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
@@ -1272,11 +1452,15 @@ function PlanReviewDialog({
           </Button>
           <Button
             type="submit"
-            disabled={isPending}
+            disabled={isPending || (requiresPic && (picsLoading || picsError || !picId))}
             variant={decision === "REJECT" ? "destructive" : "default"}
             className={decision === "APPROVE" ? "bg-emerald-500 hover:bg-emerald-600 text-black font-semibold" : ""}
           >
-            {isPending ? "Saving..." : `Confirm ${decision === "APPROVE" ? "Approval & Activate" : "Rejection"}`}
+            {isPending
+              ? "Saving..."
+              : decision === "APPROVE" && requiresPic
+              ? "Confirm Approval, Assign PIC & Activate"
+              : `Confirm ${decision === "APPROVE" ? "Approval & Activate" : "Rejection"}`}
           </Button>
         </DialogFooter>
       </form>

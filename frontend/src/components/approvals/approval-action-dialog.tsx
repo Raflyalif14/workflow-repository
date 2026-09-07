@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { useProcessApproval } from "@/hooks/use-approvals";
+import { useProject, useSolutionArchitects } from "@/hooks/use-projects";
 import { ApprovalItem } from "@/types/approval";
 import {
   CheckCircle2,
@@ -36,10 +37,23 @@ export function ApprovalActionDialog({
   initialAction = "APPROVE",
 }: ApprovalActionDialogProps) {
   const processMutation = useProcessApproval();
+  const projectQuery = useProject(item?.category === "PROJECT_PLAN" ? item.projectId : "");
 
   const [action, setAction] = useState<"APPROVE" | "REJECT">(initialAction || "APPROVE");
   const [feedback, setFeedback] = useState("");
+  const [picId, setPicId] = useState("");
   const [error, setError] = useState("");
+
+  const isProjectPlanApproval = item?.category === "PROJECT_PLAN" && action === "APPROVE";
+  const workflowModel = projectQuery.data?.scenario?.workflow_model;
+  const workflowVersion = projectQuery.data?.scenario?.workflow_version;
+  const isOperationalV2 = workflowModel === "OPERATIONAL_V2" && workflowVersion === 2;
+  const isLegacy = workflowModel === "LEGACY" && workflowVersion === 1;
+  const requiresPic = isProjectPlanApproval && isOperationalV2;
+  const projectModelUnavailable = isProjectPlanApproval && (projectQuery.isLoading || projectQuery.isError || (!isLegacy && !isOperationalV2));
+  const { data: pics = [], isLoading: picsLoading, isError: picsError } = useSolutionArchitects(
+    open && requiresPic
+  );
 
   // Sync action state when dialog opens or initialAction prop changes
   React.useEffect(() => {
@@ -48,9 +62,14 @@ export function ApprovalActionDialog({
     }
     if (!open) {
       setFeedback("");
+      setPicId("");
       setError("");
     }
   }, [initialAction, open]);
+
+  React.useEffect(() => {
+    setPicId("");
+  }, [action, item?.id]);
 
   if (!item) return null;
 
@@ -65,6 +84,14 @@ export function ApprovalActionDialog({
       setError("Please provide a specific rejection reason (at least 5 characters) so the requester knows what to fix.");
       return;
     }
+    if (isProjectPlanApproval && projectModelUnavailable) {
+      setError("Unable to verify the project workflow configuration.");
+      return;
+    }
+    if (requiresPic && !picId) {
+      setError("Select a Solution Architect PIC before approving this project plan.");
+      return;
+    }
 
     setError("");
     try {
@@ -72,6 +99,7 @@ export function ApprovalActionDialog({
         item,
         action,
         feedback: feedback.trim() || undefined,
+        picId: requiresPic ? picId : undefined,
       });
       onOpenChange(false);
       setFeedback("");
@@ -178,6 +206,53 @@ export function ApprovalActionDialog({
               </Button>
             </div>
 
+            {isProjectPlanApproval && (
+              <div className="space-y-2">
+                <label htmlFor="approval-project-plan-pic" className="block text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                  Solution Architect PIC {isOperationalV2 ? "*" : ""}
+                </label>
+                {projectQuery.isLoading ? (
+                  <p className="rounded-lg border border-border/50 bg-muted/20 px-3 py-2 text-sm text-muted-foreground">
+                    Loading project workflow...
+                  </p>
+                ) : projectQuery.isError || (!isLegacy && !isOperationalV2) ? (
+                  <p className="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                    Unable to verify the project workflow configuration.
+                  </p>
+                ) : isOperationalV2 && picsLoading ? (
+                  <p className="rounded-lg border border-border/50 bg-muted/20 px-3 py-2 text-sm text-muted-foreground">
+                    Loading eligible Solution Architects...
+                  </p>
+                ) : isOperationalV2 && picsError ? (
+                  <p className="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                    Unable to load eligible Solution Architects.
+                  </p>
+                ) : isOperationalV2 ? (
+                  <select
+                    id="approval-project-plan-pic"
+                    value={picId}
+                    onChange={(event) => {
+                      setPicId(event.target.value);
+                      setError("");
+                    }}
+                    className="flex h-10 w-full rounded-md border border-input bg-card px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                    required
+                  >
+                    <option value="">Select Solution Architect</option>
+                    {pics.map((pic) => (
+                      <option key={pic.id} value={pic.id}>
+                        {pic.full_name} ({pic.role}) - {pic.email}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <p className="rounded-lg border border-border/40 bg-muted/15 px-3 py-2 text-xs text-muted-foreground">
+                    Legacy project PIC assignment remains a separate workflow step.
+                  </p>
+                )}
+              </div>
+            )}
+
             <div>
               <label className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
                 {action === "REJECT" ? "Rejection Reason / Revision Notes *" : "Approval Remarks (Optional)"}
@@ -218,11 +293,15 @@ export function ApprovalActionDialog({
               </Button>
               <Button
                 type="submit"
-                disabled={processMutation.isPending}
+                disabled={processMutation.isPending || projectModelUnavailable || (requiresPic && (picsLoading || picsError || !picId))}
                 variant={action === "REJECT" ? "destructive" : "default"}
                 className={action === "APPROVE" ? "h-9 rounded-lg bg-emerald-500 font-semibold text-black hover:bg-emerald-600" : "h-9 rounded-lg"}
               >
-                {processMutation.isPending ? "Processing..." : `Confirm ${action === "APPROVE" ? "Approval" : "Rejection"}`}
+                {processMutation.isPending
+                  ? "Processing..."
+                  : requiresPic
+                  ? "Confirm Approval, Assign PIC & Activate"
+                  : `Confirm ${action === "APPROVE" ? "Approval" : "Rejection"}`}
               </Button>
             </DialogFooter>
           </form>

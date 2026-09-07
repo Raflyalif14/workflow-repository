@@ -113,6 +113,60 @@ export interface MilestoneSubmissionApproval {
   reviewed_at: string | null;
 }
 
+export type SubmissionPackageStatus =
+  | "PENDING_REVIEW"
+  | "PROMOTING"
+  | "APPROVED"
+  | "REJECTING"
+  | "REJECTED";
+
+export interface MilestoneSubmissionAttachment {
+  id: string;
+  file_name: string;
+  file_size: number | string;
+  mime_type: string;
+  status: string;
+}
+
+export interface MilestoneSubmissionPackage {
+  id: string;
+  status: SubmissionPackageStatus;
+  submission_approval_id: string | null;
+  attachment_count: number;
+  attachments: MilestoneSubmissionAttachment[];
+}
+
+export interface MilestoneSubmissionAttachmentDownload {
+  attachment_id: string;
+  file_name: string;
+  url: string;
+}
+
+export interface MilestoneContributionAttachment {
+  id: string;
+  file_name: string;
+  file_size: number;
+  mime_type: string;
+  created_at: string;
+}
+
+export interface MilestoneContribution {
+  id: string;
+  milestone_id: string;
+  note: string | null;
+  contributed_by: { id: string; full_name: string; email?: string } | null;
+  created_at: string;
+  attachments: MilestoneContributionAttachment[];
+}
+
+export interface MilestoneContributionAttachmentDownload {
+  attachment_id: string;
+  file_name: string;
+  url: string;
+  expires_in_seconds: number;
+}
+
+
 export interface WorkflowStage {
   id: string;
   name: string;
@@ -124,6 +178,8 @@ export interface WorkflowStage {
 export interface Scenario {
   id: string;
   name: string;
+  workflow_model?: string;
+  workflow_version?: number;
   code?: string;
   description?: string;
   slaWorkingDays?: number;
@@ -231,4 +287,30 @@ export interface ProjectFilters {
   status?: ProjectStatus | "ALL";
   scenarioId?: string;
   salesId?: string;
+}
+
+export interface ProjectDeletionPreview {
+  project_id: string;
+  project_name: string;
+  scenario: { id: string; name: string } | null;
+  status: ProjectStatus;
+  milestone_count: number;
+  document_count: number;
+  document_version_count: number;
+  submission_package_count: number;
+  submission_attachment_count: number;
+  milestone_contribution_count: number;
+  milestone_contribution_attachment_count: number;
+  approvals: { milestone: number; deadline: number; deadline_history: number; project_plan: number; document_version: number };
+  assignment_count: number;
+  activity_log_count: number;
+  notification_count: number;
+  notification_delivery_count: number;
+  document_comment_count: number;
+  storage_object_count: number;
+}
+
+export interface ProjectDeletionResult {
+  project_id: string;
+  cleanup: { id: string; status: "PENDING" | "COMPLETED" | "FAILED"; storage_object_count: number };
 }

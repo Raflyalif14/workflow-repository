@@ -130,6 +130,28 @@ async function logActivity(actor: WorkflowActor, projectId: string, action: stri
   if (error) throw new Error(error.message);
 }
 
+export async function logWorkflowActivityBestEffort(actor: WorkflowActor, projectId: string, action: string, description: string) {
+  try {
+    await logActivity(actor, projectId, action, description);
+  } catch {
+    console.error('[WorkflowProgression] Failed to record activity after a durable transition.', {
+      projectId,
+      actorId: actor.userId,
+      action,
+    });
+  }
+}
+
+function existingNextMilestoneResult(next: WorkflowMilestone) {
+  const alreadyStarted = ['IN_PROGRESS', 'SUBMITTED', 'REJECTED', 'COMPLETED', 'APPROVED'].includes(next.status);
+  return {
+    next_milestone: { id: next.id, name: next.name, step_order: next.step_order, status: next.status },
+    started: false,
+    project_completed: false,
+    blocked_reason: alreadyStarted ? null : 'NEXT_NOT_CREATED' as const,
+  };
+}
+
 async function getProject(projectId: string): Promise<WorkflowProject> {
   const { data, error } = await supabaseAdmin
     .from('projects')
@@ -190,7 +212,7 @@ export async function startMilestoneStage(milestoneId: string, actor: WorkflowAc
   if (error) throw new Error(error.message);
   if (!updated) throw new Error('Only CREATED milestones can be started.');
 
-  await logActivity(actor, project.id, 'MILESTONE_STARTED', `${actor.fullName} started milestone '${updated.name}'`);
+  await logWorkflowActivityBestEffort(actor, project.id, 'MILESTONE_STARTED', `${actor.fullName} started milestone '${updated.name}'`);
 
   return updated;
 }
@@ -205,13 +227,16 @@ export async function advanceToNextMilestone(
     getProjectMilestones(projectId),
   ]);
 
-  if (project.status !== 'ACTIVE' || project.is_postponed) {
-    return { next_milestone: null, started: false, project_completed: false, blocked_reason: 'PROJECT_NOT_ACTIVE' as const };
-  }
-
   const current = milestones.find((milestone) => milestone.id === completedMilestoneId);
   if (!current || !isMilestoneCompletedLike(current.status)) {
     return { next_milestone: null, started: false, project_completed: false, blocked_reason: 'CURRENT_NOT_COMPLETED' as const };
+  }
+
+  if (project.status === 'COMPLETED' && !project.is_postponed) {
+    return { next_milestone: null, started: false, project_completed: true, blocked_reason: null };
+  }
+  if (project.status !== 'ACTIVE' || project.is_postponed) {
+    return { next_milestone: null, started: false, project_completed: false, blocked_reason: 'PROJECT_NOT_ACTIVE' as const };
   }
 
   const next = milestones.find((milestone) => milestone.step_order > current.step_order) || null;
@@ -227,12 +252,13 @@ export async function advanceToNextMilestone(
       .update({ status: 'COMPLETED', updated_at: nowIso() })
       .eq('id', project.id)
       .eq('status', 'ACTIVE')
+      .eq('is_postponed', false)
       .select('id,status')
       .maybeSingle();
 
     if (error) throw new Error(error.message);
     if (completedProject) {
-      await logActivity(
+      await logWorkflowActivityBestEffort(
         actor,
         project.id,
         'PROJECT_COMPLETED',
@@ -240,16 +266,19 @@ export async function advanceToNextMilestone(
       );
     }
 
-    return { next_milestone: null, started: false, project_completed: Boolean(completedProject), blocked_reason: null };
+    // A concurrent reconciler may have won the CAS. Read its result, not our stale snapshot.
+    const latestProject = completedProject ? project : await getProject(project.id);
+    const projectCompleted = Boolean(completedProject) || (latestProject.status === 'COMPLETED' && !latestProject.is_postponed);
+    return {
+      next_milestone: null,
+      started: false,
+      project_completed: projectCompleted,
+      blocked_reason: projectCompleted ? null : 'PROJECT_NOT_ACTIVE' as const,
+    };
   }
 
   if (next.status !== 'CREATED') {
-    return {
-      next_milestone: { id: next.id, name: next.name, step_order: next.step_order, status: next.status },
-      started: false,
-      project_completed: false,
-      blocked_reason: 'NEXT_NOT_CREATED' as const,
-    };
+    return existingNextMilestoneResult(next);
   }
 
   const stageRole = stageRoleOf(next);
@@ -278,6 +307,15 @@ export async function advanceToNextMilestone(
 
   if (error) throw new Error(error.message);
   if (!startedMilestone) {
+    const [latestProject, latestMilestones] = await Promise.all([getProject(projectId), getProjectMilestones(projectId)]);
+    if (latestProject.status === 'COMPLETED' && !latestProject.is_postponed) {
+      return { next_milestone: null, started: false, project_completed: true, blocked_reason: null };
+    }
+    if (latestProject.status !== 'ACTIVE' || latestProject.is_postponed) {
+      return { next_milestone: null, started: false, project_completed: false, blocked_reason: 'PROJECT_NOT_ACTIVE' as const };
+    }
+    const latestNext = latestMilestones.find((milestone) => milestone.id === next.id);
+    if (latestNext && latestNext.status !== 'CREATED') return existingNextMilestoneResult(latestNext);
     return {
       next_milestone: { id: next.id, name: next.name, step_order: next.step_order, status: next.status },
       started: false,
@@ -286,7 +324,7 @@ export async function advanceToNextMilestone(
     };
   }
 
-  await logActivity(actor, project.id, 'MILESTONE_STARTED', `${actor.fullName} started milestone '${startedMilestone.name}'`);
+  await logWorkflowActivityBestEffort(actor, project.id, 'MILESTONE_STARTED', `${actor.fullName} started milestone '${startedMilestone.name}'`);
 
   return {
     next_milestone: startedMilestone,
@@ -296,40 +334,51 @@ export async function advanceToNextMilestone(
   };
 }
 
-export async function completeMilestoneStage(milestoneId: string, actor: WorkflowActor) {
-  const { milestone, project } = await getMilestoneWithProject(milestoneId);
-  assertProjectIsActive(project);
-
-  if (milestone.status !== 'IN_PROGRESS') {
-    throw new Error('Only IN_PROGRESS milestones can be completed.');
+function assertCanCompleteOrReconcile(milestone: WorkflowMilestone, project: WorkflowProject, actor: WorkflowActor) {
+  assertActorCanComplete(milestone, project, actor);
+  if (!(milestone.status === 'COMPLETED' && project.status === 'COMPLETED' && !project.is_postponed)) {
+    assertProjectIsActive(project);
   }
-
   if (milestone.name.trim().toLocaleLowerCase() === 'assign pic') {
     throw new Error('Assign a PIC to complete this milestone.');
   }
+  if (milestone.status !== 'IN_PROGRESS' && milestone.status !== 'COMPLETED') {
+    throw new Error('Only IN_PROGRESS milestones can be completed.');
+  }
+}
 
-  assertActorCanComplete(milestone, project, actor);
-  const completedAt = nowIso();
+export async function completeMilestoneStage(milestoneId: string, actor: WorkflowActor) {
+  let { milestone, project } = await getMilestoneWithProject(milestoneId);
+  assertCanCompleteOrReconcile(milestone, project, actor);
 
-  const { data: completedMilestone, error } = await supabaseAdmin
-    .from('project_milestones')
-    .update({ status: 'COMPLETED', completed_at: completedAt, updated_at: completedAt })
-    .eq('id', milestone.id)
-    .eq('status', 'IN_PROGRESS')
-    .select('id,project_id,name,step_order,status,completed_at')
-    .maybeSingle();
+  if (milestone.status === 'IN_PROGRESS') {
+    const completedAt = nowIso();
+    const { data: completedMilestone, error } = await supabaseAdmin
+      .from('project_milestones')
+      .update({ status: 'COMPLETED', completed_at: completedAt, updated_at: completedAt })
+      .eq('id', milestone.id)
+      .eq('status', 'IN_PROGRESS')
+      .select('id,project_id,name,step_order,status,completed_at')
+      .maybeSingle();
 
-  if (error) throw new Error(error.message);
-  if (!completedMilestone) throw new Error('Only IN_PROGRESS milestones can be completed.');
+    if (error) throw new Error(error.message);
+    if (completedMilestone) {
+      milestone = { ...milestone, ...completedMilestone };
+      await logWorkflowActivityBestEffort(actor, project.id, 'MILESTONE_COMPLETED', `${actor.fullName} completed milestone '${milestone.name}'`);
+    } else {
+      ({ milestone, project } = await getMilestoneWithProject(milestoneId));
+      assertCanCompleteOrReconcile(milestone, project, actor);
+      if (milestone.status !== 'COMPLETED') throw new Error('Only IN_PROGRESS milestones can be completed.');
+    }
+  }
 
-  await logActivity(actor, project.id, 'MILESTONE_COMPLETED', `${actor.fullName} completed milestone '${completedMilestone.name}'`);
-  const progression = await advanceToNextMilestone(project.id, completedMilestone.id, actor);
+  const progression = await advanceToNextMilestone(project.id, milestone.id, actor);
 
   return {
-    milestone_id: completedMilestone.id,
-    name: completedMilestone.name,
-    status: completedMilestone.status,
-    completed_at: completedMilestone.completed_at,
+    milestone_id: milestone.id,
+    name: milestone.name,
+    status: milestone.status,
+    completed_at: milestone.completed_at,
     ...progression,
   };
 }
@@ -367,7 +416,7 @@ export async function completeAssignPicStageIfCurrent(projectId: string, actor: 
   if (error) throw new Error(error.message);
   if (!completedMilestone) return { completed: false, progression: null };
 
-  await logActivity(actor, project.id, 'MILESTONE_COMPLETED', `${actor.fullName} completed milestone '${completedMilestone.name}' by assigning a PIC`);
+  await logWorkflowActivityBestEffort(actor, project.id, 'MILESTONE_COMPLETED', `${actor.fullName} completed milestone '${completedMilestone.name}' by assigning a PIC`);
   const progression = await advanceToNextMilestone(project.id, completedMilestone.id, actor);
 
   return { completed: true, milestone: completedMilestone, progression };

@@ -1,6 +1,7 @@
 import { Response } from 'express';
 import { AuthenticatedRequest } from '../middlewares/auth.middleware';
 import { MilestoneService } from '../services/milestone.service';
+import { MilestoneSubmissionPackageError, MilestoneSubmissionPackageService } from '../services/milestone-submission-package.service';
 import { sendError, sendSuccess } from '../utils/response.util';
 import { getRouteParam } from '../utils/request.util';
 import { SubmitMilestoneInput } from '../validators/milestone.validator';
@@ -35,10 +36,17 @@ export class MilestoneController {
   static async submit(req: AuthenticatedRequest, res: Response): Promise<void> {
     try {
       const input = req.body as SubmitMilestoneInput;
-      const result = await MilestoneService.submitMilestone(getRouteParam(req, 'milestoneId'), req.user!, input.note);
+      const files = Array.isArray(req.files) ? req.files : [];
+      const result = await MilestoneSubmissionPackageService.submit(
+        getRouteParam(req, 'milestoneId'),
+        req.user!,
+        files,
+        input.note
+      );
       sendSuccess(res, 'Milestone submitted successfully', result);
     } catch (error: any) {
-      sendError(res, error.message || 'Failed to submit milestone', null, getStatusCode(error.message));
+      const status = error instanceof MilestoneSubmissionPackageError ? error.statusCode : getStatusCode(error.message);
+      sendError(res, error.message || 'Failed to submit milestone', null, status);
     }
   }
 

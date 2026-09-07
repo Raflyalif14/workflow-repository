@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiClient, authorizedFetch } from "@/lib/api-client";
+import { projectKeys } from "@/lib/query-keys";
 import { DocumentItem, DocumentFilters, DocumentComment } from "@/types/document";
 
 export function useDocuments(filters: DocumentFilters = {}) {
@@ -46,6 +47,39 @@ export function useUploadDocument() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["documents"] });
+    },
+  });
+}
+
+type SalesMilestoneDocumentUploadResult = {
+  milestone_id: string;
+  documents: Array<{
+    id: string;
+    file_name: string;
+    title: string;
+    category: "OTHER";
+  }>;
+};
+
+export function useUploadSalesMilestoneDocuments(projectId: string, milestoneId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (files: File[]) => {
+      const formData = new FormData();
+      files.forEach((file) => formData.append("files", file));
+
+      return apiClient<SalesMilestoneDocumentUploadResult>(
+        `/milestones/${milestoneId}/documents`,
+        {
+          method: "POST",
+          body: formData,
+        }
+      );
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["documents", { projectId }] });
+      queryClient.invalidateQueries({ queryKey: projectKeys.detail(projectId) });
     },
   });
 }

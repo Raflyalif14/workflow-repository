@@ -4,6 +4,7 @@ import {
   buildMilestoneSubmissionResult,
   calculateMilestoneProgress,
   INITIAL_MILESTONE_STATUS,
+  resolveWorkflowInitializationMode,
 } from './milestone.service';
 
 const saPic = { userId: 'sa-1', role: 'SA', fullName: 'Solution Architect Test' };
@@ -49,7 +50,68 @@ assert(progress.completed === 1, 'Test 3: Create Project should count as complet
 assert(progress.percentage === 8, 'Test 3: 1 of 13 milestones should produce 8% progress');
 console.log('Test 3 - Initial progress includes the completed Create Project stage');
 
-assertThrows('Test 4 - CREATED milestone submit attempt', () =>
+const operationalV2Stages = [
+  'Customer Assessment',
+  'Assessment Report',
+  'Requirement Gathering',
+  'Pain Point Analysis',
+  'Proposal Solution',
+  'Deliverables',
+  'Technical Proposal & BOQ',
+  'Tender Process',
+].map((name, index) => ({
+  id: `operational-v2-stage-${index + 1}`,
+  name,
+  description: null,
+  step_order: index + 1,
+}));
+const operationalV2Rows = buildInitialMilestoneRows(
+  'project-operational-v2',
+  operationalV2Stages,
+  createdAt,
+  { workflow_model: 'OPERATIONAL_V2', workflow_version: 2 }
+);
+assert(operationalV2Rows.length === 8, 'Test 4: all active V2 stages should be initialized');
+assert(operationalV2Rows[0].name === 'Customer Assessment' && operationalV2Rows[0].status === 'CREATED', 'Test 4: Customer Assessment must remain CREATED');
+assert(operationalV2Rows.every((row) => row.status === 'CREATED' && row.completed_at === undefined), 'Test 4: V2 must not auto-complete or auto-start any milestone');
+console.log('Test 4 - OPERATIONAL_V2 initializes all eight active stages as CREATED');
+
+const existingTorOperationalV2Stages = [
+  'Requirement Gathering',
+  'Pain Point Analysis',
+  'Proposal Solution',
+  'Deliverables',
+  'Technical Proposal & BOQ',
+  'Tender Process',
+].map((name, index) => ({
+  id: `existing-tor-operational-v2-stage-${index + 1}`,
+  name,
+  description: null,
+  step_order: index + 1,
+}));
+const existingTorOperationalV2Rows = buildInitialMilestoneRows(
+  'project-existing-tor-operational-v2',
+  existingTorOperationalV2Stages,
+  createdAt,
+  { workflow_model: 'OPERATIONAL_V2', workflow_version: 2 }
+);
+assert(existingTorOperationalV2Rows.length === 6, 'Test 4b: all six active Existing TOR V2 stages should be initialized');
+assert(existingTorOperationalV2Rows[0].name === 'Requirement Gathering', 'Test 4b: Requirement Gathering must be the first operational milestone');
+assert(existingTorOperationalV2Rows.every((row) => row.status === 'CREATED' && row.completed_at === undefined), 'Test 4b: Existing TOR V2 must not auto-complete or auto-start any milestone');
+console.log('Test 4b - Existing TOR OPERATIONAL_V2 initializes all six active stages as CREATED');
+
+assertThrows('Test 5 - unsupported scenario workflow model/version', () =>
+  resolveWorkflowInitializationMode({ workflow_model: 'OPERATIONAL_V2', workflow_version: 1 })
+);
+console.log('Test 5 - Unsupported scenario workflow model/version is rejected without a legacy fallback');
+
+assert(
+  resolveWorkflowInitializationMode({ workflow_model: 'LEGACY', workflow_version: 1, is_active: false } as any) === 'LEGACY',
+  'Test 5b: persisted legacy project model resolution must not require scenario is_active=true'
+);
+console.log('Test 5b - Existing project model resolution remains valid when its LEGACY scenario is inactive');
+
+assertThrows('Test 6 - CREATED milestone submit attempt', () =>
   buildMilestoneSubmissionResult(
     {
       id: 'milestone-created',
@@ -62,7 +124,7 @@ assertThrows('Test 4 - CREATED milestone submit attempt', () =>
     false
   )
 );
-console.log('Test 4 - CREATED SA stage cannot be submitted before it starts');
+console.log('Test 6 - CREATED SA stage cannot be submitted before it starts');
 
 const revision = buildMilestoneRevisionStartResult(
   {
@@ -77,5 +139,5 @@ const revision = buildMilestoneRevisionStartResult(
   true,
   false
 );
-assert(revision.status === 'IN_PROGRESS', 'Test 5: rejected milestone should start revision to IN_PROGRESS');
-console.log('Test 5 - Existing REJECTED -> start-revision flow: IN_PROGRESS');
+assert(revision.status === 'IN_PROGRESS', 'Test 7: rejected milestone should start revision to IN_PROGRESS');
+console.log('Test 7 - Existing REJECTED -> start-revision flow: IN_PROGRESS');

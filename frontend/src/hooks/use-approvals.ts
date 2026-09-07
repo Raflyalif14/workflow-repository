@@ -182,7 +182,7 @@ async function getApprovalOverview(): Promise<ApprovalOverviewResponse> {
   return apiClient<ApprovalOverviewResponse>('/approvals/overview');
 }
 
-export function useApprovals(filters: ApprovalFilters = {}) {
+export function useApprovals(filters: ApprovalFilters = {}, enabled = true) {
   const {
     type = 'ALL',
     status = 'PENDING',
@@ -196,6 +196,7 @@ export function useApprovals(filters: ApprovalFilters = {}) {
   >({
     queryKey: approvalOverviewQueryKey,
     queryFn: getApprovalOverview,
+    enabled,
 
     select: (overview) =>
       overview.items.filter((item) => {
@@ -243,16 +244,19 @@ export function useProcessApproval() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ item, action, feedback }: { item: ApprovalItem; action: "APPROVE" | "REJECT"; feedback?: string }) => {
+    mutationFn: ({ item, action, feedback, picId }: { item: ApprovalItem; action: "APPROVE" | "REJECT"; feedback?: string; picId?: string }) => {
       const path =
         item.category === "PROJECT_PLAN"
           ? "/projects/" + item.projectId + "/plan/" + (action === "APPROVE" ? "approve" : "reject")
           : item.category === "DEADLINE"
             ? "/deadline-approvals/" + item.id + "/" + (action === "APPROVE" ? "approve" : "reject")
             : "/milestone-approvals/" + item.id + "/" + (action === "APPROVE" ? "approve" : "reject");
+      const body: { note?: string; pic_id?: string } = {};
+      if (feedback?.trim()) body.note = feedback.trim();
+      if (item.category === "PROJECT_PLAN" && action === "APPROVE" && picId) body.pic_id = picId;
       return apiClient(path, {
         method: "POST",
-        body: JSON.stringify(feedback?.trim() ? { note: feedback.trim() } : {}),
+        body: JSON.stringify(body),
       });
     },
     onSuccess: (_, variables) => {
@@ -267,6 +271,10 @@ export function useProcessApproval() {
         queryClient.invalidateQueries({ queryKey: milestoneKeys.workflowState(variables.item.milestoneId) });
       }
       queryClient.invalidateQueries({ queryKey: assignmentKeys.myAssignedMilestones() });
+      if (variables.item.category === "PROJECT_PLAN" && variables.action === "APPROVE" && variables.picId) {
+        queryClient.invalidateQueries({ queryKey: projectKeys.assignmentHistory(variables.item.projectId) });
+        queryClient.invalidateQueries({ queryKey: assignmentKeys.myAssignedProjects() });
+      }
     },
     onError: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: approvalKeys.all() });

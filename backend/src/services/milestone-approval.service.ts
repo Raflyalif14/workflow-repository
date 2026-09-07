@@ -1,7 +1,12 @@
 import { supabaseAdmin } from '../config/supabase';
 import { ApproveMilestoneApprovalInput, RejectMilestoneApprovalInput } from '../validators/milestone-approval.validator';
 import { notifyMilestoneApproved, notifyMilestoneRejected } from './milestone-notification.service';
-import { advanceToNextMilestone, isMilestoneCompletedLike } from './workflow-progression.service';
+import {
+  MilestoneSubmissionPackageReviewError,
+  MilestoneSubmissionPackageReviewService,
+  SubmissionPackageReviewOperation,
+} from './milestone-submission-package-review.service';
+import { advanceToNextMilestone, isMilestoneCompletedLike, logWorkflowActivityBestEffort } from './workflow-progression.service';
 
 export { isMilestoneCompletedLike } from './workflow-progression.service';
 
@@ -28,6 +33,7 @@ type MilestoneApprovalMilestone = {
   step_order: number;
   status: string;
   pic_id: string | null;
+  completed_at: string | null;
   project: {
     id: string;
     name: string;
@@ -121,14 +127,12 @@ async function logMilestoneApprovalReview(
   action: 'MILESTONE_APPROVED' | 'MILESTONE_REJECTED'
 ) {
   const verb = action === 'MILESTONE_APPROVED' ? 'approved' : 'rejected';
-  const { error } = await supabaseAdmin.from('activity_logs').insert({
-    project_id: context.milestone.project_id,
-    user_id: actor.userId,
+  await logWorkflowActivityBestEffort(
+    actor,
+    context.milestone.project_id,
     action,
-    description: `${actor.fullName} ${verb} milestone '${context.milestone.name}'`,
-  });
-
-  if (error) throw error;
+    `${actor.fullName} ${verb} milestone '${context.milestone.name}'`
+  );
 }
 
 export function buildProjectCompletedActivityLog(actor: Actor, projectId: string, milestoneName: string) {
@@ -180,7 +184,7 @@ export class MilestoneApprovalService {
 
     const { data: milestone, error: milestoneError } = await supabaseAdmin
       .from('project_milestones')
-      .select('id, project_id, name, step_order, status, pic_id, project:projects!project_milestones_project_id_fkey(id,name,status,is_postponed)')
+      .select('id, project_id, name, step_order, status, pic_id, completed_at, project:projects!project_milestones_project_id_fkey(id,name,status,is_postponed)')
       .eq('id', approval.milestone_id)
       .single();
 
@@ -195,8 +199,223 @@ export class MilestoneApprovalService {
     };
   }
 
+  private static async reconcileApprovedMilestone(context: MilestoneApprovalContext, actor: Actor) {
+    const { approval, milestone } = context;
+    if (actor.role !== 'HEAD_SA') throw new Error('Forbidden');
+    if (!milestone.project) throw new Error('Project not found');
+    if (milestone.project.status === 'POSTPONED' || milestone.project.is_postponed) throw new Error('Project is postponed.');
+    if (!['ACTIVE', 'COMPLETED'].includes(milestone.project.status)) throw new Error('Project is not active.');
+
+    // Reconcile only committed review state; never reclaim a package or replay promotion.
+    const { data: linkedPackage, error } = await supabaseAdmin
+      .from('milestone_submission_packages')
+      .select('id,status,project_id,milestone_id')
+      .eq('milestone_approval_id', approval.id)
+      .maybeSingle();
+    if (error) throw new MilestoneSubmissionPackageReviewError('Failed to retrieve milestone submission package.', 500);
+    if (linkedPackage && (linkedPackage.status !== 'APPROVED'
+      || linkedPackage.project_id !== milestone.project_id || linkedPackage.milestone_id !== milestone.id)) {
+      throw new MilestoneSubmissionPackageReviewError('Milestone submission review is not finalized.', 409);
+    }
+
+    let reviewerName: string | null = approval.reviewed_by === actor.userId ? actor.fullName : null;
+    if (approval.reviewed_by && approval.reviewed_by !== actor.userId) {
+      const { data: reviewer, error: reviewerError } = await supabaseAdmin
+        .from('users').select('id,full_name').eq('id', approval.reviewed_by).maybeSingle();
+      if (reviewerError) throw new Error('Failed to retrieve milestone reviewer.');
+      reviewerName = reviewer?.full_name || null;
+    }
+    const progression = await advanceToNextMilestone(milestone.project_id, milestone.id, actor);
+    return {
+      milestone_id: milestone.id,
+      name: milestone.name,
+      status: milestone.status,
+      current_milestone: {
+        id: milestone.id,
+        name: milestone.name,
+        status: milestone.status,
+        completed_at: milestone.completed_at,
+      },
+      next_milestone: progression.next_milestone,
+      project_completed: progression.project_completed,
+      approval: {
+        id: approval.id,
+        status: approval.status,
+        review_note: approval.review_note,
+        reviewed_by: { id: approval.reviewed_by, full_name: reviewerName },
+      },
+    };
+  }
+
+  private static async rollbackPackageReviewFinalization(
+    context: MilestoneApprovalContext,
+    review: ReturnType<typeof buildMilestoneApprovalReview>,
+    approvalUpdated: boolean,
+    milestoneUpdatedAt: string | null,
+    actor: Actor
+  ): Promise<void> {
+    const rollbackFailures: string[] = [];
+
+    if (milestoneUpdatedAt) {
+      let milestoneRollback = supabaseAdmin
+        .from('project_milestones')
+        .update({ status: 'SUBMITTED', completed_at: null, updated_at: new Date().toISOString() })
+        .eq('id', context.milestone.id)
+        .eq('status', review.milestone.status)
+        .eq('updated_at', milestoneUpdatedAt);
+      milestoneRollback = review.milestone.completed_at
+        ? milestoneRollback.eq('completed_at', review.milestone.completed_at)
+        : milestoneRollback.is('completed_at', null);
+      const { data, error } = await milestoneRollback.select('id').maybeSingle();
+      if (error || !data) rollbackFailures.push('milestone');
+    }
+
+    if (approvalUpdated) {
+      const { data, error } = await supabaseAdmin
+        .from('milestone_approvals')
+        .update({
+          status: 'PENDING',
+          reviewed_by: null,
+          review_note: null,
+          reviewed_at: null,
+        })
+        .eq('id', context.approval.id)
+        .eq('status', review.approval.status)
+        .eq('reviewed_by', actor.userId)
+        .eq('reviewed_at', review.approval.reviewed_at)
+        .select('id')
+        .maybeSingle();
+      if (error || !data) rollbackFailures.push('approval');
+    }
+
+    if (rollbackFailures.length) {
+      console.error('[MilestoneApproval] Package-backed review rollback did not fully complete.', {
+        approvalId: context.approval.id,
+        rollbackFailures,
+      });
+    }
+  }
+
+  private static async reviewPackageBackedApproval(
+    context: MilestoneApprovalContext,
+    review: ReturnType<typeof buildMilestoneApprovalReview>,
+    decision: ReviewDecision,
+    actor: Actor,
+    packageOperation: SubmissionPackageReviewOperation
+  ) {
+    let approvalUpdated = false;
+    let milestoneUpdatedAt: string | null = null;
+    let updatedApproval: MilestoneApproval | null = null;
+    let updatedMilestone: { id: string; project_id: string; name: string; step_order: number; status: string; completed_at: string | null } | null = null;
+
+    try {
+      if (decision === 'APPROVED') {
+        await MilestoneSubmissionPackageReviewService.promote(packageOperation);
+      } else {
+        await MilestoneSubmissionPackageReviewService.reject(packageOperation);
+      }
+
+      const { data, error: approvalError } = await supabaseAdmin
+        .from('milestone_approvals')
+        .update(review.approval)
+        .eq('id', context.approval.id)
+        .eq('status', 'PENDING')
+        .select('id, milestone_id, submitted_by, submission_note, status, reviewed_by, review_note, submitted_at, reviewed_at')
+        .maybeSingle();
+
+      if (approvalError) {
+        throw new MilestoneSubmissionPackageReviewError('Failed to finalize milestone submission review.', 500);
+      }
+      if (!data) {
+        throw new MilestoneSubmissionPackageReviewError('Milestone approval is no longer pending.', 409);
+      }
+      updatedApproval = data as MilestoneApproval;
+      approvalUpdated = true;
+
+      const milestoneTransitionAt = new Date().toISOString();
+      const { data: milestoneData, error: milestoneError } = await supabaseAdmin
+        .from('project_milestones')
+        .update({
+          status: review.milestone.status,
+          completed_at: review.milestone.completed_at,
+          updated_at: milestoneTransitionAt,
+        })
+        .eq('id', context.milestone.id)
+        .eq('status', 'SUBMITTED')
+        .select('id, project_id, name, step_order, status, completed_at')
+        .maybeSingle();
+
+      if (milestoneError) {
+        throw new MilestoneSubmissionPackageReviewError('Failed to finalize milestone submission review.', 500);
+      }
+      if (!milestoneData) {
+        throw new MilestoneSubmissionPackageReviewError('Only a SUBMITTED milestone can be reviewed.', 409);
+      }
+      updatedMilestone = milestoneData;
+      milestoneUpdatedAt = milestoneTransitionAt;
+    } catch (error) {
+      await this.rollbackPackageReviewFinalization(context, review, approvalUpdated, milestoneUpdatedAt, actor);
+      if (decision === 'APPROVED') {
+        await MilestoneSubmissionPackageReviewService.rollbackPromotion(packageOperation);
+      }
+
+      if (error instanceof MilestoneSubmissionPackageReviewError) throw error;
+      throw new MilestoneSubmissionPackageReviewError('Failed to finalize milestone submission review.', 500);
+    }
+
+    await logMilestoneApprovalReview(
+      actor,
+      context,
+      decision === 'APPROVED' ? 'MILESTONE_APPROVED' : 'MILESTONE_REJECTED'
+    );
+    const progression = decision === 'APPROVED'
+      ? await advanceToNextMilestone(context.milestone.project_id, updatedMilestone!.id, actor)
+      : null;
+    const projectName = context.milestone.project?.name;
+    if (projectName) {
+      const notificationContext = {
+        projectId: context.milestone.project_id,
+        projectName,
+        milestoneId: updatedMilestone!.id,
+        milestoneName: updatedMilestone!.name,
+        picId: context.milestone.pic_id,
+      };
+      if (decision === 'APPROVED') {
+        await notifyMilestoneApproved(notificationContext);
+      } else {
+        await notifyMilestoneRejected(notificationContext);
+      }
+    }
+
+    return {
+      milestone_id: updatedMilestone!.id,
+      name: updatedMilestone!.name,
+      status: updatedMilestone!.status,
+      current_milestone: {
+        id: updatedMilestone!.id,
+        name: updatedMilestone!.name,
+        status: updatedMilestone!.status,
+        completed_at: updatedMilestone!.completed_at,
+      },
+      next_milestone: progression?.next_milestone || null,
+      project_completed: progression?.project_completed || false,
+      approval: {
+        id: updatedApproval!.id,
+        status: updatedApproval!.status,
+        review_note: updatedApproval!.review_note,
+        reviewed_by: {
+          id: actor.userId,
+          full_name: actor.fullName,
+        },
+      },
+    };
+  }
+
   private static async review(approvalId: string, decision: ReviewDecision, note: string | undefined, actor: Actor) {
     const context = await this.getApprovalContext(approvalId);
+    if (decision === 'APPROVED' && context.approval.status === 'APPROVED' && context.milestone.status === 'COMPLETED') {
+      return this.reconcileApprovedMilestone(context, actor);
+    }
     const review = buildMilestoneApprovalReview(
       context.approval.status,
       context.milestone.status,
@@ -205,6 +424,11 @@ export class MilestoneApprovalService {
       actor,
       note
     );
+
+    const packageOperation = await MilestoneSubmissionPackageReviewService.beginReview(context.approval.id, decision);
+    if (packageOperation) {
+      return this.reviewPackageBackedApproval(context, review, decision, actor, packageOperation);
+    }
 
     const { data: updatedApproval, error: approvalError } = await supabaseAdmin
       .from('milestone_approvals')
@@ -247,15 +471,14 @@ export class MilestoneApprovalService {
       throw new Error(milestoneError?.message || 'Only a SUBMITTED milestone can be reviewed.');
     }
 
-    const progression = decision === 'APPROVED'
-      ? await advanceToNextMilestone(context.milestone.project_id, updatedMilestone.id, actor)
-      : null;
-
     await logMilestoneApprovalReview(
       actor,
       context,
       decision === 'APPROVED' ? 'MILESTONE_APPROVED' : 'MILESTONE_REJECTED'
     );
+    const progression = decision === 'APPROVED'
+      ? await advanceToNextMilestone(context.milestone.project_id, updatedMilestone.id, actor)
+      : null;
     const projectName = context.milestone.project?.name;
     if (projectName) {
       const notificationContext = {

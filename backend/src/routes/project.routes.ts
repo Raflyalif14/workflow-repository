@@ -1,11 +1,14 @@
-import { Router } from 'express';
+import { NextFunction, Request, Response, Router } from 'express';
 import { ProjectManagementController } from '../controllers/project-management.controller';
 import { ProjectPlanApprovalController } from '../controllers/project-plan-approval.controller';
 import { MilestoneInitiationApprovalController } from '../controllers/milestone-initiation-approval.controller';
 import { AssignmentPhase5Controller } from '../controllers/assignment-phase5.controller';
+import { ProjectDeletionController } from '../controllers/project-deletion.controller';
+import { MAX_PROJECT_CREATION_OPTIONAL_DOCUMENTS } from '../services/project-management.service';
 import { assignPicSchema } from '../validators/assignment-phase5.validator';
 import { authenticateJwt, requireRoles } from '../middlewares/auth.middleware';
 import { validateBody } from '../middlewares/validate.middleware';
+import { uploadMiddleware } from '../utils/storage.util';
 import {
   approveProjectPlanSchema,
   rejectProjectPlanSchema,
@@ -14,18 +17,38 @@ import {
 } from '../validators/project-plan.validator';
 
 const router = Router();
+const projectCreationUpload = uploadMiddleware.fields([
+  { name: 'mom', maxCount: 1 },
+  { name: 'documents', maxCount: MAX_PROJECT_CREATION_OPTIONAL_DOCUMENTS },
+]);
+
+const uploadProjectCreationFiles = (req: Request, res: Response, next: NextFunction): void => {
+  projectCreationUpload(req, res, (error: unknown) => {
+    if (!error) {
+      next();
+      return;
+    }
+
+    const safeError = new Error('Invalid project document upload.') as Error & { statusCode?: number };
+    safeError.statusCode = 400;
+    next(safeError);
+  });
+};
 
 // Seluruh endpoint Project diproteksi dengan JWT Authentication
 router.use(authenticateJwt);
 
 // 1. Project List & Detail (Accessible by all internal roles)
 router.get('/', ProjectManagementController.list);
+router.get('/:projectId/deletion-preview', requireRoles(['SUPER_ADMIN']), ProjectDeletionController.preview);
+router.delete('/:projectId', requireRoles(['SUPER_ADMIN']), ProjectDeletionController.delete);
 router.get('/:id', ProjectManagementController.get);
 
 // 2. Create Project (Sales)
 router.post(
   '/',
   requireRoles(['SALES']),
+  uploadProjectCreationFiles,
   ProjectManagementController.create
 );
 

@@ -2,7 +2,10 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "@/lib/api-client";
 import { Scenario, WorkflowResponse, WorkflowStage } from "@/types/scenario";
 
-export function useScenarios() { return useQuery<Scenario[]>({ queryKey: ["scenarios"], queryFn: () => apiClient<Scenario[]>("/scenarios") }); }
+export function useScenarios(options: { isActive?: boolean } = {}) {
+  const query = options.isActive === undefined ? "/scenarios" : `/scenarios?is_active=${options.isActive}`;
+  return useQuery<Scenario[]>({ queryKey: ["scenarios", options], queryFn: () => apiClient<Scenario[]>(query) });
+}
 export function useWorkflow(scenarioId: string) { return useQuery<WorkflowResponse>({ queryKey: ["scenario-workflow", scenarioId], queryFn: () => apiClient<WorkflowResponse>(`/scenarios/${scenarioId}/workflow`), enabled: Boolean(scenarioId) }); }
 function mutation<T>(endpoint: string, method: string) { const queryClient = useQueryClient(); return useMutation({ mutationFn: (body: T) => apiClient<unknown>(endpoint, { method, body: JSON.stringify(body) }), onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["scenarios"] }); queryClient.invalidateQueries({ queryKey: ["scenario-workflow"] }); } }); }
 export const useCreateScenario = () => mutation<{ name: string; description?: string }>("/scenarios", "POST");

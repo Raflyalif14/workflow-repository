@@ -9,13 +9,15 @@ import {
   ProjectFilters,
   Scenario,
   UserSummary,
+  ProjectDeletionPreview,
+  ProjectDeletionResult,
 } from "@/types/project";
 
 export interface SolutionArchitectOption {
   id: string;
   full_name: string;
   email: string;
-  role: "SA";
+  role: "SA" | "HEAD_SA";
 }
 
 export interface AssignmentHistoryItem {
@@ -104,15 +106,26 @@ export function useCreateProject() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (data: { name: string; customer?: string; clientName?: string; scenario_id?: string; scenarioId?: string }) =>
-      apiClient<Project>("/projects", {
-        method: "POST",
-        body: JSON.stringify({
-          name: data.name,
-          customer: data.customer || data.clientName,
-          scenario_id: data.scenario_id || data.scenarioId,
-        }),
-      }),
+    mutationFn: (data: {
+      name: string;
+      customer?: string;
+      clientName?: string;
+      scenario_id?: string;
+      scenarioId?: string;
+      mom?: File;
+      documents?: File[];
+    }) => {
+      if (!data.mom) throw new Error("A MoM file is required to create a project.");
+
+      const formData = new FormData();
+      formData.append("name", data.name);
+      formData.append("customer", data.customer || data.clientName || "");
+      formData.append("scenario_id", data.scenario_id || data.scenarioId || "");
+      formData.append("mom", data.mom);
+      for (const file of data.documents || []) formData.append("documents", file);
+
+      return apiClient<Project>("/projects", { method: "POST", body: formData });
+    },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: projectKeys.all() }),
   });
 }
@@ -207,25 +220,62 @@ export function useReviewProjectPlan(projectId?: string) {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ targetProjectId, decision, note }: { targetProjectId?: string; decision: "APPROVE" | "REJECT"; note?: string }) => {
+    mutationFn: ({ targetProjectId, decision, note, picId }: { targetProjectId?: string; decision: "APPROVE" | "REJECT"; note?: string; picId?: string }) => {
       const resolvedProjectId = targetProjectId || projectId;
       if (!resolvedProjectId) throw new Error("Project ID is required.");
+      const body: { note?: string; pic_id?: string } = {};
+      if (note?.trim()) body.note = note.trim();
+      if (decision === "APPROVE" && picId) body.pic_id = picId;
       return apiClient(`/projects/${resolvedProjectId}/plan/${decision === "APPROVE" ? "approve" : "reject"}`, {
         method: "POST",
-        body: JSON.stringify(note?.trim() ? { note: note.trim() } : {}),
+        body: JSON.stringify(body),
       });
     },
     onSuccess: (_, variables) => {
       const resolvedProjectId = variables.targetProjectId || projectId;
-      if (resolvedProjectId) invalidateProjectRuntime(queryClient, resolvedProjectId);
+      if (resolvedProjectId) {
+        invalidateProjectRuntime(queryClient, resolvedProjectId);
+        if (variables.decision === "APPROVE" && variables.picId) {
+          queryClient.invalidateQueries({ queryKey: projectKeys.assignmentHistory(resolvedProjectId) });
+          queryClient.invalidateQueries({ queryKey: assignmentKeys.myAssignedMilestones() });
+          queryClient.invalidateQueries({ queryKey: assignmentKeys.myAssignedProjects() });
+        }
+      }
     },
   });
 }
 
-export function useSolutionArchitects() {
+export function useProjectDeletionPreview(projectId: string, enabled = true) {
+  return useQuery<ProjectDeletionPreview>({
+    queryKey: ["project-deletion-preview", projectId],
+    queryFn: () => apiClient<ProjectDeletionPreview>(`/projects/${projectId}/deletion-preview`),
+    enabled: Boolean(projectId) && enabled,
+    staleTime: 0,
+  });
+}
+
+export function useDeleteProject(projectId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (confirmation: string) =>
+      apiClient<ProjectDeletionResult>(`/projects/${projectId}`, { method: "DELETE", body: JSON.stringify({ confirmation }) }),
+    onSuccess: () => {
+      queryClient.removeQueries({ queryKey: projectKeys.detail(projectId) });
+      queryClient.removeQueries({ queryKey: projectKeys.milestones(projectId) });
+      queryClient.removeQueries({ queryKey: projectKeys.progress(projectId) });
+      queryClient.invalidateQueries({ queryKey: projectKeys.all() });
+      queryClient.invalidateQueries({ queryKey: ["documents"] });
+      queryClient.invalidateQueries({ queryKey: approvalKeys.all() });
+      queryClient.invalidateQueries({ queryKey: dashboardKeys.overview() });
+    },
+  });
+}
+
+export function useSolutionArchitects(enabled = true) {
   return useQuery<SolutionArchitectOption[]>({
     queryKey: assignmentKeys.solutionArchitects(),
     queryFn: () => apiClient<SolutionArchitectOption[]>("/users/solution-architects"),
+    enabled,
   });
 }
 

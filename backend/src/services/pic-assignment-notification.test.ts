@@ -31,7 +31,11 @@ async function run(): Promise<void> {
     assert(requestedNotifications[0].type === 'PIC_ASSIGNED', 'Test 1: initial assignment must use PIC_ASSIGNED');
     const assignmentSource = readFileSync(join(__dirname, 'assignment-phase5.service.ts'), 'utf8');
     assert(assignmentSource.includes('await notifyPicAssignment({'), 'Test 1: canonical assignment workflow must trigger notification');
-    assert(assignmentSource.indexOf('const workflow = await completeAssignPicStageIfCurrent') < assignmentSource.indexOf('await notifyPicAssignment({'), 'Test 1: notification must run after workflow progression');
+    assert(
+      assignmentSource.includes("if (workflowMode === 'OPERATIONAL_V2')") &&
+      assignmentSource.indexOf('const workflow = await completeAssignPicStageIfCurrent') < assignmentSource.lastIndexOf('await notifyPicAssignment({'),
+      'Test 1: legacy notification must run after legacy workflow progression while V2 retains its direct assignment notification'
+    );
     console.log('Test 1 - No PIC to new PIC requests PIC_ASSIGNED for the new PIC: passed');
 
     requestedNotifications.length = 0;

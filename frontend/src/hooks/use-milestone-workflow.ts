@@ -4,6 +4,8 @@ import { approvalKeys, assignmentKeys, milestoneKeys, projectKeys } from "@/lib/
 import {
   MilestoneDeadlineApproval,
   MilestoneSubmissionApproval,
+  MilestoneSubmissionAttachmentDownload,
+  MilestoneSubmissionPackage,
   ProjectMilestonePhase4,
 } from "@/types/project";
 
@@ -27,6 +29,11 @@ type DeadlineInput = {
   reason?: string;
 };
 
+type MilestoneSubmissionInput = {
+  files: File[];
+  note?: string;
+};
+
 const invalidateMilestoneWorkflow = (
   queryClient: ReturnType<typeof useQueryClient>,
   projectId?: string,
@@ -45,7 +52,9 @@ const invalidateMilestoneWorkflow = (
   }
   if (milestoneId) {
     queryClient.invalidateQueries({ queryKey: milestoneKeys.workflowState(milestoneId) });
+    queryClient.invalidateQueries({ queryKey: milestoneKeys.submissionApprovalHistory(milestoneId) });
     queryClient.invalidateQueries({ queryKey: milestoneKeys.deadlineStatus(milestoneId) });
+    queryClient.invalidateQueries({ queryKey: milestoneKeys.submissionPackage(milestoneId) });
   }
 };
 
@@ -124,15 +133,20 @@ export function useSubmitMilestone(projectId: string, milestoneId: string) {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (note?: string) =>
-      apiClient<{
+    mutationFn: ({ files, note }: MilestoneSubmissionInput) => {
+      const formData = new FormData();
+      files.forEach((file) => formData.append("files", file));
+      if (note?.trim()) formData.append("note", note.trim());
+
+      return apiClient<{
         milestone_id: string;
         status: string;
         approval?: { id: string; status: string };
       }>(`/milestones/${milestoneId}/submit`, {
         method: "POST",
-        body: JSON.stringify(note?.trim() ? { note: note.trim() } : {}),
-      }),
+        body: formData,
+      });
+    },
     onSuccess: () => invalidateMilestoneWorkflow(queryClient, projectId, milestoneId),
     onError: () => invalidateMilestoneWorkflow(queryClient, projectId, milestoneId),
   });
@@ -182,7 +196,41 @@ export function useReviewSubmissionApproval(projectId?: string, milestoneId?: st
         method: "POST",
         body: JSON.stringify(note?.trim() ? { note: note.trim() } : {}),
       }),
-    onSuccess: () => invalidateMilestoneWorkflow(queryClient, projectId, milestoneId),
+    onSuccess: () => {
+      invalidateMilestoneWorkflow(queryClient, projectId, milestoneId);
+      if (projectId) {
+        queryClient.invalidateQueries({ queryKey: ["documents", { projectId }] });
+      }
+    },
     onError: () => invalidateMilestoneWorkflow(queryClient, projectId, milestoneId),
+  });
+}
+
+export function useSubmissionPackage(milestoneId: string, enabled = true) {
+  return useQuery<MilestoneSubmissionPackage | null>({
+    queryKey: milestoneKeys.submissionPackage(milestoneId),
+    queryFn: () =>
+      apiClient<MilestoneSubmissionPackage | null>(
+        `/milestones/${milestoneId}/submission-package`
+      ),
+    enabled: Boolean(milestoneId) && enabled,
+    staleTime: 30_000,
+    refetchOnWindowFocus: false,
+  });
+}
+
+export function useDownloadSubmissionAttachment(milestoneId: string) {
+  return useMutation({
+    mutationFn: async (attachmentId: string) => {
+      const result = await apiClient<MilestoneSubmissionAttachmentDownload>(
+        `/milestones/${milestoneId}/submission-package/attachments/${attachmentId}/download-url`
+      );
+      return result;
+    },
+    onSuccess: (result) => {
+      if (result?.url) {
+        window.open(result.url, "_blank", "noopener,noreferrer");
+      }
+    },
   });
 }

@@ -11,7 +11,9 @@ import {
   calculateMilestoneProgress,
 } from './milestone.service';
 import { buildDeadlineProposalArtifacts } from './deadline.service';
-import { getAutoStartBlockReason } from './workflow-progression.service';
+import { advanceToNextMilestone, completeMilestoneStage, getAutoStartBlockReason } from './workflow-progression.service';
+import { supabaseAdmin } from '../config/supabase';
+import { strict as strictAssert } from 'assert';
 
 const headSa = { userId: 'head-sa-1', role: 'HEAD_SA', fullName: 'Head Solution Architect Test' };
 const sales = { userId: 'sales-1', role: 'SALES', fullName: 'Sales Test' };
@@ -205,3 +207,239 @@ const deadlineProposal = buildDeadlineProposalArtifacts(
 assert(deadlineProposal.approval.status === 'PENDING', 'Test 14: deadline proposal should still create PENDING approval');
 assert(deadlineProposal.effectiveDeadline.due_date === null, 'Test 14: Phase 8A effective deadline should remain unchanged before approval');
 console.log('Test 14 - Deadline Phase 8A behavior unaffected: passed');
+
+type MockRow = Record<string, any>;
+type ProgressionState = {
+  project: MockRow;
+  milestones: MockRow[];
+  writes: MockRow[];
+  logs: MockRow[];
+  reportedErrors: unknown[][];
+  failProjectUpdate: boolean;
+  failNextStart: boolean;
+  failLog: string | null;
+  throwLog: boolean;
+};
+
+class ProgressionQueryMock {
+  private operation = 'select';
+  private payload: MockRow = {};
+  private selection = '';
+  private singleRow = false;
+  private filters: Array<[string, unknown]> = [];
+
+  constructor(private state: ProgressionState, private table: string) {}
+  select(value: string) { this.selection = value; return this; }
+  eq(key: string, value: unknown) { this.filters.push([key, value]); return this; }
+  order() { return this; }
+  update(payload: MockRow) { this.operation = 'update'; this.payload = payload; return this; }
+  insert(payload: MockRow) { this.operation = 'insert'; this.payload = payload; return this; }
+  single() { this.singleRow = true; return Promise.resolve().then(() => this.execute()); }
+  maybeSingle() { return this.single(); }
+  then(resolve: (value: { data: any; error: any }) => unknown, reject?: (reason: unknown) => unknown) {
+    return Promise.resolve().then(() => this.execute()).then(resolve, reject);
+  }
+
+  private execute(): { data: any; error: any } {
+    if (this.table === 'activity_logs' && this.operation === 'insert') {
+      if (this.state.failLog === this.payload.action) {
+        if (this.state.throwLog) throw new Error('private provider log failure');
+        return { data: null, error: { message: 'private provider log failure' } };
+      }
+      this.state.logs.push({ ...this.payload });
+      return { data: null, error: null };
+    }
+    strictAssert(['projects', 'project_milestones'].includes(this.table), `Unexpected table: ${this.table}`);
+    if (this.operation === 'update' && (
+      (this.table === 'projects' && this.state.failProjectUpdate)
+      || (this.table === 'project_milestones' && this.payload.status === 'IN_PROGRESS' && this.state.failNextStart)
+    )) return { data: null, error: { message: 'simulated progression write failure' } };
+
+    const source = this.table === 'projects' ? [this.state.project] : this.state.milestones;
+    const matching = source.filter((row) => this.filters.every(([key, value]) => row[key] === value));
+    if (this.operation === 'update') {
+      for (const row of matching) {
+        Object.assign(row, this.payload);
+        this.state.writes.push({ table: this.table, id: row.id, ...this.payload });
+      }
+    }
+    const rows = matching.map((row: any) => ({
+      ...row,
+      ...(this.selection.includes('project:projects!') ? { project: { ...this.state.project } } : {}),
+    })).sort((a: any, b: any) => (a.step_order ?? 0) - (b.step_order ?? 0));
+    return { data: this.singleRow ? rows[0] || null : rows, error: null };
+  }
+}
+
+async function withProgression(count: number, action: (state: ProgressionState) => Promise<void>) {
+  const state: ProgressionState = {
+    project: { id: 'project-1', name: 'Workflow test', sales_id: sales.userId, pic_id: saPic.userId, status: 'ACTIVE', is_postponed: false },
+    milestones: Array.from({ length: count }, (_, index) => ({
+      id: `milestone-${index + 1}`, project_id: 'project-1', name: index === count - 1 ? 'Tender Process' : `Stage ${index + 1}`,
+      step_order: index + 1, status: index === count - 1 ? 'IN_PROGRESS' : 'COMPLETED', pic_id: saPic.userId,
+      completed_at: index === count - 1 ? null : reviewedAt,
+      workflow_stage: { default_role: index === count - 1 ? 'SALES' : 'SA', is_required: true },
+    })),
+    writes: [], logs: [], reportedErrors: [], failProjectUpdate: false, failNextStart: false, failLog: null, throwLog: false,
+  };
+  const originalFrom = supabaseAdmin.from;
+  const originalConsoleError = console.error;
+  try {
+    (supabaseAdmin as any).from = (table: string) => new ProgressionQueryMock(state, table);
+    console.error = (...args: unknown[]) => { state.reportedErrors.push(args); };
+    await action(state);
+  } finally {
+    supabaseAdmin.from = originalFrom;
+    console.error = originalConsoleError;
+  }
+}
+
+async function runProgressionRecoveryTests() {
+  for (const [label, count] of [['Assessment V2', 8], ['Existing TOR V2', 6], ['Assessment LEGACY', 13], ['Existing TOR LEGACY', 11]] as const) {
+    await withProgression(count, async (state) => {
+      if (label.includes('LEGACY')) state.milestones[0].status = 'APPROVED';
+      const result = await completeMilestoneStage(`milestone-${count}`, sales);
+      strictAssert.equal(result.status, 'COMPLETED');
+      strictAssert.ok(result.completed_at);
+      strictAssert.equal(state.project.status, 'COMPLETED');
+      strictAssert.equal(result.project_completed, true);
+      strictAssert.equal(result.next_milestone, null);
+      strictAssert.equal(result.started, false);
+      strictAssert.equal(state.writes.length, 2);
+      strictAssert.deepEqual(state.logs.map((log) => log.action), ['MILESTONE_COMPLETED', 'PROJECT_COMPLETED']);
+      const before = JSON.stringify(state);
+      const duplicate = await completeMilestoneStage(`milestone-${count}`, sales);
+      strictAssert.equal(duplicate.project_completed, true);
+      strictAssert.equal(duplicate.completed_at, result.completed_at);
+      strictAssert.equal(JSON.stringify(state), before);
+      console.log(`Recovery - ${label}: final SALES completion and duplicate are safe`);
+    });
+  }
+
+  await withProgression(8, async (state) => {
+    state.failProjectUpdate = true;
+    await strictAssert.rejects(() => completeMilestoneStage('milestone-8', sales), /simulated progression write failure/);
+    strictAssert.equal(state.milestones[7].status, 'COMPLETED');
+    strictAssert.equal(state.project.status, 'ACTIVE');
+    const completedAt = state.milestones[7].completed_at;
+    state.failProjectUpdate = false;
+    const results = await Promise.all([completeMilestoneStage('milestone-8', sales), completeMilestoneStage('milestone-8', sales)]);
+    strictAssert(results.every((result) => result.project_completed && result.blocked_reason === null));
+    strictAssert.equal(state.milestones[7].completed_at, completedAt);
+    strictAssert.equal(state.writes.filter((row) => row.table === 'projects').length, 1);
+    strictAssert.equal(state.logs.filter((row) => row.action === 'PROJECT_COMPLETED').length, 1);
+    strictAssert.equal(state.logs.filter((row) => row.action === 'MILESTONE_COMPLETED').length, 1);
+    console.log('Recovery - Failed project write is reconciled once by concurrent SALES retries');
+  });
+
+  await withProgression(2, async (state) => {
+    Object.assign(state.milestones[0], { status: 'IN_PROGRESS', completed_at: null, workflow_stage: { default_role: 'SALES' } });
+    Object.assign(state.milestones[1], { status: 'CREATED', workflow_stage: { default_role: 'SA' }, pic_id: null });
+    state.failNextStart = true;
+    await strictAssert.rejects(() => completeMilestoneStage('milestone-1', sales), /simulated progression write failure/);
+    strictAssert.equal(state.milestones[0].status, 'COMPLETED');
+    strictAssert.equal(state.milestones[1].status, 'CREATED');
+    state.failNextStart = false;
+    const results = await Promise.all([completeMilestoneStage('milestone-1', sales), completeMilestoneStage('milestone-1', sales)]);
+    strictAssert.equal(results.filter((result) => result.started).length, 1);
+    strictAssert(results.every((result) => result.next_milestone?.status === 'IN_PROGRESS' && result.blocked_reason === null));
+    strictAssert.equal(state.milestones[1].pic_id, saPic.userId);
+    strictAssert.equal(state.writes.filter((row) => row.status === 'IN_PROGRESS').length, 1);
+    strictAssert.equal(state.logs.filter((row) => row.action === 'MILESTONE_STARTED').length, 1);
+    const before = JSON.stringify(state);
+    const duplicate = await completeMilestoneStage('milestone-1', sales);
+    strictAssert.equal(duplicate.started, false);
+    strictAssert.equal(duplicate.blocked_reason, null);
+    strictAssert.equal(JSON.stringify(state), before);
+    console.log('Recovery - Failed next-start retries start the correct stage once; later retries never restart it');
+  });
+
+  for (const action of ['MILESTONE_COMPLETED', 'PROJECT_COMPLETED']) {
+    for (const throws of [false, true]) {
+      await withProgression(6, async (state) => {
+        state.failLog = action;
+        state.throwLog = throws;
+        strictAssert.equal((await completeMilestoneStage('milestone-6', sales)).project_completed, true);
+        strictAssert.equal(state.project.status, 'COMPLETED');
+        strictAssert.equal(state.reportedErrors.length, 1);
+        strictAssert(!JSON.stringify(state.reportedErrors).includes('private provider'));
+        strictAssert.equal((await completeMilestoneStage('milestone-6', sales)).project_completed, true);
+        strictAssert.equal(state.reportedErrors.length, 1);
+      });
+    }
+  }
+  await withProgression(2, async (state) => {
+    state.milestones[1].status = 'CREATED';
+    state.failLog = 'MILESTONE_STARTED';
+    const result = await advanceToNextMilestone('project-1', 'milestone-1', sales);
+    strictAssert.equal(result.started, true);
+    strictAssert.equal(state.reportedErrors.length, 1);
+    strictAssert.equal((await advanceToNextMilestone('project-1', 'milestone-1', sales)).blocked_reason, null);
+  });
+  console.log('Recovery - Returned/thrown activity errors are reported safely without failing durable transitions');
+
+  await withProgression(6, async (state) => {
+    const results = await Promise.all([completeMilestoneStage('milestone-6', sales), completeMilestoneStage('milestone-6', sales)]);
+    strictAssert(results.every((result) => result.project_completed));
+    strictAssert.equal(state.writes.length, 2);
+    strictAssert.equal(state.logs.length, 2);
+    console.log('Recovery - Concurrent first-time completion performs one milestone and one project update');
+  });
+
+  for (const status of ['CREATED', 'SUBMITTED', 'REJECTED', 'APPROVED']) {
+    await withProgression(6, async (state) => {
+      state.milestones[5].status = status;
+      await strictAssert.rejects(() => completeMilestoneStage('milestone-6', sales), /Only IN_PROGRESS/);
+      strictAssert.equal(state.writes.length, 0);
+    });
+  }
+  for (const actor of [headSa, saPic, { ...sales, userId: 'other-sales' }, { ...sales, role: 'SUPER_ADMIN' }]) {
+    for (const projectStatus of ['ACTIVE', 'COMPLETED']) {
+      await withProgression(6, async (state) => {
+        state.milestones[5].status = 'COMPLETED';
+        state.project.status = projectStatus;
+        await strictAssert.rejects(() => completeMilestoneStage('milestone-6', actor), /Only the project owner/);
+        strictAssert.equal(state.writes.length, 0);
+      });
+    }
+  }
+  for (const role of ['SA', 'HEAD_SA']) {
+    await withProgression(6, async (state) => {
+      state.milestones[5].status = 'COMPLETED';
+      state.milestones[5].workflow_stage.default_role = role;
+      await strictAssert.rejects(() => completeMilestoneStage('milestone-6', sales));
+      strictAssert.equal(state.writes.length, 0);
+    });
+  }
+  for (const project of [{ status: 'DRAFT' }, { status: 'CANCELLED' }, { status: 'POSTPONED' }, { is_postponed: true }, { status: 'COMPLETED', is_postponed: true }]) {
+    await withProgression(6, async (state) => {
+      state.milestones[5].status = 'COMPLETED';
+      Object.assign(state.project, project);
+      await strictAssert.rejects(() => completeMilestoneStage('milestone-6', sales), /Project is/);
+      strictAssert.equal(state.writes.length, 0);
+    });
+  }
+  console.log('Recovery - Retry still enforces role, ownership, persisted stage role, project and milestone state');
+
+  await withProgression(6, async (state) => {
+    state.milestones[5].status = 'APPROVED';
+    state.milestones[5].name = 'Arbitrary terminal name';
+    strictAssert.equal((await advanceToNextMilestone('project-1', 'milestone-6', sales)).project_completed, true);
+  });
+  await withProgression(6, async (state) => {
+    // Current active templates are all required. Preserve the existing all-persisted-rows rule,
+    // including this hypothetical optional stage; this checkpoint does not introduce skipping.
+    state.milestones[1].status = 'CREATED';
+    state.milestones[1].workflow_stage.is_required = false;
+    const result = await completeMilestoneStage('milestone-6', sales);
+    strictAssert.equal(result.project_completed, false);
+    strictAssert.equal(result.blocked_reason, 'REMAINING_MILESTONES');
+    strictAssert.equal(state.project.status, 'ACTIVE');
+  });
+  console.log('Recovery - Names are irrelevant; historical APPROVED and all-persisted-milestones semantics are preserved');
+}
+
+runProgressionRecoveryTests().catch((error) => {
+  console.error(error);
+  process.exitCode = 1;
+});

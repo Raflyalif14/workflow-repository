@@ -12,6 +12,9 @@ export const projectKeys = {
 export const milestoneKeys = {
   workflowState: (milestoneId: string) => ["milestone-workflow-state", milestoneId] as const,
   deadlineStatus: (milestoneId: string) => ["milestone-deadline-status", milestoneId] as const,
+  submissionApprovalHistory: (milestoneId: string) => ["milestone-submission-approval-history", milestoneId] as const,
+  submissionPackage: (milestoneId: string) => ["milestone-submission-package", milestoneId] as const,
+  contributions: (milestoneId: string) => ["milestone-contributions", milestoneId] as const,
 };
 
 export const approvalKeys = {

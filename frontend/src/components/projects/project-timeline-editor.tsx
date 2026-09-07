@@ -6,6 +6,10 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useSaveProjectTimeline } from "@/hooks/use-projects";
+import {
+  getTimelinePlanningMilestones,
+  resolveTimelineWorkflowMode,
+} from "@/lib/workflow-ux-helpers";
 import { ProjectMilestonePhase4 } from "@/types/project";
 
 type TimelineDraftRow = {
@@ -20,9 +24,12 @@ type TimelineDraftRow = {
   dueDate: string | null;
 };
 
-const toDraftRows = (milestones: ProjectMilestonePhase4[]): TimelineDraftRow[] =>
-  milestones
-    .filter((milestone) => milestone.step_order > 2)
+const toDraftRows = (
+  milestones: ProjectMilestonePhase4[],
+  workflowModel?: string | null,
+  workflowVersion?: number | null
+): TimelineDraftRow[] =>
+  getTimelinePlanningMilestones(milestones, workflowModel, workflowVersion)
     .map((milestone) => ({
       milestoneId: milestone.id,
       stepOrder: milestone.step_order,
@@ -39,19 +46,26 @@ export function ProjectTimelineEditor({
   projectId,
   milestones,
   canEdit,
+  workflowModel,
+  workflowVersion,
 }: {
   projectId: string;
   milestones: ProjectMilestonePhase4[];
   canEdit: boolean;
+  workflowModel?: string | null;
+  workflowVersion?: number | null;
 }) {
-  const [rows, setRows] = useState<TimelineDraftRow[]>(() => toDraftRows(milestones));
+  const workflowMode = resolveTimelineWorkflowMode(workflowModel, workflowVersion);
+  const [rows, setRows] = useState<TimelineDraftRow[]>(() =>
+    toDraftRows(milestones, workflowModel, workflowVersion)
+  );
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const saveTimeline = useSaveProjectTimeline(projectId);
 
   useEffect(() => {
-    setRows(toDraftRows(milestones));
-  }, [milestones]);
+    setRows(toDraftRows(milestones, workflowModel, workflowVersion));
+  }, [milestones, workflowModel, workflowVersion]);
 
   const invalidRows = useMemo(
     () =>
@@ -112,6 +126,19 @@ export function ProjectTimelineEditor({
       setError(saveError instanceof Error ? saveError.message : "Failed to save timeline.");
     }
   };
+
+  if (!workflowMode) {
+    return (
+      <Card className="border-destructive/40 bg-destructive/5 shadow-sm">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base font-semibold tracking-tight">Project Timeline Setup</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-xs text-destructive">Unable to determine the project workflow model. Timeline edits are unavailable.</p>
+        </CardContent>
+      </Card>
+    );
+  }
 
   if (!rows.length) return null;
 

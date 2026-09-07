@@ -1,6 +1,7 @@
 import { Response } from 'express';
 import { AuthenticatedRequest } from '../middlewares/auth.middleware';
 import { MilestoneApprovalService } from '../services/milestone-approval.service';
+import { MilestoneSubmissionPackageReviewError } from '../services/milestone-submission-package-review.service';
 import { sendError, sendSuccess } from '../utils/response.util';
 import { getRouteParam } from '../utils/request.util';
 import { ApproveMilestoneApprovalInput, RejectMilestoneApprovalInput } from '../validators/milestone-approval.validator';
@@ -30,7 +31,8 @@ export class MilestoneApprovalController {
       );
       sendSuccess(res, 'Milestone approved successfully', result);
     } catch (error: any) {
-      sendError(res, error.message || 'Failed to approve milestone', null, getStatusCode(error.message));
+      const status = error instanceof MilestoneSubmissionPackageReviewError ? error.statusCode : getStatusCode(error.message);
+      sendError(res, error.message || 'Failed to approve milestone', null, status);
     }
   }
 
@@ -43,7 +45,8 @@ export class MilestoneApprovalController {
       );
       sendSuccess(res, 'Milestone rejected successfully', result);
     } catch (error: any) {
-      sendError(res, error.message || 'Failed to reject milestone', null, getStatusCode(error.message));
+      const status = error instanceof MilestoneSubmissionPackageReviewError ? error.statusCode : getStatusCode(error.message);
+      sendError(res, error.message || 'Failed to reject milestone', null, status);
     }
   }
 }

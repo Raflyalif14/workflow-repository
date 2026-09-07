@@ -10,8 +10,6 @@ import {
   FileText,
   MessageSquare,
   History,
-  CheckCircle2,
-  XCircle,
   FileUp,
   Clock,
   Layers,
@@ -23,16 +21,12 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { useDocumentDownloadUrl, useDocuments } from "@/hooks/use-documents";
-import { DocumentItem, DocumentCategory, DocumentStatus, DocumentVersion } from "@/types/document";
+import { DocumentItem, DocumentCategory, DocumentStatus } from "@/types/document";
 import { UploadDocumentDialog } from "@/components/documents/upload-document-dialog";
 import { UploadVersionDialog } from "@/components/documents/upload-version-dialog";
-import { DocumentReviewDialog } from "@/components/documents/document-review-dialog";
 import { DocumentCommentsDrawer } from "@/components/documents/document-comments-drawer";
-import { useAuth } from "@/components/auth/auth-provider";
 
 export default function DocumentsPage() {
-  const { user } = useAuth();
-  const canReview = user?.role === "HEAD_SA";
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<DocumentCategory | "ALL">("ALL");
   const [statusFilter, setStatusFilter] = useState<DocumentStatus | "ALL">("ALL");
@@ -42,12 +36,6 @@ export default function DocumentsPage() {
 
   const [selectedDocForVersion, setSelectedDocForVersion] = useState<DocumentItem | null>(null);
   const [isUploadVersionOpen, setIsUploadVersionOpen] = useState(false);
-
-  const [reviewState, setReviewState] = useState<{
-    doc: DocumentItem | null;
-    version: DocumentVersion | null;
-    action: "APPROVE" | "REJECT" | null;
-  }>({ doc: null, version: null, action: null });
 
   const [commentsState, setCommentsState] = useState<{
     docId: string | null;
@@ -67,9 +55,9 @@ export default function DocumentsPage() {
         return <Badge variant="success">Approved</Badge>;
       case "SUBMITTED":
       case "UNDER_REVIEW":
-        return <Badge variant="warning">Under Review</Badge>;
+        return <Badge variant="warning">Submitted</Badge>;
       case "REJECTED":
-        return <Badge variant="destructive">Revision Required</Badge>;
+        return <Badge variant="destructive">Rejected</Badge>;
       case "SUPERSEDED":
         return <Badge variant="outline" className="opacity-60">Superseded</Badge>;
       default:
@@ -83,14 +71,6 @@ export default function DocumentsPage() {
         {category.replace("_", " ")}
       </Badge>
     );
-  };
-
-  const handleOpenReview = (
-    doc: DocumentItem,
-    version: DocumentVersion,
-    action: "APPROVE" | "REJECT"
-  ) => {
-    setReviewState({ doc, version, action });
   };
 
   const handleOpenComments = (doc: DocumentItem) => {
@@ -126,7 +106,7 @@ export default function DocumentsPage() {
           </div>
           <h1 className="text-3xl font-bold tracking-tight">Document Repository</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Centralized document storage, version history, presales deliverables, and Head SA approvals.
+            Centralized document storage, version history, and project deliverables.
           </p>
         </div>
 
@@ -175,8 +155,8 @@ export default function DocumentsPage() {
           >
             <option value="ALL">All Statuses</option>
             <option value="APPROVED">Approved</option>
-            <option value="SUBMITTED">Under Review</option>
-            <option value="REJECTED">Revision Required</option>
+            <option value="SUBMITTED">Submitted</option>
+            <option value="REJECTED">Rejected</option>
             <option value="DRAFT">Draft</option>
           </select>
         </div>
@@ -309,7 +289,7 @@ export default function DocumentsPage() {
                       </Button>
                     </div>
 
-                    {/* Right: Versioning & Review Actions */}
+                    {/* Right: Versioning */}
                     <div className="flex flex-wrap items-center gap-1.5 self-start sm:self-auto">
                       <Button
                         size="sm"
@@ -324,28 +304,6 @@ export default function DocumentsPage() {
                         <span>New Version</span>
                       </Button>
 
-                      {canReview && latestVersion && latestVersion.status === "SUBMITTED" && (
-                        <>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            className="h-8 w-8 rounded-lg p-0 text-destructive hover:bg-destructive/10"
-                            title="Reject Version (Head SA)"
-                            onClick={() => handleOpenReview(doc, latestVersion, "REJECT")}
-                          >
-                            <XCircle className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            className="h-8 w-8 rounded-lg p-0 text-emerald-400 hover:bg-emerald-500/10"
-                            title="Approve Version (Head SA)"
-                            onClick={() => handleOpenReview(doc, latestVersion, "APPROVE")}
-                          >
-                            <CheckCircle2 className="h-4 w-4" />
-                          </Button>
-                        </>
-                      )}
                     </div>
                   </div>
                 </CardContent>
@@ -365,17 +323,6 @@ export default function DocumentsPage() {
         open={isUploadVersionOpen}
         onOpenChange={setIsUploadVersionOpen}
         document={selectedDocForVersion}
-      />
-
-      <DocumentReviewDialog
-        open={!!reviewState.action}
-        onOpenChange={(open) => {
-          if (!open) setReviewState({ doc: null, version: null, action: null });
-        }}
-        documentId={reviewState.doc?.id || ""}
-        documentTitle={reviewState.doc?.title || ""}
-        version={reviewState.version}
-        action={reviewState.action}
       />
 
       <DocumentCommentsDrawer

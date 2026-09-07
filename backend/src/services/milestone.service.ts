@@ -17,6 +17,11 @@ type MilestoneInput = {
   completed_at?: string | null;
 };
 type WorkflowStageMilestoneSource = { id: string; name: string; description: string | null; step_order: number };
+export type ScenarioWorkflowConfiguration = {
+  workflow_model: string;
+  workflow_version: number;
+};
+type SupportedWorkflowInitializationMode = 'LEGACY' | 'OPERATIONAL_V2';
 type SubmissionMilestoneState = {
   id?: string;
   status: string;
@@ -34,6 +39,26 @@ type RevisionMilestoneState = SubmissionMilestoneState & {
 
 export const selectMilestones = 'id, project_id, workflow_stage_id, name, description, step_order, status, pic_id, start_date, duration_working_days, due_date, completed_at, pic:users!project_milestones_pic_id_fkey(id,full_name,email,role), workflow_stage:workflow_stages!project_milestones_workflow_stage_id_fkey(id,default_role), created_at, updated_at';
 export const INITIAL_MILESTONE_STATUS = 'CREATED' as const;
+
+export class MilestoneInitializationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'MilestoneInitializationError';
+  }
+}
+
+export function resolveWorkflowInitializationMode(
+  scenario: ScenarioWorkflowConfiguration
+): SupportedWorkflowInitializationMode {
+  if (scenario.workflow_model === 'LEGACY' && scenario.workflow_version === 1) {
+    return 'LEGACY';
+  }
+  if (scenario.workflow_model === 'OPERATIONAL_V2' && scenario.workflow_version === 2) {
+    return 'OPERATIONAL_V2';
+  }
+
+  throw new MilestoneInitializationError('Unsupported scenario workflow model/version.');
+}
 
 const normalizeRelatedOne = <T>(value: T | T[] | null): T | null => {
   if (Array.isArray(value)) return value[0] || null;
@@ -103,14 +128,19 @@ export function buildMilestoneRevisionStartResult(
 export function buildInitialMilestoneRows(
   projectId: string,
   stages: WorkflowStageMilestoneSource[],
-  createdAt = new Date().toISOString()
+  createdAt = new Date().toISOString(),
+  scenario: ScenarioWorkflowConfiguration = { workflow_model: 'LEGACY', workflow_version: 1 }
 ): MilestoneInput[] {
+  const initializationMode = resolveWorkflowInitializationMode(scenario);
+
   return stages.map((stage) => {
-    const status = stage.step_order === 1
-      ? 'COMPLETED'
-      : stage.step_order === 2
-        ? 'IN_PROGRESS'
-        : INITIAL_MILESTONE_STATUS;
+    const status = initializationMode === 'OPERATIONAL_V2'
+      ? INITIAL_MILESTONE_STATUS
+      : stage.step_order === 1
+        ? 'COMPLETED'
+        : stage.step_order === 2
+          ? 'IN_PROGRESS'
+          : INITIAL_MILESTONE_STATUS;
 
     return {
       project_id: projectId,
@@ -181,10 +211,17 @@ export class MilestoneService {
     if (countError) throw new Error(countError.message);
     if ((count || 0) > 0) throw new Error('Workflow has already been initialized for this project.');
 
+    const { data: scenario, error: scenarioError } = await supabaseAdmin
+      .from('scenarios')
+      .select('workflow_model, workflow_version')
+      .eq('id', project.scenario_id)
+      .single();
+    if (scenarioError || !scenario) throw new MilestoneInitializationError('Project scenario not found.');
+
     const { data: stages, error: stageError } = await supabaseAdmin.from('workflow_stages').select('id, name, description, step_order').eq('scenario_id', project.scenario_id).eq('is_active', true).order('step_order', { ascending: true });
     if (stageError) throw new Error(stageError.message);
     if (!stages?.length) throw new Error('No active workflow stages found for this scenario.');
-    const rows = buildInitialMilestoneRows(projectId, stages);
+    const rows = buildInitialMilestoneRows(projectId, stages, new Date().toISOString(), scenario);
     const { data, error } = await supabaseAdmin.from('project_milestones').insert(rows).select(selectMilestones).order('step_order', { ascending: true });
     if (error || !data || data.length !== rows.length) {
       await supabaseAdmin.from('project_milestones').delete().eq('project_id', projectId);

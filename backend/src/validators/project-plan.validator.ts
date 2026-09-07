@@ -43,6 +43,7 @@ export const submitProjectPlanSchema = z.object({
 
 export const approveProjectPlanSchema = z.object({
   note: z.string().trim().max(2000).optional(),
+  pic_id: z.string().uuid().optional(),
 });
 
 export const rejectProjectPlanSchema = z.object({
