@@ -1,5 +1,6 @@
 import { randomUUID } from 'crypto';
 import { supabaseAdmin } from '../config/supabase';
+import { canAccessProject, getAccessibleProjectIds } from './project-access.service';
 import { buildDocumentStoragePath, DocumentStorageService } from '../utils/storage.util';
 import {
   CreateCommentInput,
@@ -134,12 +135,7 @@ export function canAccessDocumentProject(
   project: Pick<ProjectRow, 'sales_id' | 'pic_id'>,
   actor: DocumentActor
 ): boolean {
-  return (
-    actor.role === 'SUPER_ADMIN' ||
-    actor.role === 'HEAD_SA' ||
-    (actor.role === 'SALES' && project.sales_id === actor.userId) ||
-    (actor.role === 'SA' && project.pic_id === actor.userId)
-  );
+  return canAccessProject(project, actor);
 }
 
 export function buildNewVersionLifecyclePlan(
@@ -206,7 +202,7 @@ export class DocumentService {
   }
 
   private static assertProjectAccess(project: ProjectRow, actor: Actor): void {
-    if (canAccessDocumentProject(project, actor)) return;
+    if (canAccessProject(project, actor)) return;
 
     throw new DocumentServiceError('Forbidden', 403);
   }
@@ -251,19 +247,6 @@ export class DocumentService {
     const project = await this.getProject(document.project_id);
     this.assertProjectAccess(project, actor);
     return project;
-  }
-
-  private static async getAccessibleProjectIds(actor: Actor): Promise<string[] | null> {
-    if (actor.role === 'SUPER_ADMIN' || actor.role === 'HEAD_SA') return null;
-
-    let request: any = supabaseAdmin.from('projects').select('id');
-    if (actor.role === 'SALES') request = request.eq('sales_id', actor.userId);
-    else if (actor.role === 'SA') request = request.eq('pic_id', actor.userId);
-    else return [];
-
-    const { data, error } = await request;
-    if (error) throw new DocumentServiceError('Failed to retrieve document data.', 500);
-    return (data || []).map((project: { id: string }) => project.id);
   }
 
   private static async loadUsers(userIds: string[]): Promise<Map<string, UserRow>> {
@@ -444,7 +427,12 @@ export class DocumentService {
       this.assertProjectAccess(project, actor);
     }
 
-    const accessibleProjectIds = query.projectId ? [query.projectId] : await this.getAccessibleProjectIds(actor);
+    let accessibleProjectIds: string[] | null;
+    try {
+      accessibleProjectIds = query.projectId ? [query.projectId] : await getAccessibleProjectIds(actor);
+    } catch {
+      throw new DocumentServiceError('Failed to retrieve document data.', 500);
+    }
     if (accessibleProjectIds && !accessibleProjectIds.length) return [];
 
     let request: any = supabaseAdmin

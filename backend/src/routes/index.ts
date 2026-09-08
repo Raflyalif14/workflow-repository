@@ -17,6 +17,7 @@ import projectPlanApprovalRoutes from './project-plan-approval.routes';
 import approvalOverviewRoutes from './approval-overview.routes';
 import notificationRoutes from './notification.routes';
 import telegramWebhookRoutes from './telegram-webhook.routes';
+import searchRoutes from './search.routes';
 
 const router = Router();
 
@@ -39,6 +40,7 @@ router.use('/assignments', assignmentPhase5Routes);
 router.use('/me', meRoutes);
 router.use('/notifications', notificationRoutes);
 router.use('/telegram', telegramWebhookRoutes);
+router.use('/search', searchRoutes);
 router.use('/deadlines', deadlineRoutes);
 router.use('/milestones', milestoneRoutes);
 router.use('/deadline-approvals', deadlineApprovalRoutes);

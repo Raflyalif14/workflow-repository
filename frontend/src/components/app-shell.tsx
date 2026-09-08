@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, createContext, useContext } from "react";
+import React, { useState, createContext, useContext, useEffect, useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -25,6 +25,7 @@ import { useApprovalStats } from "@/hooks/use-approvals";
 import { useMyAssignedMilestones } from "@/hooks/use-projects";
 import { NotificationBell } from "@/components/notifications/notification-bell";
 import { SYSTEM_SETTINGS_ALLOWED_ROLES } from "@/lib/settings-access";
+import { GlobalSearchDialog } from "@/components/global-search-dialog";
 
 // ─── Sidebar Context ───
 interface SidebarContextType {
@@ -306,6 +307,28 @@ export function Sidebar() {
 export function TopBar() {
   const { setMobileOpen } = useSidebar();
   const { user, logout } = useAuth();
+  const [globalSearchOpen, setGlobalSearchOpen] = useState(false);
+  const globalSearchRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleGlobalSearchShortcut = (event: KeyboardEvent) => {
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {
+        event.preventDefault();
+        setGlobalSearchOpen(true);
+      }
+    };
+    window.addEventListener("keydown", handleGlobalSearchShortcut);
+    return () => window.removeEventListener("keydown", handleGlobalSearchShortcut);
+  }, []);
+
+  useEffect(() => {
+    if (!globalSearchOpen) return;
+    const handlePointerDown = (event: PointerEvent) => {
+      if (!globalSearchRef.current?.contains(event.target as Node)) setGlobalSearchOpen(false);
+    };
+    document.addEventListener("pointerdown", handlePointerDown);
+    return () => document.removeEventListener("pointerdown", handlePointerDown);
+  }, [globalSearchOpen]);
 
   const getInitials = (name?: string) => {
     if (!name) return "U";
@@ -330,12 +353,23 @@ export function TopBar() {
           </button>
 
           {/* Global Search */}
-          <div className="hidden sm:flex h-9 w-72 lg:w-80 items-center gap-2 rounded-xl border border-border/60 bg-muted/30 px-3 text-muted-foreground transition-all hover:border-primary/30 hover:bg-muted/50">
-            <Search className="h-3.5 w-3.5" />
-            <span className="text-xs">Search projects, documents...</span>
-            <kbd className="ml-auto rounded-md border border-border/60 bg-background px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
-              Ctrl K
-            </kbd>
+          <div ref={globalSearchRef} className="sm:relative">
+            <button
+              type="button"
+              onClick={() => setGlobalSearchOpen(true)}
+              aria-label="Open global search"
+              aria-expanded={globalSearchOpen}
+              aria-haspopup="dialog"
+              aria-controls={globalSearchOpen ? "global-search-panel" : undefined}
+              className="flex h-9 w-9 sm:w-72 lg:w-80 items-center justify-center sm:justify-start gap-2 rounded-xl border border-border/60 bg-muted/30 px-3 text-left text-muted-foreground transition-all hover:border-primary/30 hover:bg-muted/50"
+            >
+              <Search className="h-3.5 w-3.5 shrink-0" />
+              <span className="hidden sm:inline text-xs">Search projects, documents...</span>
+              <kbd className="hidden sm:block ml-auto rounded-md border border-border/60 bg-background px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+                Ctrl K
+              </kbd>
+            </button>
+            <GlobalSearchDialog open={globalSearchOpen} onOpenChange={setGlobalSearchOpen} />
           </div>
         </div>
 

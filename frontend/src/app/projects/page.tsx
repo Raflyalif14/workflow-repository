@@ -29,7 +29,6 @@ const statuses: Array<{ key: ProjectStatus | "ALL"; label: string }> = [
   { key: "DRAFT", label: "Draft" },
   { key: "POSTPONED", label: "Postponed" },
   { key: "COMPLETED", label: "Completed" },
-  { key: "CANCELLED", label: "Cancelled" },
 ];
 
 export default function ProjectsPage() {

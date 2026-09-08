@@ -164,9 +164,15 @@ export default function NewProjectPage() {
                 }}
                 disabled={isLoading || create.isPending}
               >
-                <option value="">Select active scenario</option>
+                <option value="">Select scenario</option>
                 {scenarios.map((scenario) => (
-                  <option key={scenario.id} value={scenario.id}>{scenario.name}</option>
+                  <option key={scenario.id} value={scenario.id}>
+                    {scenario.name === "Assessment Operational V2"
+                      ? "Assessment"
+                      : scenario.name === "Existing TOR Operational V2"
+                        ? "Existing TOR"
+                        : scenario.name}
+                  </option>
                 ))}
               </select>
             </div>

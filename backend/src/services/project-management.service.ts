@@ -8,6 +8,7 @@ import {
 } from '../utils/storage.util';
 import { CreateProjectManagementInput, ProjectQuery, UpdateProjectManagementInput } from '../validators/project-management.validator';
 import { MilestoneService, resolveWorkflowInitializationMode } from './milestone.service';
+import { applyProjectAccessScope, canAccessProject } from './project-access.service';
 
 type Actor = { userId: string; role: string; fullName: string };
 type ResumeProjectState = { status: string; is_postponed: boolean | null };
@@ -118,17 +119,12 @@ export function assertProjectCanResume(project: ResumeProjectState): void {
 }
 
 export class ProjectManagementService {
-  private static canAccess(row: any, actor: Actor) {
-    return actor.role !== 'SALES' || row.sales_id === actor.userId;
-  }
-
   static async list(query: ProjectQuery, actor: Actor) {
     const page = query.page;
     const limit = query.limit;
     let request: any = supabaseAdmin.from('projects').select(projectSelect, { count: 'exact' }).range((page - 1) * limit, page * limit - 1).order('created_at', { ascending: false });
-    if (actor.role === 'SALES') request = request.eq('sales_id', actor.userId);
-    else if (actor.role === 'SA') request = request.eq('pic_id', actor.userId);
-    else if (query.sales_id) request = request.eq('sales_id', query.sales_id);
+    request = applyProjectAccessScope(request, actor);
+    if (!['SALES', 'SA'].includes(actor.role) && query.sales_id) request = request.eq('sales_id', query.sales_id);
     if (query.scenario_id) request = request.eq('scenario_id', query.scenario_id);
     if (query.status) request = request.eq('status', query.status);
     if (query.search) request = request.or(`name.ilike.%${query.search}%,customer.ilike.%${query.search}%`);
@@ -187,7 +183,7 @@ export class ProjectManagementService {
 
   static async get(id: string, actor: Actor) {
     const { data, error } = await supabaseAdmin.from('projects').select(projectSelect).eq('id', id).single();
-    if (error || !data || (actor.role === 'SA' && data.pic_id !== actor.userId) || !this.canAccess(data, actor)) throw new Error('Project not found');
+    if (error || !data || !canAccessProject(data, actor)) throw new Error('Project not found');
     return mapProject(await withActivity(data));
   }
 
