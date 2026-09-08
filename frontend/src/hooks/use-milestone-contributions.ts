@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "@/lib/api-client";
-import { milestoneKeys } from "@/lib/query-keys";
+import { milestoneKeys, projectKeys } from "@/lib/query-keys";
 import {
   MilestoneContribution,
   MilestoneContributionAttachmentDownload,
@@ -41,5 +41,26 @@ export function useDownloadMilestoneContributionAttachment(milestoneId: string) 
       apiClient<MilestoneContributionAttachmentDownload>(
         `/milestones/${milestoneId}/contributions/${contributionId}/attachments/${attachmentId}/download-url`
       ),
+  });
+}
+
+export function usePromoteMilestoneContributionAttachment(projectId: string, milestoneId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ contributionId, attachmentId }: { contributionId: string; attachmentId: string }) =>
+      apiClient<{
+        attachment_id: string;
+        promotion_status: "PROMOTED";
+        promoted_document_id: string;
+        idempotent: boolean;
+      }>(`/milestones/${milestoneId}/contributions/${contributionId}/attachments/${attachmentId}/promote`, {
+        method: "POST",
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: milestoneKeys.contributions(milestoneId) });
+      queryClient.invalidateQueries({ queryKey: ["documents"] });
+      queryClient.invalidateQueries({ queryKey: projectKeys.activities(projectId) });
+    },
   });
 }

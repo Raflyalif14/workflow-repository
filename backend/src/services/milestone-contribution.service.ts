@@ -1,12 +1,15 @@
 import { randomUUID } from 'crypto';
 import { supabaseAdmin } from '../config/supabase';
 import {
+  buildDocumentStoragePath,
   buildMilestoneContributionStoragePath,
   DocumentStorageService,
   isAllowedDocumentFileName,
   MAX_DOCUMENT_FILE_SIZE_BYTES,
   MAX_MILESTONE_SUBMISSION_FILES,
 } from '../utils/storage.util';
+import { OfficialDocumentPromotionService } from './official-document-promotion.service';
+import { logWorkflowActivityBestEffort } from './workflow-progression.service';
 
 type Actor = { userId: string; role: string; fullName: string };
 
@@ -38,6 +41,8 @@ type ContributionAttachment = {
   mime_type: string;
   size_bytes: number | string;
   storage_path: string;
+  promotion_status: 'NOT_PROMOTED' | 'PROMOTING' | 'PROMOTED';
+  promoted_document_id: string | null;
   created_at: string;
 };
 
@@ -55,6 +60,13 @@ type StagedAttachment = {
   id: string;
   file: Express.Multer.File;
   storagePath: string;
+};
+
+type PromotionResult = {
+  attachment_id: string;
+  promotion_status: 'PROMOTED';
+  promoted_document_id: string;
+  idempotent: boolean;
 };
 
 const nowIso = () => new Date().toISOString();
@@ -168,6 +180,13 @@ export class MilestoneContributionService {
     }
   }
 
+  private static assertPromotionAccess(context: MilestoneContributionContext, actor: Actor): void {
+    this.assertReadAccess(context, actor);
+    if (actor.role !== 'HEAD_SA' && actor.role !== 'SUPER_ADMIN') {
+      throw new MilestoneContributionError('Forbidden', 403);
+    }
+  }
+
   private static assertFilesValid(files: Express.Multer.File[]): void {
     if (files.length > MAX_MILESTONE_SUBMISSION_FILES) {
       throw new MilestoneContributionError(
@@ -232,7 +251,7 @@ export class MilestoneContributionService {
   private static mapContribution(
     contribution: ContributionRow,
     attachments: ContributionAttachment[],
-    contributor?: { id: string; full_name: string; email?: string }
+    contributor?: { id: string; full_name: string; role?: string }
   ) {
     return {
       id: contribution.id,
@@ -245,6 +264,8 @@ export class MilestoneContributionService {
         file_name: attachment.original_filename,
         file_size: Number(attachment.size_bytes),
         mime_type: attachment.mime_type,
+        promotion_status: attachment.promotion_status,
+        promoted_document_id: attachment.promoted_document_id,
         created_at: attachment.created_at,
       })),
     };
@@ -338,6 +359,8 @@ export class MilestoneContributionService {
           mime_type: attachment.file.mimetype || 'application/octet-stream',
           size_bytes: attachment.file.size,
           storage_path: attachment.storagePath,
+          promotion_status: 'NOT_PROMOTED',
+          promoted_document_id: null,
           created_at: readyAt,
         })),
         { id: actor.userId, full_name: actor.fullName }
@@ -372,10 +395,10 @@ export class MilestoneContributionService {
       await Promise.all([
         supabaseAdmin
           .from('milestone_contribution_attachments')
-          .select('id,contribution_id,original_filename,mime_type,size_bytes,storage_path,created_at')
+          .select('id,contribution_id,original_filename,mime_type,size_bytes,storage_path,promotion_status,promoted_document_id,created_at')
           .in('contribution_id', contributionIds)
           .order('created_at', { ascending: true }),
-        supabaseAdmin.from('users').select('id,full_name,email').in('id', contributorIds),
+        supabaseAdmin.from('users').select('id,full_name,role').in('id', contributorIds),
       ]);
 
     if (attachmentError || contributorError) {
@@ -384,7 +407,7 @@ export class MilestoneContributionService {
 
     const attachmentRows = (attachmentData || []) as ContributionAttachment[];
     const contributors = new Map(
-      ((contributorData || []) as Array<{ id: string; full_name: string; email: string }>).map((user) => [user.id, user])
+      ((contributorData || []) as Array<{ id: string; full_name: string; role: string }>).map((user) => [user.id, user])
     );
 
     return contributions.map((contribution) =>
@@ -436,5 +459,159 @@ export class MilestoneContributionService {
     } catch {
       throw new MilestoneContributionError('Failed to create supporting attachment download URL.', 500);
     }
+  }
+
+  private static async rollbackPromotion(
+    attachment: ContributionAttachment,
+    documentId: string,
+    copiedStoragePath: string | null
+  ): Promise<void> {
+    const cleanupFailures: string[] = [];
+
+    try {
+      await OfficialDocumentPromotionService.removeCreatedDocument(documentId);
+    } catch {
+      cleanupFailures.push('document');
+    }
+
+    if (copiedStoragePath) {
+      try {
+        await DocumentStorageService.remove(copiedStoragePath);
+      } catch {
+        cleanupFailures.push('storage');
+      }
+    }
+
+    const { data, error } = await supabaseAdmin
+      .from('milestone_contribution_attachments')
+      .update({ promotion_status: 'NOT_PROMOTED', promoted_document_id: null })
+      .eq('id', attachment.id)
+      .eq('contribution_id', attachment.contribution_id)
+      .eq('promotion_status', 'PROMOTING')
+      .select('id')
+      .maybeSingle();
+
+    if (error || !data) cleanupFailures.push('attachment-state');
+
+    if (cleanupFailures.length) {
+      console.error('[MilestoneContribution] Supporting attachment promotion compensation did not fully complete.', {
+        attachmentId: attachment.id,
+        cleanupFailures,
+      });
+    }
+  }
+
+  static async promoteAttachment(
+    milestoneId: string,
+    contributionId: string,
+    attachmentId: string,
+    actor: Actor
+  ): Promise<PromotionResult> {
+    const context = await this.getContext(milestoneId);
+    this.assertContributionMilestone(context);
+    this.assertPromotionAccess(context, actor);
+
+    const { data: contribution, error: contributionError } = await supabaseAdmin
+      .from('milestone_contributions')
+      .select('id,project_id,milestone_id,contributed_by,status')
+      .eq('id', contributionId)
+      .eq('project_id', context.project.id)
+      .eq('milestone_id', context.milestone.id)
+      .eq('status', 'READY')
+      .maybeSingle();
+    if (contributionError) throw new MilestoneContributionError('Unable to promote supporting attachment.', 500);
+    if (!contribution) throw new MilestoneContributionError('Supporting attachment not found', 404);
+
+    const { data: attachmentData, error: attachmentError } = await supabaseAdmin
+      .from('milestone_contribution_attachments')
+      .select('id,contribution_id,original_filename,mime_type,size_bytes,storage_path,promotion_status,promoted_document_id,created_at')
+      .eq('id', attachmentId)
+      .eq('contribution_id', contributionId)
+      .maybeSingle();
+    if (attachmentError) throw new MilestoneContributionError('Unable to promote supporting attachment.', 500);
+    if (!attachmentData) throw new MilestoneContributionError('Supporting attachment not found', 404);
+
+    const attachment = attachmentData as ContributionAttachment;
+    if (attachment.promotion_status === 'PROMOTED' && attachment.promoted_document_id) {
+      return {
+        attachment_id: attachment.id,
+        promotion_status: 'PROMOTED',
+        promoted_document_id: attachment.promoted_document_id,
+        idempotent: true,
+      };
+    }
+    if (attachment.promotion_status !== 'NOT_PROMOTED') {
+      throw new MilestoneContributionError('Supporting attachment promotion is already in progress.', 409);
+    }
+
+    const { data: claimedAttachment, error: claimError } = await supabaseAdmin
+      .from('milestone_contribution_attachments')
+      .update({ promotion_status: 'PROMOTING' })
+      .eq('id', attachment.id)
+      .eq('contribution_id', contributionId)
+      .eq('promotion_status', 'NOT_PROMOTED')
+      .select('id,contribution_id,original_filename,mime_type,size_bytes,storage_path,promotion_status,promoted_document_id,created_at')
+      .maybeSingle();
+    if (claimError) throw new MilestoneContributionError('Unable to promote supporting attachment.', 500);
+    if (!claimedAttachment) throw new MilestoneContributionError('Supporting attachment is no longer available for promotion.', 409);
+
+    const claimed = claimedAttachment as ContributionAttachment;
+    const documentId = randomUUID();
+    const versionId = randomUUID();
+    const copiedStoragePath = buildDocumentStoragePath(
+      context.project.id,
+      documentId,
+      claimed.original_filename
+    );
+    let copied = false;
+
+    try {
+      await DocumentStorageService.copy(claimed.storage_path, copiedStoragePath);
+      copied = true;
+
+      await OfficialDocumentPromotionService.createApprovedDocument({
+        documentId,
+        versionId,
+        projectId: context.project.id,
+        milestoneId: context.milestone.id,
+        title: `Supporting document - ${claimed.original_filename}`.slice(0, 500),
+        fileName: claimed.original_filename,
+        storagePath: copiedStoragePath,
+        fileSize: claimed.size_bytes,
+        mimeType: claimed.mime_type,
+        uploadedBy: contribution.contributed_by,
+        changelog: 'Promoted from supporting input.',
+      });
+
+      const { data: finalized, error: finalizeError } = await supabaseAdmin
+        .from('milestone_contribution_attachments')
+        .update({ promotion_status: 'PROMOTED', promoted_document_id: documentId })
+        .eq('id', claimed.id)
+        .eq('contribution_id', contributionId)
+        .eq('promotion_status', 'PROMOTING')
+        .select('id,promoted_document_id')
+        .maybeSingle();
+      if (finalizeError || !finalized) {
+        throw new MilestoneContributionError('Supporting attachment is no longer available for promotion.', 409);
+      }
+    } catch (error) {
+      await this.rollbackPromotion(claimed, documentId, copied ? copiedStoragePath : null);
+      if (error instanceof MilestoneContributionError) throw error;
+      throw new MilestoneContributionError('Unable to promote supporting attachment.', 500);
+    }
+
+    await logWorkflowActivityBestEffort(
+      actor,
+      context.project.id,
+      'SUPPORTING_DOCUMENT_PROMOTED',
+      `${actor.fullName} promoted '${claimed.original_filename}' to the Document Repository`
+    );
+
+    return {
+      attachment_id: claimed.id,
+      promotion_status: 'PROMOTED',
+      promoted_document_id: documentId,
+      idempotent: false,
+    };
   }
 }

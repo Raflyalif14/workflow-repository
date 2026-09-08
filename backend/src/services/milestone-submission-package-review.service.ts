@@ -1,6 +1,7 @@
 import { randomUUID } from 'crypto';
 import { supabaseAdmin } from '../config/supabase';
 import { DocumentStorageService } from '../utils/storage.util';
+import { OfficialDocumentPromotionService } from './official-document-promotion.service';
 
 type Actor = { userId: string; role: string; fullName: string };
 type ReviewDecision = 'APPROVED' | 'REJECTED';
@@ -174,36 +175,21 @@ export class MilestoneSubmissionPackageReviewService {
     const promoted: PromotedDocument = { documentId, attachmentId: attachment.id, attachmentLinked: false };
     operation.promotedDocuments.push(promoted);
 
-    const { data: document, error: documentError } = await supabaseAdmin
-      .from('documents')
-      .insert({
-        id: documentId,
-        project_id: operation.package.project_id,
-        milestone_id: operation.package.milestone_id,
+    try {
+      await OfficialDocumentPromotionService.createApprovedDocument({
+        documentId,
+        versionId,
+        projectId: operation.package.project_id,
+        milestoneId: operation.package.milestone_id,
         title: this.documentTitle(attachment),
-        category: 'OTHER',
-        status: 'APPROVED',
-      })
-      .select('id')
-      .maybeSingle();
-    if (documentError || !document) {
-      throw new MilestoneSubmissionPackageReviewError('Failed to promote milestone submission attachments.', 500);
-    }
-
-    const { error: versionError } = await supabaseAdmin.from('document_versions').insert({
-      id: versionId,
-      document_id: documentId,
-      version_number: 1,
-      file_name: attachment.file_name,
-      storage_path: attachment.storage_path,
-      file_size: attachment.file_size,
-      mime_type: attachment.mime_type,
-      changelog: 'Promoted from approved milestone submission.',
-      status: 'APPROVED',
-      is_latest: true,
-      uploaded_by: attachment.uploaded_by,
-    });
-    if (versionError) {
+        fileName: attachment.file_name,
+        storagePath: attachment.storage_path,
+        fileSize: attachment.file_size,
+        mimeType: attachment.mime_type,
+        uploadedBy: attachment.uploaded_by,
+        changelog: 'Promoted from approved milestone submission.',
+      });
+    } catch {
       throw new MilestoneSubmissionPackageReviewError('Failed to promote milestone submission attachments.', 500);
     }
 

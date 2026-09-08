@@ -62,4 +62,23 @@ export class MilestoneContributionController {
       sendError(res, 'Failed to create supporting attachment download URL.', null, 500);
     }
   }
+
+  static async promoteAttachment(req: AuthenticatedRequest, res: Response): Promise<void> {
+    try {
+      const result = await MilestoneContributionService.promoteAttachment(
+        getRouteParam(req, 'milestoneId'),
+        getRouteParam(req, 'contributionId'),
+        getRouteParam(req, 'attachmentId'),
+        req.user!
+      );
+      sendSuccess(res, 'Supporting attachment promoted to the Document Repository', result);
+    } catch (error) {
+      if (error instanceof MilestoneContributionError) {
+        sendError(res, error.message, null, error.statusCode);
+        return;
+      }
+      console.error('[MilestoneContributionController] Unexpected contribution promotion failure.');
+      sendError(res, 'Unable to promote supporting attachment.', null, 500);
+    }
+  }
 }

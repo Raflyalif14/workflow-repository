@@ -25,6 +25,7 @@ async function main() {
   assert(migration.includes('delete from public.milestone_submission_attachments') && migration.includes('delete from public.document_versions') && migration.includes('delete from public.projects'), 'Test 8: transaction explicitly removes package and document dependents before the project');
   assert(service.includes("rows('milestone_contributions'") && service.includes("storageRows('milestone_contribution_attachments'") && service.includes('...contributionAttachments'), 'Test 9: deletion preview counts contribution metadata and exact storage paths');
   assert(collaborationMigration.includes('select a.storage_path as path') && collaborationMigration.includes('delete from public.milestone_contribution_attachments') && collaborationMigration.includes('delete from public.milestone_contributions'), 'Test 10: Phase 11L RPC replacement collects exact contribution paths and deletes both child tables');
+  assert(collaborationMigration.includes('select dv.storage_path as path') && collaborationMigration.includes('select a.storage_path as path') && collaborationMigration.includes('from public.milestone_contribution_attachments a'), 'Test 11: deletion RPC collects both official document-version and contribution source storage paths');
   console.log('Project deletion safety tests passed.');
 }
 

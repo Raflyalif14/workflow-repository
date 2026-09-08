@@ -67,6 +67,12 @@ router.get(
 );
 
 router.post(
+  '/:milestoneId/contributions/:contributionId/attachments/:attachmentId/promote',
+  requireRoles(['SUPER_ADMIN', 'HEAD_SA']),
+  MilestoneContributionController.promoteAttachment
+);
+
+router.post(
   '/:milestoneId/documents',
   requireRoles(['SALES', 'SUPER_ADMIN']),
   uploadSalesMilestoneDocuments,

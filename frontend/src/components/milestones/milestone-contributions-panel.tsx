@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import { AlertCircle, Download, FileText, MessageSquareText, Paperclip, Plus, X } from "lucide-react";
+import { AlertCircle, Download, FileText, MessageSquareText, Paperclip, Plus, UploadCloud, X } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -9,6 +10,7 @@ import {
   useCreateMilestoneContribution,
   useDownloadMilestoneContributionAttachment,
   useMilestoneContributions,
+  usePromoteMilestoneContributionAttachment,
 } from "@/hooks/use-milestone-contributions";
 import {
   appendDocumentFiles,
@@ -30,23 +32,34 @@ function formatDateTime(value: string): string {
 export function MilestoneContributionsPanel({
   milestoneId,
   milestoneName,
+  projectId,
   canRead,
   canCreate,
+  canPromote,
 }: {
   milestoneId: string;
   milestoneName: string;
+  projectId: string;
   canRead: boolean;
   canCreate: boolean;
+  canPromote: boolean;
 }) {
   const contributions = useMilestoneContributions(milestoneId, canRead);
   const createContribution = useCreateMilestoneContribution(milestoneId);
   const downloadAttachment = useDownloadMilestoneContributionAttachment(milestoneId);
+  const promoteAttachment = usePromoteMilestoneContributionAttachment(projectId, milestoneId);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [note, setNote] = useState("");
   const [files, setFiles] = useState<File[]>([]);
   const [selectionError, setSelectionError] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [downloadError, setDownloadError] = useState<string | null>(null);
+  const [promotionError, setPromotionError] = useState<string | null>(null);
+  const [promotionTarget, setPromotionTarget] = useState<{
+    contributionId: string;
+    attachmentId: string;
+    fileName: string;
+  } | null>(null);
 
   if (!canRead) return null;
 
@@ -94,6 +107,21 @@ export function MilestoneContributionsPanel({
     }
   };
 
+  const promote = async () => {
+    if (!promotionTarget || promoteAttachment.isPending) return;
+
+    setPromotionError(null);
+    try {
+      await promoteAttachment.mutateAsync({
+        contributionId: promotionTarget.contributionId,
+        attachmentId: promotionTarget.attachmentId,
+      });
+      setPromotionTarget(null);
+    } catch {
+      setPromotionError("Unable to promote the supporting document. Please try again.");
+    }
+  };
+
   const canSubmit = Boolean(note.trim() || files.length) && !selectionError && !createContribution.isPending;
 
   return (
@@ -119,6 +147,11 @@ export function MilestoneContributionsPanel({
           {downloadError}
         </p>
       )}
+      {promotionError && (
+        <p className="mt-3 rounded-lg border border-destructive/30 bg-destructive/10 p-2.5 text-xs text-destructive" role="alert">
+          {promotionError}
+        </p>
+      )}
 
       {contributions.isLoading ? (
         <p className="mt-3 text-xs text-muted-foreground">Loading supporting input...</p>
@@ -132,7 +165,8 @@ export function MilestoneContributionsPanel({
             <div key={contribution.id} className="rounded-lg border border-border/40 bg-card/50 p-3">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <p className="text-[11px] font-medium text-foreground">
-                  {contribution.contributed_by?.full_name || "Project Sales"}
+                  Shared by {contribution.contributed_by?.full_name || "Project Sales"}
+                  {contribution.contributed_by?.role ? ` · ${contribution.contributed_by.role}` : ""}
                 </p>
                 <span className="text-[10px] text-muted-foreground">{formatDateTime(contribution.created_at)}</span>
               </div>
@@ -151,18 +185,55 @@ export function MilestoneContributionsPanel({
                           <p className="truncate text-[10px] text-muted-foreground">
                             {formatFileSize(attachment.file_size)} - {attachment.mime_type}
                           </p>
+                          <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                            <Badge variant="outline" className="border-border/60 bg-muted/20 px-1.5 py-0 text-[9px] font-medium text-muted-foreground">
+                              Supporting Document
+                            </Badge>
+                            {attachment.promotion_status === "PROMOTED" && (
+                              <Badge variant="outline" className="border-emerald-500/30 bg-emerald-500/10 px-1.5 py-0 text-[9px] font-medium text-emerald-500">
+                                In Repository
+                              </Badge>
+                            )}
+                          </div>
                         </div>
                       </div>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="h-8 shrink-0 gap-1.5 self-start text-xs sm:self-auto"
-                        disabled={downloadAttachment.isPending}
-                        onClick={() => void openAttachment(contribution.id, attachment.id)}
-                      >
-                        <Download className="h-3.5 w-3.5" />
-                        View / Download
-                      </Button>
+                      <div className="flex flex-wrap gap-2 self-start sm:self-auto">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-8 shrink-0 gap-1.5 text-xs"
+                          disabled={downloadAttachment.isPending}
+                          onClick={() => void openAttachment(contribution.id, attachment.id)}
+                        >
+                          <Download className="h-3.5 w-3.5" />
+                          View / Download
+                        </Button>
+                        {canPromote && attachment.promotion_status === "NOT_PROMOTED" && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-8 shrink-0 gap-1.5 border-primary/30 text-xs text-primary hover:bg-primary/10"
+                            disabled={promoteAttachment.isPending}
+                            onClick={() => {
+                              setPromotionError(null);
+                              setPromotionTarget({
+                                contributionId: contribution.id,
+                                attachmentId: attachment.id,
+                                fileName: attachment.file_name,
+                              });
+                            }}
+                          >
+                            <UploadCloud className="h-3.5 w-3.5" />
+                            Promote to Repository
+                          </Button>
+                        )}
+                        {canPromote && attachment.promotion_status === "PROMOTING" && (
+                          <Button size="sm" variant="outline" className="h-8 gap-1.5 text-xs" disabled>
+                            <UploadCloud className="h-3.5 w-3.5" />
+                            Promoting...
+                          </Button>
+                        )}
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -171,6 +242,36 @@ export function MilestoneContributionsPanel({
           ))}
         </div>
       )}
+
+      <Dialog
+        open={Boolean(promotionTarget)}
+        onOpenChange={(open) => {
+          if (!open && !promoteAttachment.isPending) setPromotionTarget(null);
+        }}
+      >
+        <DialogHeader className="space-y-2">
+          <DialogTitle>Promote to Repository</DialogTitle>
+          <DialogDescription>
+            Promote <span className="font-semibold text-foreground">&quot;{promotionTarget?.fileName}&quot;</span> to the official Document Repository?
+          </DialogDescription>
+        </DialogHeader>
+        <p className="rounded-lg border border-border/50 bg-muted/20 p-3 text-xs text-muted-foreground">
+          The original Supporting Document will remain available here.
+        </p>
+        {promotionError && (
+          <p className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive" role="alert">
+            {promotionError}
+          </p>
+        )}
+        <DialogFooter className="border-t border-border/40 pt-4">
+          <Button type="button" variant="outline" disabled={promoteAttachment.isPending} onClick={() => setPromotionTarget(null)}>
+            Cancel
+          </Button>
+          <Button type="button" disabled={promoteAttachment.isPending} onClick={() => void promote()}>
+            {promoteAttachment.isPending ? "Promoting..." : "Promote Document"}
+          </Button>
+        </DialogFooter>
+      </Dialog>
 
       <Dialog open={dialogOpen} onOpenChange={handleDialogOpenChange}>
         <DialogHeader>

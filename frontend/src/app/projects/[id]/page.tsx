@@ -60,6 +60,7 @@ import {
 } from "@/lib/workflow-ux-helpers";
 import {
   canAddMilestoneContribution,
+  canPromoteMilestoneContributions,
   canViewMilestoneContributions,
 } from "@/lib/milestone-contribution-access";
 import {
@@ -954,6 +955,7 @@ function MilestoneRow({
   };
   const canReadContributions = canViewMilestoneContributions(user, contributionProject, contributionMilestone);
   const canCreateContribution = canAddMilestoneContribution(user, contributionProject, contributionMilestone);
+  const canPromoteContributions = canPromoteMilestoneContributions(user, contributionProject, contributionMilestone);
 
   const start = useStartMilestone(project.id, milestone.id);
   const complete = useCompleteMilestone(project.id, milestone.id);
@@ -1117,8 +1119,10 @@ function MilestoneRow({
       <MilestoneContributionsPanel
         milestoneId={milestone.id}
         milestoneName={milestone.name}
+        projectId={project.id}
         canRead={canReadContributions}
         canCreate={canCreateContribution}
+        canPromote={canPromoteContributions}
       />
 
       {/* ─── Informative Waiting State Alerts ─── */}

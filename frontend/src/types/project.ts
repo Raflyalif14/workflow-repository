@@ -147,6 +147,8 @@ export interface MilestoneContributionAttachment {
   file_name: string;
   file_size: number;
   mime_type: string;
+  promotion_status: "NOT_PROMOTED" | "PROMOTING" | "PROMOTED";
+  promoted_document_id: string | null;
   created_at: string;
 }
 
@@ -154,7 +156,7 @@ export interface MilestoneContribution {
   id: string;
   milestone_id: string;
   note: string | null;
-  contributed_by: { id: string; full_name: string; email?: string } | null;
+  contributed_by: { id: string; full_name: string; role?: string } | null;
   created_at: string;
   attachments: MilestoneContributionAttachment[];
 }

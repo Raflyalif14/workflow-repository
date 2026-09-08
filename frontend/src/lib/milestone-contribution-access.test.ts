@@ -1,5 +1,6 @@
 import {
   canAddMilestoneContribution,
+  canPromoteMilestoneContributions,
   canViewMilestoneContributions,
 } from "./milestone-contribution-access";
 import { readFileSync } from "fs";
@@ -66,12 +67,27 @@ assert(
   "Test 7: postponed projects and non-active milestone work cannot receive new input"
 );
 
+assert(
+  canPromoteMilestoneContributions({ id: "head-sa", role: "HEAD_SA" }, project, firstMilestone) &&
+    canPromoteMilestoneContributions({ id: "admin", role: "SUPER_ADMIN" }, project, firstMilestone) &&
+    !canPromoteMilestoneContributions({ id: "sales-owner", role: "SALES" }, project, firstMilestone) &&
+    !canPromoteMilestoneContributions({ id: "sa-pic", role: "SA" }, project, firstMilestone),
+  "Test 8: only HEAD_SA and SUPER_ADMIN can promote supporting documents"
+);
+
 const projectDetailPage = readFileSync(join(__dirname, "../app/projects/[id]/page.tsx"), "utf8");
+const contributionsPanel = readFileSync(join(__dirname, "../components/milestones/milestone-contributions-panel.tsx"), "utf8");
 assert(
   projectDetailPage.includes(
     'const canSubmit = projectIsActive && stageRole === "SA" && isAssignedPic && milestoneStatus === "IN_PROGRESS";'
   ),
-  "Test 8: existing PIC-only Submit Work eligibility must remain unchanged"
+  "Test 9: existing PIC-only Submit Work eligibility must remain unchanged"
+);
+assert(
+  contributionsPanel.includes("Supporting Document") &&
+    contributionsPanel.includes("Promote to Repository") &&
+    contributionsPanel.includes("In Repository"),
+  "Test 10: supporting attachment UI presents non-official and promoted repository labels"
 );
 
 console.log("Milestone contribution access tests passed.");

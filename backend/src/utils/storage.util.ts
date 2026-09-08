@@ -90,6 +90,16 @@ export class DocumentStorageService {
     }
   }
 
+  static async copy(sourcePath: string, destinationPath: string): Promise<void> {
+    const { error } = await supabaseAdmin.storage
+      .from(this.bucketName)
+      .copy(sourcePath, destinationPath);
+
+    if (error) {
+      throw new Error('Failed to copy document file.');
+    }
+  }
+
   static async remove(storagePath: string): Promise<void> {
     const { error } = await supabaseAdmin.storage.from(this.bucketName).remove([storagePath]);
 

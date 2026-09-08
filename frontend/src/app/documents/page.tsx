@@ -204,6 +204,9 @@ export default function DocumentsPage() {
                   <div className="flex items-start justify-between gap-2">
                     <div className="space-y-1">
                       <div className="flex items-center gap-2">
+                        <Badge variant="outline" className="border-emerald-500/30 bg-emerald-500/10 text-xs font-semibold text-emerald-500">
+                          Official Document
+                        </Badge>
                         {getCategoryBadge(doc.category)}
                         {getStatusBadge(doc.status)}
                       </div>

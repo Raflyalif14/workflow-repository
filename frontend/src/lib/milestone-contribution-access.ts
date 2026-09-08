@@ -56,3 +56,15 @@ export function canAddMilestoneContribution(
     isOperationalV2FirstMilestone(project, milestone)
   );
 }
+
+export function canPromoteMilestoneContributions(
+  actor: ContributionActor | null | undefined,
+  project: ContributionProject,
+  milestone: ContributionMilestone
+): boolean {
+  return (
+    Boolean(actor?.id) &&
+    (actor?.role === "HEAD_SA" || actor?.role === "SUPER_ADMIN") &&
+    isOperationalV2FirstMilestone(project, milestone)
+  );
+}
