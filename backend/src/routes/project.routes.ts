@@ -1,5 +1,6 @@
 import { NextFunction, Request, Response, Router } from 'express';
 import { ProjectManagementController } from '../controllers/project-management.controller';
+import { ProjectActivityController } from '../controllers/project-activity.controller';
 import { ProjectPlanApprovalController } from '../controllers/project-plan-approval.controller';
 import { MilestoneInitiationApprovalController } from '../controllers/milestone-initiation-approval.controller';
 import { AssignmentPhase5Controller } from '../controllers/assignment-phase5.controller';
@@ -42,6 +43,7 @@ router.use(authenticateJwt);
 router.get('/', ProjectManagementController.list);
 router.get('/:projectId/deletion-preview', requireRoles(['SUPER_ADMIN']), ProjectDeletionController.preview);
 router.delete('/:projectId', requireRoles(['SUPER_ADMIN']), ProjectDeletionController.delete);
+router.get('/:projectId/activities', ProjectActivityController.list);
 router.get('/:id', ProjectManagementController.get);
 
 // 2. Create Project (Sales)

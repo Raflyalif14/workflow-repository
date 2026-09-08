@@ -80,6 +80,7 @@ export function useUploadSalesMilestoneDocuments(projectId: string, milestoneId:
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["documents", { projectId }] });
       queryClient.invalidateQueries({ queryKey: projectKeys.detail(projectId) });
+      queryClient.invalidateQueries({ queryKey: projectKeys.activities(projectId) });
     },
   });
 }

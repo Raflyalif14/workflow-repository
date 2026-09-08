@@ -230,6 +230,23 @@ export interface ActivityLog {
   };
 }
 
+export interface ProjectActivityTimelineItem {
+  id: string;
+  action: string;
+  description: string | null;
+  createdAt: string;
+  actor: {
+    id: string;
+    name: string;
+    role: string;
+  } | null;
+}
+
+export interface ProjectActivityPage {
+  items: ProjectActivityTimelineItem[];
+  nextCursor: string | null;
+}
+
 export interface Project {
   id: string;
   projectCode?: string;

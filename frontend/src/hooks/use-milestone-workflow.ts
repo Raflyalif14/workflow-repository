@@ -49,6 +49,7 @@ const invalidateMilestoneWorkflow = (
     queryClient.invalidateQueries({ queryKey: projectKeys.milestones(projectId) });
     queryClient.invalidateQueries({ queryKey: projectKeys.progress(projectId) });
     queryClient.invalidateQueries({ queryKey: projectKeys.planApproval(projectId) });
+    queryClient.invalidateQueries({ queryKey: projectKeys.activities(projectId) });
   }
   if (milestoneId) {
     queryClient.invalidateQueries({ queryKey: milestoneKeys.workflowState(milestoneId) });

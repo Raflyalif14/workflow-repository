@@ -64,6 +64,7 @@ import {
 } from "@/lib/milestone-contribution-access";
 import {
   useProject,
+  useProjectActivities,
   useProjectMilestones,
   useProjectPlanApproval,
   useProjectProgress,
@@ -72,6 +73,7 @@ import {
   useSolutionArchitects,
   useSubmitProjectPlan,
 } from "@/hooks/use-projects";
+import { flattenActivityPages, formatActivityAction } from "@/lib/activity-timeline";
 import { useDocumentDownloadUrl, useDocuments } from "@/hooks/use-documents";
 import {
   MilestoneApprovalState,
@@ -424,40 +426,93 @@ export default function ProjectDetailPage() {
           </CardContent>
         </Card>
 
-        {/* Activity Log */}
-        <Card className="border-border/60 bg-card/70 shadow-sm">
-          <CardHeader className="flex flex-row items-start gap-3 pb-3">
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-primary/15 bg-primary/10 text-primary">
-              <Activity className="h-4 w-4" />
-            </span>
-            <div className="space-y-1">
-              <CardTitle className="text-base font-semibold tracking-tight">Activity Log</CardTitle>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {project.activity_logs?.length ? (
-              <div className="space-y-2.5 max-h-[500px] overflow-y-auto pr-1">
-                {project.activity_logs.map((log) => (
-                  <div key={log.id} className="space-y-1 rounded-xl border border-border/40 bg-muted/20 p-3 text-xs transition-colors hover:border-primary/20 hover:bg-muted/30">
-                    <p className="text-foreground leading-relaxed">
-                      {log.description || log.details || log.action}
-                    </p>
-                    <p className="text-[10px] text-muted-foreground font-mono">
-                      {formatDateTime(log.created_at)}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="py-6 text-center text-xs text-muted-foreground">No activity logs recorded yet.</p>
-            )}
-          </CardContent>
-        </Card>
+        <ActivityTimeline projectId={project.id} />
       </div>
 
       {user?.role === "SUPER_ADMIN" && <ProjectDeletionDangerZone project={project} />}
       <PostponeProjectDialog open={postponeOpen} onOpenChange={setPostponeOpen} project={project} />
     </div>
+  );
+}
+
+function ActivityTimeline({ projectId }: { projectId: string }) {
+  const {
+    data,
+    isLoading,
+    isError,
+    hasNextPage,
+    fetchNextPage,
+    isFetchingNextPage,
+  } = useProjectActivities(projectId);
+  const activities = flattenActivityPages(data?.pages);
+
+  return (
+    <Card className="h-fit self-start border-border/60 bg-card/70 shadow-sm">
+      <CardHeader className="flex flex-row items-start gap-3 pb-3">
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-primary/15 bg-primary/10 text-primary">
+          <Activity className="h-4 w-4" />
+        </span>
+        <div className="space-y-1">
+          <CardTitle className="text-base font-semibold tracking-tight">Activity Timeline</CardTitle>
+          <CardDescription className="text-xs">Latest project events</CardDescription>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-2.5">
+        {isLoading ? (
+          <div className="space-y-2 py-1" aria-label="Loading project activities">
+            {[0, 1, 2].map((index) => <div key={index} className="h-12 rounded-lg bg-muted/30 animate-pulse" />)}
+          </div>
+        ) : isError ? (
+          <p className="py-6 text-center text-xs text-muted-foreground">Unable to load project activity.</p>
+        ) : activities.length === 0 ? (
+          <p className="py-6 text-center text-xs text-muted-foreground">No activity recorded yet.</p>
+        ) : (
+          <>
+            <div className="space-y-0">
+              <ol className="space-y-0">
+                {activities.map((activity, index) => (
+                  <li key={activity.id} className="relative pl-7 pb-3 last:pb-0">
+                    {index < activities.length - 1 && <span className="absolute bottom-[-0.75rem] left-[7px] top-4 w-px bg-border/70" aria-hidden="true" />}
+                    <span className="absolute left-0 top-0.5 flex h-4 w-4 items-center justify-center rounded-full border border-primary/20 bg-primary/10 text-primary">
+                      <Activity className="h-2.5 w-2.5" aria-hidden="true" />
+                    </span>
+                    <div className="rounded-lg border border-border/40 bg-muted/15 px-2.5 py-2 transition-colors hover:border-primary/20 hover:bg-muted/25">
+                      <p className="text-xs font-semibold text-foreground">{formatActivityAction(activity.action)}</p>
+                      {activity.description && <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">{activity.description}</p>}
+                      <div className="mt-1.5 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[10px] text-muted-foreground/85">
+                        {activity.actor ? (
+                          <>
+                            <span className="font-medium text-foreground/80">{activity.actor.name}</span>
+                            <span aria-hidden="true">•</span>
+                            <span>{activity.actor.role.replace(/_/g, " ")}</span>
+                          </>
+                        ) : (
+                          <span>System / Unknown Actor</span>
+                        )}
+                        <span aria-hidden="true">•</span>
+                        <time dateTime={activity.createdAt}>{formatDateTime(activity.createdAt)}</time>
+                      </div>
+                    </div>
+                  </li>
+                ))}
+              </ol>
+            </div>
+            {hasNextPage && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="mx-auto"
+                onClick={() => void fetchNextPage()}
+                disabled={isFetchingNextPage}
+              >
+                {isFetchingNextPage ? "Loading..." : "Load more"}
+              </Button>
+            )}
+          </>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 

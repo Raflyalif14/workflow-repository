@@ -7,6 +7,7 @@ export const projectKeys = {
   planApproval: (projectId: string) => ["project-plan-approval", projectId] as const,
   planApprovalHistory: (projectId: string) => ["project-plan-approval-history", projectId] as const,
   assignmentHistory: (projectId: string) => ["assignment-history", projectId] as const,
+  activities: (projectId: string) => ["project-activities", projectId] as const,
 };
 
 export const milestoneKeys = {

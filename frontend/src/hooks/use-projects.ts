@@ -1,8 +1,9 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "@/lib/api-client";
 import { approvalKeys, assignmentKeys, dashboardKeys, milestoneKeys, projectKeys } from "@/lib/query-keys";
 import {
   Project,
+  ProjectActivityPage,
   ProjectMilestonePhase4,
   ProjectPlanApproval,
   ProjectsResponse,
@@ -61,6 +62,7 @@ const invalidateProjectRuntime = (queryClient: ReturnType<typeof useQueryClient>
   queryClient.invalidateQueries({ queryKey: projectKeys.progress(projectId) });
   queryClient.invalidateQueries({ queryKey: projectKeys.planApproval(projectId) });
   queryClient.invalidateQueries({ queryKey: projectKeys.planApprovalHistory(projectId) });
+  queryClient.invalidateQueries({ queryKey: projectKeys.activities(projectId) });
   queryClient.invalidateQueries({ queryKey: approvalKeys.all() });
   queryClient.invalidateQueries({ queryKey: approvalKeys.stats() });
   queryClient.invalidateQueries({ queryKey: dashboardKeys.overview() });
@@ -242,6 +244,22 @@ export function useReviewProjectPlan(projectId?: string) {
         }
       }
     },
+  });
+}
+
+export function useProjectActivities(projectId: string) {
+  return useInfiniteQuery({
+    queryKey: projectKeys.activities(projectId),
+    initialPageParam: null as string | null,
+    queryFn: ({ pageParam }) => {
+      const params = new URLSearchParams({ limit: "25" });
+      if (pageParam) params.set("cursor", pageParam);
+      return apiClient<ProjectActivityPage>(`/projects/${projectId}/activities?${params.toString()}`);
+    },
+    getNextPageParam: (lastPage) => lastPage.nextCursor || undefined,
+    enabled: Boolean(projectId),
+    staleTime: 0,
+    refetchOnWindowFocus: true,
   });
 }
 
