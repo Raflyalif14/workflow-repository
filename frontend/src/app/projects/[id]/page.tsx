@@ -1123,6 +1123,9 @@ function MilestoneRow({
           title={deadlineApproval?.status === "PENDING" ? "Pending Deadline Change Request" : "Latest Deadline Change History"}
           deadline={deadlineApproval?.deadline}
           status={deadlineApproval?.status}
+          reviewNote={deadlineApproval?.review_note}
+          reviewedBy={deadlineApproval?.reviewed_by?.full_name}
+          reviewedAt={deadlineApproval?.reviewed_at}
         />
       </div>
 
@@ -1583,11 +1586,17 @@ function DeadlinePanel({
   deadline,
   status,
   health,
+  reviewNote,
+  reviewedBy,
+  reviewedAt,
 }: {
   title: string;
   deadline?: { start_date?: string | null; duration_working_days?: number | null; due_date?: string | null; change_reason?: string | null } | null;
   status?: DeadlineApprovalStatus;
   health?: DeadlineHealthPresentation;
+  reviewNote?: string | null;
+  reviewedBy?: string | null;
+  reviewedAt?: string | null;
 }) {
   const hasData = Boolean(deadline?.start_date || deadline?.due_date);
 
@@ -1603,6 +1612,27 @@ function DeadlinePanel({
           <p className="text-muted-foreground">Duration: <strong className="text-foreground">{deadline?.duration_working_days || "-"} working days</strong></p>
           <p className="text-muted-foreground">Due: <strong className="text-foreground">{formatDate(deadline?.due_date)}</strong></p>
           {deadline?.change_reason && <p className="text-muted-foreground italic pt-0.5">Reason: &quot;{deadline.change_reason}&quot;</p>}
+          {status && status !== "PENDING" && (reviewNote || reviewedBy || reviewedAt) && (
+            <div className="mt-2 space-y-1 border-t border-border/30 pt-2">
+              {reviewedBy && (
+                <p className="text-muted-foreground">
+                  Reviewed by: <strong className="text-foreground">{reviewedBy}</strong>
+                </p>
+              )}
+              {reviewedAt && (
+                <p className="text-muted-foreground">
+                  Reviewed at:{" "}
+                  <strong className="text-foreground">{formatDateTime(reviewedAt)}</strong>
+                </p>
+              )}
+              {reviewNote && (
+                <p className="text-muted-foreground">
+                  {status === "REJECTED" ? "Rejection reason" : "Review note"}:{" "}
+                   <span className="text-muted-foreground italic pt-0.5">&quot;{reviewNote}&quot;</span>
+                </p>
+              )}
+            </div>
+          )}
         </>
       ) : (
         <p className="text-muted-foreground italic py-1">No separate change request recorded.</p>
