@@ -28,8 +28,9 @@ const makeState = (): SearchState => ({
     status: 'ACTIVE',
   })),
   documents: [
-    { id: 'document-1', project_id: 'project-1', title: 'Alpha Evidence', category: 'OTHER', storage_path: 'private/should-not-leak.pdf' },
-    { id: 'document-2', project_id: 'project-6', title: 'Alpha Restricted Evidence', category: 'MOM', storage_path: 'private/restricted.pdf' },
+    { id: 'document-1', project_id: 'project-1', title: 'Alpha Evidence', category: 'OTHER', status: 'APPROVED', storage_path: 'private/should-not-leak.pdf' },
+    { id: 'document-2', project_id: 'project-6', title: 'Alpha Restricted Evidence', category: 'MOM', status: 'APPROVED', storage_path: 'private/restricted.pdf' },
+    { id: 'document-3', project_id: 'project-1', title: 'Alpha Internal Submission', category: 'OTHER', status: 'SUBMITTED', storage_path: 'private/internal.pdf' },
   ],
   milestones: [
     { id: 'milestone-1', project_id: 'project-1', name: 'Alpha Assessment', step_order: 1, status: 'IN_PROGRESS' },
@@ -92,7 +93,7 @@ async function run() {
   await withSearchState(makeState(), async () => {
     const result = await GlobalSearchService.search({ q: 'Alpha' }, admin);
     assert.equal(result.projects.length, 5, 'Test 1: projects must be capped at five results');
-    assert.equal(result.documents.length, 2, 'Test 1: SUPER_ADMIN sees global documents');
+    assert.equal(result.documents.length, 3, 'Test 1: SUPER_ADMIN sees approved and non-final global documents');
     assert.equal(result.milestones.length, 2, 'Test 1: SUPER_ADMIN sees global milestones');
     assert(!JSON.stringify(result).includes('storage_path') && !JSON.stringify(result).includes('private/'), 'Test 1: storage paths must never be returned');
     console.log('Test 1 - SUPER_ADMIN receives globally scoped, bounded, safe results');
@@ -100,7 +101,7 @@ async function run() {
 
   await withSearchState(makeState(), async () => {
     const result = await GlobalSearchService.search({ q: 'Alpha' }, headSa);
-    assert.equal(result.documents.length, 2, 'Test 2: HEAD_SA sees global document results');
+    assert.equal(result.documents.length, 3, 'Test 2: HEAD_SA sees approved and non-final global document results');
     assert.equal(result.milestones.length, 2, 'Test 2: HEAD_SA sees global milestone results');
     console.log('Test 2 - HEAD_SA receives global results');
   });
@@ -109,14 +110,15 @@ async function run() {
     const result = await GlobalSearchService.search({ q: 'Alpha' }, salesOne);
     assert(result.projects.every((item) => item.projectId !== 'project-6'), 'Test 3: SALES cannot discover another sales project');
     assert.deepEqual(result.documents.map((item) => item.id), ['document-1'], 'Test 3: SALES sees only owned documents');
+    assert(!result.documents.some((item) => item.title === 'Alpha Internal Submission'), 'Test 3: SALES cannot discover non-final document titles');
     assert.deepEqual(result.milestones.map((item) => item.id), ['milestone-1'], 'Test 3: SALES sees only owned milestones');
-    console.log('Test 3 - SALES scope prevents unrelated project, document, and milestone discovery');
+    console.log('Test 3 - SALES scope prevents unrelated and non-final document discovery');
   });
 
   await withSearchState(makeState(), async () => {
     const result = await GlobalSearchService.search({ q: 'Alpha' }, saOne);
     assert(result.projects.every((item) => item.projectId !== 'project-6'), 'Test 4: SA cannot discover a non-PIC project');
-    assert.deepEqual(result.documents.map((item) => item.id), ['document-1'], 'Test 4: SA sees only PIC documents');
+    assert.deepEqual(result.documents.map((item) => item.id), ['document-1', 'document-3'], 'Test 4: SA sees approved and non-final PIC documents');
     assert.deepEqual(result.milestones.map((item) => item.id), ['milestone-1'], 'Test 4: SA sees only PIC milestones');
     console.log('Test 4 - SA scope prevents unrelated project, document, and milestone discovery');
   });

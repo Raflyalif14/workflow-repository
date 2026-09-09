@@ -389,12 +389,17 @@ async function run(): Promise<void> {
   });
 
   await withScenario({}, async (state) => {
+    const headSaResult = await MilestoneSubmissionPackageReviewService.getCurrentPackage('milestone-1', headSa);
+    assert(headSaResult?.attachments.length === 1, 'Test 7: HEAD_SA may read safe package metadata');
     const result = await MilestoneSubmissionPackageReviewService.getCurrentPackage('milestone-1', assignedSa);
     assert(result?.attachments.length === 1 && result.attachments[0].file_name === 'evidence-1.pdf', 'Test 7: assigned PIC may read safe package metadata');
-    const salesResult = await MilestoneSubmissionPackageReviewService.getCurrentPackage('milestone-1', salesOwner);
-    assert(salesResult?.id === state.package?.id, 'Test 7: project-owning SALES may read package metadata consistently with project access');
     const adminResult = await MilestoneSubmissionPackageReviewService.getCurrentPackage('milestone-1', superAdmin);
     assert(adminResult?.id === state.package?.id, 'Test 7: SUPER_ADMIN may read package metadata');
+    await expectReviewError(
+      () => MilestoneSubmissionPackageReviewService.getCurrentPackage('milestone-1', salesOwner),
+      'Milestone not found',
+      404
+    );
     await expectReviewError(
       () => MilestoneSubmissionPackageReviewService.getCurrentPackage('milestone-1', otherSa),
       'Milestone not found',
@@ -405,7 +410,7 @@ async function run(): Promise<void> {
       'Milestone not found',
       404
     );
-    console.log('Test 7 - Pending attachment metadata uses milestone/project-scoped authorization: passed');
+    console.log('Test 7 - Pending attachment metadata is limited to reviewers and the assigned PIC: passed');
   });
 
   await withScenario({}, async () => {
@@ -417,6 +422,15 @@ async function run(): Promise<void> {
       };
       const download = await MilestoneSubmissionPackageReviewService.getPendingAttachmentDownloadUrl('milestone-1', 'attachment-1', headSa);
       assert(download.url === 'https://signed.example/temporary' && download.attachment_id === 'attachment-1', 'Test 8: authorized review download must return a short-lived signed URL');
+      const assignedDownload = await MilestoneSubmissionPackageReviewService.getPendingAttachmentDownloadUrl('milestone-1', 'attachment-1', assignedSa);
+      assert(assignedDownload.url === 'https://signed.example/temporary', 'Test 8: assigned PIC may download a pending attachment');
+      const adminDownload = await MilestoneSubmissionPackageReviewService.getPendingAttachmentDownloadUrl('milestone-1', 'attachment-1', superAdmin);
+      assert(adminDownload.url === 'https://signed.example/temporary', 'Test 8: SUPER_ADMIN may download a pending attachment');
+      await expectReviewError(
+        () => MilestoneSubmissionPackageReviewService.getPendingAttachmentDownloadUrl('milestone-1', 'attachment-1', salesOwner),
+        'Milestone not found',
+        404
+      );
     } finally {
       (DocumentStorageService as any).createSignedDownloadUrl = originalSignedUrl;
     }

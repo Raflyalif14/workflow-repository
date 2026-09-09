@@ -249,6 +249,14 @@ export class DocumentService {
     return project;
   }
 
+  private static async assertDocumentReadAccess(document: DocumentRow, actor: Actor): Promise<ProjectRow> {
+    const project = await this.assertDocumentAccess(document, actor);
+    if (actor.role === 'SALES' && document.status !== 'APPROVED') {
+      throw new DocumentServiceError('Document not found', 404);
+    }
+    return project;
+  }
+
   private static async loadUsers(userIds: string[]): Promise<Map<string, UserRow>> {
     const ids = [...new Set(userIds.filter(Boolean))];
     if (!ids.length) return new Map();
@@ -444,6 +452,7 @@ export class DocumentService {
     if (query.milestoneId) request = request.eq('milestone_id', query.milestoneId);
     if (query.category) request = request.eq('category', query.category);
     if (query.status) request = request.eq('status', query.status);
+    if (actor.role === 'SALES') request = request.eq('status', 'APPROVED');
     if (query.search?.trim()) request = request.ilike('title', `%${query.search.trim()}%`);
 
     const { data, error } = await request;
@@ -453,7 +462,7 @@ export class DocumentService {
 
   static async getDocumentById(documentId: string, actor: Actor) {
     const document = await this.getRawDocument(documentId);
-    await this.assertDocumentAccess(document, actor);
+    await this.assertDocumentReadAccess(document, actor);
     const [hydrated] = await this.hydrateDocuments([document], true);
     return hydrated;
   }
@@ -829,7 +838,7 @@ export class DocumentService {
   static async getDownloadUrl(versionId: string, actor: Actor) {
     const version = await this.getRawVersion(versionId);
     const document = await this.getRawDocument(version.document_id);
-    await this.assertDocumentAccess(document, actor);
+    await this.assertDocumentReadAccess(document, actor);
 
     try {
       return {

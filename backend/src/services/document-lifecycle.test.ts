@@ -28,6 +28,21 @@ const expectDocumentError = (run: () => void, message: string, statusCode = 409)
   }
 };
 
+const expectAsyncDocumentError = async (
+  run: () => Promise<unknown>,
+  message: string,
+  statusCode: number
+): Promise<void> => {
+  try {
+    await run();
+    throw new Error(`Expected error: ${message}`);
+  } catch (error) {
+    assert(error instanceof DocumentServiceError, `Expected DocumentServiceError: ${message}`);
+    assert((error as DocumentServiceError).message === message, `Expected message: ${message}`);
+    assert((error as DocumentServiceError).statusCode === statusCode, `Expected status ${statusCode}: ${message}`);
+  }
+};
+
 const project = { sales_id: 'sales-owner', pic_id: 'sa-owner' };
 const actors = {
   superAdmin: { userId: 'admin-1', role: 'SUPER_ADMIN', fullName: 'Admin' },
@@ -212,7 +227,7 @@ async function verifySignedDownloadErrorSafety(): Promise<void> {
     }
 
     service.getRawVersion = async () => ({ id: 'version-download', document_id: 'document-download', storage_path: 'project-1/document-1/file.pdf' });
-    service.getRawDocument = async () => ({ id: 'document-download', project_id: 'project-1' });
+    service.getRawDocument = async () => ({ id: 'document-download', project_id: 'project-1', status: 'APPROVED' });
     service.assertDocumentAccess = async () => ({ id: 'project-1' });
     try {
       await DocumentService.getDownloadUrl('version-download', actors.salesOwner);
@@ -495,6 +510,125 @@ async function verifyRollbackCasMatchDetection(): Promise<void> {
   }
 }
 
+async function verifySalesDocumentReadFinality(): Promise<void> {
+  const service = DocumentService as any;
+  const originalFrom = supabaseAdmin.from;
+  const originalSignedDownload = DocumentStorageService.createSignedDownloadUrl;
+  const originals = {
+    getProject: service.getProject,
+    getRawDocument: service.getRawDocument,
+    getRawVersion: service.getRawVersion,
+    assertDocumentAccess: service.assertDocumentAccess,
+    hydrateDocuments: service.hydrateDocuments,
+  };
+  const approvedDocument = {
+    id: 'document-approved',
+    project_id: 'project-1',
+    title: 'Approved MoM',
+    category: 'MOM',
+    status: 'APPROVED',
+    created_at: '2026-09-01T00:00:00.000Z',
+    updated_at: '2026-09-01T00:00:00.000Z',
+  };
+  const submittedDocument = {
+    id: 'document-submitted',
+    project_id: 'project-1',
+    title: 'Internal SA Evidence',
+    category: 'OTHER',
+    status: 'SUBMITTED',
+    created_at: '2026-09-02T00:00:00.000Z',
+    updated_at: '2026-09-02T00:00:00.000Z',
+  };
+  const documents = [approvedDocument, submittedDocument];
+  let signedDownloadCalls = 0;
+
+  try {
+    service.getProject = async () => ({
+      id: 'project-1',
+      name: 'Project 1',
+      customer: null,
+      sales_id: actors.salesOwner.userId,
+      pic_id: actors.assignedSa.userId,
+    });
+    service.getRawDocument = async (documentId: string) => {
+      const document = documents.find((entry) => entry.id === documentId);
+      if (!document) throw new DocumentServiceError('Document not found', 404);
+      return document;
+    };
+    service.getRawVersion = async () => ({
+      id: 'version-submitted',
+      document_id: submittedDocument.id,
+      storage_path: 'project-1/document-submitted/evidence.pdf',
+    });
+    service.assertDocumentAccess = async () => ({ id: 'project-1' });
+    service.hydrateDocuments = async (rows: Array<Record<string, unknown>>) => rows;
+    (DocumentStorageService as any).createSignedDownloadUrl = async () => {
+      signedDownloadCalls += 1;
+      return 'https://signed.example/temporary';
+    };
+    (supabaseAdmin as any).from = (table: string) => {
+      if (table !== 'documents') throw new Error(`Unexpected table: ${table}`);
+      const filters: Array<[string, unknown]> = [];
+      const inFilters: Array<[string, unknown[]]> = [];
+      const request: any = {
+        select: () => request,
+        order: () => request,
+        eq: (field: string, value: unknown) => {
+          filters.push([field, value]);
+          return request;
+        },
+        in: (field: string, values: unknown[]) => {
+          inFilters.push([field, values]);
+          return request;
+        },
+        ilike: () => request,
+        then: (resolve: (value: unknown) => unknown, reject?: (reason: unknown) => unknown) => {
+          const data = documents.filter((document) =>
+            filters.every(([field, value]) => document[field as keyof typeof document] === value) &&
+            inFilters.every(([field, values]) => values.includes(document[field as keyof typeof document]))
+          );
+          return Promise.resolve({ data, error: null }).then(resolve, reject);
+        },
+      };
+      return request;
+    };
+
+    const salesDocuments = await DocumentService.listDocuments({ projectId: 'project-1' }, actors.salesOwner);
+    assert(salesDocuments.length === 1 && salesDocuments[0].id === approvedDocument.id, 'Test 12c: SALES list must contain approved documents only');
+    const headSaDocuments = await DocumentService.listDocuments({ projectId: 'project-1' }, actors.headSa);
+    assert(headSaDocuments.length === 2, 'Test 12c: HEAD_SA retains access to approved and non-final documents');
+
+    const salesApprovedDocument = await DocumentService.getDocumentById(approvedDocument.id, actors.salesOwner);
+    assert(salesApprovedDocument.id === approvedDocument.id, 'Test 12c: SALES may fetch an approved document');
+    await expectAsyncDocumentError(
+      () => DocumentService.getDocumentById(submittedDocument.id, actors.salesOwner),
+      'Document not found',
+      404
+    );
+    await expectAsyncDocumentError(
+      () => DocumentService.getDownloadUrl('version-submitted', actors.salesOwner),
+      'Document not found',
+      404
+    );
+    assert(signedDownloadCalls === 0, 'Test 12c: SALES must be denied before a signed URL is created for a non-final document');
+
+    for (const actor of [actors.headSa, actors.superAdmin, actors.assignedSa]) {
+      const document = await DocumentService.getDocumentById(submittedDocument.id, actor);
+      assert(document.id === submittedDocument.id, `Test 12c: ${actor.role} retains access to non-final documents`);
+    }
+    const headSaDownload = await DocumentService.getDownloadUrl('version-submitted', actors.headSa);
+    assert(headSaDownload.url === 'https://signed.example/temporary' && signedDownloadCalls === 1, 'Test 12c: HEAD_SA retains signed download access to a non-final document');
+  } finally {
+    (supabaseAdmin as any).from = originalFrom;
+    (DocumentStorageService as any).createSignedDownloadUrl = originalSignedDownload;
+    service.getProject = originals.getProject;
+    service.getRawDocument = originals.getRawDocument;
+    service.getRawVersion = originals.getRawVersion;
+    service.assertDocumentAccess = originals.assertDocumentAccess;
+    service.hydrateDocuments = originals.hydrateDocuments;
+  }
+}
+
 async function verifyVersionDemotionCompareAndSet(): Promise<void> {
   const service = DocumentService as any;
   const originalFrom = supabaseAdmin.from;
@@ -624,6 +758,9 @@ async function run(): Promise<void> {
 
   await verifyRollbackCasMatchDetection();
   console.log('Test 12b - Rollback CAS verifies matched rows and preserves a newer concurrent version state: passed');
+
+  await verifySalesDocumentReadFinality();
+  console.log('Test 12c - SALES sees approved official documents only while internal non-final document access stays role-scoped: passed');
 
   await verifyVersionDemotionCompareAndSet();
   console.log('Test 12 - Concurrent document review cannot be overwritten during previous-version demotion: passed');

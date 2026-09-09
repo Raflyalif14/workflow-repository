@@ -68,6 +68,7 @@ export class GlobalSearchService {
       documentRequest = documentRequest.in('project_id', accessibleProjectIds);
       milestoneRequest = milestoneRequest.in('project_id', accessibleProjectIds);
     }
+    if (actor.role === 'SALES') documentRequest = documentRequest.eq('status', 'APPROVED');
 
     const [projectsResult, documentsResult, milestonesResult] = await Promise.all([
       projectRequest,

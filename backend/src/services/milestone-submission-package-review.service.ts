@@ -371,7 +371,6 @@ export class MilestoneSubmissionPackageReviewService {
   private static assertReadAccess(context: ReadMilestoneContext, actor: Actor): void {
     if (!context.project) throw new MilestoneSubmissionPackageReviewError('Milestone not found', 404);
     if (actor.role === 'SUPER_ADMIN' || actor.role === 'HEAD_SA') return;
-    if (actor.role === 'SALES' && context.project.sales_id === actor.userId) return;
     if (actor.role === 'SA' && context.pic_id === actor.userId) return;
     throw new MilestoneSubmissionPackageReviewError('Milestone not found', 404);
   }
