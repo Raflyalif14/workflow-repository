@@ -6,10 +6,8 @@ const assert = (condition: boolean, message: string): void => {
 };
 
 const scenarios = [
-  { id: 'legacy-assessment', name: 'Assessment', description: null, is_active: false, created_at: '2026-09-01T00:00:00.000Z', updated_at: '2026-09-01T00:00:00.000Z', workflow_stages: [{ count: 13 }] },
-  { id: 'operational-v2', name: 'Assessment Operational V2', description: null, is_active: true, created_at: '2026-09-02T00:00:00.000Z', updated_at: '2026-09-02T00:00:00.000Z', workflow_stages: [{ count: 8 }] },
-  { id: 'legacy-existing-tor', name: 'Existing TOR', description: null, is_active: false, created_at: '2026-09-03T00:00:00.000Z', updated_at: '2026-09-03T00:00:00.000Z', workflow_stages: [{ count: 11 }] },
-  { id: 'existing-tor-operational-v2', name: 'Existing TOR Operational V2', description: null, is_active: true, created_at: '2026-09-04T00:00:00.000Z', updated_at: '2026-09-04T00:00:00.000Z', workflow_stages: [{ count: 6 }] },
+  { id: 'operational-v2', name: 'Assessment', description: null, is_active: true, workflow_model: 'OPERATIONAL_V2', workflow_version: 2, created_at: '2026-09-02T00:00:00.000Z', updated_at: '2026-09-02T00:00:00.000Z', workflow_stages: [{ count: 8 }] },
+  { id: 'existing-tor-operational-v2', name: 'Existing TOR', description: null, is_active: true, workflow_model: 'OPERATIONAL_V2', workflow_version: 2, created_at: '2026-09-04T00:00:00.000Z', updated_at: '2026-09-04T00:00:00.000Z', workflow_stages: [{ count: 6 }] },
 ];
 
 class ScenarioQueryMock {
@@ -47,17 +45,14 @@ async function run(): Promise<void> {
     };
 
     const active = await ScenarioService.list({ is_active: 'true' });
-    assert(active.map((scenario: { id: string }) => scenario.id).join(',') === 'operational-v2,existing-tor-operational-v2', 'Test 1: active scenario selection must contain only the Assessment and Existing TOR Operational V2 templates');
-    console.log('Test 1 - Active scenario selection includes both Operational V2 templates and excludes both legacy templates: passed');
-
-    const legacyAssessment = await ScenarioService.get('legacy-assessment');
-    const legacyExistingTor = await ScenarioService.get('legacy-existing-tor');
+    assert(active.map((scenario: { id: string }) => scenario.id).join(',') === 'operational-v2,existing-tor-operational-v2', 'Test 1: active scenario selection must contain only the Operational V2 scenario UUIDs');
+    assert(active.map((scenario: { name: string }) => scenario.name).join(',') === 'Assessment,Existing TOR', 'Test 1: active scenario labels must be canonical and must not expose Operational V2');
     assert(
-      legacyAssessment.id === 'legacy-assessment' && legacyAssessment.is_active === false &&
-        legacyExistingTor.id === 'legacy-existing-tor' && legacyExistingTor.is_active === false,
-      'Test 2: inactive legacy scenarios must remain readable by persisted ID for existing-project compatibility'
+      scenarios.filter((scenario) => scenario.is_active).every((scenario) => scenario.workflow_model === 'OPERATIONAL_V2' && scenario.workflow_version === 2),
+      'Test 1: canonical labels must remain attached to active OPERATIONAL_V2 v2 scenario rows'
     );
-    console.log('Test 2 - Both inactive legacy scenarios remain readable by persisted ID: passed');
+    assert(scenarios.length === 2, 'Test 2: legacy scenario rows must not remain in the final scenario selection state');
+    console.log('Test 1-2 - Active selection retains the two Operational V2 UUIDs with canonical labels and no legacy rows: passed');
   } finally {
     (supabaseAdmin as any).from = originalFrom;
   }
