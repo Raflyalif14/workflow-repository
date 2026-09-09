@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { AuthService } from '../services/auth.service';
 import { sendSuccess, sendError } from '../utils/response.util';
 import { AuthenticatedRequest } from '../middlewares/auth.middleware';
+import { resetLoginRateLimit } from '../middlewares/auth-rate-limit.middleware';
 
 export class AuthController {
   static async register(req: Request, res: Response): Promise<void> {
@@ -14,8 +15,15 @@ export class AuthController {
   }
 
   static async login(req: Request, res: Response): Promise<void> {
-    try { sendSuccess(res, 'Login successful', await AuthService.login(req.body)); }
-    catch (error: any) { sendError(res, error.message || 'Authentication failed', null, 401); }
+    try {
+      const result = await AuthService.login(req.body);
+
+      resetLoginRateLimit(req);
+
+      sendSuccess(res, 'Login successful', result);
+    } catch (error: any) {
+      sendError(res, error.message || 'Authentication failed', null, 401);
+    }
   }
 
   static async forgotPassword(req: Request, res: Response): Promise<void> {
