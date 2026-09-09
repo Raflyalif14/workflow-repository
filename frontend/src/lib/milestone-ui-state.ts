@@ -67,6 +67,16 @@ export function getLatestSubmissionApproval(history: MilestoneSubmissionApproval
   return history[0] || null;
 }
 
+export function canViewCurrentRejectedSubmission(
+  packageStatus: string | null | undefined,
+  actor: { id?: string; role?: string } | null | undefined,
+  milestone: Pick<ProjectMilestonePhase4, "pic_id">
+) {
+  if (packageStatus !== "REJECTED" || !actor) return false;
+  if (actor.role === "SUPER_ADMIN" || actor.role === "HEAD_SA") return true;
+  return actor.role === "SA" && milestone.pic_id === actor.id;
+}
+
 function approvalMatchesEffectiveDeadline(
   milestone: Pick<ProjectMilestonePhase4, "start_date" | "duration_working_days" | "due_date">,
   approval?: MilestoneDeadlineApproval | null

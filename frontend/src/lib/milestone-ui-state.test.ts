@@ -4,6 +4,7 @@ import {
   getEffectiveDeadline,
   getLatestSubmissionApproval,
   getMilestoneDisplayStatus,
+  canViewCurrentRejectedSubmission,
 } from "./milestone-ui-state";
 import {
   MilestoneDeadlineApproval,
@@ -106,6 +107,27 @@ if (getMilestoneDisplayStatus({ ...completedMilestone, status: "REJECTED" }) !==
 
 if (getMilestoneDisplayStatus({ ...completedMilestone, status: "SUBMITTED" }) !== "SUBMITTED") {
   throw new Error("Submitted milestone badge must use milestone.status");
+}
+
+const assignedSa = { id: "sa-1", role: "SA" };
+if (!canViewCurrentRejectedSubmission("REJECTED", assignedSa, completedMilestone)) {
+  throw new Error("Assigned SA must see current rejected submission evidence");
+}
+const revisedMilestone = { ...completedMilestone, status: "IN_PROGRESS" };
+if (!canViewCurrentRejectedSubmission("REJECTED", assignedSa, revisedMilestone)) {
+  throw new Error("Rejected evidence visibility must survive Start Revision while the package remains current");
+}
+if (!canViewCurrentRejectedSubmission("REJECTED", { id: "head-sa", role: "HEAD_SA" }, completedMilestone)) {
+  throw new Error("HEAD_SA must see current rejected submission evidence");
+}
+if (!canViewCurrentRejectedSubmission("REJECTED", { id: "admin", role: "SUPER_ADMIN" }, completedMilestone)) {
+  throw new Error("SUPER_ADMIN must see current rejected submission evidence");
+}
+if (canViewCurrentRejectedSubmission("REJECTED", { id: "sales-1", role: "SALES" }, completedMilestone)) {
+  throw new Error("SALES must not see rejected submission evidence");
+}
+if (canViewCurrentRejectedSubmission("PENDING_REVIEW", assignedSa, completedMilestone)) {
+  throw new Error("A newer pending package must not expose prior rejected evidence before Step 3 history support");
 }
 
 const overdueTwoDays = getDeadlineHealthPresentation("OVERDUE", -2);

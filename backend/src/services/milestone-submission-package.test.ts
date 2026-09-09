@@ -20,6 +20,7 @@ type Scenario = {
   approvalFails?: boolean;
   milestoneTransitionFails?: boolean;
   cleanupFails?: boolean;
+  rejectedPackage?: boolean;
 };
 
 type State = {
@@ -27,6 +28,7 @@ type State = {
   milestone: { id: string; project_id: string; name: string; status: string; pic_id: string | null };
   project: { id: string; name: string; status: string; is_postponed: boolean };
   package: Record<string, any> | null;
+  historicalPackage: Record<string, any> | null;
   attachments: Array<Record<string, any>>;
   approvals: Array<Record<string, any>>;
   uploadedPaths: string[];
@@ -66,7 +68,18 @@ const makeState = (scenario: Scenario = {}): State => ({
     is_postponed: scenario.projectPostponed || false,
   },
   package: null,
-  attachments: [],
+  historicalPackage: scenario.rejectedPackage
+    ? { id: 'package-v1', milestone_id: 'milestone-1', status: 'REJECTED', attachment_count: 1 }
+    : null,
+  attachments: scenario.rejectedPackage
+    ? [{
+        id: 'attachment-v1',
+        package_id: 'package-v1',
+        file_name: 'rejected-evidence.pdf',
+        storage_path: 'milestone-submissions/project-1/milestone-1/package-v1/rejected-evidence.pdf',
+        status: 'REJECTED',
+      }]
+    : [],
   approvals: [],
   uploadedPaths: [],
   cleanupPaths: [],
@@ -415,6 +428,16 @@ async function run(): Promise<void> {
     assert(state.attachments.every((attachment) => attachment.status === 'CLEANUP_FAILED'), 'Test 14: failed storage cleanup must mark attachments for cleanup');
     assert(state.approvals.length === 0 && state.milestone.status === 'IN_PROGRESS', 'Test 14: failed storage cleanup must not leave approval or submitted milestone');
     console.log('Test 14 - Storage cleanup failure retains private cleanup metadata only: passed');
+  });
+
+  await withScenario({ rejectedPackage: true }, async (state) => {
+    const result = await MilestoneSubmissionPackageService.submit('milestone-1', saPic, [makeFile('revision-two.pdf')], 'Revision two');
+    assert(result.package.status === 'PENDING_REVIEW' && result.package.id !== state.historicalPackage?.id, 'Test 15: a new revision package must be created after rejection');
+    assert(state.historicalPackage?.status === 'REJECTED', 'Test 15: rejected v1 package must remain historical');
+    const retainedAttachment = state.attachments.find((attachment) => attachment.package_id === 'package-v1');
+    assert(retainedAttachment?.status === 'REJECTED' && retainedAttachment.storage_path.includes('package-v1'), 'Test 15: rejected v1 evidence must not be overwritten by v2 staging');
+    assert(state.attachments.some((attachment) => attachment.package_id === result.package.id && attachment.status === 'PENDING'), 'Test 15: v2 attachments must remain independently pending review');
+    console.log('Test 15 - Rejected package evidence remains intact while a new revision package is submitted: passed');
   });
 }
 

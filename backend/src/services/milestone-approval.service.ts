@@ -247,6 +247,36 @@ export class MilestoneApprovalService {
     };
   }
 
+  private static async reconcileRejectedMilestone(context: MilestoneApprovalContext, actor: Actor) {
+    if (actor.role !== 'HEAD_SA') throw new Error('Forbidden');
+    if (!context.milestone.project) throw new Error('Project not found');
+
+    await MilestoneSubmissionPackageReviewService.reconcileRejectedPackage(context.approval.id);
+
+    return {
+      milestone_id: context.milestone.id,
+      name: context.milestone.name,
+      status: context.milestone.status,
+      current_milestone: {
+        id: context.milestone.id,
+        name: context.milestone.name,
+        status: context.milestone.status,
+        completed_at: context.milestone.completed_at,
+      },
+      next_milestone: null,
+      project_completed: false,
+      approval: {
+        id: context.approval.id,
+        status: context.approval.status,
+        review_note: context.approval.review_note,
+        reviewed_by: {
+          id: context.approval.reviewed_by || actor.userId,
+          full_name: context.approval.reviewed_by === actor.userId ? actor.fullName : 'Head SA',
+        },
+      },
+    };
+  }
+
   private static async rollbackPackageReviewFinalization(
     context: MilestoneApprovalContext,
     review: ReturnType<typeof buildMilestoneApprovalReview>,
@@ -307,12 +337,11 @@ export class MilestoneApprovalService {
     let milestoneUpdatedAt: string | null = null;
     let updatedApproval: MilestoneApproval | null = null;
     let updatedMilestone: { id: string; project_id: string; name: string; step_order: number; status: string; completed_at: string | null } | null = null;
+    let rejectionWorkflowDurable = false;
 
     try {
       if (decision === 'APPROVED') {
         await MilestoneSubmissionPackageReviewService.promote(packageOperation);
-      } else {
-        await MilestoneSubmissionPackageReviewService.reject(packageOperation);
       }
 
       const { data, error: approvalError } = await supabaseAdmin
@@ -353,10 +382,19 @@ export class MilestoneApprovalService {
       }
       updatedMilestone = milestoneData;
       milestoneUpdatedAt = milestoneTransitionAt;
+
+      if (decision === 'REJECTED') {
+        rejectionWorkflowDurable = true;
+        await MilestoneSubmissionPackageReviewService.reject(packageOperation);
+      }
     } catch (error) {
-      await this.rollbackPackageReviewFinalization(context, review, approvalUpdated, milestoneUpdatedAt, actor);
-      if (decision === 'APPROVED') {
-        await MilestoneSubmissionPackageReviewService.rollbackPromotion(packageOperation);
+      if (!(decision === 'REJECTED' && rejectionWorkflowDurable)) {
+        await this.rollbackPackageReviewFinalization(context, review, approvalUpdated, milestoneUpdatedAt, actor);
+        if (decision === 'APPROVED') {
+          await MilestoneSubmissionPackageReviewService.rollbackPromotion(packageOperation);
+        } else {
+          await MilestoneSubmissionPackageReviewService.restoreRejectedClaim(packageOperation);
+        }
       }
 
       if (error instanceof MilestoneSubmissionPackageReviewError) throw error;
@@ -415,6 +453,12 @@ export class MilestoneApprovalService {
     const context = await this.getApprovalContext(approvalId);
     if (decision === 'APPROVED' && context.approval.status === 'APPROVED' && context.milestone.status === 'COMPLETED') {
       return this.reconcileApprovedMilestone(context, actor);
+    }
+    if (decision === 'REJECTED' && context.approval.status === 'REJECTED' && context.milestone.status === 'REJECTED') {
+      return this.reconcileRejectedMilestone(context, actor);
+    }
+    if (context.approval.status === 'PENDING' && context.milestone.status === 'SUBMITTED') {
+      await MilestoneSubmissionPackageReviewService.recoverUndurableRejectedClaim(context.approval.id);
     }
     const review = buildMilestoneApprovalReview(
       context.approval.status,

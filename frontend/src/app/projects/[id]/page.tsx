@@ -45,6 +45,7 @@ import { Dialog, DialogDescription, DialogFooter, DialogHeader, DialogTitle } fr
 import { Input } from "@/components/ui/input";
 import {
   DeadlineHealthPresentation,
+  canViewCurrentRejectedSubmission,
   getDeadlineHealthPresentation,
   getEffectiveDeadline,
   getLatestSubmissionApproval,
@@ -86,6 +87,7 @@ import {
   useSaveMilestoneDeadline,
   useStartMilestone,
   useStartMilestoneRevision,
+  useSubmissionPackage,
 } from "@/hooks/use-milestone-workflow";
 import {
   DeadlineApprovalStatus,
@@ -898,8 +900,11 @@ function MilestoneRow({
   const hasPic = Boolean(milestone.pic_id || milestone.pic?.id);
   const isSalesOwner = user?.role === "SALES" && project.sales_id === user.id;
   const isHeadSa = user?.role === "HEAD_SA";
+  const isSuperAdmin = user?.role === "SUPER_ADMIN";
   const isAssignedPic =
     (user?.role === "SA" || user?.role === "HEAD_SA") && milestone.pic_id === user.id;
+  const canReadCurrentSubmissionPackage = isHeadSa || isSuperAdmin || isAssignedPic;
+  const submissionPackageQuery = useSubmissionPackage(milestone.id, canReadCurrentSubmissionPackage);
   const projectIsActive = project.status === "ACTIVE" && !project.is_postponed;
   const isAssignPic = milestone.name.trim().toLowerCase() === "assign pic";
   const isCompleted = isMilestoneCompleted(milestone);
@@ -932,6 +937,11 @@ function MilestoneRow({
   const canSubmit = projectIsActive && stageRole === "SA" && isAssignedPic && milestoneStatus === "IN_PROGRESS";
   const canRevise = projectIsActive && stageRole === "SA" && isAssignedPic && milestoneStatus === "REJECTED";
   const canReviewSubmission = projectIsActive && isHeadSa && milestoneStatus === "SUBMITTED" && hasPendingSubmission;
+  const canViewRejectedSubmission = canViewCurrentRejectedSubmission(
+    submissionPackageQuery.data?.status,
+    user,
+    milestone
+  );
   const canReviewDeadline = projectIsActive && isHeadSa && hasPendingDeadline;
   const canRequestDeadlineChange =
     projectIsActive &&
@@ -1092,6 +1102,17 @@ function MilestoneRow({
               <span>Review Submission</span>
             </Button>
           )}
+          {canViewRejectedSubmission && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-8 gap-1.5 border-destructive/30 text-xs text-destructive hover:bg-destructive/10"
+              onClick={() => setSubmissionReviewOpen(true)}
+            >
+              <FileText className="h-3.5 w-3.5" />
+              <span>View Rejected Submission</span>
+            </Button>
+          )}
         </div>
       </div>
 
@@ -1211,6 +1232,7 @@ function MilestoneRow({
         projectName={project.name}
         approvalId={submissionApproval?.id}
         submissionNote={submissionApproval?.submission_note}
+        readOnly={submissionPackageQuery.data?.status === "REJECTED"}
       />
     </div>
   );

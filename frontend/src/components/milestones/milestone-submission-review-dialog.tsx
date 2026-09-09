@@ -55,6 +55,7 @@ export interface MilestoneSubmissionReviewDialogProps {
   projectName?: string;
   approvalId?: string | undefined;
   submissionNote?: string | null;
+  readOnly?: boolean;
 }
 
 export function MilestoneSubmissionReviewDialog({
@@ -66,6 +67,7 @@ export function MilestoneSubmissionReviewDialog({
   projectName,
   approvalId,
   submissionNote,
+  readOnly = false,
 }: MilestoneSubmissionReviewDialogProps) {
   const packageQuery = useSubmissionPackage(milestoneId, open);
   const downloadMutation = useDownloadSubmissionAttachment(milestoneId);
@@ -78,7 +80,7 @@ export function MilestoneSubmissionReviewDialog({
       apiClient<MilestoneSubmissionApproval[]>(
         `/milestones/${milestoneId}/approval-history`
       ),
-    enabled: open && (!approvalId || submissionNote === undefined),
+    enabled: open && !readOnly && (!approvalId || submissionNote === undefined),
     staleTime: 0,
   });
 
@@ -92,7 +94,10 @@ export function MilestoneSubmissionReviewDialog({
   const packageLoadFailed = packageQuery.isError;
   const isLegacy = packageQuery.isSuccess && pkg === null;
   const attachments: MilestoneSubmissionAttachment[] = pkg?.attachments ?? [];
-  const pendingAttachments = attachments.filter((a) => a.status === "PENDING");
+  const isRejectedPackage = pkg?.status === "REJECTED";
+  const visibleAttachments = attachments.filter(
+    (attachment) => attachment.status === (isRejectedPackage ? "REJECTED" : "PENDING")
+  );
   const isPending = reviewMutation.isPending;
 
   const pendingApproval = historyQuery.data?.find((a) => a.status === "PENDING");
@@ -176,10 +181,10 @@ export function MilestoneSubmissionReviewDialog({
           </span>
           <div className="min-w-0 space-y-1">
             <DialogTitle className="text-base font-semibold tracking-tight">
-              Review Milestone Submission
+              {readOnly ? "Rejected Submission" : "Review Milestone Submission"}
             </DialogTitle>
             <DialogDescription className="mt-0 text-xs leading-relaxed">
-              Review submitted work for{" "}
+              {readOnly ? "View retained evidence for" : "Review submitted work for"}{" "}
               <span className="font-semibold text-foreground">
                 {milestoneName}
               </span>
@@ -214,12 +219,12 @@ export function MilestoneSubmissionReviewDialog({
           <div className="mb-3 flex items-center gap-2">
             <Package className="h-4 w-4 text-primary" />
             <span className="text-xs font-semibold text-foreground">
-              Submission Attachments
+              {isRejectedPackage ? "Rejected Submission Attachments" : "Submission Attachments"}
             </span>
-            {pendingAttachments.length > 0 && (
-              <Badge variant="outline" className="text-[10px]">
-                {pendingAttachments.length} file
-                {pendingAttachments.length !== 1 ? "s" : ""}
+            {visibleAttachments.length > 0 && (
+              <Badge variant={isRejectedPackage ? "destructive" : "outline"} className="text-[10px]">
+                {visibleAttachments.length} file
+                {visibleAttachments.length !== 1 ? "s" : ""}
               </Badge>
             )}
           </div>
@@ -241,17 +246,19 @@ export function MilestoneSubmissionReviewDialog({
             <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-300 flex items-center gap-2">
               <FileText className="h-4 w-4 shrink-0" />
               <span>
-                Legacy submission - no attachment package. You can still approve
-                or reject this submission.
+                Legacy submission - no attachment package.
+                {!readOnly && " You can still approve or reject this submission."}
               </span>
             </div>
-          ) : pendingAttachments.length === 0 ? (
+          ) : visibleAttachments.length === 0 ? (
             <p className="py-4 text-center text-xs text-muted-foreground">
-              No pending attachments found in this package.
+              {isRejectedPackage
+                ? "No retained rejected attachments found in this package."
+                : "No pending attachments found in this package."}
             </p>
           ) : (
             <div className="space-y-2">
-              {pendingAttachments.map((attachment) => (
+              {visibleAttachments.map((attachment) => (
                 <div
                   key={attachment.id}
                   className="flex items-center gap-3 rounded-lg border border-border/40 bg-card/70 p-2.5 text-xs transition-colors hover:border-primary/25"
@@ -316,8 +323,8 @@ export function MilestoneSubmissionReviewDialog({
           </div>
         )}
 
-        {/* Decision Form */}
-        <form onSubmit={handleSubmit} className="space-y-3">
+        {!readOnly && (
+          <form onSubmit={handleSubmit} className="space-y-3">
           <div className="flex flex-col gap-2 rounded-xl border border-border/40 bg-muted/10 p-1.5 sm:flex-row">
             <Button
               type="button"
@@ -407,7 +414,8 @@ export function MilestoneSubmissionReviewDialog({
                 : `Confirm ${action === "APPROVE" ? "Approval" : "Rejection"}`}
             </Button>
           </DialogFooter>
-        </form>
+          </form>
+        )}
       </div>
     </Dialog>
   );

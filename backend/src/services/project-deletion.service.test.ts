@@ -26,6 +26,7 @@ async function main() {
   assert(service.includes("rows('milestone_contributions'") && service.includes("storageRows('milestone_contribution_attachments'") && service.includes('...contributionAttachments'), 'Test 9: deletion preview counts contribution metadata and exact storage paths');
   assert(collaborationMigration.includes('select a.storage_path as path') && collaborationMigration.includes('delete from public.milestone_contribution_attachments') && collaborationMigration.includes('delete from public.milestone_contributions'), 'Test 10: Phase 11L RPC replacement collects exact contribution paths and deletes both child tables');
   assert(collaborationMigration.includes('select dv.storage_path as path') && collaborationMigration.includes('select a.storage_path as path') && collaborationMigration.includes('from public.milestone_contribution_attachments a'), 'Test 11: deletion RPC collects both official document-version and contribution source storage paths');
+  assert(collaborationMigration.includes('from public.milestone_submission_attachments a') && collaborationMigration.includes('join public.milestone_submission_packages sp on sp.id = a.package_id') && !collaborationMigration.includes("a.status = 'PENDING'"), 'Test 12: deletion RPC collects every submission attachment path, including retained rejected evidence');
   console.log('Project deletion safety tests passed.');
 }
 

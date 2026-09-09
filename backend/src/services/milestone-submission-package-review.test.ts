@@ -1,4 +1,6 @@
 import { supabaseAdmin } from '../config/supabase';
+import { readFileSync } from 'fs';
+import { join } from 'path';
 import { DocumentStorageService } from '../utils/storage.util';
 import {
   MilestoneSubmissionPackageReviewError,
@@ -14,7 +16,9 @@ type Scenario = {
   attachmentCount?: number;
   promotionFailsAt?: number;
   packageClaimFails?: boolean;
-  cleanupFailsAt?: number;
+  rejectionClaimRestoreFails?: number;
+  rejectionFinalizationFails?: number;
+  activityLogFails?: boolean;
   packageStatus?: string;
   noPackage?: boolean;
   milestoneFinalizationFails?: boolean;
@@ -30,6 +34,8 @@ type State = {
   approvals: Array<Record<string, any>>;
   storageDeleted: string[];
   tablesTouched: string[];
+  remainingRejectedClaimRestoreFailures: number;
+  remainingRejectionFinalizationFailures: number;
   project: { id: string; name: string; sales_id: string; pic_id?: string | null; status: string; is_postponed: boolean };
   milestone: { id: string; project_id: string; name: string; step_order: number; status: string; pic_id: string | null; completed_at: string | null; workflow_stage?: any };
   extraMilestones?: Array<Record<string, any>>;
@@ -57,6 +63,7 @@ const makeState = (scenario: Scenario = {}): State => {
       attachment_count: attachmentCount,
       cleanup_status: 'NOT_REQUIRED',
       created_at: '2026-09-04T00:00:00.000Z',
+      updated_at: '2026-09-04T00:00:00.000Z',
     },
     attachments: Array.from({ length: attachmentCount }, (_, index) => ({
       id: `attachment-${index + 1}`,
@@ -84,6 +91,8 @@ const makeState = (scenario: Scenario = {}): State => {
     }],
     storageDeleted: [],
     tablesTouched: [],
+    remainingRejectedClaimRestoreFailures: scenario.rejectionClaimRestoreFails || 0,
+    remainingRejectionFinalizationFailures: scenario.rejectionFinalizationFails || 0,
     project: { id: 'project-1', name: 'Project 1', sales_id: salesOwner.userId, pic_id: assignedSa.userId, status: 'ACTIVE', is_postponed: false },
     milestone: {
       id: 'milestone-1',
@@ -147,7 +156,11 @@ class QueryMock {
     if (this.table === 'project_milestones') return this.milestones();
     if (this.table === 'milestone_approvals') return this.approvals();
     if (this.table === 'projects') return this.projects();
-    if (this.table === 'activity_logs') return { data: null, error: null };
+    if (this.table === 'activity_logs') {
+      return this.state.scenario.activityLogFails
+        ? { data: null, error: { code: 'XX001' } }
+        : { data: null, error: null };
+    }
     if (this.table === 'notifications') return { data: { id: 'notif-1' }, error: null };
     if (this.table === 'users') {
       const users = [
@@ -183,6 +196,18 @@ class QueryMock {
     if (expectedStatus && this.state.package.status !== expectedStatus) return { data: null, error: null };
     if (this.value('milestone_approval_id') !== this.state.package.milestone_approval_id) return { data: null, error: null };
     if (this.payload.status === 'PROMOTING' && this.state.scenario.packageClaimFails) return { data: null, error: null };
+    if (
+      this.payload.status === 'PENDING_REVIEW' &&
+      expectedStatus === 'REJECTING' &&
+      this.state.remainingRejectedClaimRestoreFailures > 0
+    ) {
+      this.state.remainingRejectedClaimRestoreFailures -= 1;
+      return { data: null, error: { code: 'XX001' } };
+    }
+    if (this.payload.status === 'REJECTED' && this.state.remainingRejectionFinalizationFailures > 0) {
+      this.state.remainingRejectionFinalizationFailures -= 1;
+      return { data: null, error: { code: 'XX001' } };
+    }
     this.state.package = { ...this.state.package, ...this.payload };
     return { data: { ...this.state.package }, error: null };
   }
@@ -294,8 +319,6 @@ async function withScenario<T>(scenario: Scenario, action: (state: State) => Pro
     (supabaseAdmin as any).from = (table: string) => new QueryMock(state, table);
     (DocumentStorageService as any).remove = async (storagePath: string) => {
       state.storageDeleted.push(storagePath);
-      const index = state.storageDeleted.length;
-      if (state.scenario.cleanupFailsAt === index) throw new Error('simulated cleanup failure');
     };
     return await action(state);
   } finally {
@@ -354,27 +377,36 @@ async function run(): Promise<void> {
   await withScenario({}, async (state) => {
     const operation = await MilestoneSubmissionPackageReviewService.beginReview('approval-1', 'REJECTED');
     await MilestoneSubmissionPackageReviewService.reject(operation!);
-    assert(state.storageDeleted.length === 1, 'Test 4: rejection must delete each pending storage object');
-    assert(state.attachments.length === 0, 'Test 4: successful cleanup must delete attachment metadata');
-    assert(state.package?.status === 'REJECTED' && state.package.cleanup_status === 'COMPLETED', 'Test 4: rejection must retain rejected package history with completed cleanup');
+    assert(state.storageDeleted.length === 0, 'Test 4: rejection must retain private storage objects');
+    assert(state.attachments.length === 1 && state.attachments[0].status === 'REJECTED', 'Test 4: rejection must retain attachment metadata as rejected evidence');
+    assert(state.package?.status === 'REJECTED' && state.package.cleanup_status === 'NOT_REQUIRED', 'Test 4: rejection must retain package history without cleanup');
     assert(state.documents.length === 0, 'Test 4: rejected files must never create official documents');
-    console.log('Test 4 - Rejection cleans storage and attachment metadata while retaining package history: passed');
+    console.log('Test 4 - Rejection retains private storage and attachment metadata as historical evidence: passed');
   });
 
-  await withScenario({ attachmentCount: 2, cleanupFailsAt: 2 }, async (state) => {
+  await withScenario({}, async (state) => {
     const operation = await MilestoneSubmissionPackageReviewService.beginReview('approval-1', 'REJECTED');
     await MilestoneSubmissionPackageReviewService.reject(operation!);
-    assert(state.package?.status === 'REJECTED' && state.package.cleanup_status === 'FAILED', 'Test 5: storage cleanup failure must preserve rejected audit package with failed cleanup');
-    assert(state.attachments.length === 1 && state.attachments[0].status === 'CLEANUP_FAILED', 'Test 5: failed storage deletion must retain only retry metadata');
-    assert(state.documents.length === 0, 'Test 5: cleanup failure must not promote documents');
-    console.log('Test 5 - Rejection cleanup failure remains rejected with private retry metadata only: passed');
+    const headSaResult = await MilestoneSubmissionPackageReviewService.getCurrentPackage('milestone-1', headSa);
+    assert(headSaResult?.status === 'REJECTED' && headSaResult.attachments[0]?.status === 'REJECTED', 'Test 5: HEAD_SA may read retained rejected attachment metadata');
+    const assignedResult = await MilestoneSubmissionPackageReviewService.getCurrentPackage('milestone-1', assignedSa);
+    assert(assignedResult?.attachments.length === 1, 'Test 5: assigned PIC may read retained rejected attachment metadata');
+    const adminResult = await MilestoneSubmissionPackageReviewService.getCurrentPackage('milestone-1', superAdmin);
+    assert(adminResult?.attachments.length === 1, 'Test 5: SUPER_ADMIN may read retained rejected attachment metadata');
+    await expectReviewError(
+      () => MilestoneSubmissionPackageReviewService.getCurrentPackage('milestone-1', salesOwner),
+      'Milestone not found',
+      404
+    );
+    console.log('Test 5 - Rejected attachment metadata remains readable only to reviewers and the assigned PIC: passed');
   });
 
   await withScenario({}, async (state) => {
     const result = await MilestoneApprovalService.rejectMilestoneApproval('approval-1', { note: 'Please revise.' }, headSa);
     assert(result.status === 'REJECTED' && state.milestone.status === 'REJECTED', 'Test 5b: package-backed rejection must finalize the existing milestone review');
     assert(state.approvals[0].status === 'REJECTED' && state.package?.status === 'REJECTED', 'Test 5b: package-backed rejection must finalize approval and package');
-    assert(state.storageDeleted.length === 1 && state.attachments.length === 0, 'Test 5b: package-backed rejection must clean pending files and metadata');
+    assert(state.storageDeleted.length === 0 && state.attachments.every((attachment) => attachment.status === 'REJECTED'), 'Test 5b: package-backed rejection must retain rejected files and metadata');
+    assert(state.approvals[0].review_note === 'Please revise.', 'Test 5b: rejection note must remain visible with retained evidence');
     assert(state.documents.length === 0, 'Test 5b: package-backed rejection must never create documents');
     console.log('Test 5b - Package-backed rejection completes the existing milestone rejection flow: passed');
   });
@@ -437,6 +469,35 @@ async function run(): Promise<void> {
     console.log('Test 8 - Pending attachment signed download is authorized and server-path-derived: passed');
   });
 
+  await withScenario({}, async (state) => {
+    const operation = await MilestoneSubmissionPackageReviewService.beginReview('approval-1', 'REJECTED');
+    await MilestoneSubmissionPackageReviewService.reject(operation!);
+    const originalSignedUrl = DocumentStorageService.createSignedDownloadUrl;
+    try {
+      (DocumentStorageService as any).createSignedDownloadUrl = async () => 'https://signed.example/rejected';
+      const headSaDownload = await MilestoneSubmissionPackageReviewService.getPendingAttachmentDownloadUrl('milestone-1', 'attachment-1', headSa);
+      const assignedDownload = await MilestoneSubmissionPackageReviewService.getPendingAttachmentDownloadUrl('milestone-1', 'attachment-1', assignedSa);
+      const adminDownload = await MilestoneSubmissionPackageReviewService.getPendingAttachmentDownloadUrl('milestone-1', 'attachment-1', superAdmin);
+      assert(headSaDownload.url === 'https://signed.example/rejected', 'Test 8b: HEAD_SA may download retained rejected evidence');
+      assert(assignedDownload.url === 'https://signed.example/rejected', 'Test 8b: assigned PIC may download retained rejected evidence');
+      assert(adminDownload.url === 'https://signed.example/rejected', 'Test 8b: SUPER_ADMIN may download retained rejected evidence');
+      await expectReviewError(
+        () => MilestoneSubmissionPackageReviewService.getPendingAttachmentDownloadUrl('milestone-1', 'attachment-1', salesOwner),
+        'Milestone not found',
+        404
+      );
+      await expectReviewError(
+        () => MilestoneSubmissionPackageReviewService.getPendingAttachmentDownloadUrl('milestone-1', 'attachment-1', otherSa),
+        'Milestone not found',
+        404
+      );
+    } finally {
+      (DocumentStorageService as any).createSignedDownloadUrl = originalSignedUrl;
+    }
+    assert(state.storageDeleted.length === 0, 'Test 8b: rejected evidence download must not trigger storage cleanup');
+    console.log('Test 8b - Retained rejected evidence uses the same role-scoped signed download path: passed');
+  });
+
   await withScenario({ milestoneFinalizationFails: true }, async (state) => {
     await expectReviewError(
       () => MilestoneApprovalService.approveMilestoneApproval('approval-1', {}, headSa),
@@ -449,6 +510,60 @@ async function run(): Promise<void> {
     assert(state.attachments.every((attachment) => attachment.status === 'PENDING' && !attachment.promoted_document_id), 'Test 9: failed milestone finalization must restore attachment metadata');
     assert(state.package?.status === 'PENDING_REVIEW', 'Test 9: failed milestone finalization must restore the package review state');
     console.log('Test 9 - Milestone finalization failure compensates promoted documents and package state: passed');
+  });
+
+  await withScenario({ milestoneFinalizationFails: true }, async (state) => {
+    await expectReviewError(
+      () => MilestoneApprovalService.rejectMilestoneApproval('approval-1', { note: 'Please revise.' }, headSa),
+      'Only a SUBMITTED milestone can be reviewed.',
+      409
+    );
+    assert(state.approvals[0].status === 'PENDING' && state.milestone.status === 'SUBMITTED', 'Test 9b: failed rejection must restore approval and milestone to retryable workflow state');
+    assert(state.package?.status === 'PENDING_REVIEW', 'Test 9b: failed rejection must restore the package claim');
+    assert(state.attachments.every((attachment) => attachment.status === 'PENDING'), 'Test 9b: failed rejection must not mark attachments rejected');
+    assert(state.storageDeleted.length === 0, 'Test 9b: failed rejection must not delete retained evidence');
+    console.log('Test 9b - Rejection finalizes retained evidence only after durable workflow rejection: passed');
+  });
+
+  await withScenario({ milestoneFinalizationFails: true, rejectionClaimRestoreFails: 1 }, async (state) => {
+    await expectReviewError(
+      () => MilestoneApprovalService.rejectMilestoneApproval('approval-1', { note: 'Please revise.' }, headSa),
+      'Only a SUBMITTED milestone can be reviewed.',
+      409
+    );
+    assert(state.package?.status === 'REJECTING', 'Test 9c: a failed rollback can leave the package rejection claim pending recovery');
+    assert(state.approvals.length === 1 && state.approvals[0].status === 'PENDING' && state.milestone.status === 'SUBMITTED', 'Test 9c: the pre-durable workflow state must remain retryable');
+    assert(state.attachments.every((attachment) => attachment.status === 'PENDING') && state.storageDeleted.length === 0, 'Test 9c: recovery must retain pending attachments and storage');
+
+    state.scenario.milestoneFinalizationFails = false;
+    state.package!.updated_at = '2000-01-01T00:00:00.000Z';
+    const retry = await MilestoneApprovalService.rejectMilestoneApproval('approval-1', { note: 'Please revise.' }, headSa);
+    assert(retry.status === 'REJECTED' && state.package?.status === 'REJECTED', 'Test 9c: stale non-durable rejection claims must recover into a successful retry');
+    assert(state.approvals.length === 1 && state.approvals[0].status === 'REJECTED' && state.milestone.status === 'REJECTED', 'Test 9c: recovery must not create duplicate approval or review state');
+    assert(state.attachments.every((attachment) => attachment.status === 'REJECTED') && state.storageDeleted.length === 0, 'Test 9c: successful retry must retain rejected evidence');
+    console.log('Test 9c - Stale pre-durable REJECTING claim is recovered safely for retry: passed');
+  });
+
+  await withScenario({ rejectionFinalizationFails: 1 }, async (state) => {
+    await expectReviewError(
+      () => MilestoneApprovalService.rejectMilestoneApproval('approval-1', { note: 'Please revise.' }, headSa),
+      'Failed to finalize milestone submission rejection.',
+      500
+    );
+    assert(state.approvals[0].status === 'REJECTED' && state.milestone.status === 'REJECTED', 'Test 9d: durable workflow rejection must not be rolled back when package finalization fails');
+    assert(state.package?.status === 'REJECTING' && state.attachments.every((attachment) => attachment.status === 'REJECTED'), 'Test 9d: retained evidence waits safely for reconciliation');
+    const retry = await MilestoneApprovalService.rejectMilestoneApproval('approval-1', { note: 'ignored on reconciliation' }, headSa);
+    assert(retry.status === 'REJECTED' && state.package?.status === 'REJECTED', 'Test 9d: retry must finalize an already durable rejection');
+    assert(state.attachments.every((attachment) => attachment.status === 'REJECTED'), 'Test 9d: retry must not rewrite retained evidence');
+    assert(state.documents.length === 0 && state.storageDeleted.length === 0, 'Test 9d: retry must not promote or delete rejected evidence');
+    console.log('Test 9d - Durable rejection retry reconciles package finalization without duplicate workflow actions: passed');
+  });
+
+  await withScenario({ activityLogFails: true }, async (state) => {
+    const result = await MilestoneApprovalService.rejectMilestoneApproval('approval-1', { note: 'Please revise.' }, headSa);
+    assert(result.status === 'REJECTED' && state.milestone.status === 'REJECTED', 'Test 9e: activity logging failure must not report a durable rejection as failed');
+    assert(state.package?.status === 'REJECTED' && state.attachments.every((attachment) => attachment.status === 'REJECTED'), 'Test 9e: activity logging failure must preserve retained rejection evidence');
+    console.log('Test 9e - Activity log failure remains best-effort after durable rejection: passed');
   });
 
   await withScenario({ noPackage: true }, async (state) => {
@@ -544,6 +659,11 @@ async function run(): Promise<void> {
     assert(dupResult.project_completed === true, 'Test 13: duplicate call returns project_completed true');
     console.log('Test 13 - HEAD_SA final milestone recovery reconciles project completion and is safe when already COMPLETED: passed');
   });
+
+  const migrationSource = readFileSync(join(__dirname, '../../supabase/phase11n-retain-rejected-submission-attachments.sql'), 'utf8');
+  assert(migrationSource.includes("'REJECTED'"), 'Test 14: retention migration must allow rejected submission attachment status');
+  assert(migrationSource.includes("'CLEANUP_FAILED'"), 'Test 14: retention migration must preserve existing cleanup statuses');
+  console.log('Test 14 - Rejected submission attachment migration is additive and preserves existing statuses: passed');
 }
 
 run().catch((error) => {

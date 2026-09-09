@@ -17,6 +17,7 @@ type SubmissionPackage = {
   attachment_count: number;
   cleanup_status: string;
   created_at: string;
+  updated_at: string;
 };
 
 type SubmissionAttachment = {
@@ -53,9 +54,10 @@ export type SubmissionPackageReviewOperation = {
   rolledBack: boolean;
 };
 
-const packageFields = 'id,project_id,milestone_id,milestone_approval_id,submitted_by,status,attachment_count,cleanup_status,created_at';
+const packageFields = 'id,project_id,milestone_id,submitted_by,status,attachment_count,cleanup_status,created_at,updated_at';
 const attachmentFields = 'id,package_id,file_name,storage_path,file_size,mime_type,uploaded_by,status,promoted_document_id';
 const nowIso = () => new Date().toISOString();
+const REJECTING_RECOVERY_MIN_AGE_MS = 30_000;
 
 const normalizeRelatedOne = <T>(value: T | T[] | null): T | null =>
   Array.isArray(value) ? value[0] || null : value || null;
@@ -126,6 +128,48 @@ export class MilestoneSubmissionPackageReviewService {
         packageId: operation.package.id,
       });
     }
+  }
+
+  static async restoreRejectedClaim(operation: SubmissionPackageReviewOperation): Promise<void> {
+    if (operation.decision !== 'REJECTED' || operation.packageFinalized) return;
+    await this.restoreClaim(operation);
+  }
+
+  static async recoverUndurableRejectedClaim(approvalId: string): Promise<void> {
+    const packageRow = await this.getLinkedPackage(approvalId);
+    if (!packageRow || packageRow.status !== 'REJECTING') return;
+
+    const claimedAt = Date.parse(packageRow.updated_at);
+    if (!Number.isFinite(claimedAt) || Date.now() - claimedAt < REJECTING_RECOVERY_MIN_AGE_MS) {
+      throw new MilestoneSubmissionPackageReviewError('Milestone submission rejection is still being processed.', 409);
+    }
+
+    const { data: attachments, error: attachmentError } = await supabaseAdmin
+      .from('milestone_submission_attachments')
+      .select(attachmentFields)
+      .eq('package_id', packageRow.id)
+      .order('created_at', { ascending: true });
+    if (attachmentError) throw new MilestoneSubmissionPackageReviewError('Failed to retrieve milestone submission attachments.', 500);
+
+    const pendingAttachments = (attachments || []) as SubmissionAttachment[];
+    if (
+      pendingAttachments.length !== packageRow.attachment_count ||
+      !pendingAttachments.length ||
+      !pendingAttachments.every((attachment) => attachment.status === 'PENDING')
+    ) {
+      throw new MilestoneSubmissionPackageReviewError('Milestone submission package is not recoverable for review.', 409);
+    }
+
+    const { data, error } = await supabaseAdmin
+      .from('milestone_submission_packages')
+      .update({ status: 'PENDING_REVIEW', updated_at: nowIso() })
+      .eq('id', packageRow.id)
+      .eq('milestone_approval_id', approvalId)
+      .eq('status', 'REJECTING')
+      .select('id')
+      .maybeSingle();
+    if (error) throw new MilestoneSubmissionPackageReviewError('Failed to recover milestone submission rejection.', 500);
+    if (!data) throw new MilestoneSubmissionPackageReviewError('Milestone submission rejection is no longer recoverable.', 409);
   }
 
   static async beginReview(
@@ -285,37 +329,24 @@ export class MilestoneSubmissionPackageReviewService {
     }
   }
 
-  private static async deleteCleanedAttachments(operation: SubmissionPackageReviewOperation, attachmentIds: string[]): Promise<boolean> {
-    if (!attachmentIds.length) return true;
+  private static async markRejectedAttachments(operation: SubmissionPackageReviewOperation): Promise<void> {
     const { data, error } = await supabaseAdmin
       .from('milestone_submission_attachments')
-      .delete()
+      .update({ status: 'REJECTED', updated_at: nowIso() })
       .eq('package_id', operation.package.id)
       .eq('status', 'PENDING')
-      .in('id', attachmentIds)
+      .in('id', operation.attachments.map((attachment) => attachment.id))
       .select('id');
-    return !error && (data || []).length === attachmentIds.length;
+    if (error) throw new MilestoneSubmissionPackageReviewError('Failed to retain rejected milestone submission attachments.', 500);
+    if ((data || []).length !== operation.attachments.length) {
+      throw new MilestoneSubmissionPackageReviewError('Milestone submission attachments are no longer pending.', 409);
+    }
   }
 
-  private static async markFailedAttachments(operation: SubmissionPackageReviewOperation, attachmentIds: string[]): Promise<boolean> {
-    if (!attachmentIds.length) return true;
-    const { data, error } = await supabaseAdmin
-      .from('milestone_submission_attachments')
-      .update({ status: 'CLEANUP_FAILED', updated_at: nowIso() })
-      .eq('package_id', operation.package.id)
-      .eq('status', 'PENDING')
-      .in('id', attachmentIds)
-      .select('id');
-    return !error && (data || []).length === attachmentIds.length;
-  }
-
-  private static async completeRejection(
-    operation: SubmissionPackageReviewOperation,
-    cleanupStatus: 'COMPLETED' | 'FAILED'
-  ): Promise<void> {
+  private static async completeRejection(operation: SubmissionPackageReviewOperation): Promise<void> {
     const { data, error } = await supabaseAdmin
       .from('milestone_submission_packages')
-      .update({ status: 'REJECTED', cleanup_status: cleanupStatus, updated_at: nowIso() })
+      .update({ status: 'REJECTED', cleanup_status: 'NOT_REQUIRED', updated_at: nowIso() })
       .eq('id', operation.package.id)
       .eq('milestone_approval_id', operation.approvalId)
       .eq('status', 'REJECTING')
@@ -329,28 +360,45 @@ export class MilestoneSubmissionPackageReviewService {
 
   static async reject(operation: SubmissionPackageReviewOperation): Promise<void> {
     if (operation.decision !== 'REJECTED') throw new MilestoneSubmissionPackageReviewError('Invalid package review action.', 500);
+    await this.markRejectedAttachments(operation);
+    await this.completeRejection(operation);
+  }
 
-    const results = await Promise.allSettled(
-      operation.attachments.map((attachment) => DocumentStorageService.remove(attachment.storage_path))
-    );
-    const deletedAttachmentIds: string[] = [];
-    const failedAttachmentIds: string[] = [];
-    results.forEach((result, index) => {
-      (result.status === 'fulfilled' ? deletedAttachmentIds : failedAttachmentIds).push(operation.attachments[index].id);
-    });
-
-    const deletedMetadata = await this.deleteCleanedAttachments(operation, deletedAttachmentIds);
-    const failedMetadata = await this.markFailedAttachments(operation, failedAttachmentIds);
-    const cleanupFailed = failedAttachmentIds.length > 0 || !deletedMetadata || !failedMetadata;
-
-    await this.completeRejection(operation, cleanupFailed ? 'FAILED' : 'COMPLETED');
-
-    if (cleanupFailed) {
-      console.error('[MilestoneSubmissionPackageReview] Submission cleanup was incomplete after rejection.', {
-        packageId: operation.package.id,
-        failedAttachmentCount: failedAttachmentIds.length,
-      });
+  static async reconcileRejectedPackage(approvalId: string): Promise<void> {
+    const packageRow = await this.getLinkedPackage(approvalId);
+    if (!packageRow || packageRow.status === 'REJECTED') return;
+    if (packageRow.status !== 'REJECTING') {
+      throw new MilestoneSubmissionPackageReviewError('Milestone submission rejection is not being finalized.', 409);
     }
+
+    const { data, error } = await supabaseAdmin
+      .from('milestone_submission_attachments')
+      .select(attachmentFields)
+      .eq('package_id', packageRow.id)
+      .order('created_at', { ascending: true });
+    if (error) throw new MilestoneSubmissionPackageReviewError('Failed to retrieve milestone submission attachments.', 500);
+
+    const attachments = (data || []) as SubmissionAttachment[];
+    if (!attachments.length || attachments.length !== packageRow.attachment_count) {
+      throw new MilestoneSubmissionPackageReviewError('Milestone submission package is incomplete.', 409);
+    }
+    if (!attachments.every((attachment) => ['PENDING', 'REJECTED'].includes(attachment.status))) {
+      throw new MilestoneSubmissionPackageReviewError('Milestone submission attachments are no longer available for rejection.', 409);
+    }
+
+    const operation: SubmissionPackageReviewOperation = {
+      approvalId,
+      decision: 'REJECTED',
+      package: packageRow,
+      attachments,
+      promotedDocuments: [],
+      packageFinalized: false,
+      rolledBack: false,
+    };
+    if (attachments.some((attachment) => attachment.status === 'PENDING')) {
+      await this.markRejectedAttachments(operation);
+    }
+    await this.completeRejection(operation);
   }
 
   private static async getReadMilestoneContext(milestoneId: string): Promise<ReadMilestoneContext> {
@@ -390,12 +438,31 @@ export class MilestoneSubmissionPackageReviewService {
     if (!packageRow) return null;
 
     const packageData = packageRow as SubmissionPackage;
+    const attachmentStatus = packageData.status === 'PENDING_REVIEW'
+      ? 'PENDING'
+      : packageData.status === 'REJECTED'
+        ? 'REJECTED'
+        : null;
+    if (!attachmentStatus) {
+      return {
+        id: packageData.id,
+        status: packageData.status,
+        submission_approval_id: packageData.milestone_approval_id,
+        attachment_count: packageData.attachment_count,
+        attachments: [],
+      };
+    }
+
     const { data: attachments, error: attachmentError } = await supabaseAdmin
       .from('milestone_submission_attachments')
       .select('id,file_name,file_size,mime_type,status')
       .eq('package_id', packageData.id)
+      .eq('status', attachmentStatus)
       .order('created_at', { ascending: true });
     if (attachmentError) throw new MilestoneSubmissionPackageReviewError('Failed to retrieve milestone submission attachments.', 500);
+    if ((attachments || []).length !== packageData.attachment_count) {
+      throw new MilestoneSubmissionPackageReviewError('Milestone submission package is incomplete.', 409);
+    }
 
     return {
       id: packageData.id,
@@ -412,19 +479,28 @@ export class MilestoneSubmissionPackageReviewService {
 
     const { data: packageRow, error: packageError } = await supabaseAdmin
       .from('milestone_submission_packages')
-      .select('id')
+      .select('id,status')
       .eq('milestone_id', milestoneId)
-      .eq('status', 'PENDING_REVIEW')
+      .in('status', ['PENDING_REVIEW', 'REJECTED'])
+      .order('created_at', { ascending: false })
+      .limit(1)
       .maybeSingle();
     if (packageError) throw new MilestoneSubmissionPackageReviewError('Failed to retrieve milestone submission attachment.', 500);
     if (!packageRow) throw new MilestoneSubmissionPackageReviewError('Milestone submission attachment not found', 404);
+
+    const attachmentStatus = packageRow.status === 'PENDING_REVIEW'
+      ? 'PENDING'
+      : packageRow.status === 'REJECTED'
+        ? 'REJECTED'
+        : null;
+    if (!attachmentStatus) throw new MilestoneSubmissionPackageReviewError('Milestone submission attachment not found', 404);
 
     const { data: attachment, error: attachmentError } = await supabaseAdmin
       .from('milestone_submission_attachments')
       .select('id,file_name,storage_path')
       .eq('id', attachmentId)
       .eq('package_id', packageRow.id)
-      .eq('status', 'PENDING')
+      .eq('status', attachmentStatus)
       .maybeSingle();
     if (attachmentError) throw new MilestoneSubmissionPackageReviewError('Failed to retrieve milestone submission attachment.', 500);
     if (!attachment) throw new MilestoneSubmissionPackageReviewError('Milestone submission attachment not found', 404);
