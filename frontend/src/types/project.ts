@@ -142,6 +142,49 @@ export interface MilestoneSubmissionAttachmentDownload {
   url: string;
 }
 
+export interface MilestoneSubmissionRevisionActor {
+  id: string;
+  fullName: string;
+}
+
+export interface MilestoneSubmissionRevisionAttachment {
+  id: string;
+  fileName: string;
+  fileSize: number | string;
+  mimeType: string;
+  status: "PENDING" | "PROMOTED" | "REJECTED";
+  promotedDocumentId: string | null;
+}
+
+export interface MilestoneSubmissionRevision {
+  id: string;
+  revision: number;
+  status: Extract<SubmissionPackageStatus, "PENDING_REVIEW" | "APPROVED" | "REJECTED">;
+  submission: {
+    approvalId: string;
+    note: string | null;
+    submittedAt: string;
+    submittedBy: MilestoneSubmissionRevisionActor | null;
+  };
+  review: {
+    note: string | null;
+    reviewedAt: string | null;
+    reviewedBy: MilestoneSubmissionRevisionActor | null;
+  };
+  attachments: MilestoneSubmissionRevisionAttachment[];
+}
+
+export interface MilestoneSubmissionPackageHistory {
+  items: MilestoneSubmissionRevision[];
+}
+
+export interface MilestoneSubmissionRevisionAttachmentDownload {
+  attachmentId: string;
+  fileName: string;
+  url: string;
+  expiresInSeconds: number;
+}
+
 export interface MilestoneContributionAttachment {
   id: string;
   file_name: string;

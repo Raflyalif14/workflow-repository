@@ -67,12 +67,11 @@ export function getLatestSubmissionApproval(history: MilestoneSubmissionApproval
   return history[0] || null;
 }
 
-export function canViewCurrentRejectedSubmission(
-  packageStatus: string | null | undefined,
+export function canReadSubmissionPackageHistory(
   actor: { id?: string; role?: string } | null | undefined,
   milestone: Pick<ProjectMilestonePhase4, "pic_id">
 ) {
-  if (packageStatus !== "REJECTED" || !actor) return false;
+  if (!actor) return false;
   if (actor.role === "SUPER_ADMIN" || actor.role === "HEAD_SA") return true;
   return actor.role === "SA" && milestone.pic_id === actor.id;
 }

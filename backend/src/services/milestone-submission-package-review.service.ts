@@ -5,7 +5,7 @@ import { OfficialDocumentPromotionService } from './official-document-promotion.
 
 type Actor = { userId: string; role: string; fullName: string };
 type ReviewDecision = 'APPROVED' | 'REJECTED';
-type PackageStatus = 'PENDING_REVIEW' | 'PROMOTING' | 'APPROVED' | 'REJECTING' | 'REJECTED';
+type PackageStatus = 'STAGING' | 'PENDING_REVIEW' | 'PROMOTING' | 'APPROVED' | 'REJECTING' | 'REJECTED' | 'FAILED';
 
 type SubmissionPackage = {
   id: string;
@@ -32,6 +32,23 @@ type SubmissionAttachment = {
   promoted_document_id: string | null;
 };
 
+type SubmissionApproval = {
+  id: string;
+  milestone_id: string;
+  submitted_by: string | null;
+  submission_note: string | null;
+  status: string;
+  reviewed_by: string | null;
+  review_note: string | null;
+  submitted_at: string;
+  reviewed_at: string | null;
+};
+
+type SubmissionUser = {
+  id: string;
+  full_name: string;
+};
+
 type ReadMilestoneContext = {
   id: string;
   pic_id: string | null;
@@ -54,10 +71,11 @@ export type SubmissionPackageReviewOperation = {
   rolledBack: boolean;
 };
 
-const packageFields = 'id,project_id,milestone_id,submitted_by,status,attachment_count,cleanup_status,created_at,updated_at';
+const packageFields = 'id,project_id,milestone_id,milestone_approval_id,submitted_by,status,attachment_count,cleanup_status,created_at,updated_at';
 const attachmentFields = 'id,package_id,file_name,storage_path,file_size,mime_type,uploaded_by,status,promoted_document_id';
 const nowIso = () => new Date().toISOString();
 const REJECTING_RECOVERY_MIN_AGE_MS = 30_000;
+const HISTORY_PACKAGE_STATUSES: PackageStatus[] = ['PENDING_REVIEW', 'APPROVED', 'REJECTED'];
 
 const normalizeRelatedOne = <T>(value: T | T[] | null): T | null =>
   Array.isArray(value) ? value[0] || null : value || null;
@@ -423,6 +441,132 @@ export class MilestoneSubmissionPackageReviewService {
     throw new MilestoneSubmissionPackageReviewError('Milestone not found', 404);
   }
 
+  private static attachmentStatusForPackage(status: PackageStatus): 'PENDING' | 'PROMOTED' | 'REJECTED' | null {
+    if (status === 'PENDING_REVIEW') return 'PENDING';
+    if (status === 'APPROVED') return 'PROMOTED';
+    if (status === 'REJECTED') return 'REJECTED';
+    return null;
+  }
+
+  static async getPackageHistory(milestoneId: string, actor: Actor) {
+    const milestone = await this.getReadMilestoneContext(milestoneId);
+    this.assertReadAccess(milestone, actor);
+
+    const { data: packageRows, error: packageError } = await supabaseAdmin
+      .from('milestone_submission_packages')
+      .select(packageFields)
+      .eq('milestone_id', milestoneId)
+      .in('status', HISTORY_PACKAGE_STATUSES)
+      .order('created_at', { ascending: true })
+      .order('id', { ascending: true });
+    if (packageError) throw new MilestoneSubmissionPackageReviewError('Failed to retrieve milestone submission history.', 500);
+
+    const packages = (packageRows || []) as SubmissionPackage[];
+    if (!packages.length) return { items: [] };
+
+    const packageIds = packages.map((packageRow) => packageRow.id);
+    const approvalIds = packages
+      .map((packageRow) => packageRow.milestone_approval_id)
+      .filter((approvalId): approvalId is string => Boolean(approvalId));
+    if (approvalIds.length !== packages.length || new Set(approvalIds).size !== packages.length) {
+      throw new MilestoneSubmissionPackageReviewError('Milestone submission history is incomplete.', 409);
+    }
+
+    const [attachmentResult, approvalResult] = await Promise.all([
+      supabaseAdmin
+        .from('milestone_submission_attachments')
+        .select(attachmentFields)
+        .in('package_id', packageIds)
+        .order('created_at', { ascending: true })
+        .order('id', { ascending: true }),
+      supabaseAdmin
+        .from('milestone_approvals')
+        .select('id,milestone_id,submitted_by,submission_note,status,reviewed_by,review_note,submitted_at,reviewed_at')
+        .in('id', approvalIds)
+        .eq('milestone_id', milestoneId),
+    ]);
+    if (attachmentResult.error || approvalResult.error) {
+      throw new MilestoneSubmissionPackageReviewError('Failed to retrieve milestone submission history.', 500);
+    }
+
+    const attachmentsByPackage = new Map<string, SubmissionAttachment[]>();
+    ((attachmentResult.data || []) as SubmissionAttachment[]).forEach((attachment) => {
+      const attachments = attachmentsByPackage.get(attachment.package_id) || [];
+      attachments.push(attachment);
+      attachmentsByPackage.set(attachment.package_id, attachments);
+    });
+    const approvalsById = new Map(
+      ((approvalResult.data || []) as SubmissionApproval[]).map((approval) => [approval.id, approval])
+    );
+
+    const userIds = [
+      ...new Set(
+        [...approvalsById.values()]
+          .flatMap((approval) => [approval.submitted_by, approval.reviewed_by])
+          .filter((userId): userId is string => Boolean(userId))
+      ),
+    ];
+    const users = new Map<string, SubmissionUser>();
+    if (userIds.length) {
+      const { data: userRows, error: userError } = await supabaseAdmin
+        .from('users')
+        .select('id,full_name')
+        .in('id', userIds);
+      if (userError) throw new MilestoneSubmissionPackageReviewError('Failed to retrieve milestone submission history.', 500);
+      ((userRows || []) as SubmissionUser[]).forEach((user) => users.set(user.id, user));
+    }
+
+    const actorSummary = (userId: string | null) => {
+      const user = userId ? users.get(userId) : null;
+      return user ? { id: user.id, fullName: user.full_name } : null;
+    };
+
+    const chronologicalItems = packages.map((packageRow, index) => {
+      const approval = approvalsById.get(packageRow.milestone_approval_id!);
+      const expectedAttachmentStatus = this.attachmentStatusForPackage(packageRow.status);
+      const expectedApprovalStatus = packageRow.status === 'PENDING_REVIEW' ? 'PENDING' : packageRow.status;
+      const attachments = attachmentsByPackage.get(packageRow.id) || [];
+
+      if (
+        !approval ||
+        approval.status !== expectedApprovalStatus ||
+        attachments.length !== packageRow.attachment_count ||
+        !attachments.length ||
+        !expectedAttachmentStatus ||
+        !attachments.every((attachment) => attachment.status === expectedAttachmentStatus)
+      ) {
+        throw new MilestoneSubmissionPackageReviewError('Milestone submission history is incomplete.', 409);
+      }
+
+      return {
+        id: packageRow.id,
+        revision: index + 1,
+        status: packageRow.status,
+        submission: {
+          approvalId: approval.id,
+          note: approval.submission_note,
+          submittedAt: approval.submitted_at,
+          submittedBy: actorSummary(approval.submitted_by),
+        },
+        review: {
+          note: approval.review_note,
+          reviewedAt: approval.reviewed_at,
+          reviewedBy: actorSummary(approval.reviewed_by),
+        },
+        attachments: attachments.map((attachment) => ({
+          id: attachment.id,
+          fileName: attachment.file_name,
+          fileSize: attachment.file_size,
+          mimeType: attachment.mime_type,
+          status: attachment.status,
+          promotedDocumentId: attachment.promoted_document_id,
+        })),
+      };
+    });
+
+    return { items: chronologicalItems.reverse() };
+  }
+
   static async getCurrentPackage(milestoneId: string, actor: Actor) {
     const milestone = await this.getReadMilestoneContext(milestoneId);
     this.assertReadAccess(milestone, actor);
@@ -510,6 +654,49 @@ export class MilestoneSubmissionPackageReviewService {
         attachment_id: attachment.id,
         file_name: attachment.file_name,
         url: await DocumentStorageService.createSignedDownloadUrl(attachment.storage_path, 300),
+      };
+    } catch {
+      throw new MilestoneSubmissionPackageReviewError('Failed to create milestone submission download URL.', 500);
+    }
+  }
+
+  static async getHistoricalAttachmentDownloadUrl(
+    milestoneId: string,
+    packageId: string,
+    attachmentId: string,
+    actor: Actor
+  ) {
+    const milestone = await this.getReadMilestoneContext(milestoneId);
+    this.assertReadAccess(milestone, actor);
+
+    const { data: packageRow, error: packageError } = await supabaseAdmin
+      .from('milestone_submission_packages')
+      .select('id,milestone_id,status')
+      .eq('id', packageId)
+      .eq('milestone_id', milestoneId)
+      .maybeSingle();
+    if (packageError) throw new MilestoneSubmissionPackageReviewError('Failed to retrieve milestone submission attachment.', 500);
+    if (!packageRow) throw new MilestoneSubmissionPackageReviewError('Milestone submission attachment not found', 404);
+
+    const attachmentStatus = this.attachmentStatusForPackage(packageRow.status as PackageStatus);
+    if (!attachmentStatus) throw new MilestoneSubmissionPackageReviewError('Milestone submission attachment not found', 404);
+
+    const { data: attachment, error: attachmentError } = await supabaseAdmin
+      .from('milestone_submission_attachments')
+      .select('id,file_name,storage_path')
+      .eq('id', attachmentId)
+      .eq('package_id', packageId)
+      .eq('status', attachmentStatus)
+      .maybeSingle();
+    if (attachmentError) throw new MilestoneSubmissionPackageReviewError('Failed to retrieve milestone submission attachment.', 500);
+    if (!attachment) throw new MilestoneSubmissionPackageReviewError('Milestone submission attachment not found', 404);
+
+    try {
+      return {
+        attachmentId: attachment.id,
+        fileName: attachment.file_name,
+        url: await DocumentStorageService.createSignedDownloadUrl(attachment.storage_path, 300),
+        expiresInSeconds: 300,
       };
     } catch {
       throw new MilestoneSubmissionPackageReviewError('Failed to create milestone submission download URL.', 500);

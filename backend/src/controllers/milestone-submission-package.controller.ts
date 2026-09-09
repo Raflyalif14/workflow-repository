@@ -11,6 +11,18 @@ const getStatusCode = (error: unknown): number =>
   error instanceof MilestoneSubmissionPackageReviewError ? error.statusCode : 500;
 
 export class MilestoneSubmissionPackageController {
+  static async getHistory(req: AuthenticatedRequest, res: Response): Promise<void> {
+    try {
+      const result = await MilestoneSubmissionPackageReviewService.getPackageHistory(
+        getRouteParam(req, 'milestoneId'),
+        req.user!
+      );
+      sendSuccess(res, 'Milestone submission history retrieved successfully', result);
+    } catch (error) {
+      sendError(res, 'Failed to retrieve milestone submission history.', null, getStatusCode(error));
+    }
+  }
+
   static async getCurrent(req: AuthenticatedRequest, res: Response): Promise<void> {
     try {
       const result = await MilestoneSubmissionPackageReviewService.getCurrentPackage(
@@ -27,6 +39,20 @@ export class MilestoneSubmissionPackageController {
     try {
       const result = await MilestoneSubmissionPackageReviewService.getPendingAttachmentDownloadUrl(
         getRouteParam(req, 'milestoneId'),
+        getRouteParam(req, 'attachmentId'),
+        req.user!
+      );
+      sendSuccess(res, 'Milestone submission download URL created successfully', result);
+    } catch (error) {
+      sendError(res, 'Failed to create milestone submission download URL.', null, getStatusCode(error));
+    }
+  }
+
+  static async getHistoricalAttachmentDownloadUrl(req: AuthenticatedRequest, res: Response): Promise<void> {
+    try {
+      const result = await MilestoneSubmissionPackageReviewService.getHistoricalAttachmentDownloadUrl(
+        getRouteParam(req, 'milestoneId'),
+        getRouteParam(req, 'packageId'),
         getRouteParam(req, 'attachmentId'),
         req.user!
       );

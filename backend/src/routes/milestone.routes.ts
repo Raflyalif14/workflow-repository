@@ -94,6 +94,18 @@ router.get(
 );
 
 router.get(
+  '/:milestoneId/submission-packages/history',
+  requireRoles(['SUPER_ADMIN', 'SALES', 'HEAD_SA', 'SA']),
+  MilestoneSubmissionPackageController.getHistory
+);
+
+router.get(
+  '/:milestoneId/submission-packages/:packageId/attachments/:attachmentId/download-url',
+  requireRoles(['SUPER_ADMIN', 'SALES', 'HEAD_SA', 'SA']),
+  MilestoneSubmissionPackageController.getHistoricalAttachmentDownloadUrl
+);
+
+router.get(
   '/:milestoneId/submission-package/attachments/:attachmentId/download-url',
   requireRoles(['SUPER_ADMIN', 'SALES', 'HEAD_SA', 'SA']),
   MilestoneSubmissionPackageController.getAttachmentDownloadUrl

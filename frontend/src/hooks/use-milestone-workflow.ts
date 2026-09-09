@@ -6,6 +6,8 @@ import {
   MilestoneSubmissionApproval,
   MilestoneSubmissionAttachmentDownload,
   MilestoneSubmissionPackage,
+  MilestoneSubmissionPackageHistory,
+  MilestoneSubmissionRevisionAttachmentDownload,
   ProjectMilestonePhase4,
 } from "@/types/project";
 
@@ -56,6 +58,7 @@ const invalidateMilestoneWorkflow = (
     queryClient.invalidateQueries({ queryKey: milestoneKeys.submissionApprovalHistory(milestoneId) });
     queryClient.invalidateQueries({ queryKey: milestoneKeys.deadlineStatus(milestoneId) });
     queryClient.invalidateQueries({ queryKey: milestoneKeys.submissionPackage(milestoneId) });
+    queryClient.invalidateQueries({ queryKey: milestoneKeys.submissionPackageHistory(milestoneId) });
   }
 };
 
@@ -220,6 +223,19 @@ export function useSubmissionPackage(milestoneId: string, enabled = true) {
   });
 }
 
+export function useSubmissionPackageHistory(milestoneId: string, enabled = true) {
+  return useQuery<MilestoneSubmissionPackageHistory>({
+    queryKey: milestoneKeys.submissionPackageHistory(milestoneId),
+    queryFn: () =>
+      apiClient<MilestoneSubmissionPackageHistory>(
+        `/milestones/${milestoneId}/submission-packages/history`
+      ),
+    enabled: Boolean(milestoneId) && enabled,
+    staleTime: 30_000,
+    refetchOnWindowFocus: false,
+  });
+}
+
 export function useDownloadSubmissionAttachment(milestoneId: string) {
   return useMutation({
     mutationFn: async (attachmentId: string) => {
@@ -228,6 +244,20 @@ export function useDownloadSubmissionAttachment(milestoneId: string) {
       );
       return result;
     },
+    onSuccess: (result) => {
+      if (result?.url) {
+        window.open(result.url, "_blank", "noopener,noreferrer");
+      }
+    },
+  });
+}
+
+export function useDownloadSubmissionHistoryAttachment(milestoneId: string) {
+  return useMutation({
+    mutationFn: async ({ packageId, attachmentId }: { packageId: string; attachmentId: string }) =>
+      apiClient<MilestoneSubmissionRevisionAttachmentDownload>(
+        `/milestones/${milestoneId}/submission-packages/${packageId}/attachments/${attachmentId}/download-url`
+      ),
     onSuccess: (result) => {
       if (result?.url) {
         window.open(result.url, "_blank", "noopener,noreferrer");

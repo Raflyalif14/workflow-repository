@@ -4,7 +4,7 @@ import {
   getEffectiveDeadline,
   getLatestSubmissionApproval,
   getMilestoneDisplayStatus,
-  canViewCurrentRejectedSubmission,
+  canReadSubmissionPackageHistory,
 } from "./milestone-ui-state";
 import {
   MilestoneDeadlineApproval,
@@ -110,24 +110,24 @@ if (getMilestoneDisplayStatus({ ...completedMilestone, status: "SUBMITTED" }) !=
 }
 
 const assignedSa = { id: "sa-1", role: "SA" };
-if (!canViewCurrentRejectedSubmission("REJECTED", assignedSa, completedMilestone)) {
-  throw new Error("Assigned SA must see current rejected submission evidence");
+if (!canReadSubmissionPackageHistory(assignedSa, completedMilestone)) {
+  throw new Error("Assigned SA must read submission package history");
 }
 const revisedMilestone = { ...completedMilestone, status: "IN_PROGRESS" };
-if (!canViewCurrentRejectedSubmission("REJECTED", assignedSa, revisedMilestone)) {
-  throw new Error("Rejected evidence visibility must survive Start Revision while the package remains current");
+if (!canReadSubmissionPackageHistory(assignedSa, revisedMilestone)) {
+  throw new Error("Submission package history access must survive Start Revision");
 }
-if (!canViewCurrentRejectedSubmission("REJECTED", { id: "head-sa", role: "HEAD_SA" }, completedMilestone)) {
-  throw new Error("HEAD_SA must see current rejected submission evidence");
+if (!canReadSubmissionPackageHistory({ id: "head-sa", role: "HEAD_SA" }, completedMilestone)) {
+  throw new Error("HEAD_SA must read submission package history");
 }
-if (!canViewCurrentRejectedSubmission("REJECTED", { id: "admin", role: "SUPER_ADMIN" }, completedMilestone)) {
-  throw new Error("SUPER_ADMIN must see current rejected submission evidence");
+if (!canReadSubmissionPackageHistory({ id: "admin", role: "SUPER_ADMIN" }, completedMilestone)) {
+  throw new Error("SUPER_ADMIN must read submission package history");
 }
-if (canViewCurrentRejectedSubmission("REJECTED", { id: "sales-1", role: "SALES" }, completedMilestone)) {
-  throw new Error("SALES must not see rejected submission evidence");
+if (canReadSubmissionPackageHistory({ id: "sales-1", role: "SALES" }, completedMilestone)) {
+  throw new Error("SALES must not read submission package history");
 }
-if (canViewCurrentRejectedSubmission("PENDING_REVIEW", assignedSa, completedMilestone)) {
-  throw new Error("A newer pending package must not expose prior rejected evidence before Step 3 history support");
+if (canReadSubmissionPackageHistory({ id: "sa-other", role: "SA" }, completedMilestone)) {
+  throw new Error("Unassigned SA must not read submission package history");
 }
 
 const overdueTwoDays = getDeadlineHealthPresentation("OVERDUE", -2);
