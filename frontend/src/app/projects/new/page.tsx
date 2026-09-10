@@ -2,7 +2,7 @@
 
 import { useRef, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import { AlertCircle, ArrowLeft, Briefcase, FileText, Paperclip, X } from "lucide-react";
+import { AlertCircle, ArrowLeft, Briefcase, FileText, ImageIcon, Paperclip, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,12 +11,18 @@ import { useCreateProject } from "@/hooks/use-projects";
 import { useScenarios } from "@/hooks/use-scenarios";
 import {
   appendDocumentFiles,
+  appendProjectPhotoFiles,
   DOCUMENT_ACCEPT,
   getDocumentFileKey,
   getDocumentFileValidationError,
+  getProjectMomFileValidationError,
+  getProjectPhotoFileValidationError,
   MAX_DOCUMENT_FILES,
+  MAX_PROJECT_PHOTOS,
+  PROJECT_MOM_ACCEPT,
+  PROJECT_PHOTO_ACCEPT,
   removeDocumentFile,
-  selectSingleDocumentFile,
+  selectSingleProjectMomFile,
 } from "@/lib/document-file-selection";
 
 function formatFileSize(size: number): string {
@@ -28,19 +34,26 @@ function getProjectValidationError({
   customer,
   scenarioId,
   mom,
+  photos,
   documents,
 }: {
   name: string;
   customer: string;
   scenarioId: string;
   mom: File | null;
+  photos: File[];
   documents: File[];
 }): string | null {
   if (!name.trim()) return "Project name is required.";
   if (!customer.trim()) return "Customer is required.";
   if (!scenarioId) return "Please select an active scenario.";
   if (!mom) return "A MoM file is required to create a project.";
-  return [mom, ...documents].map(getDocumentFileValidationError).find(Boolean) || null;
+  if (!photos.length) return "At least one project photo is required to create a project.";
+  return [
+    getProjectMomFileValidationError(mom),
+    ...photos.map(getProjectPhotoFileValidationError),
+    ...documents.map(getDocumentFileValidationError),
+  ].find(Boolean) || null;
 }
 
 export default function NewProjectPage() {
@@ -54,6 +67,7 @@ export default function NewProjectPage() {
   const [customer, setCustomer] = useState("");
   const [scenarioId, setScenarioId] = useState("");
   const [mom, setMom] = useState<File | null>(null);
+  const [photos, setPhotos] = useState<File[]>([]);
   const [documents, setDocuments] = useState<File[]>([]);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [fileSelectionError, setFileSelectionError] = useState<string | null>(null);
@@ -74,6 +88,11 @@ export default function NewProjectPage() {
     setFileSelectionError(null);
     clearError();
   };
+  const removePhoto = (index: number) => {
+    setPhotos((current) => removeDocumentFile(current, index));
+    setFileSelectionError(null);
+    clearError();
+  };
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -83,7 +102,7 @@ export default function NewProjectPage() {
       return;
     }
 
-    const validationError = getProjectValidationError({ name, customer, scenarioId, mom, documents });
+    const validationError = getProjectValidationError({ name, customer, scenarioId, mom, photos, documents });
     if (validationError) {
       setSubmitError(validationError);
       return;
@@ -95,9 +114,11 @@ export default function NewProjectPage() {
         customer: customer.trim(),
         scenario_id: scenarioId,
         mom: mom!,
+        photos,
         documents,
       });
       setMom(null);
+      setPhotos([]);
       setDocuments([]);
       setFileSelectionError(null);
       router.push(`/projects/${project.id}`);
@@ -167,11 +188,7 @@ export default function NewProjectPage() {
                 <option value="">Select scenario</option>
                 {scenarios.map((scenario) => (
                   <option key={scenario.id} value={scenario.id}>
-                    {scenario.name === "Assessment Operational V2"
-                      ? "Assessment"
-                      : scenario.name === "Existing TOR Operational V2"
-                        ? "Existing TOR"
-                        : scenario.name}
+                    {scenario.name}
                   </option>
                 ))}
               </select>
@@ -180,17 +197,17 @@ export default function NewProjectPage() {
             <div className="space-y-2">
               <div>
                 <label className="mb-1 block text-sm font-medium" htmlFor="project-mom">MoM (Required)</label>
-                <p className="text-xs text-muted-foreground">One file, up to 50 MB.</p>
+                <p className="text-xs text-muted-foreground">One PDF file, up to 50 MB.</p>
               </div>
               <Input
                 ref={momInputRef}
                 id="project-mom"
                 name="mom"
                 type="file"
-                accept={DOCUMENT_ACCEPT}
+                accept={PROJECT_MOM_ACCEPT}
                 disabled={create.isPending}
                 onChange={(event) => {
-                  const selection = selectSingleDocumentFile(event.target.files);
+                  const selection = selectSingleProjectMomFile(event.target.files);
                   event.target.value = "";
                   if (selection.error) {
                     setFileSelectionError(selection.error);
@@ -213,6 +230,43 @@ export default function NewProjectPage() {
                   <Button type="button" variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={removeMom} disabled={create.isPending} aria-label="Remove selected MoM" title="Remove selected MoM">
                     <X className="h-4 w-4" />
                   </Button>
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <div>
+                <label className="mb-1 block text-sm font-medium" htmlFor="project-photos">Project Photos (Required)</label>
+                <p className="text-xs text-muted-foreground">JPG, JPEG, or PNG. At least one photo, up to {MAX_PROJECT_PHOTOS} files and 50 MB each.</p>
+              </div>
+              <Input
+                id="project-photos"
+                name="photos"
+                type="file"
+                multiple
+                accept={PROJECT_PHOTO_ACCEPT}
+                disabled={create.isPending}
+                onChange={(event) => {
+                  const selection = appendProjectPhotoFiles(photos, event.target.files);
+                  setPhotos(selection.files);
+                  event.target.value = "";
+                  setFileSelectionError(selection.error);
+                  setSubmitError(selection.error);
+                }}
+              />
+              {photos.length > 0 && (
+                <div className="space-y-2">
+                  {photos.map((file, index) => (
+                    <div key={getDocumentFileKey(file)} className="flex items-center justify-between gap-3 rounded-lg border border-border/60 bg-muted/20 px-3 py-2 text-sm">
+                      <span className="flex min-w-0 items-center gap-2">
+                        <ImageIcon className="h-4 w-4 shrink-0 text-muted-foreground" />
+                        <span className="truncate">{file.name} <span className="text-xs text-muted-foreground">({formatFileSize(file.size)})</span></span>
+                      </span>
+                      <Button type="button" variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={() => removePhoto(index)} disabled={create.isPending} aria-label={`Remove ${file.name}`} title={`Remove ${file.name}`}>
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
                 </div>
               )}
             </div>

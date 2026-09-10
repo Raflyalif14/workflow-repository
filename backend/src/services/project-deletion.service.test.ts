@@ -19,6 +19,7 @@ async function main() {
   const service = readFileSync(join(__dirname, 'project-deletion.service.ts'), 'utf8');
   const migration = readFileSync(join(__dirname, '../../supabase/phase11i-project-deletion.sql'), 'utf8');
   const collaborationMigration = readFileSync(join(__dirname, '../../supabase/phase11l-milestone-collaboration.sql'), 'utf8');
+  const intakeMigration = readFileSync(join(__dirname, '../../supabase/phase11p-project-intake-evidence.sql'), 'utf8');
   assert(service.includes("rpc('delete_project_with_cleanup'") && service.includes('DocumentStorageService.removeMany(storagePaths)'), 'Test 5: database delete RPC must complete before exact storage cleanup');
   assert(service.includes("status: 'FAILED'") && service.includes("failure_code: 'STORAGE_DELETE_FAILED'"), 'Test 6: storage failures must retain a failed cleanup record');
   assert(migration.includes('security definer') && migration.includes('for update') && migration.includes('project_deletion_cleanups'), 'Test 7: migration uses a locked transactional cleanup record');
@@ -27,6 +28,9 @@ async function main() {
   assert(collaborationMigration.includes('select a.storage_path as path') && collaborationMigration.includes('delete from public.milestone_contribution_attachments') && collaborationMigration.includes('delete from public.milestone_contributions'), 'Test 10: Phase 11L RPC replacement collects exact contribution paths and deletes both child tables');
   assert(collaborationMigration.includes('select dv.storage_path as path') && collaborationMigration.includes('select a.storage_path as path') && collaborationMigration.includes('from public.milestone_contribution_attachments a'), 'Test 11: deletion RPC collects both official document-version and contribution source storage paths');
   assert(collaborationMigration.includes('from public.milestone_submission_attachments a') && collaborationMigration.includes('join public.milestone_submission_packages sp on sp.id = a.package_id') && !collaborationMigration.includes("a.status = 'PENDING'"), 'Test 12: deletion RPC collects every submission attachment path, including retained rejected evidence');
+  assert(service.includes("storageRows('project_intake_attachments'") && service.includes('...intakeAttachments'), 'Test 13: deletion preview counts project intake metadata and exact storage paths');
+  assert(intakeMigration.includes('create table if not exists public.project_intake_attachments') && intakeMigration.includes('references public.projects(id) on delete cascade'), 'Test 14: intake evidence is project-owned metadata, not an official document table');
+  assert(intakeMigration.includes('from public.project_intake_attachments a') && intakeMigration.includes('delete from public.project_intake_attachments where project_id = p_project_id'), 'Test 15: deletion RPC captures exact intake paths and removes intake metadata before deleting the project');
   console.log('Project deletion safety tests passed.');
 }
 

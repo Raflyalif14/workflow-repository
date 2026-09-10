@@ -37,6 +37,14 @@ export function buildDocumentStoragePath(projectId: string, documentId: string, 
   return `${projectId}/${documentId}/${randomUUID()}-${sanitizeStorageFileName(originalName)}`;
 }
 
+export function buildProjectIntakeStoragePath(
+  projectId: string,
+  attachmentId: string,
+  originalName: string
+): string {
+  return `project-intake/${projectId}/${attachmentId}/${randomUUID()}-${sanitizeStorageFileName(originalName)}`;
+}
+
 export function buildMilestoneSubmissionStoragePath(
   projectId: string,
   milestoneId: string,

@@ -47,12 +47,13 @@ export class ProjectDeletionService {
     const packageIds = ids(packages);
     const contributions = await rows('milestone_contributions', (query) => query.eq('project_id', projectId));
     const contributionIds = ids(contributions);
-    const [versions, attachments, contributionAttachments] = await Promise.all([
+    const [versions, attachments, contributionAttachments, intakeAttachments] = await Promise.all([
       documentIds.length ? storageRows('document_versions', (query) => query.in('document_id', documentIds)) : [],
       packageIds.length ? storageRows('milestone_submission_attachments', (query) => query.in('package_id', packageIds)) : [],
       contributionIds.length
         ? storageRows('milestone_contribution_attachments', (query) => query.in('contribution_id', contributionIds))
         : [],
+      storageRows('project_intake_attachments', (query) => query.eq('project_id', projectId)),
     ]);
     const versionIds = ids(versions);
     const projectNotifications = await rows('notifications', (query) => query.eq('project_id', projectId));
@@ -71,7 +72,9 @@ export class ProjectDeletionService {
       documentIds.length ? rows('document_comments', (query) => query.in('document_id', documentIds)) : [],
     ]);
     const storageObjectCount = new Set(
-      [...versions, ...attachments, ...contributionAttachments].map((row) => row.storage_path).filter(Boolean)
+      [...versions, ...attachments, ...contributionAttachments, ...intakeAttachments]
+        .map((row) => row.storage_path)
+        .filter(Boolean)
     ).size;
     const scenario = Array.isArray(project.scenario) ? project.scenario[0] : project.scenario;
     return {
@@ -86,6 +89,7 @@ export class ProjectDeletionService {
       submission_attachment_count: attachments.length,
       milestone_contribution_count: contributions.length,
       milestone_contribution_attachment_count: contributionAttachments.length,
+      project_intake_attachment_count: intakeAttachments.length,
       approvals: { milestone: counts[0].length, deadline: counts[1].length, deadline_history: counts[2].length, project_plan: counts[3].length, document_version: counts[7].length },
       assignment_count: counts[4].length,
       activity_log_count: counts[5].length,

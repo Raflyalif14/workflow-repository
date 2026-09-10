@@ -1,7 +1,8 @@
 import { randomUUID } from 'crypto';
+import path from 'path';
 import { supabaseAdmin } from '../config/supabase';
 import {
-  buildDocumentStoragePath,
+  buildProjectIntakeStoragePath,
   DocumentStorageService,
   isAllowedDocumentFileName,
   MAX_DOCUMENT_FILE_SIZE_BYTES,
@@ -13,22 +14,25 @@ import { applyProjectAccessScope, canAccessProject } from './project-access.serv
 type Actor = { userId: string; role: string; fullName: string };
 type ResumeProjectState = { status: string; is_postponed: boolean | null };
 export const MAX_PROJECT_CREATION_OPTIONAL_DOCUMENTS = 10;
+export const MAX_PROJECT_CREATION_PHOTOS = 10;
 
 export type ProjectCreationFiles = {
   mom: Express.Multer.File[];
+  photos: Express.Multer.File[];
   documents: Express.Multer.File[];
 };
 
-type CreatedProjectDocument = {
+type CreatedProjectIntakeAttachment = {
   id: string;
+  kind: 'MOM' | 'PHOTO' | 'DOCUMENT';
   file_name: string;
-  title: string;
-  category: 'MOM' | 'OTHER';
+  mime_type: string;
+  size_bytes: number;
 };
 
 type ProjectCreationOperation = {
   projectId: string | null;
-  documentIds: string[];
+  intakeAttachmentIds: string[];
   storagePaths: string[];
 };
 
@@ -43,6 +47,15 @@ export function validateProjectCreationFiles(files: ProjectCreationFiles): void 
   if (files.mom.length !== 1) {
     throw new ProjectCreationError('Exactly one MoM file is required to create a project.', 400);
   }
+  if (!files.photos.length) {
+    throw new ProjectCreationError('At least one project photo is required to create a project.', 400);
+  }
+  if (files.photos.length > MAX_PROJECT_CREATION_PHOTOS) {
+    throw new ProjectCreationError(
+      `A maximum of ${MAX_PROJECT_CREATION_PHOTOS} project photos may be uploaded.`,
+      400
+    );
+  }
   if (files.documents.length > MAX_PROJECT_CREATION_OPTIONAL_DOCUMENTS) {
     throw new ProjectCreationError(
       `A maximum of ${MAX_PROJECT_CREATION_OPTIONAL_DOCUMENTS} optional documents may be uploaded.`,
@@ -50,15 +63,35 @@ export function validateProjectCreationFiles(files: ProjectCreationFiles): void 
     );
   }
 
-  for (const file of [...files.mom, ...files.documents]) {
+  const mom = files.mom[0];
+  const momExtension = path.extname(mom.originalname || '').toLowerCase();
+  if (momExtension !== '.pdf' || mom.mimetype?.toLowerCase() !== 'application/pdf') {
+    throw new ProjectCreationError('The MoM file must be a PDF.', 400);
+  }
+
+  for (const file of files.photos) {
+    const extension = path.extname(file.originalname || '').toLowerCase();
+    const mimeType = file.mimetype?.toLowerCase();
+    if (!['.jpg', '.jpeg', '.png'].includes(extension) || !['image/jpeg', 'image/png'].includes(mimeType)) {
+      throw new ProjectCreationError('Project photos must be JPG, JPEG, or PNG images.', 400);
+    }
+  }
+
+  for (const file of [...files.mom, ...files.photos, ...files.documents]) {
+    if (!file.originalname?.trim()) {
+      throw new ProjectCreationError('File format not supported. Allowed formats: PDF, DOCX, XLSX, PPTX, Images, ZIP.', 400);
+    }
+    if (!Number.isFinite(file.size) || file.size < 0 || file.size > MAX_DOCUMENT_FILE_SIZE_BYTES) {
+      throw new ProjectCreationError('Each file must be 50 MB or smaller.', 400);
+    }
+  }
+
+  for (const file of files.documents) {
     if (!file.originalname?.trim() || !isAllowedDocumentFileName(file.originalname)) {
       throw new ProjectCreationError(
         'File format not supported. Allowed formats: PDF, DOCX, XLSX, PPTX, Images, ZIP.',
         400
       );
-    }
-    if (!Number.isFinite(file.size) || file.size < 0 || file.size > MAX_DOCUMENT_FILE_SIZE_BYTES) {
-      throw new ProjectCreationError('Each file must be 50 MB or smaller.', 400);
     }
   }
 }
@@ -106,10 +139,6 @@ async function logProject(actor: Actor, projectId: string, action: string, descr
     .from('activity_logs')
     .insert({ user_id: actor.userId, project_id: projectId, action, description });
   if (error) throw new Error(error.message);
-}
-
-function projectDocumentTitle(category: 'MOM' | 'OTHER', fileName: string): string {
-  return `${category === 'MOM' ? 'Project MoM' : 'Project document'} - ${fileName}`.slice(0, 500);
 }
 
 export function assertProjectCanResume(project: ResumeProjectState): void {
@@ -203,52 +232,43 @@ export class ProjectManagementService {
     return data;
   }
 
-  private static async createOfficialProjectDocument(
+  private static async createProjectIntakeAttachment(
     projectId: string,
     file: Express.Multer.File,
-    category: 'MOM' | 'OTHER',
+    kind: 'MOM' | 'PHOTO' | 'DOCUMENT',
     actor: Actor,
     operation: ProjectCreationOperation
-  ): Promise<CreatedProjectDocument> {
-    const documentId = randomUUID();
-    const versionId = randomUUID();
-    const storagePath = buildDocumentStoragePath(projectId, documentId, file.originalname);
+  ): Promise<CreatedProjectIntakeAttachment> {
+    const attachmentId = randomUUID();
+    const storagePath = buildProjectIntakeStoragePath(projectId, attachmentId, file.originalname);
     operation.storagePaths.push(storagePath);
     await DocumentStorageService.upload(file, storagePath);
 
-    const title = projectDocumentTitle(category, file.originalname);
     // Track the operation-owned ID before metadata insertion in case the provider response is ambiguous.
-    operation.documentIds.push(documentId);
-    const { data: document, error: documentError } = await supabaseAdmin
-      .from('documents')
+    operation.intakeAttachmentIds.push(attachmentId);
+    const { data: attachment, error } = await supabaseAdmin
+      .from('project_intake_attachments')
       .insert({
-        id: documentId,
+        id: attachmentId,
         project_id: projectId,
-        milestone_id: null,
-        title,
-        category,
-        status: 'APPROVED',
+        kind,
+        original_filename: file.originalname,
+        mime_type: file.mimetype || 'application/octet-stream',
+        size_bytes: file.size,
+        storage_path: storagePath,
+        created_by: actor.userId,
       })
       .select('id')
       .maybeSingle();
-    if (documentError || !document) throw new ProjectCreationError('Failed to create project documents.', 500);
+    if (error || !attachment) throw new ProjectCreationError('Failed to save project intake evidence.', 500);
 
-    const { error: versionError } = await supabaseAdmin.from('document_versions').insert({
-      id: versionId,
-      document_id: documentId,
-      version_number: 1,
+    return {
+      id: attachmentId,
+      kind,
       file_name: file.originalname,
-      storage_path: storagePath,
-      file_size: file.size,
       mime_type: file.mimetype || 'application/octet-stream',
-      changelog: category === 'MOM' ? 'Initial project MoM upload.' : 'Initial project document upload.',
-      status: 'APPROVED',
-      is_latest: true,
-      uploaded_by: actor.userId,
-    });
-    if (versionError) throw new ProjectCreationError('Failed to create project documents.', 500);
-
-    return { id: documentId, file_name: file.originalname, title, category };
+      size_bytes: file.size,
+    };
   }
 
   private static async rollbackProjectCreation(operation: ProjectCreationOperation): Promise<void> {
@@ -260,9 +280,12 @@ export class ProjectManagementService {
       cleanupFailures.push('storage');
     }
 
-    if (operation.documentIds.length) {
-      const { error } = await supabaseAdmin.from('documents').delete().in('id', operation.documentIds);
-      if (error) cleanupFailures.push('documents');
+    if (operation.intakeAttachmentIds.length) {
+      const { error } = await supabaseAdmin
+        .from('project_intake_attachments')
+        .delete()
+        .in('id', operation.intakeAttachmentIds);
+      if (error) cleanupFailures.push('intakeAttachments');
     }
 
     if (operation.projectId) {
@@ -293,7 +316,7 @@ export class ProjectManagementService {
     if (actor.role !== 'SALES') throw new Error('Forbidden');
     validateProjectCreationFiles(files);
     await this.activeScenario(input.scenario_id);
-    const operation: ProjectCreationOperation = { projectId: null, documentIds: [], storagePaths: [] };
+    const operation: ProjectCreationOperation = { projectId: null, intakeAttachmentIds: [], storagePaths: [] };
 
     const { data, error } = await supabaseAdmin
       .from('projects')
@@ -305,17 +328,20 @@ export class ProjectManagementService {
 
     try {
       await MilestoneService.initialize(data.id, actor);
-      const createdDocuments = [
-        await this.createOfficialProjectDocument(data.id, files.mom[0], 'MOM', actor, operation),
+      const intakeAttachments = [
+        await this.createProjectIntakeAttachment(data.id, files.mom[0], 'MOM', actor, operation),
       ];
+      for (const file of files.photos) {
+        intakeAttachments.push(await this.createProjectIntakeAttachment(data.id, file, 'PHOTO', actor, operation));
+      }
       for (const file of files.documents) {
-        createdDocuments.push(await this.createOfficialProjectDocument(data.id, file, 'OTHER', actor, operation));
+        intakeAttachments.push(await this.createProjectIntakeAttachment(data.id, file, 'DOCUMENT', actor, operation));
       }
       await logProject(actor, data.id, 'PROJECT_CREATED', `${actor.fullName} created project '${data.name}'`);
       const { data: created, error: createdError } = await supabaseAdmin.from('projects').select(projectSelect).eq('id', data.id).single();
       if (createdError || !created) throw new ProjectCreationError('Failed to create project.', 500);
       const milestones = await MilestoneService.list(data.id, actor);
-      return { ...mapProject(created), milestones, documents: createdDocuments };
+      return { ...mapProject(created), milestones, intake_attachments: intakeAttachments };
     } catch (error) {
       await this.rollbackProjectCreation(operation);
       if (error instanceof ProjectCreationError) throw error;

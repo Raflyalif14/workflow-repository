@@ -31,6 +31,7 @@ export class ProjectManagementController {
       actor(req),
       {
         mom: Array.isArray(uploaded.mom) ? uploaded.mom : [],
+        photos: Array.isArray(uploaded.photos) ? uploaded.photos : [],
         documents: Array.isArray(uploaded.documents) ? uploaded.documents : [],
       }
     );

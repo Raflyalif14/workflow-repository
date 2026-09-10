@@ -13,8 +13,7 @@ const assert = (condition: boolean, message: string): void => {
 
 type Scenario = {
   uploadFailsAt?: number;
-  documentInsertFailsAt?: number;
-  versionInsertFailsAt?: number;
+  intakeInsertFailsAt?: number;
   storageCleanupFails?: boolean;
   isActive?: boolean;
   workflowModel?: string;
@@ -24,15 +23,13 @@ type Scenario = {
 type State = {
   scenario: Scenario;
   project: Record<string, any> | null;
-  documents: Array<Record<string, any>>;
-  versions: Array<Record<string, any>>;
+  intakeAttachments: Array<Record<string, any>>;
   milestones: Array<Record<string, any>>;
   uploadedPaths: string[];
   cleanedPaths: string[];
   tablesTouched: string[];
   uploadCount: number;
-  documentInsertCount: number;
-  versionInsertCount: number;
+  intakeInsertCount: number;
   milestoneInitializeCalls: number;
 };
 
@@ -44,33 +41,39 @@ const input = {
   scenario_id: '00000000-0000-4000-8000-000000000001',
 };
 
-const makeFile = (name: string): Express.Multer.File =>
+const makeFile = (name: string, mimetype = 'application/pdf', fieldname = 'documents'): Express.Multer.File =>
   ({
-    fieldname: name === 'mom.pdf' ? 'mom' : 'documents',
+    fieldname,
     originalname: name,
     encoding: '7bit',
-    mimetype: 'application/pdf',
+    mimetype,
     size: 100,
     buffer: Buffer.from('file content'),
   } as Express.Multer.File);
 
-const files = (mom: Express.Multer.File[] = [makeFile('mom.pdf')], documents: Express.Multer.File[] = []): ProjectCreationFiles => ({
+const makeMom = (name = 'mom.pdf', mimetype = 'application/pdf') => makeFile(name, mimetype, 'mom');
+const makePhoto = (name = 'project-photo.jpg', mimetype = 'image/jpeg') => makeFile(name, mimetype, 'photos');
+
+const files = (
+  mom: Express.Multer.File[] = [makeMom()],
+  photos: Express.Multer.File[] = [makePhoto()],
+  documents: Express.Multer.File[] = []
+): ProjectCreationFiles => ({
   mom,
+  photos,
   documents,
 });
 
 const makeState = (scenario: Scenario = {}): State => ({
   scenario,
   project: null,
-  documents: [],
-  versions: [],
+  intakeAttachments: [],
   milestones: [],
   uploadedPaths: [],
   cleanedPaths: [],
   tablesTouched: [],
   uploadCount: 0,
-  documentInsertCount: 0,
-  versionInsertCount: 0,
+  intakeInsertCount: 0,
   milestoneInitializeCalls: 0,
 });
 
@@ -119,11 +122,9 @@ class QueryMock {
       };
     }
     if (this.table === 'projects') return this.projects();
-    if (this.table === 'documents') return this.documents();
-    if (this.table === 'document_versions') return this.versions();
+    if (this.table === 'project_intake_attachments') return this.intakeAttachments();
     if (this.table === 'project_milestones') return this.milestones();
     if (this.table === 'activity_logs') return { data: null, error: null };
-    if (this.table === 'document_version_approvals') return { data: null, error: null };
     return { data: null, error: null };
   }
 
@@ -149,31 +150,20 @@ class QueryMock {
     return { data: this.state.project ? { ...this.state.project } : null, error: null };
   }
 
-  private documents(): { data: any; error: any } {
+  private intakeAttachments(): { data: any; error: any } {
     if (this.operation === 'insert') {
-      this.state.documentInsertCount += 1;
-      if (this.state.scenario.documentInsertFailsAt === this.state.documentInsertCount) {
+      this.state.intakeInsertCount += 1;
+      if (this.state.scenario.intakeInsertFailsAt === this.state.intakeInsertCount) {
         return { data: null, error: { code: 'XX001' } };
       }
-      this.state.documents.push({ ...this.payload });
+      this.state.intakeAttachments.push({ ...this.payload });
       return { data: { id: this.payload.id }, error: null };
     }
     if (this.operation === 'delete') {
       const ids = this.inValues('id') || [];
-      this.state.documents = this.state.documents.filter((document) => !ids.includes(document.id));
-      this.state.versions = this.state.versions.filter((version) => !ids.includes(version.document_id));
+      this.state.intakeAttachments = this.state.intakeAttachments.filter((attachment) => !ids.includes(attachment.id));
       return { data: null, error: null };
     }
-    return { data: null, error: null };
-  }
-
-  private versions(): { data: any; error: any } {
-    if (this.operation !== 'insert') return { data: null, error: null };
-    this.state.versionInsertCount += 1;
-    if (this.state.scenario.versionInsertFailsAt === this.state.versionInsertCount) {
-      return { data: null, error: { code: 'XX001' } };
-    }
-    this.state.versions.push({ ...this.payload });
     return { data: null, error: null };
   }
 
@@ -234,26 +224,26 @@ async function expectCreateError(action: () => Promise<unknown>, message: string
 async function run(): Promise<void> {
   await withScenario({}, async (state) => {
     const result = await ProjectManagementService.create(input, sales, files());
-    assert(result.documents.length === 1 && result.documents[0].category === 'MOM', 'Test 1: required MoM must be returned as a safe official document summary');
+    assert(result.intake_attachments.length === 2 && result.intake_attachments[0].kind === 'MOM' && result.intake_attachments[1].kind === 'PHOTO', 'Test 1: required MoM and photo must be returned as safe intake summaries');
     assert(state.project?.id === 'project-1' && state.milestoneInitializeCalls === 1, 'Test 1: project and existing milestone initialization must succeed once');
-    assert(state.documents.length === 1 && state.documents[0].project_id === 'project-1', 'Test 1: MoM must belong to the new project');
-    assert(state.documents[0].milestone_id === null && state.documents[0].status === 'APPROVED', 'Test 1: MoM must be project-level and approved immediately');
-    assert(state.versions.length === 1 && state.versions[0].status === 'APPROVED' && state.versions[0].version_number === 1, 'Test 1: MoM must receive approved version one');
-    assert(!state.tablesTouched.includes('document_version_approvals'), 'Test 1: project creation must not create document version approvals');
-    console.log('Test 1 - Valid project creation with one required MoM creates an approved official document: passed');
+    assert(state.intakeAttachments.length === 2 && state.intakeAttachments.every((attachment) => attachment.project_id === 'project-1'), 'Test 1: MoM and photo must belong to the new project intake');
+    assert(state.intakeAttachments.map((attachment) => attachment.kind).join(',') === 'MOM,PHOTO', 'Test 1: intake evidence preserves the MoM and photo classifications');
+    assert(!state.tablesTouched.includes('documents') && !state.tablesTouched.includes('document_versions'), 'Test 1: project intake evidence must not create official document rows or versions');
+    console.log('Test 1 - Valid project creation stores required MoM and photo as project intake evidence: passed');
   });
 
   await withScenario({}, async (state) => {
-    const result = await ProjectManagementService.create(input, sales, files([makeFile('mom.pdf')], [makeFile('scope.pdf'), makeFile('reference.pdf')]));
-    assert(result.documents.length === 3 && state.documents.length === 3, 'Test 2: MoM plus multiple optional documents must be created');
-    assert(state.documents[0].category === 'MOM' && state.documents.slice(1).every((document) => document.category === 'OTHER'), 'Test 2: MoM and optional categories must be correct');
-    assert(state.documents.every((document) => document.project_id === 'project-1' && document.milestone_id === null), 'Test 2: all project documents must be project-scoped with no milestone');
-    console.log('Test 2 - Valid project creation with optional documents keeps immediate official document metadata: passed');
+    const result = await ProjectManagementService.create(input, sales, files([makeMom()], [makePhoto('site.jpg'), makePhoto('site.jpeg'), makePhoto('site.png', 'image/png')], [makeFile('scope.pdf'), makeFile('reference.pdf')]));
+    assert(result.intake_attachments.length === 6 && state.intakeAttachments.length === 6, 'Test 2: MoM, multiple photos, and optional documents must be stored as intake evidence');
+    assert(state.intakeAttachments.map((attachment) => attachment.kind).join(',') === 'MOM,PHOTO,PHOTO,PHOTO,DOCUMENT,DOCUMENT', 'Test 2: each intake attachment keeps its correct evidence kind');
+    assert(state.intakeAttachments.every((attachment) => attachment.project_id === 'project-1'), 'Test 2: all intake evidence is scoped to the new project');
+    assert(!state.tablesTouched.includes('documents') && !state.tablesTouched.includes('document_versions'), 'Test 2: intake evidence must stay outside the official repository');
+    console.log('Test 2 - JPG, JPEG, PNG, and optional documents remain non-official project intake evidence: passed');
   });
 
   await withScenario({}, async (state) => {
     await expectCreateError(
-      () => ProjectManagementService.create(input, sales, files([], [])),
+      () => ProjectManagementService.create(input, sales, files([], [makePhoto()])),
       'Exactly one MoM file is required to create a project.',
       400
     );
@@ -263,60 +253,89 @@ async function run(): Promise<void> {
 
   await withScenario({}, async (state) => {
     await expectCreateError(
-      () => ProjectManagementService.create(input, sales, files([makeFile('mom.exe')], [])),
+      () => ProjectManagementService.create(input, sales, files([makeMom()], [])),
+      'At least one project photo is required to create a project.',
+      400
+    );
+    assert(state.project === null && !state.tablesTouched.includes('projects'), 'Test 4: missing photos must reject before project creation');
+    await expectCreateError(
+      () => ProjectManagementService.create(input, sales, files([makeMom(), makeMom('second-mom.pdf')], [makePhoto()])),
+      'Exactly one MoM file is required to create a project.',
+      400
+    );
+    await expectCreateError(
+      () => ProjectManagementService.create(input, sales, files([makeMom('mom.pdf', 'image/jpeg')], [makePhoto()])),
+      'The MoM file must be a PDF.',
+      400
+    );
+    await expectCreateError(
+      () => ProjectManagementService.create(input, sales, files([makeMom('mom.docx')], [makePhoto()])),
+      'The MoM file must be a PDF.',
+      400
+    );
+    await expectCreateError(
+      () => ProjectManagementService.create(input, sales, files([makeMom()], [makePhoto('not-an-image.pdf', 'application/pdf')])),
+      'Project photos must be JPG, JPEG, or PNG images.',
+      400
+    );
+    await expectCreateError(
+      () => ProjectManagementService.create(input, sales, files([makeMom()], [makePhoto('renamed.jpg', 'application/pdf')])),
+      'Project photos must be JPG, JPEG, or PNG images.',
+      400
+    );
+    await expectCreateError(
+      () => ProjectManagementService.create(input, sales, files([makeMom()], [makePhoto()], [makeFile('optional.exe')])),
       'File format not supported. Allowed formats: PDF, DOCX, XLSX, PPTX, Images, ZIP.',
       400
     );
-    assert(state.project === null, 'Test 4: invalid MoM must reject before project creation');
     await expectCreateError(
-      () => ProjectManagementService.create(input, sales, files([makeFile('mom.pdf')], [makeFile('optional.exe')])),
-      'File format not supported. Allowed formats: PDF, DOCX, XLSX, PPTX, Images, ZIP.',
-      400
-    );
-    assert(state.project === null, 'Test 4: invalid optional document must reject before project creation');
-    await expectCreateError(
-      () => ProjectManagementService.create(input, sales, files([{ ...makeFile('large-mom.pdf'), size: MAX_DOCUMENT_FILE_SIZE_BYTES + 1 }], [])),
+      () => ProjectManagementService.create(input, sales, files([{ ...makeMom('large-mom.pdf'), size: MAX_DOCUMENT_FILE_SIZE_BYTES + 1 }], [makePhoto()])),
       'Each file must be 50 MB or smaller.',
       400
     );
     await expectCreateError(
-      () => ProjectManagementService.create(input, sales, files([makeFile('mom.pdf')], Array.from({ length: 11 }, () => makeFile('optional.pdf')))),
+      () => ProjectManagementService.create(input, sales, files([makeMom()], Array.from({ length: 11 }, (_, index) => makePhoto(`photo-${index}.jpg`)))),
+      'A maximum of 10 project photos may be uploaded.',
+      400
+    );
+    await expectCreateError(
+      () => ProjectManagementService.create(input, sales, files([makeMom()], [makePhoto()], Array.from({ length: 11 }, () => makeFile('optional.pdf')))),
       'A maximum of 10 optional documents may be uploaded.',
       400
     );
-    assert(state.project === null, 'Test 4: invalid size or document count must reject before project creation');
-    console.log('Test 4 - Invalid type, size, and optional-file count are rejected before project creation: passed');
+    assert(state.project === null, 'Test 4: invalid required attachments, size, and file counts must reject before project creation');
+    console.log('Test 4 - Required MoM/photo validation and optional-document behavior are enforced before project creation: passed');
   });
 
   await withScenario({ uploadFailsAt: 2 }, async (state) => {
     await expectCreateError(
-      () => ProjectManagementService.create(input, sales, files([makeFile('mom.pdf')], [makeFile('optional.pdf')])),
+      () => ProjectManagementService.create(input, sales, files([makeMom()], [makePhoto()])),
       'Failed to create project.',
       500
     );
     assert(state.cleanedPaths.length === 2, 'Test 5: storage failure must attempt cleanup for every request-owned path');
-    assert(state.project === null && state.documents.length === 0 && state.versions.length === 0 && state.milestones.length === 0, 'Test 5: storage failure must remove project, documents, versions, and milestones');
-    console.log('Test 5 - Storage failure compensates the project, workflow rows, documents, and files: passed');
+    assert(state.project === null && state.intakeAttachments.length === 0 && state.milestones.length === 0, 'Test 5: storage failure must remove project, intake evidence, and milestones');
+    console.log('Test 5 - Storage failure compensates the project, workflow rows, intake evidence, and files: passed');
   });
 
-  await withScenario({ documentInsertFailsAt: 2 }, async (state) => {
+  await withScenario({ intakeInsertFailsAt: 2 }, async (state) => {
     await expectCreateError(
-      () => ProjectManagementService.create(input, sales, files([makeFile('mom.pdf')], [makeFile('optional.pdf')])),
-      'Failed to create project documents.',
+      () => ProjectManagementService.create(input, sales, files([makeMom()], [makePhoto()])),
+      'Failed to save project intake evidence.',
       500
     );
-    assert(state.cleanedPaths.length === 2 && state.project === null && state.documents.length === 0 && state.versions.length === 0, 'Test 6: document metadata failure must clean earlier official artifacts and project');
-    console.log('Test 6 - Document metadata failure compensates earlier files and project state: passed');
+    assert(state.cleanedPaths.length === 2 && state.project === null && state.intakeAttachments.length === 0, 'Test 6: intake metadata failure must clean earlier evidence and project state');
+    console.log('Test 6 - Intake metadata failure compensates earlier files and project state: passed');
   });
 
-  await withScenario({ versionInsertFailsAt: 3 }, async (state) => {
+  await withScenario({ intakeInsertFailsAt: 3 }, async (state) => {
     await expectCreateError(
-      () => ProjectManagementService.create(input, sales, files([makeFile('mom.pdf')], [makeFile('first.pdf'), makeFile('second.pdf')])),
-      'Failed to create project documents.',
+      () => ProjectManagementService.create(input, sales, files([makeMom()], [makePhoto()], [makeFile('first.pdf'), makeFile('second.pdf')])),
+      'Failed to save project intake evidence.',
       500
     );
-    assert(state.cleanedPaths.length === 3 && state.project === null && state.documents.length === 0 && state.versions.length === 0, 'Test 7: partial multi-file metadata failure must clean all earlier files and documents');
-    console.log('Test 7 - Partial multi-file failure cleans all request-owned project artifacts: passed');
+    assert(state.cleanedPaths.length === 3 && state.project === null && state.intakeAttachments.length === 0, 'Test 7: partial multi-file metadata failure must clean all earlier intake files and rows');
+    console.log('Test 7 - Partial multi-file failure cleans all request-owned intake artifacts: passed');
   });
 
   await withScenario({}, async (state) => {

@@ -78,6 +78,7 @@ import {
 } from "@/hooks/use-projects";
 import { flattenActivityPages, formatActivityAction } from "@/lib/activity-timeline";
 import { useDocumentDownloadUrl, useDocuments } from "@/hooks/use-documents";
+import { useProjectIntake, useProjectIntakeDownloadUrl } from "@/hooks/use-project-intake";
 import {
   MilestoneApprovalState,
   useCompleteMilestone,
@@ -387,6 +388,7 @@ export default function ProjectDetailPage() {
         </CardContent>
       </Card>
 
+      <ProjectIntakeSection projectId={project.id} />
       <ProjectDocumentsSection projectId={project.id} />
 
       {/* ─── Milestones Execution List & Activity Log ─── */}
@@ -520,6 +522,103 @@ function ActivityTimeline({ projectId }: { projectId: string }) {
 }
 
 // Project Documents
+function ProjectIntakeSection({ projectId }: { projectId: string }) {
+  const { data: attachments = [], isLoading, isError } = useProjectIntake(projectId);
+  const intakeDownload = useProjectIntakeDownloadUrl(projectId);
+  const [downloadError, setDownloadError] = useState("");
+
+  const handleDownload = async (attachmentId: string) => {
+    setDownloadError("");
+    try {
+      const { url } = await intakeDownload.mutateAsync(attachmentId);
+      window.open(url, "_blank", "noopener,noreferrer");
+    } catch {
+      setDownloadError("Unable to create a project intake download link.");
+    }
+  };
+
+  const sections: Array<{ kind: "MOM" | "PHOTO" | "DOCUMENT"; label: string }> = [
+    { kind: "MOM", label: "MoM" },
+    { kind: "PHOTO", label: "Project Photos" },
+    { kind: "DOCUMENT", label: "Optional Documents" },
+  ];
+
+  return (
+    <Card className="border-border/60 bg-card/70 shadow-sm">
+      <CardHeader className="pb-3">
+        <div className="flex items-start gap-3">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-sky-400/20 bg-sky-400/10 text-sky-400">
+            <FileCheck2 className="h-4 w-4" />
+          </span>
+          <div className="space-y-1">
+            <CardTitle className="text-base font-semibold tracking-tight">Project Intake</CardTitle>
+            <CardDescription className="text-xs">
+              Initial MoM, photos, and supporting files. These are intake evidence, not official repository documents.
+            </CardDescription>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {downloadError && (
+          <p className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+            {downloadError}
+          </p>
+        )}
+        {isLoading ? (
+          <div className="space-y-2">
+            {[1, 2].map((item) => (
+              <div key={item} className="h-14 animate-pulse rounded-xl border border-border/40 bg-muted/20" />
+            ))}
+          </div>
+        ) : isError ? (
+          <p className="py-4 text-center text-xs text-destructive">Unable to load project intake evidence.</p>
+        ) : attachments.length === 0 ? (
+          <p className="py-5 text-center text-sm text-muted-foreground">No project intake evidence available.</p>
+        ) : (
+          <div className="space-y-3">
+            {sections.map(({ kind, label }) => {
+              const items = attachments.filter((attachment) => attachment.kind === kind);
+              if (!items.length) return null;
+
+              return (
+                <div key={kind} className="space-y-2">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">{label}</p>
+                  {items.map((attachment) => (
+                    <div
+                      key={attachment.id}
+                      className="flex flex-col gap-3 rounded-xl border border-border/40 bg-muted/10 p-3 transition-colors hover:border-sky-400/25 hover:bg-muted/20 sm:flex-row sm:items-center sm:justify-between"
+                    >
+                      <div className="min-w-0 space-y-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="truncate text-sm font-semibold text-foreground">{attachment.file_name}</p>
+                          <Badge variant="secondary" className="text-[10px]">Intake Evidence</Badge>
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          {attachment.mime_type} - {formatFileSize(attachment.size_bytes)} - Added {formatDate(attachment.created_at)}
+                        </p>
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-8 shrink-0 gap-1.5 self-start text-xs sm:self-auto"
+                        onClick={() => void handleDownload(attachment.id)}
+                        disabled={intakeDownload.isPending}
+                      >
+                        <Download className="h-3.5 w-3.5" />
+                        <span>View / Download</span>
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 function ProjectDocumentsSection({ projectId }: { projectId: string }) {
   const { data: documents = [], isLoading, isError } = useDocuments({ projectId });
   const documentDownload = useDocumentDownloadUrl();
@@ -1742,6 +1841,12 @@ function Info({ label, value, badge }: { label: string; value: string; badge?: b
 function formatDate(value?: string | null) {
   if (!value) return "-";
   return new Date(value).toLocaleDateString("id-ID", { dateStyle: "medium" });
+}
+
+function formatFileSize(value: number): string {
+  if (!Number.isFinite(value) || value < 0) return "-";
+  if (value < 1024 * 1024) return `${Math.max(1, Math.round(value / 1024))} KB`;
+  return `${(value / 1024 / 1024).toFixed(2)} MB`;
 }
 
 function formatDateTime(value?: string | null) {

@@ -5,7 +5,11 @@ import { ProjectPlanApprovalController } from '../controllers/project-plan-appro
 import { MilestoneInitiationApprovalController } from '../controllers/milestone-initiation-approval.controller';
 import { AssignmentPhase5Controller } from '../controllers/assignment-phase5.controller';
 import { ProjectDeletionController } from '../controllers/project-deletion.controller';
-import { MAX_PROJECT_CREATION_OPTIONAL_DOCUMENTS } from '../services/project-management.service';
+import { ProjectIntakeController } from '../controllers/project-intake.controller';
+import {
+  MAX_PROJECT_CREATION_OPTIONAL_DOCUMENTS,
+  MAX_PROJECT_CREATION_PHOTOS,
+} from '../services/project-management.service';
 import { assignPicSchema } from '../validators/assignment-phase5.validator';
 import { authenticateJwt, requireRoles } from '../middlewares/auth.middleware';
 import { validateBody } from '../middlewares/validate.middleware';
@@ -20,6 +24,7 @@ import {
 const router = Router();
 const projectCreationUpload = uploadMiddleware.fields([
   { name: 'mom', maxCount: 1 },
+  { name: 'photos', maxCount: MAX_PROJECT_CREATION_PHOTOS },
   { name: 'documents', maxCount: MAX_PROJECT_CREATION_OPTIONAL_DOCUMENTS },
 ]);
 
@@ -44,6 +49,16 @@ router.get('/', ProjectManagementController.list);
 router.get('/:projectId/deletion-preview', requireRoles(['SUPER_ADMIN']), ProjectDeletionController.preview);
 router.delete('/:projectId', requireRoles(['SUPER_ADMIN']), ProjectDeletionController.delete);
 router.get('/:projectId/activities', ProjectActivityController.list);
+router.get(
+  '/:projectId/intake-attachments',
+  requireRoles(['SUPER_ADMIN', 'SALES', 'HEAD_SA', 'SA']),
+  ProjectIntakeController.list
+);
+router.get(
+  '/:projectId/intake-attachments/:attachmentId/download-url',
+  requireRoles(['SUPER_ADMIN', 'SALES', 'HEAD_SA', 'SA']),
+  ProjectIntakeController.getDownloadUrl
+);
 router.get('/:id', ProjectManagementController.get);
 
 // 2. Create Project (Sales)

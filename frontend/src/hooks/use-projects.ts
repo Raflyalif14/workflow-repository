@@ -115,15 +115,18 @@ export function useCreateProject() {
       scenario_id?: string;
       scenarioId?: string;
       mom?: File;
+      photos?: File[];
       documents?: File[];
     }) => {
       if (!data.mom) throw new Error("A MoM file is required to create a project.");
+      if (!data.photos?.length) throw new Error("At least one project photo is required to create a project.");
 
       const formData = new FormData();
       formData.append("name", data.name);
       formData.append("customer", data.customer || data.clientName || "");
       formData.append("scenario_id", data.scenario_id || data.scenarioId || "");
       formData.append("mom", data.mom);
+      for (const file of data.photos) formData.append("photos", file);
       for (const file of data.documents || []) formData.append("documents", file);
 
       return apiClient<Project>("/projects", { method: "POST", body: formData });
