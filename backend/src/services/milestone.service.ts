@@ -3,7 +3,6 @@ import {
   completeMilestoneStage,
   isMilestoneCompletedLike,
   logWorkflowActivityBestEffort,
-  startMilestoneStage,
 } from './workflow-progression.service';
 import { notifyMilestoneSubmitted } from './milestone-notification.service';
 
@@ -220,10 +219,6 @@ export class MilestoneService {
       throw new Error(error?.message || 'Workflow initialization failed; no milestones were retained.');
     }
     return data;
-  }
-
-  static startStage(milestoneId: string, actor: Actor) {
-    return startMilestoneStage(milestoneId, actor);
   }
 
   static completeStage(milestoneId: string, actor: Actor) {

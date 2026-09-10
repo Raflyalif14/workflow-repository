@@ -119,8 +119,7 @@ router.post(
 
 router.post(
   '/:milestoneId/start',
-  requireRoles(['SALES', 'HEAD_SA', 'SA']),
-  MilestoneController.start
+  MilestoneInitiationApprovalController.retired
 );
 
 router.post(

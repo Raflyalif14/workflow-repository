@@ -57,6 +57,7 @@ import {
 import {
   formatMilestoneStatusLabel,
   formatProjectStatusLabel,
+  isDeadlineChangeStepEligible,
   resolveCurrentStage,
   resolveNextAction,
 } from "@/lib/workflow-ux-helpers";
@@ -87,7 +88,6 @@ import {
   useReviewDeadlineApproval,
   useReviewSubmissionApproval,
   useSaveMilestoneDeadline,
-  useStartMilestone,
   useStartMilestoneRevision,
 } from "@/hooks/use-milestone-workflow";
 import {
@@ -1019,13 +1019,6 @@ function MilestoneRow({
       );
   const isDeadlineOverdue = deadlineStatusQuery.data?.deadline_status === "OVERDUE";
 
-  const canStart =
-    projectIsActive &&
-    milestoneStatus === "CREATED" &&
-    ((stageRole === "SALES" && isSalesOwner) ||
-      (stageRole === "HEAD_SA" && isHeadSa) ||
-      (stageRole === "SA" && isAssignedPic));
-
   const canComplete =
     projectIsActive &&
     milestoneStatus === "IN_PROGRESS" &&
@@ -1039,7 +1032,11 @@ function MilestoneRow({
   const canRequestDeadlineChange =
     projectIsActive &&
     isSalesOwner &&
-    milestone.step_order > 2 &&
+    isDeadlineChangeStepEligible(
+      milestone.step_order,
+      project.scenario?.workflow_model,
+      project.scenario?.workflow_version
+    ) &&
     !isCompleted &&
     !hasPendingDeadline;
   const canUploadSalesMilestoneDocuments =
@@ -1060,7 +1057,6 @@ function MilestoneRow({
   const canCreateContribution = canAddMilestoneContribution(user, contributionProject, contributionMilestone);
   const canPromoteContributions = canPromoteMilestoneContributions(user, contributionProject, contributionMilestone);
 
-  const start = useStartMilestone(project.id, milestone.id);
   const complete = useCompleteMilestone(project.id, milestone.id);
   const startRevision = useStartMilestoneRevision(project.id, milestone.id);
 
@@ -1133,17 +1129,6 @@ function MilestoneRow({
             >
               <UploadCloud className="h-3.5 w-3.5" />
               <span>Upload Document</span>
-            </Button>
-          )}
-          {canStart && (
-            <Button
-              size="sm"
-              className="h-8 gap-1.5 text-xs shadow-sm"
-              disabled={start.isPending}
-              onClick={() => void perform(() => start.mutateAsync(), "Stage started.", "Failed to start stage.")}
-            >
-              <Play className="h-3.5 w-3.5" />
-              <span>{start.isPending ? "Starting..." : "Start Stage"}</span>
             </Button>
           )}
           {canComplete && (

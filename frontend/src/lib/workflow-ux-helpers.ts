@@ -42,6 +42,15 @@ export function getTimelinePlanningMilestones(
     : milestones.filter((milestone) => milestone.step_order > 2);
 }
 
+export function isDeadlineChangeStepEligible(
+  stepOrder: number,
+  workflowModel?: string | null,
+  workflowVersion?: number | null
+): boolean {
+  const workflowMode = resolveTimelineWorkflowMode(workflowModel, workflowVersion);
+  return workflowMode === "OPERATIONAL_V2" || (workflowMode === "LEGACY" && stepOrder > 2);
+}
+
 export interface NextActionInfo {
   title: string;
   description: string;
@@ -51,7 +60,6 @@ export interface NextActionInfo {
     | "RESUBMIT_PLAN"
     | "REVIEW_PLAN"
     | "ASSIGN_PIC"
-    | "START_STAGE"
     | "MARK_COMPLETE"
     | "SUBMIT_WORK"
     | "START_REVISION"
@@ -483,28 +491,11 @@ export function resolveNextAction(
       }
     }
 
-    // Case 5e: Stage in CREATED state (Needs manual start)
+    // Case 5e: Upcoming stage awaiting automatic progression.
     if (currentMilestone.status === "CREATED") {
-      const canStart =
-        (stageRole === "SALES" && isSalesOwner) ||
-        (stageRole === "HEAD_SA" && isHeadSa) ||
-        (stageRole === "SA" && isAssignedPic);
-
-      if (canStart) {
-        return {
-          title: `Start Stage: ${currentMilestone.name}`,
-          description: `Begin execution of step ${currentMilestone.step_order}: ${currentMilestone.name}.`,
-          actionLabel: "Start Stage",
-          actionType: "START_STAGE",
-          isWaiting: false,
-          canPerformAction: true,
-          targetMilestoneId: currentMilestone.id,
-          targetMilestoneName: currentMilestone.name,
-        };
-      }
       return {
         title: `Upcoming: ${currentMilestone.name}`,
-        description: `Waiting for ${stageRole || "responsible role"} to start stage.`,
+        description: "This stage will start automatically when its prerequisites are complete.",
         isWaiting: true,
         waitingForRole: stageRole || "responsible role",
         canPerformAction: false,

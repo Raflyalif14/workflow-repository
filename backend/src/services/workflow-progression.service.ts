@@ -55,46 +55,6 @@ function assertProjectIsActive(project: WorkflowProject) {
   }
 }
 
-function assertPreviousMilestonesCompleted(milestone: WorkflowMilestone, milestones: WorkflowMilestone[]) {
-  const hasIncompletePreviousMilestone = milestones.some(
-    (candidate) => candidate.step_order < milestone.step_order && !isMilestoneCompletedLike(candidate.status)
-  );
-
-  if (hasIncompletePreviousMilestone) {
-    throw new Error('Previous milestone must be completed before this stage can start.');
-  }
-}
-
-function assertActorCanStart(milestone: WorkflowMilestone, project: WorkflowProject, actor: WorkflowActor) {
-  const stageRole = stageRoleOf(milestone);
-
-  if (stageRole === 'SALES') {
-    if (actor.role !== 'SALES' || project.sales_id !== actor.userId) {
-      throw new Error('Only the project owner can start this milestone.');
-    }
-    return;
-  }
-
-  if (stageRole === 'HEAD_SA') {
-    if (actor.role !== 'HEAD_SA') {
-      throw new Error('Only HEAD_SA can start this milestone.');
-    }
-    return;
-  }
-
-  if (stageRole === 'SA') {
-    if (!milestone.pic_id) {
-      throw new Error('Milestone must have an assigned SA PIC before it can be started.');
-    }
-    if (actor.role !== 'SA' || milestone.pic_id !== actor.userId) {
-      throw new Error('Only the assigned SA PIC can start this milestone.');
-    }
-    return;
-  }
-
-  throw new Error('Milestone has an unsupported responsible role.');
-}
-
 function assertActorCanComplete(milestone: WorkflowMilestone, project: WorkflowProject, actor: WorkflowActor) {
   const stageRole = stageRoleOf(milestone);
 
@@ -187,34 +147,6 @@ async function getMilestoneWithProject(milestoneId: string) {
   if (!project) throw new Error('Project not found');
 
   return { milestone: data as WorkflowMilestone, project };
-}
-
-export async function startMilestoneStage(milestoneId: string, actor: WorkflowActor) {
-  const { milestone, project } = await getMilestoneWithProject(milestoneId);
-  assertProjectIsActive(project);
-
-  if (milestone.status !== 'CREATED') {
-    throw new Error('Only CREATED milestones can be started.');
-  }
-
-  const milestones = await getProjectMilestones(project.id);
-  assertPreviousMilestonesCompleted(milestone, milestones);
-  assertActorCanStart(milestone, project, actor);
-
-  const { data: updated, error } = await supabaseAdmin
-    .from('project_milestones')
-    .update({ status: 'IN_PROGRESS', updated_at: nowIso() })
-    .eq('id', milestone.id)
-    .eq('status', 'CREATED')
-    .select('id,project_id,name,step_order,status,pic_id,completed_at')
-    .maybeSingle();
-
-  if (error) throw new Error(error.message);
-  if (!updated) throw new Error('Only CREATED milestones can be started.');
-
-  await logWorkflowActivityBestEffort(actor, project.id, 'MILESTONE_STARTED', `${actor.fullName} started milestone '${updated.name}'`);
-
-  return updated;
 }
 
 export async function advanceToNextMilestone(

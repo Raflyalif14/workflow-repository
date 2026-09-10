@@ -2,6 +2,7 @@ import {
   formatMilestoneStatusLabel,
   formatProjectStatusLabel,
   getApprovalTypeDisplay,
+  isDeadlineChangeStepEligible,
   getTimelinePlanningMilestones,
   isTimelineComplete,
   resolveCurrentStage,
@@ -171,6 +172,36 @@ if (
 
 if (!isTimelineComplete(operationalV2Milestones, "OPERATIONAL_V2", 2).isComplete) {
   throw new Error("OPERATIONAL_V2 timeline should be complete only when all eight milestones are planned");
+}
+
+if (
+  isDeadlineChangeStepEligible(1, "LEGACY", 1) ||
+  isDeadlineChangeStepEligible(2, "LEGACY", 1) ||
+  !isDeadlineChangeStepEligible(3, "LEGACY", 1)
+) {
+  throw new Error("LEGACY deadline changes should remain limited to steps after planning");
+}
+
+if (
+  !isDeadlineChangeStepEligible(1, "OPERATIONAL_V2", 2) ||
+  !isDeadlineChangeStepEligible(2, "OPERATIONAL_V2", 2) ||
+  !isDeadlineChangeStepEligible(8, "OPERATIONAL_V2", 2)
+) {
+  throw new Error("OPERATIONAL_V2 deadline changes should include every operational step");
+}
+
+if (isDeadlineChangeStepEligible(1, "UNKNOWN", 1)) {
+  throw new Error("Unsupported workflow models must not enable deadline changes");
+}
+
+const createdStageAction = resolveNextAction(
+  { ...baseProject, status: "ACTIVE" },
+  [milestone1, { ...milestone2, status: "COMPLETED" }, milestone3],
+  null,
+  { id: "sa-1", role: "SA" }
+);
+if (createdStageAction.canPerformAction || createdStageAction.actionLabel) {
+  throw new Error("CREATED milestones must not expose a manual Start Stage action");
 }
 
 // ─── Test 4: Next Action in DRAFT state ───

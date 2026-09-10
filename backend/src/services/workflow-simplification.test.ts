@@ -18,6 +18,7 @@ import {
   hasValidInitialTimeline,
   projectPlanConstants,
 } from './project-plan-approval.service';
+import { MilestoneInitiationApprovalController } from '../controllers/milestone-initiation-approval.controller';
 import { getAutoStartBlockReason, isMilestoneCompletedLike } from './workflow-progression.service';
 
 const assert = (condition: boolean, message: string) => {
@@ -175,8 +176,27 @@ assert(migration.includes('create table if not exists public.project_plan_approv
 console.log('Test 22 - Project plan migration includes a partial pending-approval index');
 
 const milestoneRoutes = readFileSync(join(__dirname, '../routes/milestone.routes.ts'), 'utf8');
-assert(milestoneRoutes.includes("'/:milestoneId/start'") && milestoneRoutes.includes("'/:milestoneId/complete'") && milestoneRoutes.includes('MilestoneInitiationApprovalController.retired'), 'Test 23: new start/complete endpoints and retired initiation routes must coexist');
-console.log('Test 23 - Manual Start Stage exists while initiation mutations are retired');
+const milestoneController = readFileSync(join(__dirname, '../controllers/milestone.controller.ts'), 'utf8');
+assert(
+  /router\.post\(\s*'\/:milestoneId\/start',\s*MilestoneInitiationApprovalController\.retired\s*\);/s.test(milestoneRoutes) &&
+    milestoneRoutes.includes("'/:milestoneId/complete'") &&
+    !/static async start\(/.test(milestoneController),
+  'Test 23: manual start must be retired without a mutating controller entry point'
+);
+console.log('Test 23 - Manual Start Stage is retired while automatic completion remains available');
+
+let retiredStatusCode: number | undefined;
+MilestoneInitiationApprovalController.retired(
+  {} as never,
+  {
+    status: (statusCode: number) => {
+      retiredStatusCode = statusCode;
+      return { json: () => undefined };
+    },
+  } as never
+);
+assert(retiredStatusCode === 410, 'Test 23b: retired manual start handler must return HTTP 410 without a workflow mutation');
+console.log('Test 23b - Retired manual Start Stage responds with HTTP 410');
 
 const assignmentSource = readFileSync(join(__dirname, 'assignment-phase5.service.ts'), 'utf8');
 const dashboardSource = readFileSync(join(__dirname, 'dashboard.service.ts'), 'utf8');

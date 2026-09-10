@@ -13,16 +13,6 @@ const getStatusCode = (message?: string) => {
 };
 
 export class MilestoneController {
-  static async start(req: AuthenticatedRequest, res: Response): Promise<void> {
-    try {
-      const result = await MilestoneService.startStage(getRouteParam(req, 'milestoneId'), req.user!);
-      sendSuccess(res, 'Milestone started successfully', result);
-    } catch (error: any) {
-      const status = error.message === 'Forbidden' || error.message?.startsWith('Only ') ? 403 : getStatusCode(error.message);
-      sendError(res, error.message || 'Failed to start milestone', null, status);
-    }
-  }
-
   static async complete(req: AuthenticatedRequest, res: Response): Promise<void> {
     try {
       const result = await MilestoneService.completeStage(getRouteParam(req, 'milestoneId'), req.user!);

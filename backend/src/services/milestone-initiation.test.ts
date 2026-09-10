@@ -10,9 +10,8 @@ const milestoneRoutes = readFileSync(join(__dirname, '../routes/milestone.routes
 const initiationRoutes = readFileSync(join(__dirname, '../routes/milestone-initiation-approval.routes.ts'), 'utf8');
 
 assert(
-  milestoneRoutes.includes("'/:milestoneId/request-initiation-approval'") &&
-    milestoneRoutes.includes("'/:milestoneId/initiate'") &&
-    milestoneRoutes.match(/MilestoneInitiationApprovalController\.retired/g)?.length === 2,
+  /router\.post\(\s*'\/:milestoneId\/request-initiation-approval',\s*MilestoneInitiationApprovalController\.retired\s*\);/s.test(milestoneRoutes) &&
+    /router\.post\(\s*'\/:milestoneId\/initiate',\s*MilestoneInitiationApprovalController\.retired\s*\);/s.test(milestoneRoutes),
   'Test 1: initiation request and initiate mutations must be retired'
 );
 console.log('Test 1 - SALES initiation mutations return the retired workflow response');

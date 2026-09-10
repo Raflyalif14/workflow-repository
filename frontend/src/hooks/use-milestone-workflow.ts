@@ -113,16 +113,6 @@ export function useSaveMilestoneDeadline(projectId: string, milestoneId: string)
   });
 }
 
-export function useStartMilestone(projectId: string, milestoneId: string) {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: () => apiClient(`/milestones/${milestoneId}/start`, { method: "POST" }),
-    onSuccess: () => invalidateMilestoneWorkflow(queryClient, projectId, milestoneId),
-    onError: () => invalidateMilestoneWorkflow(queryClient, projectId, milestoneId),
-  });
-}
-
 export function useCompleteMilestone(projectId: string, milestoneId: string) {
   const queryClient = useQueryClient();
 
