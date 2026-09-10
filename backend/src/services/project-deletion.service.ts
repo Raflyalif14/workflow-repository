@@ -3,6 +3,12 @@ import { DocumentStorageService } from '../utils/storage.util';
 
 type Actor = { userId: string; role: string };
 type CleanupStatus = 'PENDING' | 'COMPLETED' | 'FAILED';
+type CleanupRecord = {
+  id: string;
+  status: CleanupStatus;
+  storage_paths: unknown;
+  storage_object_count: number | string | null;
+};
 
 export class ProjectDeletionError extends Error {
   constructor(message: string, readonly statusCode = 400) {
@@ -28,7 +34,31 @@ const storageRows = async (table: string, configure: (query: any) => any): Promi
   return (data || []) as Array<{ id: string; storage_path: string }>;
 };
 
+const capturedStoragePaths = (storagePaths: unknown): string[] => {
+  if (!Array.isArray(storagePaths) || !storagePaths.every((path) => typeof path === 'string' && Boolean(path.trim()))) {
+    throw new ProjectDeletionError('Unable to retry project storage cleanup.', 500);
+  }
+  return storagePaths;
+};
+
+const cleanupSummary = (cleanup: CleanupRecord) => ({
+  id: cleanup.id,
+  status: cleanup.status,
+  storage_object_count: Number(cleanup.storage_object_count) || 0,
+});
+
 export class ProjectDeletionService {
+  private static async getCleanup(cleanupId: string): Promise<CleanupRecord> {
+    const { data, error } = await supabaseAdmin
+      .from('project_deletion_cleanups')
+      .select('id,status,storage_paths,storage_object_count')
+      .eq('id', cleanupId)
+      .maybeSingle();
+    if (error) throw new ProjectDeletionError('Unable to retrieve project deletion cleanup.', 500);
+    if (!data) throw new ProjectDeletionError('Project deletion cleanup not found.', 404);
+    return data as CleanupRecord;
+  }
+
   static async preview(projectId: string, actor: Actor) {
     ensureSuperAdmin(actor);
     const { data: project, error } = await supabaseAdmin
@@ -139,5 +169,78 @@ export class ProjectDeletionService {
       cleanupStatus = failed ? 'FAILED' : 'PENDING';
     }
     return { project_id: projectId, cleanup: { id: result.cleanup_id, status: cleanupStatus, storage_object_count: Number(result.storage_object_count) || 0 } };
+  }
+
+  static async retry(cleanupId: string, actor: Actor) {
+    ensureSuperAdmin(actor);
+    const cleanup = await this.getCleanup(cleanupId);
+    const storagePaths = capturedStoragePaths(cleanup.storage_paths);
+
+    if (cleanup.status === 'COMPLETED') {
+      return { cleanup: cleanupSummary(cleanup) };
+    }
+    if (cleanup.status !== 'FAILED') {
+      throw new ProjectDeletionError('Project deletion cleanup is already being processed.', 409);
+    }
+
+    const retryAt = new Date().toISOString();
+    const { data: claimed, error: claimError } = await supabaseAdmin
+      .from('project_deletion_cleanups')
+      .update({ status: 'PENDING', updated_at: retryAt })
+      .eq('id', cleanup.id)
+      .eq('status', 'FAILED')
+      .select('id,status,storage_paths,storage_object_count')
+      .maybeSingle();
+    if (claimError) throw new ProjectDeletionError('Unable to retry project storage cleanup.', 500);
+    if (!claimed) {
+      const latest = await this.getCleanup(cleanupId);
+      if (latest.status === 'COMPLETED') return { cleanup: cleanupSummary(latest) };
+      throw new ProjectDeletionError('Project deletion cleanup is already being processed.', 409);
+    }
+
+    try {
+      await DocumentStorageService.removeMany(storagePaths);
+    } catch (error) {
+      console.error('[ProjectDeletion] Storage cleanup retry could not be confirmed.', {
+        cleanupId: cleanup.id,
+        storageObjectCount: storagePaths.length,
+        error: error instanceof Error ? error.message : 'Unknown storage cleanup error',
+      });
+      const { data: failed, error: failureError } = await supabaseAdmin
+        .from('project_deletion_cleanups')
+        .update({
+          status: 'FAILED',
+          failed_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+          failure_code: 'STORAGE_DELETE_FAILED',
+        })
+        .eq('id', cleanup.id)
+        .eq('status', 'PENDING')
+        .select('id')
+        .maybeSingle();
+      if (failureError || !failed) {
+        console.error('[ProjectDeletion] Storage cleanup retry failure could not be recorded.', { cleanupId: cleanup.id });
+      }
+      throw new ProjectDeletionError('Unable to retry project storage cleanup.', 500);
+    }
+
+    const { data: completed, error: completionError } = await supabaseAdmin
+      .from('project_deletion_cleanups')
+      .update({
+        status: 'COMPLETED',
+        completed_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        failure_code: null,
+      })
+      .eq('id', cleanup.id)
+      .eq('status', 'PENDING')
+      .select('id,status,storage_paths,storage_object_count')
+      .maybeSingle();
+    if (completionError || !completed) {
+      console.error('[ProjectDeletion] Storage cleanup retry completion could not be recorded.', { cleanupId: cleanup.id });
+      throw new ProjectDeletionError('Unable to retry project storage cleanup.', 500);
+    }
+
+    return { cleanup: cleanupSummary(completed as CleanupRecord) };
   }
 }

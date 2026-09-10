@@ -48,6 +48,7 @@ router.use(authenticateJwt);
 router.get('/', ProjectManagementController.list);
 router.get('/:projectId/deletion-preview', requireRoles(['SUPER_ADMIN']), ProjectDeletionController.preview);
 router.delete('/:projectId', requireRoles(['SUPER_ADMIN']), ProjectDeletionController.delete);
+router.post('/deletion-cleanups/:cleanupId/retry', requireRoles(['SUPER_ADMIN']), ProjectDeletionController.retry);
 router.get('/:projectId/activities', ProjectActivityController.list);
 router.get(
   '/:projectId/intake-attachments',

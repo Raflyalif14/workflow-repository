@@ -25,4 +25,7 @@ export class ProjectDeletionController {
     }
     return run(res, () => ProjectDeletionService.delete(getRouteParam(req, 'projectId'), parsed.data.confirmation, req.user!), 'Project deleted successfully');
   };
+
+  static retry = (req: AuthenticatedRequest, res: Response) =>
+    run(res, () => ProjectDeletionService.retry(getRouteParam(req, 'cleanupId'), req.user!), 'Project deletion storage cleanup retried successfully');
 }
