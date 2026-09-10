@@ -5,6 +5,7 @@ import {
   notifyDeadlineChangeRejected,
 } from './deadline-notification.service';
 import { logWorkflowActivityBestEffort } from './workflow-progression.service';
+import { DeadlineError } from '../utils/deadline-error.util';
 
 type Actor = { userId: string; role: string; fullName: string };
 type ReviewDecision = 'APPROVED' | 'REJECTED';
@@ -275,7 +276,7 @@ export class DeadlineApprovalService {
       .select('id, milestone_id, deadline_history_id, status, requested_by, reviewed_by, review_note, requested_at, reviewed_at')
       .maybeSingle();
 
-    if (updateError) throw new Error(updateError.message);
+    if (updateError) throw new DeadlineError('Failed to review deadline approval.', 500, updateError);
     if (!updated) throw new Error('Deadline approval is no longer pending.');
 
     if (decision === 'APPROVED') {
@@ -303,11 +304,10 @@ export class DeadlineApprovalService {
           })
           .eq('id', approvalId);
 
-        if (rollbackError) {
-          throw new Error(`${milestoneError?.message || 'Failed to apply approved deadline.'}; rollback failed: ${rollbackError.message}`);
-        }
-
-        throw new Error(milestoneError?.message || 'Failed to apply approved deadline.');
+        throw new DeadlineError('Failed to apply approved deadline.', 500, {
+          milestoneError,
+          rollbackError,
+        });
       }
     }
 

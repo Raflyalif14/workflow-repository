@@ -4,11 +4,12 @@ import { DeadlineApprovalService } from '../services/deadline-approval.service';
 import { sendError, sendSuccess } from '../utils/response.util';
 import { getRouteParam } from '../utils/request.util';
 import { ApproveDeadlineApprovalInput, RejectDeadlineApprovalInput } from '../validators/deadline-approval.validator';
+import { logUnexpectedDeadlineError, toSafeDeadlineError } from '../utils/deadline-error.util';
 
-const getStatusCode = (message?: string) => {
-  if (message === 'Forbidden') return 403;
-  if (message?.includes('not found')) return 404;
-  return 400;
+const sendDeadlineApprovalError = (res: Response, error: unknown, fallback: string, operation: string): void => {
+  const safeError = toSafeDeadlineError(error, fallback);
+  logUnexpectedDeadlineError(operation, safeError);
+  sendError(res, safeError.message, null, safeError.statusCode);
 };
 
 export class DeadlineApprovalController {
@@ -16,8 +17,8 @@ export class DeadlineApprovalController {
     try {
       const result = await DeadlineApprovalService.getCurrentApproval(getRouteParam(req, 'milestoneId'), req.user!);
       sendSuccess(res, 'Current deadline approval retrieved successfully', result);
-    } catch (error: any) {
-      sendError(res, error.message || 'Failed to retrieve current deadline approval', null, getStatusCode(error.message));
+    } catch (error) {
+      sendDeadlineApprovalError(res, error, 'Failed to retrieve current deadline approval.', 'getCurrentDeadlineApproval');
     }
   }
 
@@ -25,8 +26,8 @@ export class DeadlineApprovalController {
     try {
       const result = await DeadlineApprovalService.getApprovalHistory(getRouteParam(req, 'milestoneId'), req.user!);
       sendSuccess(res, 'Deadline approval history retrieved successfully', result);
-    } catch (error: any) {
-      sendError(res, error.message || 'Failed to retrieve deadline approval history', null, getStatusCode(error.message));
+    } catch (error) {
+      sendDeadlineApprovalError(res, error, 'Failed to retrieve deadline approval history.', 'getDeadlineApprovalHistory');
     }
   }
 
@@ -38,8 +39,8 @@ export class DeadlineApprovalController {
         req.user!
       );
       sendSuccess(res, 'Deadline approval approved successfully', result);
-    } catch (error: any) {
-      sendError(res, error.message || 'Failed to approve deadline approval', null, getStatusCode(error.message));
+    } catch (error) {
+      sendDeadlineApprovalError(res, error, 'Failed to approve deadline approval.', 'approveDeadlineApproval');
     }
   }
 
@@ -51,8 +52,8 @@ export class DeadlineApprovalController {
         req.user!
       );
       sendSuccess(res, 'Deadline approval rejected successfully', result);
-    } catch (error: any) {
-      sendError(res, error.message || 'Failed to reject deadline approval', null, getStatusCode(error.message));
+    } catch (error) {
+      sendDeadlineApprovalError(res, error, 'Failed to reject deadline approval.', 'rejectDeadlineApproval');
     }
   }
 }

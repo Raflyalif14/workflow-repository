@@ -4,6 +4,7 @@ import { SaveMilestoneDeadlineInput } from '../validators/deadline.validator';
 import { notifyDeadlineChangeRequested } from './deadline-notification.service';
 import { HolidayService } from './holiday.service';
 import { logWorkflowActivityBestEffort } from './workflow-progression.service';
+import { DeadlineError } from '../utils/deadline-error.util';
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 type Actor = { userId: string; role: string; fullName: string };
@@ -253,7 +254,9 @@ export class DeadlineService {
       .eq('status', 'PENDING')
       .maybeSingle();
 
-    if (pendingError) throw new Error(pendingError.message);
+    if (pendingError) {
+      throw new DeadlineError('Failed to verify the current deadline approval.', 500, pendingError);
+    }
 
     const calculated = await this.calculateDeadline(input.start_date, input.duration_working_days);
     const proposal = buildDeadlineProposalArtifacts(milestone, calculated, actor, Boolean(pendingApproval), input.reason);
@@ -264,7 +267,9 @@ export class DeadlineService {
       .select('id')
       .single();
 
-    if (historyError || !deadlineHistory) throw new Error(historyError?.message || 'Failed to create milestone deadline history');
+    if (historyError || !deadlineHistory) {
+      throw new DeadlineError('Failed to create milestone deadline history.', 500, historyError);
+    }
 
     const { data: approval, error: approvalError } = await supabaseAdmin
       .from('milestone_deadline_approvals')
@@ -281,11 +286,10 @@ export class DeadlineService {
         .delete()
         .eq('id', deadlineHistory.id);
 
-      if (cleanupError) {
-        throw new Error(`${approvalError?.message || 'Failed to create deadline approval.'}; cleanup failed: ${cleanupError.message}`);
-      }
-
-      throw new Error(approvalError?.message || 'Failed to create deadline approval.');
+      throw new DeadlineError('Failed to create deadline approval.', 500, {
+        approvalError,
+        cleanupError,
+      });
     }
 
     await logDeadlineChangeRequested(actor, milestone, calculated.due_date);
@@ -317,7 +321,7 @@ export class DeadlineService {
       .eq('milestone_id', milestoneId)
       .order('created_at', { ascending: false });
 
-    if (error) throw new Error(error.message);
+    if (error) throw new DeadlineError('Failed to retrieve milestone deadline history.', 500, error);
 
     const changedByIds = [...new Set((data || []).map((row) => row.changed_by).filter(Boolean))];
     const users = new Map<string, any>();
@@ -328,7 +332,7 @@ export class DeadlineService {
         .select('id, full_name, email')
         .in('id', changedByIds);
 
-      if (userError) throw new Error(userError.message);
+      if (userError) throw new DeadlineError('Failed to retrieve milestone deadline history.', 500, userError);
       (userRows || []).forEach((user) => users.set(user.id, user));
     }
 
