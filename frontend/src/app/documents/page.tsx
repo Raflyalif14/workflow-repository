@@ -3,7 +3,6 @@
 import React, { useState } from "react";
 import {
   FolderArchive,
-  UploadCloud,
   Search,
   Filter,
   Download,
@@ -22,7 +21,6 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { useDocumentDownloadUrl, useDocuments } from "@/hooks/use-documents";
 import { DocumentItem, DocumentCategory, DocumentStatus } from "@/types/document";
-import { UploadDocumentDialog } from "@/components/documents/upload-document-dialog";
 import { UploadVersionDialog } from "@/components/documents/upload-version-dialog";
 import { DocumentCommentsDrawer } from "@/components/documents/document-comments-drawer";
 
@@ -30,9 +28,6 @@ export default function DocumentsPage() {
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<DocumentCategory | "ALL">("ALL");
   const [statusFilter, setStatusFilter] = useState<DocumentStatus | "ALL">("ALL");
-
-  // Dialog States
-  const [isUploadOpen, setIsUploadOpen] = useState(false);
 
   const [selectedDocForVersion, setSelectedDocForVersion] = useState<DocumentItem | null>(null);
   const [isUploadVersionOpen, setIsUploadVersionOpen] = useState(false);
@@ -110,10 +105,6 @@ export default function DocumentsPage() {
           </p>
         </div>
 
-        <Button onClick={() => setIsUploadOpen(true)} className="h-9 self-start gap-2 rounded-lg shadow-md sm:self-auto">
-          <UploadCloud className="h-4 w-4" />
-          <span>Upload Document</span>
-        </Button>
       </div>
 
       {/* Filter Toolbar */}
@@ -187,7 +178,7 @@ export default function DocumentsPage() {
       ) : documents.length === 0 ? (
         <Card className="border-dashed border-border/60 bg-card/70 shadow-sm">
           <CardContent className="py-16 text-center text-muted-foreground">
-            <p className="mx-auto max-w-sm text-sm">No documents found matching your filter criteria. Click &quot;Upload Document&quot; to add a new file.</p>
+            <p className="mx-auto max-w-sm text-sm">No documents found matching your filter criteria.</p>
           </CardContent>
         </Card>
       ) : (
@@ -317,11 +308,6 @@ export default function DocumentsPage() {
       )}
 
       {/* Modals */}
-      <UploadDocumentDialog
-        open={isUploadOpen}
-        onOpenChange={setIsUploadOpen}
-      />
-
       <UploadVersionDialog
         open={isUploadVersionOpen}
         onOpenChange={setIsUploadVersionOpen}

@@ -29,28 +29,6 @@ export function useDocument(id: string) {
   });
 }
 
-export function useUploadDocument() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async (formData: FormData) => {
-      const response = await authorizedFetch("/documents", {
-        method: "POST",
-        body: formData,
-      });
-
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.message || "Failed to upload document");
-      }
-      return data.data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["documents"] });
-    },
-  });
-}
-
 type SalesMilestoneDocumentUploadResult = {
   milestone_id: string;
   documents: Array<{

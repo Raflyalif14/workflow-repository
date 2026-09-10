@@ -11,14 +11,6 @@ export const documentCategoryEnum = z.enum([
   'OTHER',
 ]);
 
-export const createDocumentSchema = z.object({
-  projectId: z.string().uuid('Valid Project ID is required'),
-  milestoneId: z.string().uuid().optional(),
-  title: z.string().min(3, 'Document title is required'),
-  category: documentCategoryEnum.default('DELIVERABLE'),
-  changelog: z.string().optional(),
-});
-
 export const uploadVersionSchema = z.object({
   changelog: z.string().min(2, 'Changelog / version summary is required'),
 });
@@ -41,7 +33,6 @@ export const listDocumentsQuerySchema = z.object({
   search: z.string().optional(),
 });
 
-export type CreateDocumentInput = z.infer<typeof createDocumentSchema>;
 export type UploadVersionInput = z.infer<typeof uploadVersionSchema>;
 export type ReviewVersionInput = z.infer<typeof reviewVersionSchema>;
 export type CreateCommentInput = z.infer<typeof createCommentSchema>;

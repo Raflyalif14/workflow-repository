@@ -6,7 +6,6 @@ import { sendError, sendSuccess } from '../utils/response.util';
 import { ZodError } from 'zod';
 import {
   createCommentSchema,
-  createDocumentSchema,
   listDocumentsQuerySchema,
   reviewVersionSchema,
   uploadVersionSchema,
@@ -51,22 +50,13 @@ export class DocumentController {
     }
   }
 
-  static async createDocument(req: AuthenticatedRequest, res: Response): Promise<void> {
-    try {
-      if (!req.file) {
-        sendError(res, 'File is required for document upload', null, 400);
-        return;
-      }
-
-      const document = await DocumentService.createDocument(
-        createDocumentSchema.parse(req.body),
-        req.file,
-        req.user!
-      );
-      sendSuccess(res, 'Document and initial version uploaded successfully', document, 201);
-    } catch (error) {
-      sendDocumentError(res, error, 'Failed to upload document');
-    }
+  static retiredCreateDocument(_req: AuthenticatedRequest, res: Response): void {
+    sendError(
+      res,
+      'Direct repository document uploads have been retired. Use the relevant project workflow to add documents.',
+      null,
+      410
+    );
   }
 
   static async uploadNewVersion(req: AuthenticatedRequest, res: Response): Promise<void> {

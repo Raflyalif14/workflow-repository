@@ -10,7 +10,7 @@ router.use(authenticateUser);
 router.get('/', DocumentController.listDocuments);
 router.get('/versions/:versionId/download-url', DocumentController.getDownloadUrl);
 router.get('/:id', DocumentController.getDocument);
-router.post('/', uploadMiddleware.single('file'), DocumentController.createDocument);
+router.post('/', DocumentController.retiredCreateDocument);
 router.post('/:id/versions', uploadMiddleware.single('file'), DocumentController.uploadNewVersion);
 router.post(
   '/versions/:versionId/review',

@@ -4,7 +4,6 @@ import { canAccessProject, getAccessibleProjectIds } from './project-access.serv
 import { buildDocumentStoragePath, DocumentStorageService } from '../utils/storage.util';
 import {
   CreateCommentInput,
-  CreateDocumentInput,
   ListDocumentsQuery,
   ReviewVersionInput,
   UploadVersionInput,
@@ -465,72 +464,6 @@ export class DocumentService {
     await this.assertDocumentReadAccess(document, actor);
     const [hydrated] = await this.hydrateDocuments([document], true);
     return hydrated;
-  }
-
-  static async createDocument(input: CreateDocumentInput, file: Express.Multer.File, actor: Actor) {
-    const project = await this.getProject(input.projectId);
-    this.assertProjectAccess(project, actor);
-    if (input.milestoneId) await this.assertMilestoneBelongsToProject(input.milestoneId, input.projectId);
-
-    const documentId = randomUUID();
-    const versionId = randomUUID();
-    const storagePath = buildDocumentStoragePath(input.projectId, documentId, file.originalname);
-    let documentInserted = false;
-
-    await this.uploadDocumentFile(file, storagePath, 'Failed to create document.');
-
-    try {
-      const { error: documentError } = await supabaseAdmin.from('documents').insert({
-        id: documentId,
-        project_id: input.projectId,
-        milestone_id: input.milestoneId || null,
-        title: input.title.trim(),
-        category: input.category,
-        status: 'SUBMITTED',
-      });
-      if (documentError) throw new DocumentServiceError('Failed to create document.', 500);
-      documentInserted = true;
-
-      const { error: versionError } = await supabaseAdmin.from('document_versions').insert({
-        id: versionId,
-        document_id: documentId,
-        version_number: 1,
-        file_name: file.originalname,
-        storage_path: storagePath,
-        file_size: file.size,
-        mime_type: file.mimetype || 'application/octet-stream',
-        changelog: input.changelog?.trim() || 'Initial document version upload.',
-        status: 'SUBMITTED',
-        is_latest: true,
-        uploaded_by: actor.userId,
-      });
-      if (versionError) throw new DocumentServiceError('Failed to create document.', 500);
-
-      const { error: approvalError } = await supabaseAdmin.from('document_version_approvals').insert({
-        document_version_id: versionId,
-        status: 'PENDING',
-        action_role: 'HEAD_SA',
-      });
-      if (approvalError) throw new DocumentServiceError('Failed to create document.', 500);
-
-      await this.logDocumentActivity(
-        actor,
-        input.projectId,
-        'DOCUMENT_UPLOADED',
-        `${actor.fullName} uploaded document '${input.title.trim()}' (v1: ${file.originalname})`
-      );
-    } catch (error) {
-      const cleanupErrors: string[] = [];
-      if (documentInserted) {
-        const { error: deleteError } = await supabaseAdmin.from('documents').delete().eq('id', documentId);
-        if (deleteError) cleanupErrors.push('document');
-      }
-      await this.removeUploadedFile(storagePath, cleanupErrors);
-      this.reportRollbackFailure('Document creation', cleanupErrors);
-      throw toSafeDocumentServiceError(error, 'Failed to create document.');
-    }
-
-    return this.getDocumentById(documentId, actor);
   }
 
   static async uploadNewVersion(
