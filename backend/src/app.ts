@@ -6,6 +6,7 @@ import apiRoutes from './routes';
 import { errorHandler } from './middlewares/error.middleware';
 
 const app: Application = express();
+app.set('trust proxy', ENV.TRUST_PROXY);
 const allowedOrigins = ENV.CORS_ORIGIN.split(',').map((origin) => origin.trim());
 const isLocalDevOrigin = (origin: string) =>
   ENV.NODE_ENV === 'development' && /^http:\/\/(localhost|127\.0\.0\.1):\d+$/.test(origin);
