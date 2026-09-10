@@ -3,7 +3,7 @@ import {
   resolveWorkflowInitializationMode,
   ScenarioWorkflowConfiguration,
 } from './milestone.service';
-import { completeAssignPicStageIfCurrent } from './workflow-progression.service';
+import { completeAssignPicStageIfCurrent, logWorkflowActivityBestEffort } from './workflow-progression.service';
 import { notifyPicAssignment } from './pic-assignment-notification.service';
 
 type Actor = { userId: string; role: string; fullName: string };
@@ -30,10 +30,7 @@ const mapAssignment = (row: any) => ({
 });
 
 async function logAssignment(actor: Actor, projectId: string, action: 'PIC_ASSIGNED' | 'PIC_REASSIGNED', description: string) {
-  const { error } = await supabaseAdmin
-    .from('activity_logs')
-    .insert({ user_id: actor.userId, project_id: projectId, action, description });
-  if (error) throw new Error(error.message);
+  await logWorkflowActivityBestEffort(actor, projectId, action, description);
 }
 
 export function assertPicAssignmentActor(actor: Actor): void {

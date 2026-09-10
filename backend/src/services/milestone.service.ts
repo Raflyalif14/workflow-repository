@@ -2,6 +2,7 @@ import { supabaseAdmin } from '../config/supabase';
 import {
   completeMilestoneStage,
   isMilestoneCompletedLike,
+  logWorkflowActivityBestEffort,
   startMilestoneStage,
 } from './workflow-progression.service';
 import { notifyMilestoneSubmitted } from './milestone-notification.service';
@@ -165,25 +166,16 @@ export function calculateMilestoneProgress(milestones: Array<{ status: string }>
 
 async function logMilestoneSubmitted(actor: Actor, projectId: string, milestoneName: string, note?: string) {
   const description = `${actor.fullName} submitted milestone '${milestoneName}'${note ? `. Note: ${note}` : ''}`;
-  const { error } = await supabaseAdmin.from('activity_logs').insert({
-    project_id: projectId,
-    user_id: actor.userId,
-    action: 'MILESTONE_SUBMITTED',
-    description,
-  });
-
-  if (error) throw error;
+  await logWorkflowActivityBestEffort(actor, projectId, 'MILESTONE_SUBMITTED', description);
 }
 
 async function logMilestoneRevisionStarted(actor: Actor, projectId: string, milestoneName: string) {
-  const { error } = await supabaseAdmin.from('activity_logs').insert({
-    project_id: projectId,
-    user_id: actor.userId,
-    action: 'MILESTONE_REVISION_STARTED',
-    description: `${actor.fullName} started revision for milestone '${milestoneName}'`,
-  });
-
-  if (error) throw error;
+  await logWorkflowActivityBestEffort(
+    actor,
+    projectId,
+    'MILESTONE_REVISION_STARTED',
+    `${actor.fullName} started revision for milestone '${milestoneName}'`
+  );
 }
 
 export class MilestoneService {

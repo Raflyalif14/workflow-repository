@@ -17,7 +17,7 @@ import {
 } from './milestone.service';
 import { assertAssignablePic } from './assignment-phase5.service';
 import { notifyPicAssignment } from './pic-assignment-notification.service';
-import { advanceToNextMilestone } from './workflow-progression.service';
+import { advanceToNextMilestone, logWorkflowActivityBestEffort } from './workflow-progression.service';
 
 type Actor = { userId: string; role: string; fullName: string };
 type ProjectPlanStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
@@ -283,14 +283,7 @@ export function hasValidInitialTimeline(
 }
 
 async function logActivity(actor: Actor, projectId: string, action: string, description: string) {
-  const { error } = await supabaseAdmin.from('activity_logs').insert({
-    project_id: projectId,
-    user_id: actor.userId,
-    action,
-    description,
-  });
-
-  if (error) throw new Error(error.message);
+  await logWorkflowActivityBestEffort(actor, projectId, action, description);
 }
 
 export class ProjectPlanApprovalService {
@@ -489,21 +482,18 @@ export class ProjectPlanApprovalService {
       if (projectError || !activatedProject) throw new Error('Project is no longer ready for Operational V2 activation.');
       projectActivated = true;
 
-      const { error: activityError } = await supabaseAdmin.from('activity_logs').insert([
-        {
-          project_id: project.id,
-          user_id: actor.userId,
-          action: 'PIC_ASSIGNED',
-          description: `${actor.fullName} assigned ${context.pic.full_name} as Solution Architect PIC for '${project.name}'`,
-        },
-        {
-          project_id: project.id,
-          user_id: actor.userId,
-          action: 'PROJECT_PLAN_APPROVED',
-          description: `${actor.fullName} approved the project plan for '${project.name}'`,
-        },
-      ]);
-      if (activityError) throw new Error('Failed to record Operational V2 activation activity.');
+      await logWorkflowActivityBestEffort(
+        actor,
+        project.id,
+        'PIC_ASSIGNED',
+        `${actor.fullName} assigned ${context.pic.full_name} as Solution Architect PIC for '${project.name}'`
+      );
+      await logWorkflowActivityBestEffort(
+        actor,
+        project.id,
+        'PROJECT_PLAN_APPROVED',
+        `${actor.fullName} approved the project plan for '${project.name}'`
+      );
 
       await notifyPicAssignment({
         projectId: project.id,

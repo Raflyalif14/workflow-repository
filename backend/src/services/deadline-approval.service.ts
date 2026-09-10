@@ -4,6 +4,7 @@ import {
   notifyDeadlineChangeApproved,
   notifyDeadlineChangeRejected,
 } from './deadline-notification.service';
+import { logWorkflowActivityBestEffort } from './workflow-progression.service';
 
 type Actor = { userId: string; role: string; fullName: string };
 type ReviewDecision = 'APPROVED' | 'REJECTED';
@@ -148,16 +149,12 @@ async function logDeadlineApprovalReview(
   action: 'DEADLINE_APPROVED' | 'DEADLINE_REJECTED'
 ) {
   const verb = action === 'DEADLINE_APPROVED' ? 'approved' : 'rejected';
-  const { error } = await supabaseAdmin.from('activity_logs').insert({
-    project_id: context.milestone.project_id,
-    user_id: actor.userId,
+  await logWorkflowActivityBestEffort(
+    actor,
+    context.milestone.project_id,
     action,
-    description: `${actor.fullName} ${verb} deadline for milestone '${context.milestone.name}' with due date ${context.history.due_date}`,
-  });
-
-  if (error) {
-    throw error;
-  }
+    `${actor.fullName} ${verb} deadline for milestone '${context.milestone.name}' with due date ${context.history.due_date}`
+  );
 }
 
 export function buildDeadlineApprovalResolution(

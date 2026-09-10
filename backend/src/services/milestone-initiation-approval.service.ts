@@ -5,6 +5,7 @@ import {
   RequestMilestoneInitiationApprovalInput,
 } from '../validators/milestone-initiation-approval.validator';
 import { EmailService, MilestoneInitiatedEmailInput } from './email.service';
+import { logWorkflowActivityBestEffort } from './workflow-progression.service';
 
 type Actor = { userId: string; role: string; fullName: string };
 type InitiationApprovalStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
@@ -272,19 +273,17 @@ async function logInitiationApproval(
         : 'rejected';
   const suffix = action === 'MILESTONE_INITIATION_APPROVAL_REQUESTED' ? '' : ' for initiation';
 
-  const { error } = await supabaseAdmin.from('activity_logs').insert({
-    project_id: milestone.project_id,
-    user_id: actor.userId,
+  await logWorkflowActivityBestEffort(
+    actor,
+    milestone.project_id,
     action,
-    description: `${actor.fullName} ${verb} milestone '${milestone.name}'${suffix}`,
-  });
-
-  if (error) throw error;
+    `${actor.fullName} ${verb} milestone '${milestone.name}'${suffix}`
+  );
 }
 
 async function logMilestoneInitiated(actor: Actor, milestone: Pick<InitiationMilestoneState, 'project_id' | 'name'>) {
-  const { error } = await supabaseAdmin.from('activity_logs').insert(buildMilestoneInitiatedActivityLog(actor, milestone));
-  if (error) throw error;
+  const activity = buildMilestoneInitiatedActivityLog(actor, milestone);
+  await logWorkflowActivityBestEffort(actor, milestone.project_id, activity.action, activity.description);
 }
 
 async function logMilestoneInitiationEmail(actor: Actor, milestone: Pick<InitiationMilestoneState, 'project_id' | 'name' | 'pic'>, sent: boolean) {

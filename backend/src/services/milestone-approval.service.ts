@@ -156,9 +156,8 @@ export function assertCanViewMilestoneApprovalHistory(
 }
 
 async function logProjectCompleted(actor: Actor, projectId: string, milestoneName: string) {
-  const { error } = await supabaseAdmin.from('activity_logs').insert(buildProjectCompletedActivityLog(actor, projectId, milestoneName));
-
-  if (error) throw error;
+  const activity = buildProjectCompletedActivityLog(actor, projectId, milestoneName);
+  await logWorkflowActivityBestEffort(actor, projectId, activity.action, activity.description);
 }
 
 export class MilestoneApprovalService {

@@ -8,6 +8,7 @@ import {
   MAX_MILESTONE_SUBMISSION_FILES,
 } from '../utils/storage.util';
 import { notifyMilestoneSubmitted } from './milestone-notification.service';
+import { logWorkflowActivityBestEffort } from './workflow-progression.service';
 
 type Actor = { userId: string; role: string; fullName: string };
 
@@ -256,14 +257,7 @@ export class MilestoneSubmissionPackageService {
 
   private static async logSubmission(actor: Actor, context: SubmissionContext, note?: string): Promise<void> {
     const description = `${actor.fullName} submitted milestone '${context.name}'${note?.trim() ? `. Note: ${note.trim()}` : ''}`;
-    const { error } = await supabaseAdmin.from('activity_logs').insert({
-      project_id: context.project_id,
-      user_id: actor.userId,
-      action: 'MILESTONE_SUBMITTED',
-      description,
-    });
-
-    if (error) throw new MilestoneSubmissionPackageError('Failed to record milestone submission activity.', 500);
+    await logWorkflowActivityBestEffort(actor, context.project_id, 'MILESTONE_SUBMITTED', description);
   }
 
   private static async restoreMilestone(

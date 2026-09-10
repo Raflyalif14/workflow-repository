@@ -3,6 +3,7 @@ import { HolidayInput, addWorkingDays, calculateWorkingDaysBetween, getRemaining
 import { SaveMilestoneDeadlineInput } from '../validators/deadline.validator';
 import { notifyDeadlineChangeRequested } from './deadline-notification.service';
 import { HolidayService } from './holiday.service';
+import { logWorkflowActivityBestEffort } from './workflow-progression.service';
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 type Actor = { userId: string; role: string; fullName: string };
@@ -88,11 +89,8 @@ export function buildDeadlineChangeRequestedActivity(actor: Actor, milestone: De
 }
 
 async function logDeadlineChangeRequested(actor: Actor, milestone: DeadlineMilestone, dueDate: string) {
-  const { error } = await supabaseAdmin.from('activity_logs').insert({
-    ...buildDeadlineChangeRequestedActivity(actor, milestone, dueDate),
-  });
-
-  if (error) throw error;
+  const activity = buildDeadlineChangeRequestedActivity(actor, milestone, dueDate);
+  await logWorkflowActivityBestEffort(actor, milestone.project_id, activity.action, activity.description);
 }
 
 export function buildDeadlineProposalArtifacts(

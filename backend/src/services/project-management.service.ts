@@ -10,6 +10,7 @@ import {
 import { CreateProjectManagementInput, ProjectQuery, UpdateProjectManagementInput } from '../validators/project-management.validator';
 import { MilestoneService, resolveWorkflowInitializationMode } from './milestone.service';
 import { applyProjectAccessScope, canAccessProject } from './project-access.service';
+import { logWorkflowActivityBestEffort } from './workflow-progression.service';
 
 type Actor = { userId: string; role: string; fullName: string };
 type ResumeProjectState = { status: string; is_postponed: boolean | null };
@@ -135,10 +136,7 @@ async function withActivity(project: any) {
 }
 
 async function logProject(actor: Actor, projectId: string, action: string, description: string) {
-  const { error } = await supabaseAdmin
-    .from('activity_logs')
-    .insert({ user_id: actor.userId, project_id: projectId, action, description });
-  if (error) throw new Error(error.message);
+  await logWorkflowActivityBestEffort(actor, projectId, action, description);
 }
 
 export function assertProjectCanResume(project: ResumeProjectState): void {

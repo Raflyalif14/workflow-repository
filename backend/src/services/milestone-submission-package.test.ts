@@ -21,6 +21,7 @@ type Scenario = {
   milestoneTransitionFails?: boolean;
   cleanupFails?: boolean;
   rejectedPackage?: boolean;
+  activityLogFails?: boolean;
 };
 
 type State = {
@@ -151,7 +152,11 @@ class QueryMock {
     if (this.table === 'milestone_submission_packages') return this.executePackages();
     if (this.table === 'milestone_submission_attachments') return this.executeAttachments();
     if (this.table === 'users') return { data: [], error: null };
-    if (this.table === 'activity_logs') return { data: null, error: null };
+    if (this.table === 'activity_logs') {
+      return this.state.scenario.activityLogFails
+        ? { data: null, error: { message: 'raw provider activity-log detail' } }
+        : { data: null, error: null };
+    }
     return { data: null, error: null };
   }
 
@@ -301,6 +306,27 @@ async function run(): Promise<void> {
     const result = await MilestoneSubmissionPackageService.submit('milestone-1', saPic, [makeFile('one.pdf'), makeFile('two.pdf')]);
     assert(result.package.attachment_count === 2 && state.attachments.length === 2, 'Test 2: multiple files must be staged');
     console.log('Test 2 - Assigned SA PIC stages multiple files: passed');
+  });
+
+  await withScenario({ activityLogFails: true }, async (state) => {
+    const originalConsoleError = console.error;
+    const activityFailures: unknown[][] = [];
+    let result: any;
+    console.error = (...args: unknown[]) => {
+      activityFailures.push(args);
+    };
+    try {
+      result = await MilestoneSubmissionPackageService.submit('milestone-1', saPic, [makeFile('audit-failure.pdf')]);
+    } finally {
+      console.error = originalConsoleError;
+    }
+
+    assert(result.status === 'SUBMITTED' && result.package.status === 'PENDING_REVIEW', 'Test 2b: activity failure must not change successful submission response');
+    assert(state.milestone.status === 'SUBMITTED' && state.approvals[0]?.status === 'PENDING', 'Test 2b: durable milestone and approval state must remain committed');
+    assert(state.package?.status === 'PENDING_REVIEW' && state.cleanupPaths.length === 0, 'Test 2b: activity failure must not compensate finalized package evidence');
+    assert(activityFailures.length === 1, 'Test 2b: activity failure must be recorded server-side');
+    assert(!JSON.stringify(activityFailures).includes('raw provider activity-log detail'), 'Test 2b: activity failure log must not expose provider detail');
+    console.log('Test 2b - Activity log failure does not falsify a durable submission: passed');
   });
 
   await withScenario({ picId: headSaPic.userId }, async () => {
