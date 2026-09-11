@@ -65,6 +65,7 @@ export function ProjectDeletionDangerZone({ project }: { project: Project }) {
             <div className="grid grid-cols-2 gap-2 rounded-lg border border-border/60 bg-muted/15 p-3 text-xs text-muted-foreground">
               <span>Milestones: <strong className="text-foreground">{preview.data.milestone_count}</strong></span><span>Documents: <strong className="text-foreground">{preview.data.document_count}</strong></span>
               <span>Versions: <strong className="text-foreground">{preview.data.document_version_count}</strong></span><span>Submission files: <strong className="text-foreground">{preview.data.submission_attachment_count}</strong></span>
+              <span>Project Intake files: <strong className="text-foreground">{preview.data.project_intake_attachment_count}</strong></span>
               <span>Supporting inputs: <strong className="text-foreground">{preview.data.milestone_contribution_count}</strong></span><span>Supporting files: <strong className="text-foreground">{preview.data.milestone_contribution_attachment_count}</strong></span>
               <span>Approvals: <strong className="text-foreground">{Object.values(preview.data.approvals).reduce((total, count) => total + count, 0)}</strong></span><span>Assignments: <strong className="text-foreground">{preview.data.assignment_count}</strong></span>
               <span>Notifications: <strong className="text-foreground">{preview.data.notification_count}</strong></span><span>Storage objects: <strong className="text-foreground">{preview.data.storage_object_count}</strong></span>

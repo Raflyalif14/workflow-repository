@@ -363,6 +363,7 @@ export interface ProjectDeletionPreview {
   submission_attachment_count: number;
   milestone_contribution_count: number;
   milestone_contribution_attachment_count: number;
+  project_intake_attachment_count: number;
   approvals: { milestone: number; deadline: number; deadline_history: number; project_plan: number; document_version: number };
   assignment_count: number;
   activity_log_count: number;

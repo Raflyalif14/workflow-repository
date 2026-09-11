@@ -92,32 +92,6 @@ export function useUploadNewVersion() {
   });
 }
 
-export function useReviewVersion() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async ({
-      versionId,
-      status,
-      feedback,
-    }: {
-      versionId: string;
-      documentId: string;
-      status: "APPROVED" | "REJECTED";
-      feedback?: string;
-    }) => {
-      return apiClient<DocumentItem>(`/documents/versions/${versionId}/review`, {
-        method: "POST",
-        body: JSON.stringify({ status, feedback }),
-      });
-    },
-    onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ["documents"] });
-      queryClient.invalidateQueries({ queryKey: ["document", variables.documentId] });
-    },
-  });
-}
-
 export function useDocumentDownloadUrl() {
   return useMutation({
     mutationFn: async (versionId: string) =>

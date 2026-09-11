@@ -3,11 +3,6 @@ import { AuthenticatedRequest } from '../middlewares/auth.middleware';
 import { MilestoneInitiationApprovalService } from '../services/milestone-initiation-approval.service';
 import { getRouteParam } from '../utils/request.util';
 import { sendError, sendSuccess } from '../utils/response.util';
-import {
-  ApproveMilestoneInitiationApprovalInput,
-  RejectMilestoneInitiationApprovalInput,
-  RequestMilestoneInitiationApprovalInput,
-} from '../validators/milestone-initiation-approval.validator';
 
 const getStatusCode = (message?: string) => {
   if (message === 'Forbidden' || message?.includes('project owner')) return 403;
@@ -18,57 +13,6 @@ const getStatusCode = (message?: string) => {
 export class MilestoneInitiationApprovalController {
   static retired(_req: AuthenticatedRequest, res: Response): void {
     sendError(res, 'This workflow action has been retired. Milestones now progress automatically.', null, 410);
-  }
-
-  static async initiate(req: AuthenticatedRequest, res: Response): Promise<void> {
-    try {
-      const result = await MilestoneInitiationApprovalService.initiateMilestone(
-        getRouteParam(req, 'milestoneId'),
-        req.user!
-      );
-      sendSuccess(res, 'Milestone initiated successfully', result);
-    } catch (error: any) {
-      sendError(res, error.message || 'Failed to initiate milestone', null, getStatusCode(error.message));
-    }
-  }
-
-  static async request(req: AuthenticatedRequest, res: Response): Promise<void> {
-    try {
-      const result = await MilestoneInitiationApprovalService.requestInitiationApproval(
-        getRouteParam(req, 'milestoneId'),
-        req.body as RequestMilestoneInitiationApprovalInput,
-        req.user!
-      );
-      sendSuccess(res, 'Milestone initiation approval requested successfully', result, 201);
-    } catch (error: any) {
-      sendError(res, error.message || 'Failed to request milestone initiation approval', null, getStatusCode(error.message));
-    }
-  }
-
-  static async approve(req: AuthenticatedRequest, res: Response): Promise<void> {
-    try {
-      const result = await MilestoneInitiationApprovalService.approveInitiationApproval(
-        getRouteParam(req, 'approvalId'),
-        req.body as ApproveMilestoneInitiationApprovalInput,
-        req.user!
-      );
-      sendSuccess(res, 'Milestone initiation approval approved successfully', result);
-    } catch (error: any) {
-      sendError(res, error.message || 'Failed to approve milestone initiation approval', null, getStatusCode(error.message));
-    }
-  }
-
-  static async reject(req: AuthenticatedRequest, res: Response): Promise<void> {
-    try {
-      const result = await MilestoneInitiationApprovalService.rejectInitiationApproval(
-        getRouteParam(req, 'approvalId'),
-        req.body as RejectMilestoneInitiationApprovalInput,
-        req.user!
-      );
-      sendSuccess(res, 'Milestone initiation approval rejected successfully', result);
-    } catch (error: any) {
-      sendError(res, error.message || 'Failed to reject milestone initiation approval', null, getStatusCode(error.message));
-    }
   }
 
   static async getCurrent(req: AuthenticatedRequest, res: Response): Promise<void> {

@@ -1,16 +1,6 @@
 import nodemailer, { SendMailOptions, Transporter } from 'nodemailer';
 import { ENV } from '../config/env';
 
-export type MilestoneInitiatedEmailInput = {
-  recipientEmail: string;
-  recipientName: string;
-  milestoneName: string;
-  projectName: string;
-  customer: string;
-  deadline: string;
-  salesName: string;
-};
-
 export type InitialPasswordEmailInput = {
   recipientEmail: string;
   recipientName: string;
@@ -32,17 +22,6 @@ const parseSmtpPort = (value: string) => {
     throw new Error('SMTP_PORT must be a positive number');
   }
   return port;
-};
-
-const parseDateOnly = (date: string) => {
-  const [year, month, day] = date.split('-').map(Number);
-  if (!year || !month || !day) return date;
-  return new Intl.DateTimeFormat('id-ID', {
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-    timeZone: 'UTC',
-  }).format(new Date(Date.UTC(year, month - 1, day)));
 };
 
 const escapeHtml = (value: string) =>
@@ -67,52 +46,6 @@ const getTransporter = () => {
   });
 
   return transporter;
-};
-
-export const buildMilestoneInitiatedEmail = (input: MilestoneInitiatedEmailInput): SendMailOptions => {
-  const deadline = parseDateOnly(input.deadline);
-  const subject = `[Workflow Repository] Milestone Baru Di-Initiate - ${input.milestoneName}`;
-  const text = [
-    `Halo ${input.recipientName},`,
-    '',
-    'Milestone berikut telah di-initiate dan dapat mulai dikerjakan:',
-    '',
-    `Project: ${input.projectName}`,
-    `Customer: ${input.customer}`,
-    `Milestone: ${input.milestoneName}`,
-    'Status: IN_PROGRESS',
-    `Deadline: ${deadline}`,
-    `Initiated by: ${input.salesName}`,
-    '',
-    'Silakan login ke Workflow Repository System untuk melihat detail milestone.',
-    ENV.APP_BASE_URL ? `URL: ${ENV.APP_BASE_URL}` : '',
-    '',
-    'Terima kasih.',
-  ].filter((line) => ENV.APP_BASE_URL || !line.startsWith('URL:')).join('\n');
-
-  const html = `
-    <p>Halo ${escapeHtml(input.recipientName)},</p>
-    <p>Milestone berikut telah di-initiate dan dapat mulai dikerjakan:</p>
-    <ul>
-      <li><strong>Project:</strong> ${escapeHtml(input.projectName)}</li>
-      <li><strong>Customer:</strong> ${escapeHtml(input.customer)}</li>
-      <li><strong>Milestone:</strong> ${escapeHtml(input.milestoneName)}</li>
-      <li><strong>Status:</strong> IN_PROGRESS</li>
-      <li><strong>Deadline:</strong> ${escapeHtml(deadline)}</li>
-      <li><strong>Initiated by:</strong> ${escapeHtml(input.salesName)}</li>
-    </ul>
-    <p>Silakan login ke Workflow Repository System untuk melihat detail milestone.</p>
-    ${ENV.APP_BASE_URL ? `<p><a href="${escapeHtml(ENV.APP_BASE_URL)}">${escapeHtml(ENV.APP_BASE_URL)}</a></p>` : ''}
-    <p>Terima kasih.</p>
-  `;
-
-  return {
-    from: ENV.SMTP_FROM || undefined,
-    to: input.recipientEmail,
-    subject,
-    text,
-    html,
-  };
 };
 
 const getLoginUrl = (loginUrl?: string) => {
@@ -199,10 +132,6 @@ export const buildPasswordResetEmail = (input: PasswordResetEmailInput): SendMai
 };
 
 export class EmailService {
-  static async sendMilestoneInitiatedEmail(input: MilestoneInitiatedEmailInput) {
-    return getTransporter().sendMail(buildMilestoneInitiatedEmail(input));
-  }
-
   static async sendInitialPasswordEmail(input: InitialPasswordEmailInput) {
     return getTransporter().sendMail(buildInitialPasswordEmail(input));
   }
