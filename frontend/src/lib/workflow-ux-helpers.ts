@@ -66,6 +66,7 @@ export interface NextActionInfo {
     | "REVIEW_SUBMISSION"
     | "REVIEW_DEADLINE"
     | "RESUME_PROJECT"
+    | "SETUP_TIMELINE"
     | "NONE";
   isWaiting: boolean;
   waitingForRole?: string;
@@ -74,13 +75,67 @@ export interface NextActionInfo {
   targetMilestoneName?: string;
 }
 
+export function formatHumanReadableLabel(value?: string | null): string {
+  return (value || "Unknown")
+    .trim()
+    .toLowerCase()
+    .split(/[_\s-]+/)
+    .filter(Boolean)
+    .map((word) => `${word.charAt(0).toUpperCase()}${word.slice(1)}`)
+    .join(" ") || "Unknown";
+}
+
+/**
+ * Formats persisted role values for human-facing workflow guidance.
+ */
+export function formatActorRoleLabel(role?: string): string {
+  switch (role) {
+    case "SALES":
+      return "Sales";
+    case "HEAD_SA":
+      return "Head SA";
+    case "SA":
+      return "Solution Architect";
+    case "SUPER_ADMIN":
+      return "Super Admin";
+    case "GUEST":
+      return "Guest";
+    default:
+      return role ? formatHumanReadableLabel(role) : "Guest";
+  }
+}
+
+/**
+ * Maps an actionable workflow state to an existing Project Detail surface.
+ */
+export function resolveNextActionTargetId(nextAction: NextActionInfo): string | null {
+  switch (nextAction.actionType) {
+    case "SETUP_TIMELINE":
+      return "project-timeline";
+    case "REVIEW_PLAN":
+      return "project-plan-review";
+    case "ASSIGN_PIC":
+      return "project-pic-assignment";
+    case "MARK_COMPLETE":
+    case "SUBMIT_WORK":
+    case "START_REVISION":
+    case "REVIEW_SUBMISSION":
+    case "REVIEW_DEADLINE":
+      return nextAction.targetMilestoneId
+        ? `project-milestone-${nextAction.targetMilestoneId}`
+        : null;
+    default:
+      return null;
+  }
+}
+
 /**
  * Maps project status to human-friendly label.
  */
 export function formatProjectStatusLabel(status: ProjectStatus | string): string {
   switch (status) {
     case "DRAFT":
-      return "Draft";
+      return "Planning";
     case "ACTIVE":
       return "Active";
     case "POSTPONED":
@@ -90,7 +145,7 @@ export function formatProjectStatusLabel(status: ProjectStatus | string): string
     case "CANCELLED":
       return "Cancelled";
     default:
-      return status;
+      return formatHumanReadableLabel(status);
   }
 }
 
@@ -111,7 +166,7 @@ export function formatMilestoneStatusLabel(status: MilestoneStatus | string): st
     case "APPROVED":
       return "Completed";
     default:
-      return status;
+      return formatHumanReadableLabel(status);
   }
 }
 
@@ -127,9 +182,9 @@ export function getApprovalTypeDisplay(category: string): string {
       return "Deadline Change";
     case "SUBMISSION":
     case "MILESTONE_SUBMISSION":
-      return "SA Submission";
+      return "Work Submission";
     default:
-      return category.replace(/_/g, " ");
+      return formatHumanReadableLabel(category);
   }
 }
 
@@ -218,9 +273,9 @@ export function resolveNextAction(
         canPerformAction: true,
       };
     }
-    return {
-      title: "Project Postponed",
-      description: "Workflow actions are paused by Sales owner.",
+      return {
+        title: "Project is paused",
+        description: "Sales can resume the project when work is ready to continue.",
       isWaiting: true,
       waitingForRole: "SALES",
       canPerformAction: false,
@@ -261,19 +316,19 @@ export function resolveNextAction(
       );
       if (isSalesOwner) {
         return {
-          title: "Submit Project Plan",
+          title: isComplete ? "Submit the plan for review" : "Set up the project plan",
           description: isComplete
             ? "Timeline setup is complete. Submit the project plan for Head SA review."
-            : `Set timeline start dates and durations for: ${incompleteMilestoneNames.slice(0, 2).join(", ")}${incompleteMilestoneNames.length > 2 ? "..." : ""}`,
-          actionLabel: isComplete ? "Submit Project Plan" : "Complete Timeline First",
-          actionType: isComplete ? "SUBMIT_PLAN" : "NONE",
+            : `Add a start date and duration for each required stage, beginning with ${incompleteMilestoneNames.slice(0, 2).join(", ")}${incompleteMilestoneNames.length > 2 ? "..." : ""}.`,
+          actionLabel: isComplete ? "Submit Project Plan" : "Set up timeline",
+          actionType: isComplete ? "SUBMIT_PLAN" : "SETUP_TIMELINE",
           isWaiting: false,
-          canPerformAction: isComplete,
+          canPerformAction: true,
         };
       }
       return {
-        title: "Initial Plan Setup",
-        description: "Waiting for Sales owner to configure timeline and submit project plan.",
+        title: "Project plan is being prepared",
+        description: "Sales is setting up the timeline before submitting it for review.",
         isWaiting: true,
         waitingForRole: "SALES",
         canPerformAction: false,
@@ -283,7 +338,7 @@ export function resolveNextAction(
     if (planStatus === "PENDING") {
       if (isHeadSa) {
         return {
-          title: "Review Project Plan",
+          title: "Review the project plan",
           description: `Review the proposed timeline submitted by ${planApproval.requested_by?.full_name || "Sales"}.`,
           actionLabel: "Approve / Reject Plan",
           actionType: "REVIEW_PLAN",
@@ -292,8 +347,8 @@ export function resolveNextAction(
         };
       }
       return {
-        title: "Under Review",
-        description: "Waiting for Head SA to review and approve the project plan.",
+        title: "Plan under review",
+        description: "Head SA is reviewing the proposed timeline and will share the next decision.",
         isWaiting: true,
         waitingForRole: "HEAD_SA",
         canPerformAction: false,
@@ -303,7 +358,7 @@ export function resolveNextAction(
     if (planStatus === "REJECTED") {
       if (isSalesOwner) {
         return {
-          title: "Revise & Resubmit Project Plan",
+          title: "Revise the project plan",
           description: planApproval.review_note
             ? `Head SA Feedback: "${planApproval.review_note}". Please update timeline and resubmit.`
             : "Project plan was rejected. Please adjust the timeline and resubmit.",
@@ -314,8 +369,8 @@ export function resolveNextAction(
         };
       }
       return {
-        title: "Plan Revision Required",
-        description: "Waiting for Sales owner to revise and resubmit the project plan.",
+        title: "Plan revision in progress",
+        description: "Sales is updating the timeline before resubmitting the project plan.",
         isWaiting: true,
         waitingForRole: "SALES",
         canPerformAction: false,
@@ -328,7 +383,7 @@ export function resolveNextAction(
     const currentMilestone = resolveCurrentStage(milestones);
     if (!currentMilestone) {
       return {
-        title: "Workflow Completed",
+        title: "Project completed",
         description: "All milestones completed.",
         actionType: "NONE",
         isWaiting: false,
@@ -345,7 +400,7 @@ export function resolveNextAction(
     if (isAssignPic && currentMilestone.status === "IN_PROGRESS") {
       if (isHeadSa) {
         return {
-          title: "Assign Solution Architect (PIC)",
+          title: "Assign the project lead",
           description: `Assign an eligible Solution Architect to project '${project.name}'.`,
           actionLabel: "Assign PIC",
           actionType: "ASSIGN_PIC",
@@ -356,8 +411,8 @@ export function resolveNextAction(
         };
       }
       return {
-        title: "PIC Assignment",
-        description: "Waiting for Head SA to assign a Solution Architect to this project.",
+        title: "Project lead assignment is pending",
+        description: "Head SA needs to assign a Solution Architect before work can begin.",
         isWaiting: true,
         waitingForRole: "HEAD_SA",
         canPerformAction: false,
@@ -370,8 +425,8 @@ export function resolveNextAction(
     if (currentMilestone.status === "SUBMITTED") {
       if (isHeadSa) {
         return {
-          title: `Review Submission: ${currentMilestone.name}`,
-          description: `Solution Architect has submitted work for step ${currentMilestone.step_order}. Review and sign off.`,
+          title: `Review work submission: ${currentMilestone.name}`,
+          description: "Review the submitted work and decide whether it can move forward.",
           actionLabel: "Review Submission",
           actionType: "REVIEW_SUBMISSION",
           isWaiting: false,
@@ -381,8 +436,8 @@ export function resolveNextAction(
         };
       }
       return {
-        title: `Under Review: ${currentMilestone.name}`,
-        description: "Waiting for Head SA approval on submitted work.",
+        title: `Work submission under review: ${currentMilestone.name}`,
+        description: "Head SA is reviewing the submitted work.",
         isWaiting: true,
         waitingForRole: "HEAD_SA",
         canPerformAction: false,
@@ -395,7 +450,7 @@ export function resolveNextAction(
     if (currentMilestone.status === "REJECTED") {
       if (stageRole === "SA" && isAssignedPic) {
         return {
-          title: `Revision Required: ${currentMilestone.name}`,
+          title: `Revise your submission: ${currentMilestone.name}`,
           description: "Submission was rejected by Head SA. Start revision and make necessary updates.",
           actionLabel: "Start Revision",
           actionType: "START_REVISION",
@@ -406,8 +461,8 @@ export function resolveNextAction(
         };
       }
       return {
-        title: `Revision in Progress: ${currentMilestone.name}`,
-        description: `Waiting for assigned Solution Architect (${currentMilestone.pic?.full_name || currentMilestone.pic?.fullName || "SA"}) to revise work.`,
+        title: `Work revision in progress: ${currentMilestone.name}`,
+        description: `The assigned Solution Architect (${currentMilestone.pic?.full_name || currentMilestone.pic?.fullName || "Solution Architect"}) is revising the work.`,
         isWaiting: true,
         waitingForRole: "SA",
         canPerformAction: false,
@@ -421,7 +476,7 @@ export function resolveNextAction(
       if (stageRole === "SALES") {
         if (isSalesOwner) {
           return {
-            title: `Execute Stage: ${currentMilestone.name}`,
+            title: `Complete this stage: ${currentMilestone.name}`,
             description: `Complete the requirements for '${currentMilestone.name}' and mark as complete.`,
             actionLabel: "Mark Complete",
             actionType: "MARK_COMPLETE",
@@ -432,8 +487,8 @@ export function resolveNextAction(
           };
         }
         return {
-          title: `In Progress: ${currentMilestone.name}`,
-          description: "Waiting for Sales owner to complete current stage.",
+          title: `Current work: ${currentMilestone.name}`,
+          description: "Sales is completing the current stage.",
           isWaiting: true,
           waitingForRole: "SALES",
           canPerformAction: false,
@@ -445,7 +500,7 @@ export function resolveNextAction(
       if (stageRole === "HEAD_SA") {
         if (isHeadSa) {
           return {
-            title: `Execute Stage: ${currentMilestone.name}`,
+            title: `Complete this stage: ${currentMilestone.name}`,
             description: `Perform required actions for '${currentMilestone.name}'.`,
             actionLabel: "Mark Complete",
             actionType: "MARK_COMPLETE",
@@ -456,8 +511,8 @@ export function resolveNextAction(
           };
         }
         return {
-          title: `In Progress: ${currentMilestone.name}`,
-          description: "Waiting for Head SA to fulfill current stage.",
+          title: `Current work: ${currentMilestone.name}`,
+          description: "Head SA is completing the current stage.",
           isWaiting: true,
           waitingForRole: "HEAD_SA",
           canPerformAction: false,
@@ -469,7 +524,7 @@ export function resolveNextAction(
       if (stageRole === "SA") {
         if (isAssignedPic) {
           return {
-            title: `Submit Work: ${currentMilestone.name}`,
+            title: `Submit work: ${currentMilestone.name}`,
             description: `Complete your deliverables for '${currentMilestone.name}' and submit for Head SA review.`,
             actionLabel: "Submit Work",
             actionType: "SUBMIT_WORK",
@@ -479,9 +534,9 @@ export function resolveNextAction(
             targetMilestoneName: currentMilestone.name,
           };
         }
-        return {
-          title: `In Progress: ${currentMilestone.name}`,
-          description: `Waiting for assigned Solution Architect (${currentMilestone.pic?.full_name || currentMilestone.pic?.fullName || "SA"}) to submit work.`,
+      return {
+        title: `Current work: ${currentMilestone.name}`,
+        description: `The assigned Solution Architect (${currentMilestone.pic?.full_name || currentMilestone.pic?.fullName || "Solution Architect"}) is preparing the work submission.`,
           isWaiting: true,
           waitingForRole: "SA",
           canPerformAction: false,
@@ -494,8 +549,8 @@ export function resolveNextAction(
     // Case 5e: Upcoming stage awaiting automatic progression.
     if (currentMilestone.status === "CREATED") {
       return {
-        title: `Upcoming: ${currentMilestone.name}`,
-        description: "This stage will start automatically when its prerequisites are complete.",
+        title: `Waiting for the previous milestone: ${currentMilestone.name}`,
+        description: "This stage starts automatically after the previous work is completed.",
         isWaiting: true,
         waitingForRole: stageRole || "responsible role",
         canPerformAction: false,

@@ -15,14 +15,9 @@ import {
   Clock,
   Download,
   FileCheck2,
-  FileText,
-  Layers,
   PauseCircle,
-  Play,
   RotateCcw,
   Send,
-  ShieldCheck,
-  Sparkles,
   UploadCloud,
   Users,
   X,
@@ -55,11 +50,14 @@ import {
   isMilestoneCompleted,
 } from "@/lib/milestone-ui-state";
 import {
+  formatActorRoleLabel,
+  formatHumanReadableLabel,
   formatMilestoneStatusLabel,
   formatProjectStatusLabel,
   isDeadlineChangeStepEligible,
   resolveCurrentStage,
   resolveNextAction,
+  resolveNextActionTargetId,
 } from "@/lib/workflow-ux-helpers";
 import {
   canAddMilestoneContribution,
@@ -156,6 +154,8 @@ export default function ProjectDetailPage() {
   const isActive = project.status === "ACTIVE";
   const isPostponed = project.status === "POSTPONED" || project.is_postponed;
   const isCompleted = project.status === "COMPLETED";
+  const isHeadSaPlanReviewWorkspace =
+    isHeadSa && isDraft && planApproval?.status === "PENDING";
 
   const currentStageMilestone = resolveCurrentStage(milestones);
   const assignPicIsCurrent = milestones.some(
@@ -167,6 +167,23 @@ export default function ProjectDetailPage() {
     role: user?.role,
     fullName: user?.fullName,
   });
+  const showPlanCardSubmit =
+    isSalesOwner &&
+    planApproval?.status !== "PENDING" &&
+    !["SETUP_TIMELINE", "SUBMIT_PLAN", "RESUBMIT_PLAN"].includes(nextAction.actionType || "");
+  const isHeadSaWaitingForSalesPlan =
+    isHeadSa &&
+    isDraft &&
+    !planApproval &&
+    nextAction.isWaiting &&
+    nextAction.waitingForRole === "SALES";
+  const projectPicNotice =
+    !project.pic && (isActive || isCompleted)
+      ? isActive && assignPicIsCurrent
+        ? { message: "Assign a delivery lead to begin the next stage.", tone: "neutral" as const }
+        : { message: "A solution architect has not been assigned to this delivery project.", tone: "warning" as const }
+      : undefined;
+  const shouldShowProjectPic = Boolean(project.pic) || isActive || isCompleted;
 
   const submitPlan = async () => {
     setError("");
@@ -190,27 +207,49 @@ export default function ProjectDetailPage() {
     }
   };
 
+  const handleNextAction = () => {
+    switch (nextAction.actionType) {
+      case "SUBMIT_PLAN":
+      case "RESUBMIT_PLAN":
+        void submitPlan();
+        return;
+      case "RESUME_PROJECT":
+        void resume();
+        return;
+      default: {
+        const targetId = resolveNextActionTargetId(nextAction);
+        if (!targetId || typeof document === "undefined") return;
+
+        const target = document.getElementById(targetId);
+        if (!target) return;
+
+        target.scrollIntoView({ behavior: "smooth", block: "start" });
+        target.focus({ preventScroll: true });
+      }
+    }
+  };
+
   return (
-    <div className="container space-y-6 py-8">
+    <div className="mx-auto w-full max-w-[1280px] space-y-5 px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
       {/* Back Button */}
-      <Button variant="ghost" size="sm" className="-ml-2 gap-2 rounded-lg text-muted-foreground hover:text-foreground" onClick={() => router.push("/projects")}>
+      <Button variant="ghost" size="sm" className="-ml-2 h-8 gap-1.5 text-muted-foreground hover:text-foreground" onClick={() => router.push("/projects")}>
         <ArrowLeft className="h-4 w-4" />
         <span>Back to Projects</span>
       </Button>
 
       {/* Header */}
-      <div className="flex flex-col gap-5 border-b border-border/60 pb-6 sm:flex-row sm:items-start sm:justify-between">
-        <div className="max-w-3xl space-y-2">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="rounded-md bg-muted/50 px-2 py-1 font-mono text-xs font-semibold text-muted-foreground">
-              {project.id.slice(0, 8)}
-            </span>
+      <header className="flex flex-col gap-4 pb-1 sm:flex-row sm:items-start sm:justify-between">
+        <div className="max-w-4xl space-y-3">
+          <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
             <StatusBadge status={project.status} />
           </div>
-          <h1 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl">{project.name}</h1>
+          <h1 className="text-2xl font-semibold text-foreground sm:text-3xl">{project.name}</h1>
           <p className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-sm text-muted-foreground">
             Customer: <strong className="text-foreground">{project.customer}</strong> • Scenario:{" "}
             <strong className="text-foreground">{project.scenario?.name || "No scenario"}</strong>
+          </p>
+          <p className="text-sm text-muted-foreground">
+            Sales owner: <strong className="text-foreground">{project.sales?.full_name || project.sales?.fullName || "Unassigned"}</strong>
           </p>
         </div>
 
@@ -221,24 +260,18 @@ export default function ProjectDetailPage() {
               <span>Postpone Project</span>
             </Button>
           )}
-          {isPostponed && isSalesOwner && (
-            <Button size="sm" onClick={() => void resume()} disabled={resumeProject.isPending} className="h-9 gap-1.5 rounded-lg bg-amber-500 font-semibold text-black hover:bg-amber-600">
-              <Play className="h-4 w-4" />
-              <span>{resumeProject.isPending ? "Resuming..." : "Resume Project"}</span>
-            </Button>
-          )}
         </div>
-      </div>
+      </header>
 
       {/* Global Alerts */}
       {error && (
-        <div className="flex items-start gap-2 rounded-xl border border-destructive/40 bg-destructive/10 p-3.5 text-xs text-destructive shadow-sm">
+        <div className="flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
           <AlertCircle className="h-4 w-4 shrink-0" />
           <span>{error}</span>
         </div>
       )}
       {message && (
-        <div className="flex items-start gap-2 rounded-xl border border-emerald-500/40 bg-emerald-500/10 p-3.5 text-xs text-emerald-400 shadow-sm">
+        <div className="flex items-start gap-2 rounded-md border border-emerald-500/40 bg-emerald-500/10 p-3 text-sm text-emerald-400">
           <CheckCircle2 className="h-4 w-4 shrink-0" />
           <span>{message}</span>
         </div>
@@ -247,17 +280,14 @@ export default function ProjectDetailPage() {
       {/* ─── Next Action Card ─── */}
       <NextActionCard
         nextAction={nextAction}
-        project={project}
-        planApproval={planApproval}
-        onSubmitPlan={() => void submitPlan()}
+        onAction={handleNextAction}
         isSubmittingPlan={submitProjectPlan.isPending}
-        onResumeProject={() => void resume()}
         isResuming={resumeProject.isPending}
       />
 
       {/* ─── Postponed Banner ─── */}
       {isPostponed && (
-        <div className="space-y-3 rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 shadow-sm sm:p-5">
+        <div className="space-y-3 rounded-lg border border-amber-500/30 bg-amber-500/10 p-4 sm:p-5">
           <div className="flex items-center gap-2 text-sm font-semibold tracking-tight text-amber-400">
             <PauseCircle className="h-5 w-5 shrink-0" />
             <span>Project Postponed</span>
@@ -278,7 +308,7 @@ export default function ProjectDetailPage() {
 
       {/* ─── Completed Success Banner ─── */}
       {isCompleted && (
-        <div className="flex flex-col gap-4 rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between sm:p-5">
+        <div className="flex flex-col gap-4 rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
           <div className="space-y-1">
             <div className="flex items-center gap-2 text-sm font-semibold tracking-tight text-emerald-400">
               <CheckCircle2 className="h-5 w-5 shrink-0" />
@@ -289,7 +319,7 @@ export default function ProjectDetailPage() {
             </p>
           </div>
           <Badge variant="success" className="self-start px-3 py-1 text-xs sm:self-auto">
-            COMPLETED
+            {formatProjectStatusLabel(project.status)}
           </Badge>
         </div>
       )}
@@ -302,110 +332,138 @@ export default function ProjectDetailPage() {
         />
       )}
 
-      {/* Project Meta Summary Grid */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-        <Info label="Scenario" value={project.scenario?.name || "-"} />
-        <Info label="Sales Owner" value={project.sales?.full_name || project.sales?.fullName || "-"} />
-        <Info label="Project Status" value={project.status} badge />
-      </div>
+      {isHeadSaPlanReviewWorkspace && (
+        <section
+          id="project-plan-review"
+          tabIndex={-1}
+          className="scroll-mt-20 space-y-5 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/60 focus:ring-offset-2 focus:ring-offset-background"
+          aria-labelledby="project-plan-review-heading"
+        >
+          <div className="max-w-2xl space-y-1 border-b border-border/60 pb-4">
+            <h2 id="project-plan-review-heading" className="text-xl font-semibold text-foreground">
+              Review project plan
+            </h2>
+            <p className="text-sm leading-6 text-muted-foreground">
+              Review the intake evidence and proposed schedule before making a decision.
+            </p>
+          </div>
+
+          <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
+            <div className="min-w-0 space-y-6">
+              <ProjectIntakeSection projectId={project.id} />
+              <ProjectTimelineEditor
+                projectId={id}
+                milestones={milestones}
+                canEdit={false}
+                workflowModel={project.scenario?.workflow_model}
+                workflowVersion={project.scenario?.workflow_version}
+              />
+            </div>
+
+            <div className="lg:sticky lg:top-20 lg:self-start">
+              <ProjectPlanCard
+                project={project}
+                approval={planApproval}
+                canSubmit={false}
+                canReview
+                onSubmit={() => undefined}
+                isSubmitting={false}
+                reviewWorkspace
+              />
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* ─── Timeline & Plan Review (Draft Stage) ─── */}
-      {isDraft && (
+      {isDraft && !isHeadSaPlanReviewWorkspace && !isHeadSaWaitingForSalesPlan && (
         <div className="space-y-4">
-          <ProjectTimelineEditor
-            projectId={id}
-            milestones={milestones}
-            canEdit={isSalesOwner && planApproval?.status !== "PENDING"}
-            workflowModel={project.scenario?.workflow_model}
-            workflowVersion={project.scenario?.workflow_version}
-          />
-          <ProjectPlanCard
-            project={project}
-            approval={planApproval}
-            canSubmit={isSalesOwner && planApproval?.status !== "PENDING"}
-            canReview={isHeadSa && planApproval?.status === "PENDING"}
-            onSubmit={() => void submitPlan()}
-            isSubmitting={submitProjectPlan.isPending}
-          />
+          <div id="project-timeline" tabIndex={-1} className="scroll-mt-20 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/60 focus:ring-offset-2 focus:ring-offset-background">
+            {isSalesOwner && planApproval?.status === "REJECTED" && planApproval.review_note && (
+              <div className="mb-4 border-l-2 border-destructive pl-3 text-sm text-muted-foreground">
+                <p className="font-medium text-foreground">Plan feedback</p>
+                <p className="mt-1 leading-6">{planApproval.review_note}</p>
+              </div>
+            )}
+            <ProjectTimelineEditor
+              projectId={id}
+              milestones={milestones}
+              canEdit={isSalesOwner && planApproval?.status !== "PENDING"}
+              workflowModel={project.scenario?.workflow_model}
+              workflowVersion={project.scenario?.workflow_version}
+            />
+          </div>
+          <div id="project-plan-review" tabIndex={-1} className="scroll-mt-24 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/60 focus:ring-offset-2 focus:ring-offset-background">
+            <ProjectPlanCard
+              project={project}
+              approval={planApproval}
+              canSubmit={showPlanCardSubmit}
+              canReview={isHeadSa && planApproval?.status === "PENDING"}
+              onSubmit={() => void submitPlan()}
+              isSubmitting={submitProjectPlan.isPending}
+            />
+          </div>
         </div>
       )}
 
       {/* ─── Project Plan Card for Non-Draft (Read-only reference) ─── */}
       {!isDraft && planApproval && (
-        <ProjectPlanCard
-          project={project}
-          approval={planApproval}
-          canSubmit={false}
-          canReview={false}
-          onSubmit={() => undefined}
-          isSubmitting={false}
-        />
+        <div id="project-plan-review" tabIndex={-1} className="scroll-mt-24 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/60 focus:ring-offset-2 focus:ring-offset-background">
+          <ProjectPlanCard
+            project={project}
+            approval={planApproval}
+            canSubmit={false}
+            canReview={false}
+            onSubmit={() => undefined}
+            isSubmitting={false}
+          />
+        </div>
       )}
 
       {/* ─── PIC Assignment & History ─── */}
-      <div className="grid gap-6 lg:grid-cols-2">
-        <PicAssignmentCard
-          project={project}
-          canAssign={isHeadSa && isActive && !isPostponed && (Boolean(project.pic) || assignPicIsCurrent)}
-        />
-        <AssignmentHistoryCard projectId={id} />
-      </div>
+      {shouldShowProjectPic && (
+        <div id="project-pic-assignment" tabIndex={-1} className="scroll-mt-20 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/60 focus:ring-offset-2 focus:ring-offset-background">
+          <PicAssignmentCard
+            project={project}
+            canAssign={isHeadSa && isActive && !isPostponed && (Boolean(project.pic) || assignPicIsCurrent)}
+            unassignedNotice={projectPicNotice}
+          />
+        </div>
+      )}
 
       {/* ─── Workflow Progress Bar ─── */}
-      <Card className="border-border/60 bg-card/70 shadow-sm">
-        <CardHeader className="pb-3">
+      {!isDraft && (
+        <section className="border-b border-border/60 pb-4" aria-labelledby="delivery-progress-heading">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-            <div className="flex items-start gap-3">
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-primary/15 bg-primary/10 text-primary">
-                <Activity className="h-4 w-4" />
-              </span>
-              <div className="space-y-1">
-                <CardTitle className="text-base font-semibold tracking-tight">Workflow Progress</CardTitle>
-                <CardDescription className="text-xs">
-                  Overall progression through configured workflow scenario stages
-                </CardDescription>
-              </div>
+            <div className="space-y-1">
+              <h2 id="delivery-progress-heading" className="text-base font-semibold text-foreground">Delivery progress</h2>
+              <p className="text-sm text-muted-foreground">{progress?.completed || 0} of {progress?.total || milestones.length} stages completed</p>
             </div>
-            <span className="self-start font-mono text-xs font-bold text-primary sm:self-auto">
-              {progress?.percentage || 0}% Complete
-            </span>
+            <span className="text-sm font-medium text-primary">{progress?.percentage || 0}% complete</span>
           </div>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-2">
-            <div className="flex items-end justify-between text-xs">
-              <span className="font-medium text-foreground">
-                <strong className="text-base text-foreground">{progress?.completed || 0}</strong> / {progress?.total || milestones.length} Stages Completed
-              </span>
-            </div>
-            <div className="h-2 w-full overflow-hidden rounded-full bg-secondary/80 ring-1 ring-inset ring-border/40">
-              <div
-                className="h-full rounded-full bg-primary transition-all duration-500"
-                style={{ width: `${progress?.percentage || 0}%` }}
-              />
-            </div>
+          <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-secondary/80">
+            <div
+              className="h-full rounded-full bg-primary transition-all duration-500"
+              style={{ width: `${progress?.percentage || 0}%` }}
+            />
           </div>
-        </CardContent>
-      </Card>
+        </section>
+      )}
 
-      <ProjectIntakeSection projectId={project.id} />
+      {!isHeadSaPlanReviewWorkspace && <ProjectIntakeSection projectId={project.id} />}
       <ProjectDocumentsSection projectId={project.id} />
 
       {/* ─── Milestones Execution List & Activity Log ─── */}
-      <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
-        <Card className="border-border/60 bg-card/70 shadow-sm">
+      {!isDraft && (
+      <div>
+        <Card className="border-border/60 bg-card/70 shadow-none hover:border-border/60">
           <CardHeader className="pb-3">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-              <div className="flex items-start gap-3">
-                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-primary/15 bg-primary/10 text-primary">
-                  <Layers className="h-4 w-4" />
-                </span>
-                <div className="space-y-1">
-                  <CardTitle className="text-base font-semibold tracking-tight">Workflow Stages & Execution</CardTitle>
-                  <CardDescription className="text-xs">
-                    Sequential milestones. Completed stages recede, and current active stage is highlighted.
-                  </CardDescription>
-                </div>
+              <div className="space-y-1">
+                <CardTitle className="text-base font-semibold tracking-tight">Workflow stages</CardTitle>
+                <CardDescription className="text-xs">
+                  Completed stages recede while the current work remains available here.
+                </CardDescription>
               </div>
               <Badge variant="outline" className="self-start text-xs sm:self-auto">
                 {milestones.length} Stages
@@ -431,8 +489,11 @@ export default function ProjectDetailPage() {
           </CardContent>
         </Card>
 
-        <ActivityTimeline projectId={project.id} />
       </div>
+      )}
+
+      <ActivityTimeline projectId={project.id} />
+      <AssignmentHistoryCard projectId={id} />
 
       {user?.role === "SUPER_ADMIN" && <ProjectDeletionDangerZone project={project} />}
       <PostponeProjectDialog open={postponeOpen} onOpenChange={setPostponeOpen} project={project} />
@@ -452,14 +513,11 @@ function ActivityTimeline({ projectId }: { projectId: string }) {
   const activities = flattenActivityPages(data?.pages);
 
   return (
-    <Card className="h-fit self-start border-border/60 bg-card/70 shadow-sm">
-      <CardHeader className="flex flex-row items-start gap-3 pb-3">
-        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-primary/15 bg-primary/10 text-primary">
-          <Activity className="h-4 w-4" />
-        </span>
+    <Card className="border-border/60 bg-card/70 shadow-none hover:border-border/60">
+      <CardHeader className="pb-3">
         <div className="space-y-1">
-          <CardTitle className="text-base font-semibold tracking-tight">Activity Timeline</CardTitle>
-          <CardDescription className="text-xs">Latest project events</CardDescription>
+          <CardTitle className="text-base font-semibold tracking-tight">Activity</CardTitle>
+          <CardDescription className="text-xs">Recent project events</CardDescription>
         </div>
       </CardHeader>
       <CardContent className="space-y-2.5">
@@ -481,7 +539,7 @@ function ActivityTimeline({ projectId }: { projectId: string }) {
                     <span className="absolute left-0 top-0.5 flex h-4 w-4 items-center justify-center rounded-full border border-primary/20 bg-primary/10 text-primary">
                       <Activity className="h-2.5 w-2.5" aria-hidden="true" />
                     </span>
-                    <div className="rounded-lg border border-border/40 bg-muted/15 px-2.5 py-2 transition-colors hover:border-primary/20 hover:bg-muted/25">
+                    <div className="rounded-md border border-border/40 bg-muted/15 px-2.5 py-2">
                       <p className="text-xs font-semibold text-foreground">{formatActivityAction(activity.action)}</p>
                       {activity.description && <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">{activity.description}</p>}
                       <div className="mt-1.5 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[10px] text-muted-foreground/85">
@@ -489,7 +547,7 @@ function ActivityTimeline({ projectId }: { projectId: string }) {
                           <>
                             <span className="font-medium text-foreground/80">{activity.actor.name}</span>
                             <span aria-hidden="true">•</span>
-                            <span>{activity.actor.role.replace(/_/g, " ")}</span>
+                            <span>{formatActorRoleLabel(activity.actor.role)}</span>
                           </>
                         ) : (
                           <span>System / Unknown Actor</span>
@@ -544,18 +602,13 @@ function ProjectIntakeSection({ projectId }: { projectId: string }) {
   ];
 
   return (
-    <Card className="border-border/60 bg-card/70 shadow-sm">
+    <Card className="border-border/60 bg-card/70 shadow-none hover:border-border/60">
       <CardHeader className="pb-3">
-        <div className="flex items-start gap-3">
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-sky-400/20 bg-sky-400/10 text-sky-400">
-            <FileCheck2 className="h-4 w-4" />
-          </span>
-          <div className="space-y-1">
-            <CardTitle className="text-base font-semibold tracking-tight">Project Intake</CardTitle>
-            <CardDescription className="text-xs">
-              Initial MoM, photos, and supporting files. These are intake evidence, not official repository documents.
-            </CardDescription>
-          </div>
+        <div className="space-y-1">
+          <CardTitle className="text-base font-semibold tracking-tight">Project Intake</CardTitle>
+          <CardDescription className="text-xs">
+            Initial MoM, photos, and supporting files. These are intake evidence, not official repository documents.
+          </CardDescription>
         </div>
       </CardHeader>
       <CardContent className="space-y-3">
@@ -586,7 +639,7 @@ function ProjectIntakeSection({ projectId }: { projectId: string }) {
                   {items.map((attachment) => (
                     <div
                       key={attachment.id}
-                      className="flex flex-col gap-3 rounded-xl border border-border/40 bg-muted/10 p-3 transition-colors hover:border-sky-400/25 hover:bg-muted/20 sm:flex-row sm:items-center sm:justify-between"
+                      className="flex flex-col gap-3 rounded-md border border-border/40 bg-muted/10 p-3 sm:flex-row sm:items-center sm:justify-between"
                     >
                       <div className="min-w-0 space-y-1">
                         <div className="flex flex-wrap items-center gap-2">
@@ -635,18 +688,13 @@ function ProjectDocumentsSection({ projectId }: { projectId: string }) {
   };
 
   return (
-    <Card className="border-border/60 bg-card/70 shadow-sm">
+    <Card className="border-border/60 bg-card/70 shadow-none hover:border-border/60">
       <CardHeader className="pb-3">
-        <div className="flex items-start gap-3">
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-primary/15 bg-primary/10 text-primary">
-            <FileText className="h-4 w-4" />
-          </span>
-          <div className="space-y-1">
-            <CardTitle className="text-base font-semibold tracking-tight">Project Documents</CardTitle>
-            <CardDescription className="text-xs">
-              Official project and milestone documents available in the repository.
-            </CardDescription>
-          </div>
+        <div className="space-y-1">
+          <CardTitle className="text-base font-semibold tracking-tight">Official Documents</CardTitle>
+          <CardDescription className="text-xs">
+            Final project and milestone documents available in the repository.
+          </CardDescription>
         </div>
       </CardHeader>
       <CardContent className="space-y-3">
@@ -676,12 +724,12 @@ function ProjectDocumentsSection({ projectId }: { projectId: string }) {
                   ? document.milestone?.name || "Milestone document"
                   : document.category === "OTHER"
                   ? "Project document"
-                  : document.category.replaceAll("_", " ");
+                  : formatHumanReadableLabel(document.category);
 
               return (
                 <div
                   key={document.id}
-                  className="flex flex-col gap-3 rounded-xl border border-border/40 bg-muted/10 p-3 transition-colors hover:border-primary/25 hover:bg-muted/20 sm:flex-row sm:items-center sm:justify-between"
+                  className="flex flex-col gap-3 rounded-md border border-border/40 bg-muted/10 p-3 sm:flex-row sm:items-center sm:justify-between"
                 >
                   <div className="min-w-0 space-y-1.5">
                     <div className="flex flex-wrap items-center gap-2">
@@ -724,69 +772,58 @@ function ProjectDocumentsSection({ projectId }: { projectId: string }) {
 // ─── Next Action Card Component ───
 function NextActionCard({
   nextAction,
-  project,
-  planApproval,
-  onSubmitPlan,
+  onAction,
   isSubmittingPlan,
-  onResumeProject,
   isResuming,
 }: {
   nextAction: ReturnType<typeof resolveNextAction>;
-  project: Project;
-  planApproval?: ProjectPlanApproval | null;
-  onSubmitPlan: () => void;
+  onAction: () => void;
   isSubmittingPlan: boolean;
-  onResumeProject: () => void;
   isResuming: boolean;
 }) {
+  const isDirectAction = ["SUBMIT_PLAN", "RESUBMIT_PLAN", "RESUME_PROJECT"].includes(nextAction.actionType || "");
+  const usesActionLabel = isDirectAction || nextAction.actionType === "SETUP_TIMELINE";
+  const isPending =
+    (nextAction.actionType === "SUBMIT_PLAN" || nextAction.actionType === "RESUBMIT_PLAN")
+      ? isSubmittingPlan
+      : nextAction.actionType === "RESUME_PROJECT" && isResuming;
+  const actionLabel = usesActionLabel ? nextAction.actionLabel || "Open task" : "Open task";
+  const pendingLabel =
+    nextAction.actionType === "RESUBMIT_PLAN"
+      ? "Resubmitting..."
+      : nextAction.actionType === "RESUME_PROJECT"
+      ? "Resuming..."
+      : "Submitting...";
+
   return (
-    <div className="space-y-3 rounded-xl border border-primary/30 bg-card/70 p-4 shadow-sm sm:p-5">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-start gap-3">
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-primary/15 bg-primary/10 text-primary">
-            <Sparkles className="h-4 w-4" />
-          </span>
-          <div className="min-w-0 space-y-1">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-primary">Next Action</span>
-              {nextAction.isWaiting && (
-                <Badge variant="outline" className="border-amber-500/40 text-[10px] text-amber-400">
-                  Waiting on {nextAction.waitingForRole}
-                </Badge>
-              )}
-            </div>
-            <h3 className="text-base font-semibold tracking-tight text-foreground">{nextAction.title}</h3>
-            <p className="max-w-2xl text-xs leading-relaxed text-muted-foreground">
-              {nextAction.description}
-            </p>
-          </div>
+    <section aria-labelledby="next-step-title" className="border-b border-border/60 pb-5">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0 space-y-1">
+          <p className={`flex items-center gap-2 text-sm font-medium ${nextAction.canPerformAction ? "text-primary" : "text-muted-foreground"}`}>
+            {nextAction.isWaiting && <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-muted-foreground/70" aria-hidden="true" />}
+            {nextAction.isWaiting && nextAction.waitingForRole
+              ? `Waiting on ${formatActorRoleLabel(nextAction.waitingForRole)}`
+              : nextAction.canPerformAction
+              ? "Your next task"
+              : "Project status"}
+          </p>
+          <h2 id="next-step-title" className="text-lg font-semibold text-foreground">{nextAction.title}</h2>
+          <p className="max-w-2xl text-sm leading-6 text-muted-foreground">{nextAction.description}</p>
         </div>
 
-        {/* Primary Action Button */}
-        {nextAction.canPerformAction && nextAction.actionLabel && (
-          <div className="shrink-0 self-start sm:self-center">
-            {nextAction.actionType === "SUBMIT_PLAN" && (
-              <Button size="sm" onClick={onSubmitPlan} disabled={isSubmittingPlan} className="gap-1.5 shadow-md">
-                <Send className="h-3.5 w-3.5" />
-                <span>{isSubmittingPlan ? "Submitting..." : nextAction.actionLabel}</span>
-              </Button>
-            )}
-            {nextAction.actionType === "RESUBMIT_PLAN" && (
-              <Button size="sm" onClick={onSubmitPlan} disabled={isSubmittingPlan} className="gap-1.5 shadow-md">
-                <RotateCcw className="h-3.5 w-3.5" />
-                <span>{isSubmittingPlan ? "Resubmitting..." : nextAction.actionLabel}</span>
-              </Button>
-            )}
-            {nextAction.actionType === "RESUME_PROJECT" && (
-              <Button size="sm" onClick={onResumeProject} disabled={isResuming} className="gap-1.5 bg-amber-500 hover:bg-amber-600 text-black font-semibold shadow-md">
-                <Play className="h-3.5 w-3.5" />
-                <span>{isResuming ? "Resuming..." : nextAction.actionLabel}</span>
-              </Button>
-            )}
-          </div>
+        {nextAction.canPerformAction && nextAction.actionType !== "NONE" && (
+          <Button
+            size="sm"
+            onClick={onAction}
+            disabled={isPending}
+            aria-label={usesActionLabel ? actionLabel : `Open task: ${nextAction.title}`}
+            className="h-10 w-full shrink-0 shadow-none sm:w-auto"
+          >
+            {isPending ? pendingLabel : actionLabel}
+          </Button>
         )}
       </div>
-    </div>
+    </section>
   );
 }
 
@@ -804,10 +841,10 @@ function DraftProgressionTracker({
   const isPlanRejected = planApproval?.status === "REJECTED";
 
   const steps = [
-    { number: 1, label: "Timeline Setup", status: isPlanSubmitted ? "COMPLETED" : "CURRENT" },
+    { number: 1, label: "Timeline setup", status: isPlanSubmitted ? "COMPLETED" : "CURRENT" },
     {
       number: 2,
-      label: "Submit Plan",
+      label: "Plan submitted",
       status: isPlanApproved ? "COMPLETED" : isPlanPending ? "COMPLETED" : isPlanRejected ? "CURRENT" : "UPCOMING",
     },
     {
@@ -815,37 +852,46 @@ function DraftProgressionTracker({
       label: "Head SA Review",
       status: isPlanApproved ? "COMPLETED" : isPlanPending ? "CURRENT" : isPlanRejected ? "REJECTED" : "UPCOMING",
     },
-    { number: 4, label: "Project Active", status: isPlanApproved ? "COMPLETED" : "UPCOMING" },
+    { number: 4, label: "Project active", status: isPlanApproved ? "COMPLETED" : "UPCOMING" },
   ];
 
   return (
-    <Card className="border-border/60 bg-card/70 shadow-sm">
-      <CardContent className="py-4 sm:py-5">
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          {steps.map((step) => (
-            <div key={step.number} className="flex items-center gap-2.5">
-              <div
-                className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
+    <section aria-labelledby="plan-progress-title" className="border-b border-border/60 pb-4">
+      <p id="plan-progress-title" className="mb-3 text-sm font-medium text-foreground">Plan progress</p>
+      <ol className="grid grid-cols-1 gap-y-3 sm:grid-cols-4 sm:gap-x-4">
+        {steps.map((step, index) => {
+          const stateLabel =
+            step.status === "COMPLETED"
+              ? "Complete"
+              : step.status === "CURRENT"
+              ? "In progress"
+              : step.status === "REJECTED"
+              ? "Needs revision"
+              : "Waiting";
+
+          return (
+            <li key={step.number} className={`flex min-w-0 items-start gap-2.5 ${index > 0 ? "sm:border-l sm:border-border/60 sm:pl-4" : ""}`}>
+              <span
+                className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${
                   step.status === "COMPLETED"
-                    ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40"
+                    ? "bg-emerald-400"
                     : step.status === "CURRENT"
-                    ? "bg-primary text-primary-foreground font-bold"
+                    ? "bg-primary"
                     : step.status === "REJECTED"
-                    ? "bg-destructive/20 text-destructive border border-destructive/40"
-                    : "bg-muted text-muted-foreground"
+                    ? "bg-destructive"
+                    : "bg-muted-foreground/50"
                 }`}
-              >
-                {step.status === "COMPLETED" ? <Check className="h-3.5 w-3.5" /> : step.number}
-              </div>
+                aria-hidden="true"
+              />
               <div className="min-w-0">
-                <p className="text-xs font-semibold text-foreground truncate">{step.label}</p>
-                <p className="text-[10px] text-muted-foreground capitalize">{step.status.toLowerCase().replace(/_/g, " ")}</p>
+                <p className="text-sm font-medium text-foreground">{step.label}</p>
+                <p className={step.status === "CURRENT" ? "text-xs font-medium text-primary" : "text-xs text-muted-foreground"}>{stateLabel}</p>
               </div>
-            </div>
-          ))}
-        </div>
-      </CardContent>
-    </Card>
+            </li>
+          );
+        })}
+      </ol>
+    </section>
   );
 }
 
@@ -857,6 +903,7 @@ function ProjectPlanCard({
   canReview,
   onSubmit,
   isSubmitting,
+  reviewWorkspace = false,
 }: {
   project: Project;
   approval: ProjectPlanApproval | null | undefined;
@@ -864,6 +911,7 @@ function ProjectPlanCard({
   canReview: boolean;
   onSubmit: () => void;
   isSubmitting: boolean;
+  reviewWorkspace?: boolean;
 }) {
   const [decision, setDecision] = useState<"APPROVE" | "REJECT" | null>(null);
   const reviewProjectPlan = useReviewProjectPlan(project.id);
@@ -876,24 +924,23 @@ function ProjectPlanCard({
 
   return (
     <>
-      <Card className={approval?.status === "REJECTED" ? "border-destructive/40 bg-destructive/5 shadow-sm" : "border-border/60 bg-card/70 shadow-sm"}>
+      <Card className={reviewWorkspace ? "border-border/60 bg-card shadow-none hover:border-border/60" : approval?.status === "REJECTED" ? "border-destructive/40 bg-destructive/5 shadow-none hover:border-destructive/40" : "border-border/60 bg-card/70 shadow-none hover:border-border/60"}>
         <CardHeader className="flex flex-col gap-3 pb-3 sm:flex-row sm:items-start sm:justify-between">
-          <div className="flex items-start gap-3">
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-primary/15 bg-primary/10 text-primary">
-              <ShieldCheck className="h-4 w-4" />
-            </span>
-            <div className="space-y-1">
-              <CardTitle className="text-base font-semibold tracking-tight">Project Plan Sign-Off</CardTitle>
-              <CardDescription className="text-xs">
-                Single gatekeeper approval by Head SA before project execution starts
-              </CardDescription>
-            </div>
+          <div className="space-y-1">
+            <CardTitle className="text-base font-semibold tracking-tight">
+              {reviewWorkspace ? "Review decision" : "Project Plan Sign-Off"}
+            </CardTitle>
+            <CardDescription className="text-xs">
+              {reviewWorkspace
+                ? "Approve the plan to assign a PIC and activate the project, or return it to Sales with feedback."
+                : "Single gatekeeper approval by Head SA before project execution starts"}
+            </CardDescription>
           </div>
           {approval ? <PlanApprovalBadge status={approval.status} /> : <Badge variant="outline" className="self-start sm:self-auto">Not Submitted</Badge>}
         </CardHeader>
         <CardContent className="space-y-3">
           {approval ? (
-            <div className="space-y-2 rounded-xl border border-border/40 bg-muted/15 p-3 text-xs">
+            <div className="space-y-2 border-y border-border/50 py-3 text-xs">
               <div className="flex flex-wrap items-center gap-2 text-muted-foreground">
                 <span>Submitted by: <strong className="text-foreground">{approval.requested_by?.full_name || "-"}</strong></span>
                 <span>•</span>
@@ -923,7 +970,7 @@ function ProjectPlanCard({
 
           <div className="flex shrink-0 flex-wrap gap-2 border-t border-border/40 pt-3">
             {canSubmit && (
-              <Button size="sm" className="gap-1.5 shadow-sm" onClick={onSubmit} disabled={isSubmitting}>
+              <Button size="sm" className="gap-1.5 shadow-none" onClick={onSubmit} disabled={isSubmitting}>
                 <Send className="h-3.5 w-3.5" />
                 <span>{isSubmitting ? "Submitting..." : approval?.status === "REJECTED" ? "Resubmit Project Plan" : "Submit Project Plan"}</span>
               </Button>
@@ -941,11 +988,11 @@ function ProjectPlanCard({
                 </Button>
                 <Button
                   size="sm"
-                  className="bg-emerald-500 hover:bg-emerald-600 text-black font-semibold gap-1.5 shadow-sm"
+                  className="gap-1.5 shadow-none"
                   onClick={() => setDecision("APPROVE")}
                 >
                   <Check className="h-3.5 w-3.5" />
-                  <span>Approve & Activate Project</span>
+                  <span>Approve & activate</span>
                 </Button>
               </>
             )}
@@ -1073,12 +1120,14 @@ function MilestoneRow({
 
   return (
     <div
-      className={`rounded-xl border p-4 transition-colors duration-200 ${
+      id={`project-milestone-${milestone.id}`}
+      tabIndex={-1}
+      className={`scroll-mt-20 rounded-lg border p-4 transition-colors focus:outline-none focus:ring-2 focus:ring-primary/60 focus:ring-offset-2 focus:ring-offset-background ${
         isCurrentStage
-          ? "border-primary/40 bg-card/70 shadow-sm"
+          ? "border-primary/40 bg-card/70"
           : isCompleted
-          ? "border-emerald-500/30 bg-emerald-500/5"
-          : "border-border/60 bg-card/70 hover:border-primary/30 hover:bg-muted/20"
+          ? "border-border/50 bg-muted/20"
+          : "border-border/60 bg-card/50 hover:border-border/80"
       }`}
     >
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -1096,16 +1145,16 @@ function MilestoneRow({
               {isCompleted ? <Check className="h-3.5 w-3.5" /> : String(milestone.step_order).padStart(2, "0")}
             </span>
             <StatusBadge status={milestoneStatus} />
-            <Badge variant="outline" className="text-[11px]">
-              {stageRole || "-"}
+            <Badge variant="outline" className="rounded-md text-[11px]">
+              {stageRole ? formatActorRoleLabel(stageRole) : "Not assigned"}
             </Badge>
             {isCurrentStage && (
-              <span className="rounded-full bg-primary/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-primary border border-primary/30">
-                CURRENT STAGE
+              <span className="text-xs font-medium text-primary">
+                Current work
               </span>
             )}
           </div>
-          <p className="font-bold text-foreground text-sm">{milestone.name}</p>
+          <p className="text-sm font-semibold text-foreground">{milestone.name}</p>
           {milestone.description && (
             <p className="text-xs text-muted-foreground">{milestone.description}</p>
           )}
@@ -1134,7 +1183,7 @@ function MilestoneRow({
           {canComplete && (
             <Button
               size="sm"
-              className="h-8 gap-1.5 bg-emerald-500 hover:bg-emerald-600 text-black font-semibold text-xs shadow-sm"
+              className="h-8 gap-1.5 text-xs"
               disabled={complete.isPending}
               onClick={() => void perform(() => complete.mutateAsync(), "Stage marked complete.", "Failed to complete milestone.")}
             >
@@ -1143,7 +1192,7 @@ function MilestoneRow({
             </Button>
           )}
           {canSubmit && (
-            <Button size="sm" className="h-8 gap-1.5 text-xs shadow-sm" onClick={() => setSubmitOpen(true)}>
+            <Button size="sm" className="h-8 gap-1.5 text-xs shadow-none" onClick={() => setSubmitOpen(true)}>
               <FileCheck2 className="h-3.5 w-3.5" />
               <span>Submit Work</span>
             </Button>
@@ -1165,7 +1214,7 @@ function MilestoneRow({
               <Button size="sm" variant="outline" className="h-8 text-xs border-destructive/30 text-destructive" onClick={() => setReview({ type: "DEADLINE", decision: "REJECT" })}>
                 Reject Deadline
               </Button>
-              <Button size="sm" className="h-8 text-xs bg-emerald-500 hover:bg-emerald-600 text-black font-semibold" onClick={() => setReview({ type: "DEADLINE", decision: "APPROVE" })}>
+              <Button size="sm" className="h-8 text-xs" onClick={() => setReview({ type: "DEADLINE", decision: "APPROVE" })}>
                 Approve Deadline
               </Button>
             </>
@@ -1173,7 +1222,7 @@ function MilestoneRow({
           {canReviewSubmission && (
             <Button
               size="sm"
-              className="h-8 gap-1.5 text-xs bg-primary hover:bg-primary/90 shadow-sm"
+              className="h-8 gap-1.5 text-xs shadow-none"
               onClick={() => setSubmissionReviewOpen(true)}
             >
               <FileCheck2 className="h-3.5 w-3.5" />
@@ -1198,7 +1247,7 @@ function MilestoneRow({
 
       {/* ─── Details Strip ─── */}
       <div className="mt-3 grid gap-2 text-xs sm:grid-cols-3">
-        <WorkflowDetail label="Responsible Role" detail={stageRole || "-"} ok />
+        <WorkflowDetail label="Responsible role" detail={stageRole ? formatActorRoleLabel(stageRole) : "Not assigned"} ok />
         <WorkflowDetail
           label="PIC Assignment"
           detail={requiresPic ? milestone.pic?.full_name || milestone.pic?.fullName || "Unassigned" : "Not Required"}
@@ -1451,7 +1500,7 @@ function ReviewDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogHeader>
         <DialogTitle>
-          {decision === "APPROVE" ? "Approve" : "Reject"} {type === "DEADLINE" ? "Deadline Change" : "SA Submission"}
+          {decision === "APPROVE" ? "Approve" : "Reject"} {type === "DEADLINE" ? "Deadline Change" : "Work Submission"}
         </DialogTitle>
       </DialogHeader>
       <form className="space-y-4" onSubmit={submit}>
@@ -1592,7 +1641,7 @@ function PlanReviewDialog({
                 <option value="">Select Solution Architect</option>
                 {pics.map((pic) => (
                   <option key={pic.id} value={pic.id}>
-                    {pic.full_name} ({pic.role}) - {pic.email}
+                    {pic.full_name} ({formatActorRoleLabel(pic.role)}) - {pic.email}
                   </option>
                 ))}
               </select>
@@ -1608,7 +1657,6 @@ function PlanReviewDialog({
             type="submit"
             disabled={isPending || (requiresPic && (picsLoading || picsError || !picId))}
             variant={decision === "REJECT" ? "destructive" : "default"}
-            className={decision === "APPROVE" ? "bg-emerald-500 hover:bg-emerald-600 text-black font-semibold" : ""}
           >
             {isPending
               ? "Saving..."
@@ -1711,6 +1759,18 @@ function DeadlinePanel({
   );
 }
 
+function formatDeadlineHealthLabel(label: string) {
+  const labels: Record<string, string> = {
+    "ON TRACK": "On track",
+    "DUE SOON": "Due soon",
+    OVERDUE: "Overdue",
+    COMPLETED: "Completed",
+    "NOT SET": "Not set",
+  };
+
+  return labels[label] || formatHumanReadableLabel(label);
+}
+
 function DeadlineHealthDetail({ presentation }: { presentation: DeadlineHealthPresentation }) {
   const toneClasses = {
     destructive: "border-destructive/40 bg-destructive/10 text-destructive",
@@ -1731,7 +1791,7 @@ function DeadlineHealthDetail({ presentation }: { presentation: DeadlineHealthPr
         )}
         <span className="font-medium text-foreground">Deadline State</span>
       </div>
-      <p className="mt-1 font-mono font-semibold">{presentation.label}</p>
+      <p className="mt-1 font-semibold">{formatDeadlineHealthLabel(presentation.label)}</p>
       {presentation.detail && <p className="mt-1 text-[11px] text-muted-foreground">{presentation.detail}</p>}
     </div>
   );
@@ -1747,7 +1807,7 @@ function DeadlineHealthBadge({ presentation }: { presentation: DeadlineHealthPre
 
   return (
     <span className={`rounded-md border px-1.5 py-0.5 text-[10px] font-semibold ${toneClasses[presentation.tone]}`}>
-      {presentation.label}
+      {formatDeadlineHealthLabel(presentation.label)}
     </span>
   );
 }
@@ -1759,7 +1819,7 @@ function WorkflowDetail({ label, detail, ok }: { label: string; detail: string; 
         {ok ? <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" /> : <CircleDashed className="h-3.5 w-3.5 text-muted-foreground" />}
         <span className="font-medium text-foreground">{label}</span>
       </div>
-      <p className="mt-1 truncate text-muted-foreground font-mono">{detail}</p>
+      <p className="mt-1 truncate text-muted-foreground">{detail}</p>
     </div>
   );
 }
@@ -1782,10 +1842,11 @@ function StatusBadge({ status }: { status: string }) {
     case "POSTPONED":
       return <Badge variant="warning">Postponed</Badge>;
     case "DRAFT":
+      return <Badge variant="outline">{formatProjectStatusLabel(status)}</Badge>;
     case "CREATED":
       return <Badge variant="outline">{formatMilestoneStatusLabel(status)}</Badge>;
     default:
-      return <Badge variant="outline">{status}</Badge>;
+      return <Badge variant="outline">{formatMilestoneStatusLabel(status)}</Badge>;
   }
 }
 
@@ -1806,21 +1867,6 @@ function PlanApprovalBadge({ status }: { status: string }) {
   if (status === "APPROVED") return <Badge variant="success">Approved</Badge>;
   if (status === "REJECTED") return <Badge variant="destructive">Rejected</Badge>;
   return <Badge variant="warning">Pending Review</Badge>;
-}
-
-function Info({ label, value, badge }: { label: string; value: string; badge?: boolean }) {
-  return (
-    <Card className="h-full border-border/60 bg-card/70 shadow-sm">
-      <CardContent className="p-4">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">{label}</p>
-        {badge ? (
-          <div className="mt-1.5"><StatusBadge status={value} /></div>
-        ) : (
-          <p className="mt-1.5 truncate text-base font-semibold tracking-tight text-foreground">{value}</p>
-        )}
-      </CardContent>
-    </Card>
-  );
 }
 
 function formatDate(value?: string | null) {

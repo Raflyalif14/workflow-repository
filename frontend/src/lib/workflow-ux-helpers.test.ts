@@ -1,4 +1,6 @@
 import {
+  formatActorRoleLabel,
+  formatHumanReadableLabel,
   formatMilestoneStatusLabel,
   formatProjectStatusLabel,
   getApprovalTypeDisplay,
@@ -7,6 +9,7 @@ import {
   isTimelineComplete,
   resolveCurrentStage,
   resolveNextAction,
+  resolveNextActionTargetId,
 } from "./workflow-ux-helpers";
 import { Project, ProjectMilestonePhase4, ProjectPlanApproval } from "@/types/project";
 
@@ -72,14 +75,41 @@ const milestone3: ProjectMilestonePhase4 = {
 };
 
 // ─── Test 1: Labels ───
-if (formatProjectStatusLabel("DRAFT") !== "Draft" || formatProjectStatusLabel("ACTIVE") !== "Active") {
-  throw new Error("formatProjectStatusLabel failed");
+const projectStatusLabels: Array<[string, string]> = [
+  ["DRAFT", "Planning"],
+  ["ACTIVE", "Active"],
+  ["POSTPONED", "Postponed"],
+  ["COMPLETED", "Completed"],
+  ["CANCELLED", "Cancelled"],
+];
+for (const [status, expectedLabel] of projectStatusLabels) {
+  if (formatProjectStatusLabel(status) !== expectedLabel) {
+    throw new Error(`formatProjectStatusLabel failed for ${status}`);
+  }
+}
+if (formatHumanReadableLabel("PENDING_REVIEW") !== "Pending Review") {
+  throw new Error("formatHumanReadableLabel failed for underscore values");
 }
 if (formatMilestoneStatusLabel("IN_PROGRESS") !== "In Progress" || formatMilestoneStatusLabel("SUBMITTED") !== "Under Review") {
   throw new Error("formatMilestoneStatusLabel failed");
 }
-if (getApprovalTypeDisplay("PROJECT_PLAN") !== "Project Plan" || getApprovalTypeDisplay("DEADLINE") !== "Deadline Change" || getApprovalTypeDisplay("SUBMISSION") !== "SA Submission") {
+if (getApprovalTypeDisplay("PROJECT_PLAN") !== "Project Plan" || getApprovalTypeDisplay("DEADLINE") !== "Deadline Change" || getApprovalTypeDisplay("SUBMISSION") !== "Work Submission" || getApprovalTypeDisplay("MILESTONE_SUBMISSION") !== "Work Submission") {
   throw new Error("getApprovalTypeDisplay failed");
+}
+
+const roleLabels: Array<[string | undefined, string]> = [
+  ["SALES", "Sales"],
+  ["HEAD_SA", "Head SA"],
+  ["SA", "Solution Architect"],
+  ["SUPER_ADMIN", "Super Admin"],
+  ["GUEST", "Guest"],
+  ["CUSTOM_WORKFLOW_ROLE", "Custom Workflow Role"],
+  [undefined, "Guest"],
+];
+for (const [role, expectedLabel] of roleLabels) {
+  if (formatActorRoleLabel(role) !== expectedLabel) {
+    throw new Error(`formatActorRoleLabel failed for ${role || "undefined"}`);
+  }
 }
 
 // ─── Test 2: Current Stage Resolution ───
@@ -213,12 +243,35 @@ if (draftActionSales.actionType !== "SUBMIT_PLAN" || !draftActionSales.canPerfor
   throw new Error("Sales should have SUBMIT_PLAN action for draft project");
 }
 
+const incompleteDraftActionSales = resolveNextAction(
+  baseProject,
+  [milestone1, milestone2, { ...milestone3, start_date: null }],
+  null,
+  { id: "sales-1", role: "SALES" }
+);
+if (
+  incompleteDraftActionSales.actionType !== "SETUP_TIMELINE" ||
+  !incompleteDraftActionSales.canPerformAction ||
+  incompleteDraftActionSales.title !== "Set up the project plan"
+) {
+  throw new Error("Sales should be guided to set up an incomplete project timeline");
+}
+if (resolveNextActionTargetId(incompleteDraftActionSales) !== "project-timeline") {
+  throw new Error("SETUP_TIMELINE should target the timeline editor");
+}
+
 const draftActionOther = resolveNextAction(baseProject, [milestone1, milestone2, milestone3], null, {
   id: "head-1",
   role: "HEAD_SA",
 });
 if (!draftActionOther.isWaiting || draftActionOther.waitingForRole !== "SALES") {
   throw new Error("Head SA should see waiting for SALES state on unsubmitted draft");
+}
+if (
+  draftActionOther.title !== "Project plan is being prepared" ||
+  draftActionOther.description !== "Sales is setting up the timeline before submitting it for review."
+) {
+  throw new Error("Waiting guidance should explain the current Sales task");
 }
 
 // ─── Test 5: Next Action for PENDING Plan Review ───
@@ -243,6 +296,9 @@ const pendingPlanHeadSa = resolveNextAction(baseProject, [milestone1, milestone2
 if (pendingPlanHeadSa.actionType !== "REVIEW_PLAN" || !pendingPlanHeadSa.canPerformAction) {
   throw new Error("Head SA should have REVIEW_PLAN action for pending plan");
 }
+if (resolveNextActionTargetId(pendingPlanHeadSa) !== "project-plan-review") {
+  throw new Error("REVIEW_PLAN should target project plan review");
+}
 
 const pendingPlanSales = resolveNextAction(baseProject, [milestone1, milestone2, milestone3], pendingPlan, {
   id: "sales-1",
@@ -260,6 +316,9 @@ const activeAssignPicHeadSa = resolveNextAction(activeProject, [milestone1, mile
 });
 if (activeAssignPicHeadSa.actionType !== "ASSIGN_PIC" || !activeAssignPicHeadSa.canPerformAction) {
   throw new Error("Head SA should have ASSIGN_PIC action");
+}
+if (resolveNextActionTargetId(activeAssignPicHeadSa) !== "project-pic-assignment") {
+  throw new Error("ASSIGN_PIC should target project PIC assignment");
 }
 
 const activeAssignPicSales = resolveNextAction(activeProject, [milestone1, milestone2, milestone3], null, {
@@ -283,6 +342,26 @@ const saActionAssigned = resolveNextAction(activeProject, saMilestones, null, {
 });
 if (saActionAssigned.actionType !== "SUBMIT_WORK" || !saActionAssigned.canPerformAction) {
   throw new Error("Assigned SA should have SUBMIT_WORK action");
+}
+if (resolveNextActionTargetId(saActionAssigned) !== "project-milestone-m-3") {
+  throw new Error("SUBMIT_WORK should target the current milestone");
+}
+
+for (const actionType of ["MARK_COMPLETE", "START_REVISION", "REVIEW_SUBMISSION", "REVIEW_DEADLINE"] as const) {
+  const action = { ...saActionAssigned, actionType };
+  if (resolveNextActionTargetId(action) !== "project-milestone-m-3") {
+    throw new Error(`${actionType} should target the current milestone`);
+  }
+}
+
+if (resolveNextActionTargetId({ ...saActionAssigned, targetMilestoneId: undefined }) !== null) {
+  throw new Error("Milestone actions without a target must not resolve a target ID");
+}
+
+for (const actionType of ["SUBMIT_PLAN", "RESUBMIT_PLAN", "RESUME_PROJECT", "NONE"] as const) {
+  if (resolveNextActionTargetId({ ...saActionAssigned, actionType }) !== null) {
+    throw new Error(`${actionType} must not resolve a navigation target`);
+  }
 }
 
 const saActionOther = resolveNextAction(activeProject, saMilestones, null, {

@@ -4,13 +4,20 @@ import { useEffect, useMemo, useState } from "react";
 import { AlertCircle, CheckCircle2, Search, UserCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useAssignPic, useSolutionArchitects } from "@/hooks/use-projects";
+import { formatActorRoleLabel } from "@/lib/workflow-ux-helpers";
 import { Project } from "@/types/project";
 
-export function PicAssignmentCard({ project, canAssign }: { project: Project; canAssign: boolean }) {
+export function PicAssignmentCard({
+  project,
+  canAssign,
+  unassignedNotice,
+}: {
+  project: Project;
+  canAssign: boolean;
+  unassignedNotice?: { message: string; tone: "neutral" | "warning" };
+}) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState("");
@@ -59,43 +66,30 @@ export function PicAssignmentCard({ project, canAssign }: { project: Project; ca
 
   return (
     <>
-      <Card className="h-full border-border/60 bg-card/70 shadow-sm">
-        <CardHeader className="pb-3">
-          <div className="flex items-start justify-between gap-3">
-            <div className="flex items-start gap-3">
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-primary/15 bg-primary/10 text-primary">
-                <UserCheck className="h-4 w-4" />
-              </span>
-              <div className="space-y-1">
-                <CardTitle className="text-base font-semibold tracking-tight">Solution Architect</CardTitle>
-                <p className="text-xs text-muted-foreground">Assigned project delivery lead</p>
+      <section className="border-b border-border/60 pb-4" aria-labelledby="solution-architect-heading">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div className="min-w-0 space-y-1">
+            <p id="solution-architect-heading" className="text-sm font-medium text-foreground">Solution Architect</p>
+            {currentPic ? (
+              <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
+                <span className="font-semibold text-foreground">{currentPic.full_name || currentPic.fullName}</span>
+                {currentPic.role && <span className="text-muted-foreground">{formatActorRoleLabel(currentPic.role)}</span>}
+                <span className="truncate text-xs text-muted-foreground">{currentPic.email}</span>
               </div>
-            </div>
-            {currentPic && <Badge variant="outline" className="shrink-0 text-[10px]">Assigned</Badge>}
+            ) : unassignedNotice ? (
+              <p className={`text-sm ${unassignedNotice.tone === "warning" ? "text-amber-400" : "text-muted-foreground"}`}>
+                {unassignedNotice.message}
+              </p>
+            ) : null}
           </div>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {currentPic ? (
-            <div className="rounded-xl border border-border/40 bg-muted/20 p-3">
-              <p className="font-semibold text-foreground">{currentPic.full_name || currentPic.fullName}</p>
-              <div className="mt-1.5 flex flex-wrap items-center gap-2">
-                {currentPic.role && <Badge variant="outline" className="text-[10px]">{currentPic.role}</Badge>}
-                <p className="truncate text-xs text-muted-foreground">{currentPic.email}</p>
-              </div>
-            </div>
-          ) : (
-            <div className="rounded-xl border border-dashed border-border/60 bg-muted/10 p-3 text-sm text-muted-foreground">
-              No Solution Architect is assigned to this project yet.
-            </div>
-          )}
           {canAssign && (
-            <Button className="w-full gap-2 sm:w-auto" variant="outline" onClick={() => setOpen(true)}>
+            <Button className="h-10 w-full gap-2 shadow-none sm:w-auto" variant="outline" onClick={() => setOpen(true)}>
               <UserCheck className="h-4 w-4" />
               {currentPic ? "Change PIC" : "Assign PIC"}
             </Button>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </section>
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogHeader>
@@ -155,7 +149,7 @@ export function PicAssignmentCard({ project, canAssign }: { project: Project; ca
                   </span>
                   <span className="min-w-0">
                     <span className="block font-medium text-foreground">{pic.full_name}</span>
-                    <span className="block truncate text-xs text-muted-foreground">{pic.role} | {pic.email}</span>
+                    <span className="block truncate text-xs text-muted-foreground">{formatActorRoleLabel(pic.role)} | {pic.email}</span>
                   </span>
                 </button>
               ))
