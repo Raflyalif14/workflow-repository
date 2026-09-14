@@ -60,6 +60,14 @@ import {
   resolveNextActionTargetId,
 } from "@/lib/workflow-ux-helpers";
 import {
+  formatReviewDate,
+  formatReviewDateTime,
+  formatReviewParticipant,
+  getDeadlineChangeDays,
+  getReviewActionCopy,
+  isProjectPlanPicRequired,
+} from "@/lib/review-surface-ux";
+import {
   canAddMilestoneContribution,
   canPromoteMilestoneContributions,
   canViewMilestoneContributions,
@@ -984,7 +992,7 @@ function ProjectPlanCard({
                   onClick={() => setDecision("REJECT")}
                 >
                   <X className="h-3.5 w-3.5" />
-                  <span>Reject Plan</span>
+                  <span>Reject plan</span>
                 </Button>
                 <Button
                   size="sm"
@@ -1212,10 +1220,10 @@ function MilestoneRow({
           {canReviewDeadline && (
             <>
               <Button size="sm" variant="outline" className="h-8 text-xs border-destructive/30 text-destructive" onClick={() => setReview({ type: "DEADLINE", decision: "REJECT" })}>
-                Reject Deadline
+                Reject request
               </Button>
               <Button size="sm" className="h-8 text-xs" onClick={() => setReview({ type: "DEADLINE", decision: "APPROVE" })}>
-                Approve Deadline
+                Approve deadline
               </Button>
             </>
           )}
@@ -1349,6 +1357,12 @@ function MilestoneRow({
         approvalId={deadlineApproval?.id}
         type="DEADLINE"
         decision={review?.decision || "APPROVE"}
+        projectName={project.name}
+        milestoneName={milestone.name}
+        currentDeadline={effectiveDeadline}
+        requestedDeadline={deadlineApproval?.deadline}
+        requestedBy={deadlineApproval?.requested_by?.full_name}
+        requestedAt={deadlineApproval?.requested_at}
       />
       <MilestoneSubmissionReviewDialog
         open={submissionReviewOpen}
@@ -1359,6 +1373,11 @@ function MilestoneRow({
         projectName={project.name}
         approvalId={submissionApproval?.id}
         submissionNote={submissionApproval?.submission_note}
+        submittedBy={submissionApproval?.submitted_by?.full_name}
+        submittedAt={submissionApproval?.submitted_at}
+        dueDate={effectiveDeadline.due_date}
+        stepOrder={milestone.step_order}
+        status={submissionApproval?.status}
       />
     </div>
   );
@@ -1466,6 +1485,12 @@ function ReviewDialog({
   approvalId,
   type,
   decision,
+  projectName,
+  milestoneName,
+  currentDeadline,
+  requestedDeadline,
+  requestedBy,
+  requestedAt,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -1474,12 +1499,43 @@ function ReviewDialog({
   approvalId?: string;
   type: "DEADLINE" | "SUBMISSION";
   decision: "APPROVE" | "REJECT";
+  projectName?: string;
+  milestoneName?: string;
+  currentDeadline?: {
+    start_date?: string | null;
+    duration_working_days?: number | null;
+    due_date?: string | null;
+  } | null;
+  requestedDeadline?: {
+    start_date?: string | null;
+    duration_working_days?: number | null;
+    due_date?: string | null;
+    change_reason?: string | null;
+  } | null;
+  requestedBy?: string | null;
+  requestedAt?: string | null;
 }) {
   const reviewDeadline = useReviewDeadlineApproval(projectId, milestoneId);
   const reviewSubmission = useReviewSubmissionApproval(projectId, milestoneId);
   const [note, setNote] = useState("");
   const [error, setError] = useState("");
   const pending = type === "DEADLINE" ? reviewDeadline.isPending : reviewSubmission.isPending;
+  const reviewCopy = getReviewActionCopy(type, decision);
+  const deadlineDelta =
+    type === "DEADLINE"
+      ? getDeadlineChangeDays(
+          currentDeadline?.due_date,
+          requestedDeadline?.due_date
+        )
+      : null;
+  const deadlineDeltaLabel =
+    deadlineDelta === null
+      ? null
+      : deadlineDelta === 0
+        ? "No change in calendar days"
+        : `${Math.abs(deadlineDelta)} calendar day${
+            Math.abs(deadlineDelta) === 1 ? "" : "s"
+          } ${deadlineDelta > 0 ? "later" : "earlier"}`;
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -1502,41 +1558,142 @@ function ReviewDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogHeader>
-        <DialogTitle>
-          {decision === "APPROVE" ? "Approve" : "Reject"} {type === "DEADLINE" ? "Deadline Change" : "Work Submission"}
-        </DialogTitle>
+      <DialogHeader className="mb-4">
+        <DialogTitle>{reviewCopy.title}</DialogTitle>
+        <DialogDescription>
+          {type === "DEADLINE"
+            ? "Compare the current and requested dates before making a decision."
+            : "Review the submitted work before making a decision."}
+        </DialogDescription>
       </DialogHeader>
       <form className="space-y-4" onSubmit={submit}>
+        {(projectName || milestoneName) && (
+          <div className="grid gap-3 border-y border-border/60 py-3 text-xs sm:grid-cols-2">
+            <div className="min-w-0">
+              <p className="text-muted-foreground">Project</p>
+              <p className="mt-0.5 truncate font-medium text-foreground">
+                {projectName || "Unavailable"}
+              </p>
+            </div>
+            <div className="min-w-0">
+              <p className="text-muted-foreground">Milestone</p>
+              <p className="mt-0.5 truncate font-medium text-foreground">
+                {milestoneName || "Unavailable"}
+              </p>
+            </div>
+          </div>
+        )}
+
+        {type === "DEADLINE" && (
+          <div className="space-y-4">
+            <section aria-label="Deadline comparison">
+              <div className="grid gap-3 sm:grid-cols-2 sm:divide-x sm:divide-border/60">
+                <div className="min-w-0 sm:pr-3">
+                  <p className="text-xs text-muted-foreground">
+                    Current deadline
+                  </p>
+                  <p className="mt-1 text-sm font-semibold text-foreground">
+                    {formatReviewDate(currentDeadline?.due_date)}
+                  </p>
+                  {currentDeadline?.duration_working_days != null && (
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {currentDeadline.duration_working_days} working days
+                    </p>
+                  )}
+                </div>
+                <div className="min-w-0 border-t border-border/60 pt-3 sm:border-t-0 sm:pl-3 sm:pt-0">
+                  <p className="text-xs text-muted-foreground">
+                    Requested deadline
+                  </p>
+                  <p className="mt-1 text-sm font-semibold text-foreground">
+                    {formatReviewDate(requestedDeadline?.due_date)}
+                  </p>
+                  {requestedDeadline?.duration_working_days != null && (
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {requestedDeadline.duration_working_days} working days
+                    </p>
+                  )}
+                </div>
+              </div>
+              {deadlineDeltaLabel && (
+                <p className="mt-3 text-xs font-medium text-primary">
+                  {deadlineDeltaLabel}
+                </p>
+              )}
+            </section>
+
+            <section className="space-y-1">
+              <p className="text-xs text-muted-foreground">Reason</p>
+              <p className="whitespace-pre-wrap text-sm leading-6 text-foreground">
+                {requestedDeadline?.change_reason?.trim() ||
+                  "No reason provided."}
+              </p>
+            </section>
+
+            <p className="text-xs text-muted-foreground">
+              Requested by{" "}
+              <span className="font-medium text-foreground">
+                {formatReviewParticipant(requestedBy)}
+              </span>
+              <span aria-hidden="true"> · </span>
+              {formatReviewDateTime(requestedAt)}
+            </p>
+          </div>
+        )}
+
         <div>
-          <label className="block text-xs font-semibold text-muted-foreground mb-1">
-            {decision === "REJECT" ? "Rejection Reason / Required Corrections *" : "Review Remarks (Optional)"}
+          <label
+            htmlFor="workflow-review-note"
+            className="mb-1 block text-xs font-semibold text-muted-foreground"
+          >
+            {reviewCopy.noteLabel}
+            {reviewCopy.noteRequired && " *"}
           </label>
           <textarea
+            id="workflow-review-note"
             rows={4}
             value={note}
-            onChange={(event) => setNote(event.target.value)}
-            placeholder={
-              decision === "REJECT"
-                ? "Specify exact feedback and what needs to be revised..."
-                : "Add optional approval remarks..."
-            }
+            onChange={(event) => {
+              setNote(event.target.value);
+              setError("");
+            }}
+            placeholder={reviewCopy.notePlaceholder}
             className="flex w-full rounded-md border border-input bg-card px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-primary"
-            required={decision === "REJECT"}
+            required={reviewCopy.noteRequired}
+            aria-invalid={Boolean(error) && reviewCopy.noteRequired}
+            aria-describedby={error ? "workflow-review-error" : undefined}
+            disabled={pending}
           />
         </div>
-        {error && <p className="text-sm text-destructive">{error}</p>}
+        {error && (
+          <p
+            id="workflow-review-error"
+            className="text-sm text-destructive"
+            role="alert"
+          >
+            {error}
+          </p>
+        )}
         <DialogFooter>
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+            disabled={pending}
+          >
             Cancel
           </Button>
           <Button
             type="submit"
             disabled={!approvalId || pending}
-            variant={decision === "REJECT" ? "destructive" : "default"}
-            className={decision === "APPROVE" ? "bg-emerald-500 hover:bg-emerald-600 text-black font-semibold" : ""}
+            variant={decision === "REJECT" ? "outline" : "default"}
+            className={
+              decision === "REJECT"
+                ? "border-destructive/40 text-destructive hover:bg-destructive/10"
+                : ""
+            }
           >
-            {pending ? "Saving..." : `Confirm ${decision === "APPROVE" ? "Approval" : "Rejection"}`}
+            {pending ? reviewCopy.pendingLabel : reviewCopy.submitLabel}
           </Button>
         </DialogFooter>
       </form>
@@ -1567,7 +1724,12 @@ function PlanReviewDialog({
   const [note, setNote] = useState("");
   const [picId, setPicId] = useState("");
   const [error, setError] = useState("");
-  const requiresPic = decision === "APPROVE" && workflowModel === "OPERATIONAL_V2" && workflowVersion === 2;
+  const reviewCopy = getReviewActionCopy("PROJECT_PLAN", decision);
+  const requiresPic = isProjectPlanPicRequired(
+    decision,
+    workflowModel,
+    workflowVersion
+  );
   const { data: pics = [], isLoading: picsLoading, isError: picsError } = useSolutionArchitects(open && requiresPic);
 
   useEffect(() => {
@@ -1599,26 +1761,40 @@ function PlanReviewDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogHeader>
-        <DialogTitle>{decision === "APPROVE" ? "Approve" : "Reject"} Project Plan</DialogTitle>
-        <DialogDescription>{projectName}</DialogDescription>
+      <DialogHeader className="mb-4">
+        <DialogTitle>{reviewCopy.title}</DialogTitle>
+        <DialogDescription>
+          {projectName}.{" "}
+          {requiresPic
+            ? "Choose the Solution Architect who will own delivery before activation."
+            : decision === "REJECT"
+              ? "Return the plan to Sales with clear timeline feedback."
+              : "Confirm this project plan decision."}
+        </DialogDescription>
       </DialogHeader>
       <form className="space-y-4" onSubmit={submit}>
         <div>
-          <label className="block text-xs font-semibold text-muted-foreground mb-1">
-            {decision === "REJECT" ? "Rejection Reason / Timeline Feedback *" : "Approval Remarks (Optional)"}
+          <label
+            htmlFor="project-plan-review-note"
+            className="mb-1 block text-xs font-semibold text-muted-foreground"
+          >
+            {reviewCopy.noteLabel}
+            {reviewCopy.noteRequired && " *"}
           </label>
           <textarea
+            id="project-plan-review-note"
             rows={4}
             value={note}
-            onChange={(event) => setNote(event.target.value)}
-            placeholder={
-              decision === "REJECT"
-                ? "Specify timeline issues or required changes before plan can be approved..."
-                : "Add optional sign-off remarks..."
-            }
+            onChange={(event) => {
+              setNote(event.target.value);
+              setError("");
+            }}
+            placeholder={reviewCopy.notePlaceholder}
             className="flex w-full rounded-md border border-input bg-card px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-primary"
-            required={decision === "REJECT"}
+            required={reviewCopy.noteRequired}
+            aria-invalid={Boolean(error) && reviewCopy.noteRequired}
+            aria-describedby={error ? "project-plan-review-error" : undefined}
+            disabled={isPending}
           />
         </div>
         {requiresPic && (
@@ -1638,9 +1814,13 @@ function PlanReviewDialog({
               <select
                 id="project-plan-pic"
                 value={picId}
-                onChange={(event) => setPicId(event.target.value)}
+                onChange={(event) => {
+                  setPicId(event.target.value);
+                  setError("");
+                }}
                 className="flex h-10 w-full rounded-md border border-input bg-card px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-primary"
                 required
+                disabled={isPending}
               >
                 <option value="">Select Solution Architect</option>
                 {pics.map((pic) => (
@@ -1650,23 +1830,42 @@ function PlanReviewDialog({
                 ))}
               </select>
             )}
+            {!picsLoading && !picsError && !picId && (
+              <p className="text-xs text-muted-foreground">
+                A Solution Architect is required before the project can be activated.
+              </p>
+            )}
           </div>
         )}
-        {error && <p className="text-sm text-destructive">{error}</p>}
+        {error && (
+          <p
+            id="project-plan-review-error"
+            className="text-sm text-destructive"
+            role="alert"
+          >
+            {error}
+          </p>
+        )}
         <DialogFooter>
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+            disabled={isPending}
+          >
             Cancel
           </Button>
           <Button
             type="submit"
             disabled={isPending || (requiresPic && (picsLoading || picsError || !picId))}
-            variant={decision === "REJECT" ? "destructive" : "default"}
+            variant={decision === "REJECT" ? "outline" : "default"}
+            className={
+              decision === "REJECT"
+                ? "border-destructive/40 text-destructive hover:bg-destructive/10"
+                : ""
+            }
           >
-            {isPending
-              ? "Saving..."
-              : decision === "APPROVE" && requiresPic
-              ? "Confirm Approval, Assign PIC & Activate"
-              : `Confirm ${decision === "APPROVE" ? "Approval & Activate" : "Rejection"}`}
+            {isPending ? reviewCopy.pendingLabel : reviewCopy.submitLabel}
           </Button>
         </DialogFooter>
       </form>

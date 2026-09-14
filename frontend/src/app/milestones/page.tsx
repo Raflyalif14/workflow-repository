@@ -410,6 +410,11 @@ function ReviewableSubmissionRow({ item }: { item: ApprovalItem }) {
           projectName={item.projectName}
           approvalId={item.id}
           submissionNote={item.submissionNote}
+          submittedBy={item.submittedBy}
+          submittedAt={item.submittedAt}
+          dueDate={item.deadline}
+          stepOrder={item.stepOrder}
+          status={item.status}
         />
       )}
     </>
@@ -526,6 +531,8 @@ function AssignedMilestoneRow({
         projectName={milestone.project?.name}
         approvalId={undefined}
         submissionNote={undefined}
+        stepOrder={milestone.step_order}
+        status={milestone.status}
       />
     </>
   );
