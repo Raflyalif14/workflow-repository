@@ -1,12 +1,20 @@
 "use client";
 
-import { useRef, useState, type FormEvent } from "react";
+import { useRef, useState, type FormEvent, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { AlertCircle, ArrowLeft, Briefcase, FileText, ImageIcon, Paperclip, X } from "lucide-react";
+import {
+  AlertCircle,
+  ArrowLeft,
+  CheckCircle2,
+  Circle,
+  FileText,
+  ImageIcon,
+  Paperclip,
+  X,
+} from "lucide-react";
+import { useAuth } from "@/components/auth/auth-provider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { useAuth } from "@/components/auth/auth-provider";
 import { useCreateProject } from "@/hooks/use-projects";
 import { useScenarios } from "@/hooks/use-scenarios";
 import {
@@ -56,6 +64,88 @@ function getProjectValidationError({
   ].find(Boolean) || null;
 }
 
+function getScenarioContext(name?: string, description?: string | null): string {
+  if (description?.trim()) return description;
+  if (name === "Assessment") {
+    return "Use this workflow when the engagement begins with customer assessment and discovery.";
+  }
+  if (name === "Existing TOR") {
+    return "Use this workflow when the customer already has an established Terms of Reference.";
+  }
+  return "The selected scenario determines the delivery stages used during planning.";
+}
+
+function SelectedFileRow({
+  file,
+  icon,
+  onRemove,
+  disabled,
+}: {
+  file: File;
+  icon: ReactNode;
+  onRemove: () => void;
+  disabled: boolean;
+}) {
+  return (
+    <div className="flex min-w-0 items-center gap-3 border-b border-border/50 py-2.5 last:border-b-0">
+      <span className="shrink-0 text-muted-foreground">{icon}</span>
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-sm font-medium text-foreground" title={file.name}>
+          {file.name}
+        </p>
+        <p className="truncate text-xs text-muted-foreground">
+          {file.type || "File"} · {formatFileSize(file.size)}
+        </p>
+      </div>
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        className="h-9 w-9 shrink-0"
+        onClick={onRemove}
+        disabled={disabled}
+        aria-label={`Remove ${file.name}`}
+        title={`Remove ${file.name}`}
+      >
+        <X className="h-4 w-4" />
+      </Button>
+    </div>
+  );
+}
+
+function ChecklistItem({
+  label,
+  detail,
+  complete,
+  optional = false,
+}: {
+  label: string;
+  detail: string;
+  complete: boolean;
+  optional?: boolean;
+}) {
+  const Icon = optional ? Paperclip : complete ? CheckCircle2 : Circle;
+
+  return (
+    <div className="flex items-start gap-3">
+      <Icon
+        className={
+          complete && !optional
+            ? "mt-0.5 h-4 w-4 shrink-0 text-emerald-400"
+            : "mt-0.5 h-4 w-4 shrink-0 text-muted-foreground/60"
+        }
+      />
+      <div className="min-w-0">
+        <p className="text-sm font-medium text-foreground">
+          {label}
+          {optional && <span className="ml-1 font-normal text-muted-foreground">(optional)</span>}
+        </p>
+        <p className="mt-0.5 text-xs leading-5 text-muted-foreground">{detail}</p>
+      </div>
+    </div>
+  );
+}
+
 export default function NewProjectPage() {
   const router = useRouter();
   const { user } = useAuth();
@@ -71,23 +161,29 @@ export default function NewProjectPage() {
   const [documents, setDocuments] = useState<File[]>([]);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [fileSelectionError, setFileSelectionError] = useState<string | null>(null);
+  const [submitAttempted, setSubmitAttempted] = useState(false);
 
   if (!user || user.role !== "SALES") {
     return <div className="container py-12 text-center text-destructive">You do not have permission to create projects.</div>;
   }
 
+  const selectedScenario = scenarios.find((scenario) => scenario.id === scenarioId);
+  const projectDetailsComplete = Boolean(name.trim() && customer.trim() && scenarioId);
   const clearError = () => setSubmitError(null);
+
   const removeMom = () => {
     setMom(null);
     setFileSelectionError(null);
     if (momInputRef.current) momInputRef.current.value = "";
     clearError();
   };
+
   const removeDocument = (index: number) => {
     setDocuments((current) => removeDocumentFile(current, index));
     setFileSelectionError(null);
     clearError();
   };
+
   const removePhoto = (index: number) => {
     setPhotos((current) => removeDocumentFile(current, index));
     setFileSelectionError(null);
@@ -97,6 +193,8 @@ export default function NewProjectPage() {
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (create.isPending) return;
+    setSubmitAttempted(true);
+
     if (fileSelectionError) {
       setSubmitError(fileSelectionError);
       return;
@@ -128,199 +226,344 @@ export default function NewProjectPage() {
   };
 
   return (
-    <div className="container max-w-2xl space-y-6 py-8">
-      <Button variant="ghost" className="gap-2" onClick={() => router.back()} disabled={create.isPending}>
-        <ArrowLeft className="h-4 w-4" />
-        Back
-      </Button>
+    <div className="mx-auto w-full max-w-[1280px] px-4 py-7 sm:px-6 lg:px-8 lg:py-9">
+      <header className="mb-7 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div className="min-w-0">
+          <p className="text-xs font-semibold uppercase text-primary">Sales workspace</p>
+          <h1 className="mt-2 text-2xl font-semibold text-foreground sm:text-3xl">Create project</h1>
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
+            Add the customer details and Project Intake evidence needed to begin planning.
+          </p>
+        </div>
+        <Button
+          type="button"
+          variant="outline"
+          className="w-full gap-2 sm:w-auto"
+          onClick={() => router.push("/projects")}
+          disabled={create.isPending}
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Back to projects
+        </Button>
+      </header>
 
-      <Card>
-        <CardHeader>
-          <div className="mb-1 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-primary">
-            <Briefcase className="h-4 w-4" />
-            New Project
-          </div>
-          <CardTitle>Create Project</CardTitle>
-        </CardHeader>
+      <form onSubmit={submit} className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
+        <div className="overflow-hidden rounded-lg border border-border bg-card">
+          <section className="border-b border-border px-5 py-6 sm:px-7">
+            <SectionHeading number="01" title="Project information">
+              Identify the engagement and customer.
+            </SectionHeading>
 
-        <CardContent>
-          <form className="space-y-4" onSubmit={submit}>
-            <div>
-              <label className="mb-1 block text-sm font-medium" htmlFor="project-name">Project Name</label>
-              <Input
-                id="project-name"
-                value={name}
-                onChange={(event) => {
-                  setName(event.target.value);
-                  clearError();
-                }}
-                placeholder="Sistem Tiket"
-                disabled={create.isPending}
-              />
-            </div>
-
-            <div>
-              <label className="mb-1 block text-sm font-medium" htmlFor="project-customer">Customer</label>
-              <Input
-                id="project-customer"
-                value={customer}
-                onChange={(event) => {
-                  setCustomer(event.target.value);
-                  clearError();
-                }}
-                placeholder="PT ABC"
-                disabled={create.isPending}
-              />
-            </div>
-
-            <div>
-              <label className="mb-1 block text-sm font-medium" htmlFor="project-scenario">Scenario</label>
-              <select
-                id="project-scenario"
-                className="h-9 w-full rounded-md border border-input bg-card px-3 text-sm"
-                value={scenarioId}
-                onChange={(event) => {
-                  setScenarioId(event.target.value);
-                  clearError();
-                }}
-                disabled={isLoading || create.isPending}
-              >
-                <option value="">Select scenario</option>
-                {scenarios.map((scenario) => (
-                  <option key={scenario.id} value={scenario.id}>
-                    {scenario.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="space-y-2">
+            <div className="grid gap-5 sm:grid-cols-2">
               <div>
-                <label className="mb-1 block text-sm font-medium" htmlFor="project-mom">MoM (Required)</label>
-                <p className="text-xs text-muted-foreground">One PDF file, up to 50 MB.</p>
+                <label className="mb-2 block text-sm font-medium" htmlFor="project-name">
+                  Project name <span className="text-destructive" aria-hidden="true">*</span>
+                </label>
+                <Input
+                  id="project-name"
+                  value={name}
+                  onChange={(event) => {
+                    setName(event.target.value);
+                    clearError();
+                  }}
+                  placeholder="e.g. Customer service modernization"
+                  disabled={create.isPending}
+                  aria-invalid={submitAttempted && !name.trim()}
+                  aria-describedby={submitAttempted && !name.trim() ? "project-name-error" : undefined}
+                />
+                {submitAttempted && !name.trim() && (
+                  <p id="project-name-error" className="mt-1.5 text-xs text-destructive">Project name is required.</p>
+                )}
               </div>
-              <Input
-                ref={momInputRef}
-                id="project-mom"
-                name="mom"
-                type="file"
-                accept={PROJECT_MOM_ACCEPT}
-                disabled={create.isPending}
-                onChange={(event) => {
-                  const selection = selectSingleProjectMomFile(event.target.files);
-                  event.target.value = "";
-                  if (selection.error) {
+
+              <div>
+                <label className="mb-2 block text-sm font-medium" htmlFor="project-customer">
+                  Customer <span className="text-destructive" aria-hidden="true">*</span>
+                </label>
+                <Input
+                  id="project-customer"
+                  value={customer}
+                  onChange={(event) => {
+                    setCustomer(event.target.value);
+                    clearError();
+                  }}
+                  placeholder="e.g. PT Nusantara"
+                  disabled={create.isPending}
+                  aria-invalid={submitAttempted && !customer.trim()}
+                  aria-describedby={submitAttempted && !customer.trim() ? "project-customer-error" : undefined}
+                />
+                {submitAttempted && !customer.trim() && (
+                  <p id="project-customer-error" className="mt-1.5 text-xs text-destructive">Customer is required.</p>
+                )}
+              </div>
+            </div>
+          </section>
+
+          <section className="border-b border-border px-5 py-6 sm:px-7">
+            <SectionHeading number="02" title="Workflow scenario">
+              Choose the workflow that matches the customer context.
+            </SectionHeading>
+
+            <label className="mb-2 block text-sm font-medium" htmlFor="project-scenario">
+              Scenario <span className="text-destructive" aria-hidden="true">*</span>
+            </label>
+            <select
+              id="project-scenario"
+              className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              value={scenarioId}
+              onChange={(event) => {
+                setScenarioId(event.target.value);
+                clearError();
+              }}
+              disabled={isLoading || create.isPending}
+              aria-invalid={submitAttempted && !scenarioId}
+              aria-describedby="project-scenario-context"
+            >
+              <option value="">{isLoading ? "Loading scenarios..." : "Select scenario"}</option>
+              {scenarios.map((scenario) => (
+                <option key={scenario.id} value={scenario.id}>
+                  {scenario.name}
+                </option>
+              ))}
+            </select>
+            <p id="project-scenario-context" className="mt-2 text-xs leading-5 text-muted-foreground">
+              {selectedScenario
+                ? getScenarioContext(selectedScenario.name, selectedScenario.description)
+                : "Select Assessment or Existing TOR based on the customer engagement."}
+            </p>
+            {submitAttempted && !scenarioId && (
+              <p className="mt-1.5 text-xs text-destructive">Please select an active scenario.</p>
+            )}
+          </section>
+
+          <section className="border-b border-border px-5 py-6 sm:px-7">
+            <SectionHeading number="03" title="Project Intake">
+              Provide the meeting record and visual evidence needed for planning and review.
+            </SectionHeading>
+
+            <div className="grid gap-6 xl:grid-cols-2">
+              <div className="min-w-0">
+                <div className="mb-3">
+                  <label className="text-sm font-medium" htmlFor="project-mom">
+                    Meeting record / MoM PDF <span className="text-destructive" aria-hidden="true">*</span>
+                  </label>
+                  <p className="mt-1 text-xs leading-5 text-muted-foreground">Exactly one PDF file, up to 50 MB.</p>
+                </div>
+                <Input
+                  ref={momInputRef}
+                  id="project-mom"
+                  name="mom"
+                  type="file"
+                  accept={PROJECT_MOM_ACCEPT}
+                  disabled={create.isPending}
+                  aria-invalid={submitAttempted && !mom}
+                  onChange={(event) => {
+                    const selection = selectSingleProjectMomFile(event.target.files);
+                    event.target.value = "";
+                    if (selection.error) {
+                      setFileSelectionError(selection.error);
+                      setSubmitError(selection.error);
+                      return;
+                    }
+                    if (!selection.file) return;
+
+                    setMom(selection.file);
+                    setFileSelectionError(null);
+                    clearError();
+                  }}
+                />
+                {mom ? (
+                  <div className="mt-2 border-y border-border/50">
+                    <SelectedFileRow
+                      file={mom}
+                      icon={<FileText className="h-4 w-4" />}
+                      onRemove={removeMom}
+                      disabled={create.isPending}
+                    />
+                  </div>
+                ) : submitAttempted ? (
+                  <p className="mt-1.5 text-xs text-destructive">A MoM PDF is required.</p>
+                ) : null}
+              </div>
+
+              <div className="min-w-0">
+                <div className="mb-3">
+                  <label className="text-sm font-medium" htmlFor="project-photos">
+                    Image evidence <span className="text-destructive" aria-hidden="true">*</span>
+                  </label>
+                  <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                    JPG, JPEG, or PNG. Add 1-{MAX_PROJECT_PHOTOS} images, up to 50 MB each.
+                  </p>
+                </div>
+                <Input
+                  id="project-photos"
+                  name="photos"
+                  type="file"
+                  multiple
+                  accept={PROJECT_PHOTO_ACCEPT}
+                  disabled={create.isPending}
+                  aria-invalid={submitAttempted && photos.length === 0}
+                  onChange={(event) => {
+                    const selection = appendProjectPhotoFiles(photos, event.target.files);
+                    setPhotos(selection.files);
+                    event.target.value = "";
                     setFileSelectionError(selection.error);
                     setSubmitError(selection.error);
-                    return;
-                  }
-                  if (!selection.file) return;
-
-                  setMom(selection.file);
-                  setFileSelectionError(null);
-                  clearError();
-                }}
-              />
-              {mom && (
-                <div className="flex items-center justify-between gap-3 rounded-lg border border-border/60 bg-muted/20 px-3 py-2 text-sm">
-                  <span className="flex min-w-0 items-center gap-2">
-                    <FileText className="h-4 w-4 shrink-0 text-primary" />
-                    <span className="truncate">{mom.name} <span className="text-xs text-muted-foreground">({formatFileSize(mom.size)})</span></span>
-                  </span>
-                  <Button type="button" variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={removeMom} disabled={create.isPending} aria-label="Remove selected MoM" title="Remove selected MoM">
-                    <X className="h-4 w-4" />
-                  </Button>
-                </div>
-              )}
-            </div>
-
-            <div className="space-y-2">
-              <div>
-                <label className="mb-1 block text-sm font-medium" htmlFor="project-photos">Project Photos (Required)</label>
-                <p className="text-xs text-muted-foreground">JPG, JPEG, or PNG. At least one photo, up to {MAX_PROJECT_PHOTOS} files and 50 MB each.</p>
+                  }}
+                />
+                {photos.length > 0 ? (
+                  <div className="mt-2 border-y border-border/50">
+                    {photos.map((file, index) => (
+                      <SelectedFileRow
+                        key={getDocumentFileKey(file)}
+                        file={file}
+                        icon={<ImageIcon className="h-4 w-4" />}
+                        onRemove={() => removePhoto(index)}
+                        disabled={create.isPending}
+                      />
+                    ))}
+                  </div>
+                ) : submitAttempted ? (
+                  <p className="mt-1.5 text-xs text-destructive">At least one image is required.</p>
+                ) : null}
               </div>
-              <Input
-                id="project-photos"
-                name="photos"
-                type="file"
-                multiple
-                accept={PROJECT_PHOTO_ACCEPT}
-                disabled={create.isPending}
-                onChange={(event) => {
-                  const selection = appendProjectPhotoFiles(photos, event.target.files);
-                  setPhotos(selection.files);
-                  event.target.value = "";
-                  setFileSelectionError(selection.error);
-                  setSubmitError(selection.error);
-                }}
-              />
-              {photos.length > 0 && (
-                <div className="space-y-2">
-                  {photos.map((file, index) => (
-                    <div key={getDocumentFileKey(file)} className="flex items-center justify-between gap-3 rounded-lg border border-border/60 bg-muted/20 px-3 py-2 text-sm">
-                      <span className="flex min-w-0 items-center gap-2">
-                        <ImageIcon className="h-4 w-4 shrink-0 text-muted-foreground" />
-                        <span className="truncate">{file.name} <span className="text-xs text-muted-foreground">({formatFileSize(file.size)})</span></span>
-                      </span>
-                      <Button type="button" variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={() => removePhoto(index)} disabled={create.isPending} aria-label={`Remove ${file.name}`} title={`Remove ${file.name}`}>
-                        <X className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-              )}
             </div>
 
-            <div className="space-y-2">
-              <div>
-                <label className="mb-1 block text-sm font-medium" htmlFor="project-documents">Additional Documents</label>
-                <p className="text-xs text-muted-foreground">Optional. Up to {MAX_DOCUMENT_FILES} files, 50 MB each.</p>
-              </div>
-              <Input
-                id="project-documents"
-                name="documents"
-                type="file"
-                multiple
-                accept={DOCUMENT_ACCEPT}
-                disabled={create.isPending}
-                onChange={(event) => {
-                  const selection = appendDocumentFiles(documents, event.target.files);
-                  setDocuments(selection.files);
-                  event.target.value = "";
-                  setFileSelectionError(selection.error);
-                  setSubmitError(selection.error);
-                }}
-              />
-              {documents.length > 0 && (
-                <div className="space-y-2">
-                  {documents.map((file, index) => (
-                    <div key={getDocumentFileKey(file)} className="flex items-center justify-between gap-3 rounded-lg border border-border/60 bg-muted/20 px-3 py-2 text-sm">
-                      <span className="flex min-w-0 items-center gap-2">
-                        <Paperclip className="h-4 w-4 shrink-0 text-muted-foreground" />
-                        <span className="truncate">{file.name} <span className="text-xs text-muted-foreground">({formatFileSize(file.size)})</span></span>
-                      </span>
-                      <Button type="button" variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={() => removeDocument(index)} disabled={create.isPending} aria-label={`Remove ${file.name}`} title={`Remove ${file.name}`}>
-                        <X className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {submitError && (
-              <div role="alert" className="flex items-start gap-2 rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-xs text-destructive">
+            {fileSelectionError && (
+              <div role="alert" className="mt-5 flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/10 p-3 text-xs text-destructive">
                 <AlertCircle className="h-4 w-4 shrink-0" />
+                <span>{fileSelectionError}</span>
+              </div>
+            )}
+          </section>
+
+          <section className="px-5 py-6 sm:px-7">
+            <SectionHeading number="04" title="Supporting documents" muted>
+              Optional files that provide additional context for Project Intake.
+            </SectionHeading>
+
+            <label className="mb-2 block text-sm font-medium" htmlFor="project-documents">Additional files</label>
+            <p className="mb-3 text-xs leading-5 text-muted-foreground">
+              Add up to {MAX_DOCUMENT_FILES} supported files, up to 50 MB each. These remain part of Project Intake.
+            </p>
+            <Input
+              id="project-documents"
+              name="documents"
+              type="file"
+              multiple
+              accept={DOCUMENT_ACCEPT}
+              disabled={create.isPending}
+              onChange={(event) => {
+                const selection = appendDocumentFiles(documents, event.target.files);
+                setDocuments(selection.files);
+                event.target.value = "";
+                setFileSelectionError(selection.error);
+                setSubmitError(selection.error);
+              }}
+            />
+            {documents.length > 0 && (
+              <div className="mt-2 border-y border-border/50">
+                {documents.map((file, index) => (
+                  <SelectedFileRow
+                    key={getDocumentFileKey(file)}
+                    file={file}
+                    icon={<Paperclip className="h-4 w-4" />}
+                    onRemove={() => removeDocument(index)}
+                    disabled={create.isPending}
+                  />
+                ))}
+              </div>
+            )}
+          </section>
+
+          <div className="border-t border-border bg-muted/15 px-5 py-5 sm:px-7">
+            {submitError && (
+              <div role="alert" className="mb-4 flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
+                <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
                 <span>{submitError}</span>
               </div>
             )}
+            <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+              <Button
+                type="button"
+                variant="ghost"
+                className="w-full sm:w-auto"
+                onClick={() => router.push("/projects")}
+                disabled={create.isPending}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" className="w-full sm:w-auto" disabled={create.isPending || Boolean(fileSelectionError)}>
+                {create.isPending ? "Creating..." : "Create project"}
+              </Button>
+            </div>
+          </div>
+        </div>
 
-            <Button type="submit" disabled={create.isPending || Boolean(fileSelectionError)}>
-              {create.isPending ? "Creating..." : "Create Project"}
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
+        <aside className="rounded-lg border border-border bg-card px-5 py-5 lg:sticky lg:top-24">
+          <h2 className="text-base font-semibold text-foreground">Before you create</h2>
+          <div className="mt-5 space-y-5">
+            <ChecklistItem
+              label="Project details"
+              detail={projectDetailsComplete ? "Name, customer, and scenario are ready." : "Add a name, customer, and scenario."}
+              complete={projectDetailsComplete}
+            />
+            <ChecklistItem
+              label="MoM PDF"
+              detail={mom ? mom.name : "Attach the required meeting record."}
+              complete={Boolean(mom)}
+            />
+            <ChecklistItem
+              label="Image evidence"
+              detail={photos.length ? `${photos.length} image${photos.length === 1 ? "" : "s"} attached.` : "Attach at least one JPG or PNG image."}
+              complete={photos.length > 0}
+            />
+            <ChecklistItem
+              label="Supporting files"
+              detail={documents.length ? `${documents.length} optional file${documents.length === 1 ? "" : "s"} attached.` : "No supporting files added."}
+              complete={documents.length > 0}
+              optional
+            />
+          </div>
+
+          <div className="mt-6 border-t border-border pt-5">
+            <h3 className="text-sm font-semibold text-foreground">What happens next</h3>
+            <p className="mt-2 text-sm leading-6 text-muted-foreground">
+              The project will enter planning so you can configure its timeline before review.
+            </p>
+          </div>
+        </aside>
+      </form>
+    </div>
+  );
+}
+
+function SectionHeading({
+  number,
+  title,
+  children,
+  muted = false,
+}: {
+  number: string;
+  title: string;
+  children: ReactNode;
+  muted?: boolean;
+}) {
+  return (
+    <div className="mb-5 flex items-start gap-3">
+      <span
+        className={
+          muted
+            ? "flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-muted text-xs font-semibold text-muted-foreground"
+            : "flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-primary/10 text-xs font-semibold text-primary"
+        }
+      >
+        {number}
+      </span>
+      <div>
+        <h2 className="text-base font-semibold text-foreground">{title}</h2>
+        <p className="mt-1 text-sm leading-6 text-muted-foreground">{children}</p>
+      </div>
     </div>
   );
 }
