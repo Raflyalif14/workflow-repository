@@ -1,41 +1,90 @@
 "use client";
 
-import React, { useState } from "react";
+import Link from "next/link";
+import { useMemo, useState } from "react";
 import {
-  FolderArchive,
-  Search,
-  Filter,
+  ArrowRight,
   Download,
   FileText,
-  MessageSquare,
-  History,
   FileUp,
-  Clock,
-  Layers,
-  ChevronRight,
-  ExternalLink,
+  FolderArchive,
+  MessageSquare,
+  Search,
+  X,
 } from "lucide-react";
+import { useAuth } from "@/components/auth/auth-provider";
+import { DocumentCommentsDrawer } from "@/components/documents/document-comments-drawer";
+import { UploadVersionDialog } from "@/components/documents/upload-version-dialog";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { useDocumentDownloadUrl, useDocuments } from "@/hooks/use-documents";
-import { DocumentItem, DocumentCategory, DocumentStatus } from "@/types/document";
-import { UploadVersionDialog } from "@/components/documents/upload-version-dialog";
-import { DocumentCommentsDrawer } from "@/components/documents/document-comments-drawer";
+import { formatHumanReadableLabel } from "@/lib/workflow-ux-helpers";
+import { DocumentCategory, DocumentItem, DocumentStatus } from "@/types/document";
+
+const rolePageCopy: Record<string, { eyebrow: string; title: string; description: string }> = {
+  SALES: {
+    eyebrow: "Project records",
+    title: "Project documents",
+    description: "Find approved project files and customer delivery records.",
+  },
+  HEAD_SA: {
+    eyebrow: "Delivery records",
+    title: "Review documents",
+    description: "Browse official deliverables, versions, and project discussions.",
+  },
+  SA: {
+    eyebrow: "Delivery workspace",
+    title: "Delivery documents",
+    description: "Access the official files available across your assigned work.",
+  },
+  SUPER_ADMIN: {
+    eyebrow: "Repository oversight",
+    title: "Document repository",
+    description: "Inspect official project documents and their complete version history.",
+  },
+};
+
+function getStatusBadge(status: DocumentStatus) {
+  switch (status) {
+    case "APPROVED":
+      return <Badge variant="success">Approved</Badge>;
+    case "SUBMITTED":
+    case "UNDER_REVIEW":
+      return <Badge variant="warning">Submitted</Badge>;
+    case "REJECTED":
+      return <Badge variant="destructive">Rejected</Badge>;
+    case "SUPERSEDED":
+      return <Badge variant="outline">Superseded</Badge>;
+    default:
+      return <Badge variant="outline">Draft</Badge>;
+  }
+}
+
+function getCategoryLabel(category: DocumentCategory) {
+  switch (category) {
+    case "MOM":
+      return "MoM";
+    case "BOQ":
+      return "Bill of Quantity";
+    default:
+      return formatHumanReadableLabel(category);
+  }
+}
 
 export default function DocumentsPage() {
+  const { user } = useAuth();
+  const pageCopy = rolePageCopy[user?.role || ""] || rolePageCopy.SUPER_ADMIN;
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<DocumentCategory | "ALL">("ALL");
   const [statusFilter, setStatusFilter] = useState<DocumentStatus | "ALL">("ALL");
-
   const [selectedDocForVersion, setSelectedDocForVersion] = useState<DocumentItem | null>(null);
   const [isUploadVersionOpen, setIsUploadVersionOpen] = useState(false);
-
   const [commentsState, setCommentsState] = useState<{
     docId: string | null;
     docTitle: string;
   }>({ docId: null, docTitle: "" });
+  const [downloadError, setDownloadError] = useState("");
 
   const { data: documents = [], isLoading, isError } = useDocuments({
     search,
@@ -43,36 +92,22 @@ export default function DocumentsPage() {
     status: statusFilter,
   });
   const documentDownload = useDocumentDownloadUrl();
-
-  const getStatusBadge = (status: DocumentStatus) => {
-    switch (status) {
-      case "APPROVED":
-        return <Badge variant="success">Approved</Badge>;
-      case "SUBMITTED":
-      case "UNDER_REVIEW":
-        return <Badge variant="warning">Submitted</Badge>;
-      case "REJECTED":
-        return <Badge variant="destructive">Rejected</Badge>;
-      case "SUPERSEDED":
-        return <Badge variant="outline" className="opacity-60">Superseded</Badge>;
-      default:
-        return <Badge variant="outline">Draft</Badge>;
-    }
-  };
-
-  const getCategoryBadge = (category: DocumentCategory) => {
-    return (
-      <Badge variant="secondary" className="text-[10px] uppercase font-mono">
-        {category.replace("_", " ")}
-      </Badge>
-    );
-  };
-
-  const handleOpenComments = (doc: DocumentItem) => {
-    setCommentsState({ docId: doc.id, docTitle: doc.title });
-  };
-
-  const [downloadError, setDownloadError] = useState("");
+  const snapshot = useMemo(
+    () => [
+      { label: "Visible documents", value: documents.length },
+      { label: "Approved", value: documents.filter((item) => item.status === "APPROVED").length },
+      { label: "Milestone linked", value: documents.filter((item) => Boolean(item.milestoneId)).length },
+      {
+        label: "Document versions",
+        value: documents.reduce(
+          (total, item) => total + (item._count?.versions ?? item.versions?.length ?? 0),
+          0
+        ),
+      },
+    ],
+    [documents]
+  );
+  const hasFilters = Boolean(search || categoryFilter !== "ALL" || statusFilter !== "ALL");
 
   const handleDownload = async (versionId: string) => {
     setDownloadError("");
@@ -84,244 +119,297 @@ export default function DocumentsPage() {
       link.rel = "noopener noreferrer";
       link.click();
     } catch (error) {
-      setDownloadError(error instanceof Error ? error.message : "Failed to download document.");
+      setDownloadError(
+        error instanceof Error ? error.message : "Failed to download document."
+      );
     }
   };
 
+  const resetFilters = () => {
+    setSearch("");
+    setCategoryFilter("ALL");
+    setStatusFilter("ALL");
+  };
+
   return (
-    <div className="container space-y-6 py-8">
-      {/* Header */}
-      <div className="flex flex-col gap-5 border-b border-border/60 pb-6 sm:flex-row sm:items-start sm:justify-between">
-        <div className="max-w-3xl">
-          <div className="mb-3 flex items-center gap-3">
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-primary/15 bg-primary/10 text-primary">
-              <FolderArchive className="h-4 w-4" />
-            </span>
-            <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-primary">Document Repository & Supabase Storage</span>
+    <div className="mx-auto w-full max-w-[1280px] space-y-5 px-4 py-6 sm:px-6 lg:px-8">
+      <header className="border-b border-border/60 pb-5">
+        <p className="text-xs font-semibold uppercase text-primary">{pageCopy.eyebrow}</p>
+        <h1 className="mt-1 text-2xl font-semibold text-foreground sm:text-3xl">{pageCopy.title}</h1>
+        <p className="mt-1 max-w-2xl text-sm text-muted-foreground">{pageCopy.description}</p>
+      </header>
+
+      <section
+        aria-label="Document snapshot"
+        className="grid grid-cols-2 overflow-hidden rounded-lg border border-border/60 bg-card lg:grid-cols-4"
+      >
+        {snapshot.map((item, index) => (
+          <div
+            key={item.label}
+            className={`border-border/60 px-4 py-3.5 sm:px-5 ${
+              index % 2 === 1 ? "border-l" : ""
+            } ${index >= 2 ? "border-t" : ""} ${
+              index > 0 ? "lg:border-l" : ""
+            } lg:border-t-0`}
+          >
+            <p className="text-2xl font-semibold text-foreground">{item.value}</p>
+            <p className="mt-0.5 text-xs text-muted-foreground">{item.label}</p>
           </div>
-          <h1 className="text-3xl font-bold tracking-tight">Document Repository</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Centralized document storage, version history, and project deliverables.
-          </p>
-        </div>
+        ))}
+      </section>
 
-      </div>
-
-      {/* Filter Toolbar */}
-      <div className="grid grid-cols-1 gap-3 rounded-xl border border-border/60 bg-card/70 p-3 shadow-sm sm:grid-cols-12 sm:p-4">
-        <div className="relative sm:col-span-6">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            type="text"
-            placeholder="Search documents by title..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="h-10 border-border/60 bg-background/50 pl-9"
-          />
-        </div>
-
-        <div className="sm:col-span-3">
-          <select
-            value={categoryFilter}
-            onChange={(e) => setCategoryFilter(e.target.value as any)}
-            className="flex h-10 w-full rounded-lg border border-border/60 bg-background/50 px-3 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-primary"
-          >
-            <option value="ALL">All Categories</option>
-            <option value="PROPOSAL">Proposal</option>
-            <option value="ARCHITECTURE_DESIGN">Architecture Design</option>
-            <option value="SIZING_SHEET">Sizing Sheet</option>
-            <option value="MOM">Minutes of Meeting (MoM)</option>
-            <option value="ASSESSMENT_REPORT">Assessment Report</option>
-            <option value="BOQ">Bill of Quantity (BOQ)</option>
-            <option value="DELIVERABLE">Deliverables</option>
-            <option value="OTHER">Other</option>
-          </select>
-        </div>
-
-        <div className="sm:col-span-3">
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value as any)}
-            className="flex h-10 w-full rounded-lg border border-border/60 bg-background/50 px-3 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-primary"
-          >
-            <option value="ALL">All Statuses</option>
-            <option value="APPROVED">Approved</option>
-            <option value="SUBMITTED">Submitted</option>
-            <option value="REJECTED">Rejected</option>
-            <option value="DRAFT">Draft</option>
-          </select>
-        </div>
-      </div>
-
-      {downloadError && (
-        <div className="flex flex-col gap-2 rounded-xl border border-destructive/40 bg-destructive/10 p-3 text-xs text-destructive shadow-sm sm:flex-row sm:items-center sm:justify-between">
-          <span>{downloadError}</span>
-          <Button variant="ghost" size="sm" className="h-7 self-start rounded-md px-2 text-xs sm:self-auto" onClick={() => setDownloadError("")}>
-            Dismiss
-          </Button>
-        </div>
-      )}
-
-      {/* Documents Grid */}
-      {isLoading ? (
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          {[1, 2, 3, 4].map((item) => (
-            <div key={item} className="h-56 animate-pulse rounded-xl border border-border/60 bg-card/70 shadow-sm" />
-          ))}
-        </div>
-      ) : isError ? (
-        <Card className="border-border/60 bg-card/70 shadow-sm">
-          <CardContent className="py-16 text-center text-destructive">
-            <p className="mx-auto max-w-sm font-semibold">Failed to load documents.</p>
-          </CardContent>
-        </Card>
-      ) : documents.length === 0 ? (
-        <Card className="border-dashed border-border/60 bg-card/70 shadow-sm">
-          <CardContent className="py-16 text-center text-muted-foreground">
-            <p className="mx-auto max-w-sm text-sm">No documents found matching your filter criteria.</p>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          {documents.map((doc) => {
-            const latestVersion = doc.versions?.[0];
-
-            return (
-              <Card
-                key={doc.id}
-                className="flex flex-col justify-between border-border/60 bg-card/70 shadow-sm transition-colors duration-200 hover:border-primary/25 hover:bg-muted/10"
+      <section className="overflow-hidden rounded-lg border border-border/60 bg-card">
+        <div className="space-y-4 border-b border-border/60 p-4 sm:p-5">
+          <div>
+            <h2 className="text-base font-semibold text-foreground">Official documents</h2>
+            <p className="text-xs text-muted-foreground">
+              Repository files remain separate from Project Intake and pending submissions.
+            </p>
+          </div>
+          <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_220px_180px_auto]">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                type="text"
+                placeholder="Search document title"
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                className="pl-9"
+              />
+            </div>
+            <select
+              value={categoryFilter}
+              onChange={(event) =>
+                setCategoryFilter(event.target.value as DocumentCategory | "ALL")
+              }
+              className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+            >
+              <option value="ALL">All categories</option>
+              <option value="PROPOSAL">Proposal</option>
+              <option value="ARCHITECTURE_DESIGN">Architecture Design</option>
+              <option value="SIZING_SHEET">Sizing Sheet</option>
+              <option value="MOM">Minutes of Meeting</option>
+              <option value="ASSESSMENT_REPORT">Assessment Report</option>
+              <option value="BOQ">Bill of Quantity</option>
+              <option value="DELIVERABLE">Deliverables</option>
+              <option value="OTHER">Other</option>
+            </select>
+            <select
+              value={statusFilter}
+              onChange={(event) =>
+                setStatusFilter(event.target.value as DocumentStatus | "ALL")
+              }
+              className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+            >
+              <option value="ALL">All statuses</option>
+              <option value="APPROVED">Approved</option>
+              <option value="SUBMITTED">Submitted</option>
+              <option value="REJECTED">Rejected</option>
+              <option value="DRAFT">Draft</option>
+            </select>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-10 gap-1.5"
+              disabled={!hasFilters}
+              onClick={resetFilters}
+            >
+              <X className="h-3.5 w-3.5" />
+              Reset
+            </Button>
+          </div>
+          {downloadError && (
+            <div className="flex flex-col gap-2 rounded-md border border-destructive/40 bg-destructive/10 p-3 text-xs text-destructive sm:flex-row sm:items-center sm:justify-between">
+              <span>{downloadError}</span>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 self-start px-2 sm:self-auto"
+                onClick={() => setDownloadError("")}
               >
-                <CardHeader className="space-y-2 pb-3">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2">
-                        <Badge variant="outline" className="border-emerald-500/30 bg-emerald-500/10 text-xs font-semibold text-emerald-500">
-                          Official Document
-                        </Badge>
-                        {getCategoryBadge(doc.category)}
-                        {getStatusBadge(doc.status)}
-                      </div>
-                      <h3 className="text-lg font-semibold tracking-tight text-foreground">
-                        {doc.title}
-                      </h3>
-                    </div>
-                    {latestVersion && (
-                      <Badge variant="outline" className="border-primary/20 bg-primary/5 text-xs font-semibold text-primary">
-                        Version {latestVersion.versionNumber}
-                      </Badge>
-                    )}
-                  </div>
-
-                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1 border-t border-border/40 pt-2 text-xs text-muted-foreground">
-                    <span>
-                      Project: <strong className="text-foreground">{doc.project?.projectCode}</strong> (
-                      {doc.project?.clientName})
-                    </span>
-                    {doc.milestone && (
-                      <>
-                        <span>•</span>
-                        <span>Stage: <strong className="text-foreground">{doc.milestone.name}</strong></span>
-                      </>
-                    )}
-                  </div>
-                </CardHeader>
-
-                <CardContent className="space-y-4 pt-0">
-                  {/* Latest Version Info */}
-                  {latestVersion && (
-                    <div className="space-y-1.5 rounded-xl border border-border/40 bg-muted/15 p-3 text-xs">
-                      <div className="flex items-center justify-between gap-3 font-medium text-foreground">
-                        <span className="flex items-center gap-1.5 truncate max-w-[260px]" title={latestVersion.fileName}>
-                          <FileText className="h-4 w-4 text-primary shrink-0" />
-                          <span className="truncate">{latestVersion.fileName}</span>
-                        </span>
-                        <span className="font-mono text-muted-foreground">
-                          {(latestVersion.fileSize / 1024 / 1024).toFixed(2)} MB
-                        </span>
-                      </div>
-                      {latestVersion.changelog && (
-                        <p className="text-muted-foreground italic text-[11px]">
-                          &quot;{latestVersion.changelog}&quot;
-                        </p>
-                      )}
-                      <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border/30 pt-2 text-[11px] text-muted-foreground">
-                        <span>Uploaded by: <strong className="text-foreground">{latestVersion.uploadedBy?.fullName}</strong></span>
-                        <span>
-                          {new Date(latestVersion.createdAt).toLocaleDateString("id-ID", {
-                            dateStyle: "medium",
-                          })}
-                        </span>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Actions Footer */}
-                  <div className="flex flex-col gap-3 border-t border-border/40 pt-3 text-xs sm:flex-row sm:items-center sm:justify-between">
-                    {/* Left: Comments & Download */}
-                    <div className="flex flex-wrap items-center gap-2">
-                      {latestVersion && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="h-8 gap-1.5 rounded-lg text-xs"
-                          onClick={() => handleDownload(latestVersion.id)}
-                          disabled={documentDownload.isPending}
-                        >
-                          <Download className="h-3.5 w-3.5" />
-                          <span>Download</span>
-                        </Button>
-                      )}
-
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="h-8 gap-1.5 rounded-lg text-xs text-muted-foreground hover:bg-muted/40 hover:text-foreground"
-                        onClick={() => handleOpenComments(doc)}
-                      >
-                        <MessageSquare className="h-3.5 w-3.5" />
-                        <span>{doc._count?.comments || 0} Comments</span>
-                      </Button>
-                    </div>
-
-                    {/* Right: Versioning */}
-                    <div className="flex flex-wrap items-center gap-1.5 self-start sm:self-auto">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="h-8 gap-1.5 rounded-lg border-primary/30 text-xs text-primary hover:bg-primary/10"
-                        onClick={() => {
-                          setSelectedDocForVersion(doc);
-                          setIsUploadVersionOpen(true);
-                        }}
-                      >
-                        <FileUp className="h-3.5 w-3.5" />
-                        <span>New Version</span>
-                      </Button>
-
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })}
+                Dismiss
+              </Button>
+            </div>
+          )}
         </div>
-      )}
 
-      {/* Modals */}
+        {!isLoading && !isError && documents.length > 0 && (
+          <div className="hidden grid-cols-[minmax(240px,1.7fr)_minmax(180px,1fr)_minmax(230px,1.3fr)_auto] gap-4 border-b border-border/60 px-5 py-2.5 text-[11px] font-semibold uppercase text-muted-foreground lg:grid">
+            <span>Document</span>
+            <span>Project</span>
+            <span>Latest version</span>
+            <span className="text-right">Actions</span>
+          </div>
+        )}
+
+        {isLoading ? (
+          <div>
+            {[1, 2, 3, 4].map((item) => (
+              <div key={item} className="h-28 animate-pulse border-t border-border/60 bg-muted/20 first:border-t-0" />
+            ))}
+          </div>
+        ) : isError ? (
+          <div className="px-5 py-14 text-center">
+            <p className="font-medium text-destructive">Unable to load documents.</p>
+            <p className="mt-1 text-xs text-muted-foreground">Refresh the page and try again.</p>
+          </div>
+        ) : documents.length === 0 ? (
+          <div className="px-5 py-14 text-center">
+            <FolderArchive className="mx-auto h-8 w-8 text-muted-foreground" />
+            <p className="mt-3 font-medium text-foreground">No documents found</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {hasFilters
+                ? "Adjust the current filters to broaden the results."
+                : "Official documents will appear after a governed workflow publishes them."}
+            </p>
+          </div>
+        ) : (
+          <div>
+            {documents.map((document) => (
+              <DocumentRow
+                key={document.id}
+                document={document}
+                downloadPending={documentDownload.isPending}
+                onDownload={handleDownload}
+                onOpenComments={() =>
+                  setCommentsState({ docId: document.id, docTitle: document.title })
+                }
+                onUploadVersion={() => {
+                  setSelectedDocForVersion(document);
+                  setIsUploadVersionOpen(true);
+                }}
+              />
+            ))}
+          </div>
+        )}
+      </section>
+
       <UploadVersionDialog
         open={isUploadVersionOpen}
         onOpenChange={setIsUploadVersionOpen}
         document={selectedDocForVersion}
       />
-
       <DocumentCommentsDrawer
-        open={!!commentsState.docId}
+        open={Boolean(commentsState.docId)}
         onOpenChange={(open) => {
           if (!open) setCommentsState({ docId: null, docTitle: "" });
         }}
         documentId={commentsState.docId || ""}
         documentTitle={commentsState.docTitle}
       />
+    </div>
+  );
+}
+
+function DocumentRow({
+  document,
+  downloadPending,
+  onDownload,
+  onOpenComments,
+  onUploadVersion,
+}: {
+  document: DocumentItem;
+  downloadPending: boolean;
+  onDownload: (versionId: string) => Promise<void>;
+  onOpenComments: () => void;
+  onUploadVersion: () => void;
+}) {
+  const latestVersion = document.versions?.[0];
+
+  return (
+    <div className="grid gap-4 border-t border-border/60 px-4 py-4 first:border-t-0 sm:px-5 lg:grid-cols-[minmax(240px,1.7fr)_minmax(180px,1fr)_minmax(230px,1.3fr)_auto] lg:items-center">
+      <div className="min-w-0">
+        <div className="flex flex-wrap items-center gap-2">
+          <Badge variant="outline">Official document</Badge>
+          <Badge variant="secondary">{getCategoryLabel(document.category)}</Badge>
+          {getStatusBadge(document.status)}
+        </div>
+        <h3 className="mt-2 truncate font-semibold text-foreground" title={document.title}>
+          {document.title}
+        </h3>
+        {document.milestone && (
+          <p className="mt-1 truncate text-xs text-muted-foreground">
+            Stage {document.milestone.orderIndex}: {document.milestone.name}
+          </p>
+        )}
+      </div>
+
+      <div className="flex min-w-0 items-center justify-between gap-3 lg:block">
+        <span className="text-[11px] font-medium text-muted-foreground lg:hidden">Project</span>
+        {document.project ? (
+          <Link
+            href={`/projects/${document.project.id}`}
+            className="min-w-0 text-right lg:text-left"
+          >
+            <p className="truncate text-sm font-medium text-foreground hover:text-primary">
+              {document.project.name}
+            </p>
+            <p className="truncate text-xs text-muted-foreground">
+              {document.project.clientName}
+            </p>
+          </Link>
+        ) : (
+          <p className="text-sm text-muted-foreground">Project unavailable</p>
+        )}
+      </div>
+
+      <div className="min-w-0">
+        {latestVersion ? (
+          <>
+            <div className="flex items-center gap-2">
+              <FileText className="h-4 w-4 shrink-0 text-primary" />
+              <p className="truncate text-sm font-medium text-foreground" title={latestVersion.fileName}>
+                {latestVersion.fileName}
+              </p>
+              <Badge variant="outline">v{latestVersion.versionNumber}</Badge>
+            </div>
+            <p className="mt-1 truncate text-xs text-muted-foreground">
+              {(latestVersion.fileSize / 1024 / 1024).toFixed(2)} MB |{" "}
+              {latestVersion.uploadedBy?.fullName || "Unknown uploader"} |{" "}
+              {new Date(latestVersion.createdAt).toLocaleDateString("id-ID", {
+                dateStyle: "medium",
+              })}
+            </p>
+            {latestVersion.changelog && (
+              <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
+                {latestVersion.changelog}
+              </p>
+            )}
+          </>
+        ) : (
+          <p className="text-sm text-muted-foreground">No version available</p>
+        )}
+      </div>
+
+      <div className="flex flex-wrap justify-start gap-1 lg:justify-end">
+        {latestVersion && (
+          <Button
+            size="sm"
+            variant="ghost"
+            className="gap-1.5"
+            onClick={() => void onDownload(latestVersion.id)}
+            disabled={downloadPending}
+          >
+            <Download className="h-3.5 w-3.5" />
+            Download
+          </Button>
+        )}
+        <Button size="sm" variant="ghost" className="gap-1.5" onClick={onOpenComments}>
+          <MessageSquare className="h-3.5 w-3.5" />
+          {document._count?.comments || 0}
+        </Button>
+        <Button size="sm" variant="outline" className="gap-1.5" onClick={onUploadVersion}>
+          <FileUp className="h-3.5 w-3.5" />
+          New version
+        </Button>
+        {document.project && (
+          <Link href={`/projects/${document.project.id}`}>
+            <Button size="icon" variant="ghost" title="Open project">
+              <ArrowRight className="h-4 w-4" />
+            </Button>
+          </Link>
+        )}
+      </div>
     </div>
   );
 }

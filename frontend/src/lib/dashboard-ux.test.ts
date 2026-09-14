@@ -9,6 +9,7 @@ import {
   getAdditionalDashboardItems,
   getApprovalProjectHref,
   getDashboardGreeting,
+  getDashboardGreetingSubject,
   getDashboardInsights,
   getDashboardKpiLabels,
   getDashboardRoleContent,
@@ -52,6 +53,20 @@ const greetingCases: Array<[number, string]> = [
 for (const [hour, expectedGreeting] of greetingCases) {
   if (getDashboardGreeting(hour) !== expectedGreeting) {
     throw new Error(`Unexpected dashboard greeting for hour ${hour}`);
+  }
+}
+
+const greetingSubjectCases: Array<[string | undefined, string | undefined, string]> = [
+  ["Senja Pratama", "HEAD_SA", "Senja"],
+  ["Head Solution Architect", "HEAD_SA", "Head SA"],
+  ["Sales Test", "SALES", "Sales"],
+  [undefined, "SA", "Solution Architect"],
+  [undefined, "OPERATIONS_LEAD", "Operations Lead"],
+];
+
+for (const [displayName, role, expectedSubject] of greetingSubjectCases) {
+  if (getDashboardGreetingSubject(displayName, role) !== expectedSubject) {
+    throw new Error(`Unexpected dashboard greeting subject for ${displayName || role || "missing user"}`);
   }
 }
 

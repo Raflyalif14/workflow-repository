@@ -1,39 +1,242 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
-import {
-  Briefcase,
-  Plus,
-  Search,
-  ArrowUpRight,
-  FolderKanban,
-  Filter,
-  CheckCircle2,
-  Calendar,
-  Layers,
-  User,
-} from "lucide-react";
+import { useMemo, useState } from "react";
+import { ArrowRight, FolderKanban, Plus, Search, X } from "lucide-react";
+import { useAuth } from "@/components/auth/auth-provider";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { useAuth } from "@/components/auth/auth-provider";
 import { useProjects, useScenarios } from "@/hooks/use-projects";
-import { ProjectStatus } from "@/types/project";
-import { formatProjectStatusLabel } from "@/lib/workflow-ux-helpers";
+import {
+  formatActorRoleLabel,
+  formatProjectStatusLabel,
+} from "@/lib/workflow-ux-helpers";
+import { Project, ProjectStatus } from "@/types/project";
 
 const statuses: Array<{ key: ProjectStatus | "ALL"; label: string }> = [
-  { key: "ALL", label: "All Projects" },
+  { key: "ALL", label: "All projects" },
   { key: "ACTIVE", label: "Active" },
-  { key: "DRAFT", label: "Draft" },
+  { key: "DRAFT", label: "Planning" },
   { key: "POSTPONED", label: "Postponed" },
   { key: "COMPLETED", label: "Completed" },
 ];
 
+const rolePageCopy: Record<string, { eyebrow: string; title: string; description: string }> = {
+  SALES: {
+    eyebrow: "Sales workspace",
+    title: "Your projects",
+    description: "Move customer projects from planning into active delivery.",
+  },
+  HEAD_SA: {
+    eyebrow: "Delivery oversight",
+    title: "Project oversight",
+    description: "Review planning progress, ownership, and delivery health across projects.",
+  },
+  SA: {
+    eyebrow: "Delivery workspace",
+    title: "Assigned projects",
+    description: "Open your assigned projects and continue the work that is ready for you.",
+  },
+  SUPER_ADMIN: {
+    eyebrow: "Operations overview",
+    title: "Project portfolio",
+    description: "Monitor planning and delivery activity across the organization.",
+  },
+};
+
+function getStatusBadge(projectStatus: ProjectStatus) {
+  switch (projectStatus) {
+    case "ACTIVE":
+      return <Badge variant="default">Active</Badge>;
+    case "DRAFT":
+      return <Badge variant="outline">Planning</Badge>;
+    case "POSTPONED":
+      return <Badge variant="warning">Postponed</Badge>;
+    case "COMPLETED":
+      return <Badge variant="success">Completed</Badge>;
+    case "CANCELLED":
+      return <Badge variant="destructive">Cancelled</Badge>;
+    default:
+      return <Badge variant="outline">{formatProjectStatusLabel(projectStatus)}</Badge>;
+  }
+}
+
+function getProjectState(project: Project, role: string) {
+  if (project.status === "DRAFT") {
+    return project.currentRole === "HEAD_SA" ? "Awaiting plan approval" : "Planning in progress";
+  }
+  if (project.status === "ACTIVE" && !project.pic && role === "HEAD_SA") {
+    return "Waiting for project assignment";
+  }
+  if (project.status === "ACTIVE") return "Delivery in progress";
+  return formatProjectStatusLabel(project.status);
+}
+
+function getProgressPresentation(project: Project) {
+  if (project.status === "DRAFT") {
+    return project.currentRole === "HEAD_SA"
+      ? {
+          label: "Awaiting plan approval",
+          detail: "Head SA is reviewing the project plan",
+          showDeliveryProgress: false,
+        }
+      : {
+          label: "Project planning",
+          detail: "Delivery begins after plan approval",
+          showDeliveryProgress: false,
+        };
+  }
+  if (project.status === "POSTPONED" || project.status === "ON_HOLD") {
+    return {
+      label: "Delivery paused",
+      detail: "Resume the project to continue delivery",
+      showDeliveryProgress: false,
+    };
+  }
+  if (project.status === "ACTIVE" || project.status === "COMPLETED") {
+    return {
+      label: project.status === "COMPLETED" ? "Delivery complete" : "Delivery progress",
+      detail: null,
+      showDeliveryProgress: true,
+    };
+  }
+  return {
+    label: "Project progress",
+    detail: "Progress is not available for this project state",
+    showDeliveryProgress: false,
+  };
+}
+
+function getProjectPriority(project: Project, role: string) {
+  const priorityFrom = (values: Partial<Record<ProjectStatus, number>>, fallback: number) =>
+    values[project.status] ?? fallback;
+
+  if (role === "SALES") {
+    return priorityFrom(
+      { DRAFT: 0, ACTIVE: 1, POSTPONED: 2, COMPLETED: 3, CANCELLED: 4 },
+      5
+    );
+  }
+  if (role === "HEAD_SA") {
+    if (project.status === "ACTIVE" && !project.pic) return 0;
+    return priorityFrom(
+      { DRAFT: 1, ACTIVE: 2, POSTPONED: 3, COMPLETED: 4, CANCELLED: 5 },
+      6
+    );
+  }
+  if (role === "SA") {
+    return priorityFrom(
+      { ACTIVE: 0, POSTPONED: 1, DRAFT: 2, COMPLETED: 3, CANCELLED: 4 },
+      5
+    );
+  }
+  if (project.status === "POSTPONED") return 0;
+  if (project.status === "ACTIVE" && !project.pic) return 1;
+  return priorityFrom({ ACTIVE: 2, DRAFT: 3, COMPLETED: 4, CANCELLED: 5 }, 6);
+}
+
+function getResponsibleLabel(project: Project) {
+  if (project.pic) {
+    return {
+      role: formatActorRoleLabel(project.pic.role || "SA"),
+      name: project.pic.fullName || project.pic.full_name || "Assigned architect",
+    };
+  }
+
+  if (project.sales) {
+    return {
+      role: formatActorRoleLabel(project.sales.role || "SALES"),
+      name: project.sales.fullName || project.sales.full_name || "Project owner",
+    };
+  }
+
+  return { role: "Responsibility", name: "Not assigned" };
+}
+
+function ProjectRow({ project, role }: { project: Project; role: string }) {
+  const progress = typeof project.progress === "number" ? project.progress : null;
+  const responsible = getResponsibleLabel(project);
+  const progressPresentation = getProgressPresentation(project);
+
+  return (
+    <div className="grid gap-4 border-t border-border/60 px-4 py-4 first:border-t-0 sm:px-5 lg:grid-cols-[minmax(220px,2fr)_minmax(130px,1fr)_minmax(150px,1.1fr)_minmax(150px,1fr)_auto] lg:items-center">
+      <div className="min-w-0">
+        <Link
+          href={`/projects/${project.id}`}
+          className="font-semibold text-foreground transition-colors hover:text-primary"
+        >
+          {project.name}
+        </Link>
+        <p className="mt-1 truncate text-xs text-muted-foreground">
+          {project.customer}
+          {project.scenario?.name ? ` | ${project.scenario.name}` : ""}
+        </p>
+      </div>
+
+      <div className="flex min-w-0 items-center justify-between gap-3 lg:block">
+        <span className="text-[11px] font-medium text-muted-foreground lg:hidden">State</span>
+        <div className="min-w-0 text-right lg:text-left">
+          {getStatusBadge(project.status)}
+          <p className="mt-1 truncate text-xs text-muted-foreground">
+            {getProjectState(project, role)}
+          </p>
+        </div>
+      </div>
+
+      <div className="min-w-0">
+        <div className="flex items-center justify-between gap-3 text-xs">
+          <span className="text-muted-foreground">{progressPresentation.label}</span>
+          {progressPresentation.showDeliveryProgress && (
+            <span className="font-medium text-foreground">
+              {progress === null ? "Not available" : `${progress}%`}
+            </span>
+          )}
+        </div>
+        {progressPresentation.showDeliveryProgress && progress !== null && (
+          <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted">
+            <div
+              className="h-full rounded-full bg-primary"
+              style={{ width: `${Math.max(0, Math.min(progress, 100))}%` }}
+            />
+          </div>
+        )}
+        {progressPresentation.showDeliveryProgress &&
+          typeof project.totalMilestones === "number" &&
+          typeof project.completedMilestones === "number" && (
+          <p className="mt-1.5 text-[11px] text-muted-foreground">
+            {project.completedMilestones} of {project.totalMilestones} stages completed
+          </p>
+        )}
+        {progressPresentation.detail && (
+          <p className="mt-1.5 text-[11px] text-muted-foreground">
+            {progressPresentation.detail}
+          </p>
+        )}
+      </div>
+
+      <div className="flex min-w-0 items-center justify-between gap-3 lg:block">
+        <span className="text-[11px] font-medium text-muted-foreground lg:hidden">Responsible</span>
+        <div className="min-w-0 text-right lg:text-left">
+          <p className="truncate text-sm font-medium text-foreground">{responsible.name}</p>
+          <p className="truncate text-xs text-muted-foreground">{responsible.role}</p>
+        </div>
+      </div>
+
+      <Link href={`/projects/${project.id}`} className="justify-self-stretch lg:justify-self-end">
+        <Button variant="ghost" size="sm" className="w-full gap-1.5 lg:w-auto">
+          Open
+          <ArrowRight className="h-3.5 w-3.5" />
+        </Button>
+      </Link>
+    </div>
+  );
+}
+
 export default function ProjectsPage() {
   const { user } = useAuth();
   const userRole = user?.role || "GUEST";
+  const pageCopy = rolePageCopy[userRole] || rolePageCopy.SUPER_ADMIN;
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<ProjectStatus | "ALL">("ALL");
@@ -50,278 +253,205 @@ export default function ProjectsPage() {
 
   const projects = data?.projects || [];
   const pagination = data?.pagination;
+  const orderedProjects = useMemo(
+    () =>
+      projects
+        .map((project, index) => ({ project, index }))
+        .sort(
+          (left, right) =>
+            getProjectPriority(left.project, userRole) -
+              getProjectPriority(right.project, userRole) ||
+            left.index - right.index
+        )
+        .map(({ project }) => project),
+    [projects, userRole]
+  );
+  const snapshot = useMemo(
+    () => [
+      { label: "Matching projects", value: pagination?.total || 0 },
+      { label: "Active on this page", value: projects.filter((item) => item.status === "ACTIVE").length },
+      { label: "Planning on this page", value: projects.filter((item) => item.status === "DRAFT").length },
+      { label: "Completed on this page", value: projects.filter((item) => item.status === "COMPLETED").length },
+    ],
+    [pagination?.total, projects]
+  );
+  const hasFilters = Boolean(search || scenarioId || status !== "ALL");
 
-  const getStatusBadge = (projectStatus: string) => {
-    switch (projectStatus) {
-      case "ACTIVE":
-        return <Badge variant="default">Active</Badge>;
-      case "DRAFT":
-        return <Badge variant="outline">Draft</Badge>;
-      case "POSTPONED":
-        return <Badge variant="warning">Postponed</Badge>;
-      case "COMPLETED":
-        return <Badge variant="success">Completed</Badge>;
-      case "CANCELLED":
-        return <Badge variant="destructive">Cancelled</Badge>;
-      default:
-        return <Badge variant="outline">{projectStatus}</Badge>;
-    }
-  };
-
-  const getProgressColor = (pct: number) => {
-    if (pct >= 80) return "bg-emerald-500";
-    if (pct >= 50) return "bg-blue-500";
-    if (pct >= 25) return "bg-amber-500";
-    return "bg-slate-500";
+  const resetFilters = () => {
+    setSearch("");
+    setScenarioId("");
+    setStatus("ALL");
+    setPage(1);
   };
 
   return (
-    <div className="container space-y-6 py-8">
-      {/* Header */}
-      <div className="flex flex-col gap-4 border-b border-border/50 pb-6 sm:flex-row sm:items-center sm:justify-between">
+    <div className="mx-auto w-full max-w-[1280px] space-y-5 px-4 py-6 sm:px-6 lg:px-8">
+      <header className="flex flex-col gap-4 border-b border-border/60 pb-5 sm:flex-row sm:items-end sm:justify-between">
         <div className="max-w-2xl">
-          <div className="mb-1 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.12em] text-primary">
-            <Briefcase className="h-4 w-4" />
-            <span>Workflow Repository System</span>
-          </div>
-          <h1 className="text-3xl font-bold tracking-tight">Project Management</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Manage customer workflow projects, track current stages, and monitor timeline progress.
-          </p>
+          <p className="text-xs font-semibold uppercase text-primary">{pageCopy.eyebrow}</p>
+          <h1 className="mt-1 text-2xl font-semibold text-foreground sm:text-3xl">{pageCopy.title}</h1>
+          <p className="mt-1 text-sm text-muted-foreground">{pageCopy.description}</p>
         </div>
-
         {userRole === "SALES" && (
           <Link href="/projects/new" className="self-start sm:self-auto">
-            <Button className="h-10 gap-2 shadow-md">
+            <Button className="gap-2">
               <Plus className="h-4 w-4" />
-              <span>Create Project</span>
+              Create project
             </Button>
           </Link>
         )}
-      </div>
+      </header>
 
-      {/* Filter Tabs & Search Toolbar */}
-      <div className="space-y-3 rounded-xl border border-border/60 bg-card/70 p-3 shadow-sm sm:p-4">
-        {/* Status Filter Pills */}
-        <div className="flex items-center gap-2 overflow-x-auto pb-1">
-          {statuses.map((s) => (
-            <Button
-              key={s.key}
-              variant={status === s.key ? "default" : "outline"}
-              size="sm"
-              className="h-9 shrink-0 rounded-lg px-3 text-xs font-medium shadow-none"
-              onClick={() => {
-                setStatus(s.key);
-                setPage(1);
-              }}
-            >
-              {s.label}
-            </Button>
-          ))}
-        </div>
+      <section
+        aria-label="Project snapshot"
+        className="grid grid-cols-2 overflow-hidden rounded-lg border border-border/60 bg-card lg:grid-cols-4"
+      >
+        {snapshot.map((item, index) => (
+          <div
+            key={item.label}
+            className={`border-border/60 px-4 py-3.5 sm:px-5 ${
+              index % 2 === 1 ? "border-l" : ""
+            } ${index >= 2 ? "border-t" : ""} ${
+              index > 0 ? "lg:border-l" : ""
+            } lg:border-t-0`}
+          >
+            <p className="text-2xl font-semibold text-foreground">{item.value}</p>
+            <p className="mt-0.5 text-xs text-muted-foreground">{item.label}</p>
+          </div>
+        ))}
+      </section>
 
-        {/* Search & Scenario Filter */}
-        <div className="grid gap-3 sm:grid-cols-12">
-          <div className="relative sm:col-span-8">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              className="h-10 border-border/60 bg-background/50 pl-9 text-sm"
-              placeholder="Search by project name or customer..."
-              value={search}
-              onChange={(event) => {
-                setSearch(event.target.value);
-                setPage(1);
-              }}
-            />
+      <section className="overflow-hidden rounded-lg border border-border/60 bg-card">
+        <div className="space-y-4 border-b border-border/60 p-4 sm:p-5">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <h2 className="text-base font-semibold text-foreground">Projects</h2>
+              <p className="text-xs text-muted-foreground">
+                {pagination?.total || 0} projects match the current view
+              </p>
+            </div>
+            <div className="flex gap-2 overflow-x-auto pb-1 lg:pb-0">
+              {statuses.map((item) => (
+                <Button
+                  key={item.key}
+                  variant={status === item.key ? "secondary" : "ghost"}
+                  size="sm"
+                  className="shrink-0"
+                  onClick={() => {
+                    setStatus(item.key);
+                    setPage(1);
+                  }}
+                >
+                  {item.label}
+                </Button>
+              ))}
+            </div>
           </div>
 
-          <div className="sm:col-span-4">
+          <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_240px_auto]">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                className="pl-9"
+                placeholder="Search project or customer"
+                value={search}
+                onChange={(event) => {
+                  setSearch(event.target.value);
+                  setPage(1);
+                }}
+              />
+            </div>
             <select
-              className="flex h-10 w-full rounded-md border border-border/60 bg-background/50 px-3 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-primary"
+              className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
               value={scenarioId}
               onChange={(event) => {
                 setScenarioId(event.target.value);
                 setPage(1);
               }}
             >
-              <option value="">All Scenarios</option>
-              {scenarios.map((sc) => (
-                <option key={sc.id} value={sc.id}>
-                  {sc.name}
+              <option value="">All scenarios</option>
+              {scenarios.map((scenario) => (
+                <option key={scenario.id} value={scenario.id}>
+                  {scenario.name}
                 </option>
               ))}
             </select>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-10 gap-1.5"
+              disabled={!hasFilters}
+              onClick={resetFilters}
+            >
+              <X className="h-3.5 w-3.5" />
+              Reset
+            </Button>
           </div>
         </div>
-      </div>
 
-      {/* Projects Content */}
-      {isLoading ? (
-        <div className="space-y-3">
-          {[1, 2, 3, 4, 5].map((i) => (
-            <div key={i} className="h-20 animate-pulse rounded-xl border border-border/60 bg-card/70 shadow-sm" />
-          ))}
-        </div>
-      ) : isError ? (
-        <Card className="border-border/60 bg-card/70 shadow-sm">
-          <CardContent className="py-16 text-center text-destructive">
-            <div className="mx-auto max-w-sm space-y-2">
-              <p className="font-semibold">Failed to load projects.</p>
-              <p className="text-xs text-muted-foreground">Please try again.</p>
-            </div>
-          </CardContent>
-        </Card>
-      ) : projects.length === 0 ? (
-        <Card className="border-dashed border-border/60 bg-card/70 shadow-sm">
-          <CardContent className="py-16 text-center space-y-3">
-            <FolderKanban className="h-10 w-10 text-muted-foreground mx-auto" />
-            <div>
-              <h3 className="text-base font-semibold text-foreground">No projects found</h3>
-              <p className="text-xs text-muted-foreground mt-1 max-w-sm mx-auto">
-                {userRole === "SALES"
-                  ? "You haven't created any projects yet, or no projects match your filter criteria."
-                  : "No projects match your current filter settings."}
-              </p>
-            </div>
-            {userRole === "SALES" && (
-              <Link href="/projects/new" className="inline-block pt-2">
-                <Button size="sm" className="gap-2">
-                  <Plus className="h-4 w-4" />
-                  <span>Create First Project</span>
-                </Button>
-              </Link>
-            )}
-          </CardContent>
-        </Card>
-      ) : (
-        <Card className="overflow-hidden border-border/60 bg-card/70 shadow-sm">
-          <div className="overflow-x-auto px-3 py-2 sm:px-4">
-            <table className="w-full border-separate border-spacing-y-2 text-left text-sm">
-              <thead className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-                <tr>
-                  <th className="border-b border-border/60 px-4 py-3">Project & Customer</th>
-                  <th className="border-b border-border/60 px-4 py-3">Scenario</th>
-                  <th className="border-b border-border/60 px-4 py-3 text-center">Status</th>
-                  <th className="border-b border-border/60 px-4 py-3">Progress</th>
-                  <th className="border-b border-border/60 px-4 py-3">Current Stage</th>
-                  <th className="border-b border-border/60 px-4 py-3">Responsible</th>
-                  <th className="border-b border-border/60 px-4 py-3 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="[&>tr>td]:border-y [&>tr>td]:border-border/40 [&>tr>td]:bg-card/70 [&>tr>td]:transition-colors [&>tr:hover>td]:border-primary/30 [&>tr:hover>td]:bg-muted/20">
-                {projects.map((project) => {
-                  const progressPct = project.progress ?? (project.status === "COMPLETED" ? 100 : 0);
-                  const totalMilestones = project.totalMilestones ?? 0;
-                  const completedMilestones = project.completedMilestones ?? (project.status === "COMPLETED" ? totalMilestones : 0);
-                  const currentStage = project.currentStage || (project.status === "DRAFT" ? "Project Plan Setup" : project.status === "COMPLETED" ? "Workflow Completed" : "-");
-                  const currentRole = project.currentRole || (project.status === "DRAFT" ? "SALES" : project.pic?.full_name ? `SA (${project.pic.full_name})` : "-");
-
-                  return (
-                    <tr key={project.id} className="transition-colors duration-200">
-                      {/* Project Name & Customer */}
-                      <td className="min-w-[220px] rounded-l-xl border-l px-4 py-4.5">
-                        <div className="space-y-0.5">
-                          <Link
-                            href={`/projects/${project.id}`}
-                            className="font-semibold text-foreground hover:text-primary transition"
-                          >
-                            {project.name}
-                          </Link>
-                          <p className="text-xs text-muted-foreground">
-                            <span className="font-mono">{project.id.slice(0, 8)}</span> • {project.customer}
-                          </p>
-                        </div>
-                      </td>
-
-                      {/* Scenario */}
-                      <td className="min-w-[140px] px-4 py-4.5 text-xs text-muted-foreground">
-                        <span className="font-medium text-foreground">{project.scenario?.name || "-"}</span>
-                      </td>
-
-                      {/* Status */}
-                      <td className="min-w-[100px] px-4 py-4.5 text-center">
-                        {getStatusBadge(project.status)}
-                      </td>
-
-                      {/* Progress Bar & Counter */}
-                      <td className="min-w-[160px] px-4 py-4.5">
-                        <div className="space-y-1">
-                          <div className="flex items-center justify-between text-[11px]">
-                            <span className="font-bold text-foreground">{progressPct}%</span>
-                            {totalMilestones > 0 && (
-                              <span className="text-muted-foreground font-mono text-[10px]">
-                                {completedMilestones}/{totalMilestones} stages
-                              </span>
-                            )}
-                          </div>
-                          <div className="h-2 w-full overflow-hidden rounded-full bg-muted/60 ring-1 ring-inset ring-border/40">
-                            <div
-                              className={`h-full rounded-full transition-all duration-300 ${getProgressColor(progressPct)}`}
-                              style={{ width: `${progressPct}%` }}
-                            />
-                          </div>
-                        </div>
-                      </td>
-
-                      {/* Current Stage */}
-                      <td className="min-w-[170px] px-4 py-4.5 text-xs">
-                        <div className="flex items-center gap-1.5">
-                          <span className="font-medium text-foreground">{currentStage}</span>
-                        </div>
-                      </td>
-
-                      {/* Responsible Role */}
-                      <td className="min-w-[140px] px-4 py-4.5 text-xs text-muted-foreground">
-                        <span className="inline-flex items-center gap-1 rounded-md bg-muted/50 px-2 py-0.5 font-medium text-foreground">
-                          {currentRole}
-                        </span>
-                      </td>
-
-                      {/* Action */}
-                      <td className="rounded-r-xl border-r px-4 py-4.5 text-right">
-                        <Link href={`/projects/${project.id}`}>
-                          <Button size="sm" variant="ghost" className="h-8 gap-1 rounded-lg text-xs text-muted-foreground hover:bg-muted/40 hover:text-foreground">
-                            <span>Open</span>
-                            <ArrowUpRight className="h-3.5 w-3.5" />
-                          </Button>
-                        </Link>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+        {!isLoading && !isError && projects.length > 0 && (
+          <div className="hidden grid-cols-[minmax(220px,2fr)_minmax(130px,1fr)_minmax(150px,1.1fr)_minmax(150px,1fr)_auto] gap-4 border-b border-border/60 px-5 py-2.5 text-[11px] font-semibold uppercase text-muted-foreground lg:grid">
+            <span>Project</span>
+            <span>State</span>
+            <span>Progress</span>
+            <span>Responsible</span>
+            <span className="text-right">Action</span>
           </div>
+        )}
 
-          {/* Pagination Footer */}
-          <div className="flex flex-col gap-3 border-t border-border/60 bg-muted/10 px-4 py-3 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
+        {isLoading ? (
+          <div className="space-y-0">
+            {[1, 2, 3, 4].map((item) => (
+              <div key={item} className="h-24 animate-pulse border-t border-border/60 bg-muted/20 first:border-t-0" />
+            ))}
+          </div>
+        ) : isError ? (
+          <div className="px-5 py-14 text-center">
+            <p className="font-medium text-destructive">Unable to load projects.</p>
+            <p className="mt-1 text-xs text-muted-foreground">Refresh the page and try again.</p>
+          </div>
+        ) : projects.length === 0 ? (
+          <div className="px-5 py-14 text-center">
+            <FolderKanban className="mx-auto h-8 w-8 text-muted-foreground" />
+            <p className="mt-3 font-medium text-foreground">No projects found</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {hasFilters ? "Adjust the current filters to broaden the results." : "No projects are available in this workspace yet."}
+            </p>
+          </div>
+        ) : (
+          <div>
+            {orderedProjects.map((project) => (
+              <ProjectRow key={project.id} project={project} role={userRole} />
+            ))}
+          </div>
+        )}
+
+        {!isLoading && !isError && projects.length > 0 && (
+          <div className="flex flex-col gap-3 border-t border-border/60 px-4 py-3 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between sm:px-5">
             <span>
-              Showing <strong className="text-foreground">{projects.length}</strong> of{" "}
-              <strong className="text-foreground">{pagination?.total || 0}</strong> projects
+              Showing {projects.length} of {pagination?.total || 0} projects
             </span>
             <div className="flex gap-2 self-end sm:self-auto">
               <Button
-                size="sm"
                 variant="outline"
-                className="h-8 rounded-lg text-xs"
-                disabled={page <= 1}
-                onClick={() => setPage(page - 1)}
+                size="sm"
+                disabled={!pagination?.hasPrevPage}
+                onClick={() => setPage((current) => Math.max(1, current - 1))}
               >
                 Previous
               </Button>
               <Button
-                size="sm"
                 variant="outline"
-                className="h-8 rounded-lg text-xs"
+                size="sm"
                 disabled={!pagination?.hasNextPage}
-                onClick={() => setPage(page + 1)}
+                onClick={() => setPage((current) => current + 1)}
               >
                 Next
               </Button>
             </div>
           </div>
-        </Card>
-      )}
+        )}
+      </section>
     </div>
   );
 }

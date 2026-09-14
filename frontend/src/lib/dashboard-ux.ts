@@ -86,6 +86,45 @@ export const getDashboardGreeting = (hour: number): string => {
   return "Good evening";
 };
 
+export const getDashboardGreetingSubject = (
+  displayName: string | null | undefined,
+  role: DashboardRole
+): string => {
+  const roleLabels: Record<string, string> = {
+    HEAD_SA: "Head SA",
+    SA: "Solution Architect",
+    SALES: "Sales",
+    SUPER_ADMIN: "Admin",
+  };
+  const roleFallback = roleLabels[role || ""] || (role
+    ? role
+        .toLowerCase()
+        .split(/[_\s-]+/)
+        .filter(Boolean)
+        .map((part) => `${part.charAt(0).toUpperCase()}${part.slice(1)}`)
+        .join(" ")
+    : "there");
+  const normalizedName = displayName?.trim().replace(/[_-]+/g, " ").replace(/\s+/g, " ");
+
+  if (!normalizedName) return roleFallback;
+
+  const accountLabel = normalizedName.toLowerCase();
+  const knownRoleNames = new Set([
+    "head solution architect",
+    "head sa",
+    "solution architect",
+    "sa",
+    "sales",
+    "super admin",
+    "admin",
+    "administrator",
+  ]);
+  const looksLikeTestAccount = /\b(test|demo|uat|account)\b/i.test(normalizedName);
+
+  if (knownRoleNames.has(accountLabel) || looksLikeTestAccount) return roleFallback;
+  return normalizedName.split(" ")[0];
+};
+
 export const getDashboardKpiLabels = (role: DashboardRole): string[] => {
   switch (role) {
     case "HEAD_SA":

@@ -31,6 +31,7 @@ import {
   formatDashboardTimestamp,
   getApprovalProjectHref,
   getDashboardGreeting,
+  getDashboardGreetingSubject,
   getDashboardInsights,
   getDashboardKpiLabels,
   getDashboardProjectHealthLabel,
@@ -423,17 +424,17 @@ function MetricCard({ metric }: { metric: SummaryMetric }) {
   const Icon = visual.icon;
 
   return (
-    <div className="min-w-0 rounded-xl border border-border bg-card p-4 sm:p-5">
+    <div className="min-w-0 rounded-xl border border-border bg-card p-3 sm:p-5">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-xs font-medium leading-5 text-muted-foreground">{metric.label}</p>
           <p className="mt-1 text-2xl font-semibold text-foreground">{metric.value}</p>
         </div>
-        <span className={["flex h-9 w-9 shrink-0 items-center justify-center rounded-lg", visual.iconClassName].join(" ")}>
+        <span className={["flex h-8 w-8 shrink-0 items-center justify-center rounded-lg sm:h-9 sm:w-9", visual.iconClassName].join(" ")}>
           <Icon className="h-4 w-4" />
         </span>
       </div>
-      <p className="mt-3 text-xs leading-5 text-muted-foreground">{visual.description}</p>
+      <p className="mt-3 hidden text-xs leading-5 text-muted-foreground sm:block">{visual.description}</p>
     </div>
   );
 }
@@ -799,7 +800,7 @@ export default function DashboardPage() {
   const approvals = approvalsQuery.data || [];
   const assignedMilestones = assignedMilestonesQuery.data || [];
   const roleContent = getDashboardRoleContent(userRole);
-  const firstName = user?.fullName?.trim().split(/\s+/)[0] || "there";
+  const greetingSubject = getDashboardGreetingSubject(user?.fullName, userRole);
 
   const roleItems =
     userRole === "SALES"
@@ -893,7 +894,7 @@ export default function DashboardPage() {
         <div className="min-w-0">
           <p className="text-xs font-semibold text-primary">{roleContent.eyebrow}</p>
           <h1 className="mt-2 break-words text-2xl font-semibold text-foreground sm:text-3xl">
-            {greeting}, {firstName}
+            {greeting}, {greetingSubject}
           </h1>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">{roleContent.description}</p>
           {nextTask && (
@@ -941,7 +942,7 @@ export default function DashboardPage() {
         {isRoleDataLoading ? (
           <div className="grid grid-cols-2 gap-3 xl:grid-cols-4" aria-label="Loading role metrics">
             {[0, 1, 2, 3].map((item) => (
-              <div key={item} className="h-32 animate-pulse rounded-xl border border-border bg-muted" />
+              <div key={item} className="h-24 animate-pulse rounded-xl border border-border bg-muted sm:h-32" />
             ))}
           </div>
         ) : (
