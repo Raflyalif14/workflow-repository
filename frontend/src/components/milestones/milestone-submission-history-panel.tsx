@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { AlertCircle, Download, Eye, FileText, History, Loader2 } from "lucide-react";
+import { AlertCircle, ChevronDown, Download, Eye, FileText, History, Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -51,12 +51,14 @@ export function MilestoneSubmissionHistoryPanel({
   };
 
   return (
-    <div className="mt-3 border-t border-border/40 pt-3">
-      <div className="mb-2 flex items-center gap-2">
+    <details className="group mt-5 border-t border-border/50 pt-4">
+      <summary className="flex cursor-pointer list-none items-center gap-2 rounded-md py-1 text-sm font-medium text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
         <History className="h-4 w-4 text-primary" />
-        <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Submission Revisions</p>
-      </div>
+        <span className="flex-1">Submission history</span>
+        <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform group-open:rotate-180" />
+      </summary>
 
+      <div className="mt-3">
       {history.isLoading ? (
         <p className="flex items-center gap-2 py-2 text-xs text-muted-foreground">
           <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -72,14 +74,14 @@ export function MilestoneSubmissionHistoryPanel({
       ) : (
         <div className="space-y-2">
           {history.data.items.map((revision) => (
-            <div key={revision.id} className="rounded-lg border border-border/40 bg-muted/10 p-3 text-xs">
+            <div key={revision.id} className="rounded-lg border border-border/50 bg-muted/10 p-3 text-xs">
               <div className="flex flex-wrap items-center gap-2">
-                <span className="font-semibold text-foreground">Revision {revision.revision}</span>
+                <span className="font-semibold text-foreground">Submission {revision.revision}</span>
                 {packageBadge(revision.status)}
               </div>
               <p className="mt-1 text-[11px] text-muted-foreground">
                 Submitted by <span className="font-medium text-foreground">{revision.submission.submittedBy?.fullName || "-"}</span>
-                {" - "}{formatDateTime(revision.submission.submittedAt)}
+                {" · "}{formatDateTime(revision.submission.submittedAt)}
               </p>
               {revision.submission.note && <p className="mt-2 whitespace-pre-wrap text-muted-foreground">Note: &quot;{revision.submission.note}&quot;</p>}
               {revision.review.note && (
@@ -90,7 +92,7 @@ export function MilestoneSubmissionHistoryPanel({
               {revision.review.reviewedAt && (
                 <p className="mt-1 text-[11px] text-muted-foreground">
                   Reviewed by <span className="font-medium text-foreground">{revision.review.reviewedBy?.fullName || "-"}</span>
-                  {" - "}{formatDateTime(revision.review.reviewedAt)}
+                  {" · "}{formatDateTime(revision.review.reviewedAt)}
                 </p>
               )}
               <div className="mt-2 space-y-1.5">
@@ -106,7 +108,7 @@ export function MilestoneSubmissionHistoryPanel({
                       <div className="min-w-0 flex-1">
                         <p className="truncate font-medium text-foreground">{attachment.fileName}</p>
                         <p className="text-[10px] text-muted-foreground">
-                          {formatFileSize(attachment.fileSize)}{attachment.mimeType ? ` - ${attachment.mimeType}` : ""}
+                          {formatFileSize(attachment.fileSize)}{attachment.mimeType ? ` · ${attachment.mimeType}` : ""}
                         </p>
                       </div>
                       {attachment.promotedDocumentId && (
@@ -137,6 +139,7 @@ export function MilestoneSubmissionHistoryPanel({
           {downloadError}
         </p>
       )}
-    </div>
+      </div>
+    </details>
   );
 }

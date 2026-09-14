@@ -1319,8 +1319,12 @@ function MilestoneRow({
         open={submitOpen}
         onOpenChange={setSubmitOpen}
         projectId={project.id}
+        projectName={project.name}
         milestoneId={milestone.id}
         milestoneName={milestone.name}
+        milestoneStatus={milestoneStatus}
+        stepOrder={milestone.step_order}
+        dueDate={effectiveDeadline.due_date}
         onSuccess={() => {
           setError("");
           setMessage("Work submitted for Head SA review.");

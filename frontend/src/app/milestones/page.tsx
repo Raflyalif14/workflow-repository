@@ -510,8 +510,11 @@ function AssignedMilestoneRow({
         open={submitOpen}
         onOpenChange={setSubmitOpen}
         projectId={projectId}
+        projectName={milestone.project?.name}
         milestoneId={milestone.id}
         milestoneName={milestone.name}
+        milestoneStatus={milestone.status}
+        stepOrder={milestone.step_order}
         onSuccess={() => setMessage("Milestone submitted successfully for Head SA review.")}
       />
       <MilestoneSubmissionReviewDialog
