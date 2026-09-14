@@ -1,751 +1,1079 @@
 "use client";
 
-import React from "react";
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import {
-  BarChart3,
-  Layers,
-  Activity,
   AlertTriangle,
-  ShieldCheck,
-  Clock,
-  CheckCircle2,
-  TrendingUp,
-  ArrowUpRight,
-  FolderKanban,
-  Sparkles,
-  PauseCircle,
-  Bell,
-  Users,
-  FileCheck2,
+  ArrowRight,
+  BarChart3,
   CalendarClock,
-  Check,
+  CheckCircle2,
+  ChevronRight,
+  ClipboardCheck,
+  Clock3,
+  FolderKanban,
+  PauseCircle,
+  RotateCcw,
+  UserRound,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-} from "@/components/ui/card";
+import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
 import { useAuth } from "@/components/auth/auth-provider";
+import { useApprovals, useApprovalStats } from "@/hooks/use-approvals";
 import { useDashboard } from "@/hooks/use-dashboard";
-import { useApprovalStats } from "@/hooks/use-approvals";
-import { useMyAssignedMilestones, useProjects } from "@/hooks/use-projects";
-import { formatProjectStatusLabel } from "@/lib/workflow-ux-helpers";
+import { AssignedMilestone, useMyAssignedMilestones, useProjects } from "@/hooks/use-projects";
 import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell,
-  Legend,
-} from "recharts";
+  buildDashboardDistribution,
+  DashboardProjectHealth,
+  DashboardWorkItem,
+  formatDashboardActivityLabel,
+  formatDashboardDate,
+  formatDashboardLabel,
+  formatDashboardTimestamp,
+  getApprovalProjectHref,
+  getDashboardGreeting,
+  getDashboardInsights,
+  getDashboardKpiLabels,
+  getDashboardProjectHealthLabel,
+  getDashboardRoleContent,
+  getDashboardSnapshotTitle,
+  getDraftProjectActionCopy,
+  getMilestoneProjectHref,
+  sortDashboardItems,
+  sortDashboardProjectHealth,
+  shouldShowDashboardInsights,
+} from "@/lib/dashboard-ux";
+import { formatActorRoleLabel } from "@/lib/workflow-ux-helpers";
+import { ApprovalItem } from "@/types/approval";
+import { DashboardSummary, ProjectProgress, RecentActivity } from "@/types/dashboard";
+import { Project } from "@/types/project";
 
-// Custom Recharts tooltip styling
-const CustomTooltip = ({ active, payload, label }: any) => {
-  if (!active || !payload?.length) return null;
-  return (
-    <div className="rounded-lg border border-border/70 bg-card px-3 py-2 shadow-xl text-xs">
-      <p className="font-semibold text-foreground mb-1">{label}</p>
-      {payload.map((entry: any, i: number) => (
-        <p key={i} style={{ color: entry.color }} className="font-mono">
-          {entry.name}: <strong>{entry.value}</strong>
-        </p>
-      ))}
-    </div>
-  );
+type SummaryMetric = {
+  label: string;
+  value: number;
 };
 
-// Custom label for Pie chart
-const renderPieLabel = ({ name, percent }: any) =>
-  `${name} ${(percent * 100).toFixed(0)}%`;
+const getApprovalPresentation = (item: ApprovalItem) => {
+  switch (item.category) {
+    case "PROJECT_PLAN":
+      return {
+        label: "Project plan review",
+        actionLabel: "Review plan",
+        priority: 20,
+        description: "A project plan is ready for your decision.",
+      };
+    case "SUBMISSION":
+      return {
+        label: "Work submission review",
+        actionLabel: "Review submission",
+        priority: 30,
+        description: "Submitted work is ready for your review.",
+      };
+    default:
+      return {
+        label: "Deadline change review",
+        actionLabel: "Review deadline change",
+        priority: 35,
+        description: "A deadline change is waiting for your decision.",
+      };
+  }
+};
+
+const getSalesItems = (projects: Project[], userId?: string): DashboardWorkItem[] => {
+  const items: DashboardWorkItem[] = [];
+
+  for (const project of projects) {
+    const isOwner = !project.sales_id || project.sales_id === userId;
+    const projectHref = `/projects/${project.id}`;
+    const projectMeta = project.customer ? `Customer: ${project.customer}` : undefined;
+
+    if (isOwner && project.status === "DRAFT" && project.currentRole === "SALES") {
+      items.push({
+        id: `sales-planning-${project.id}`,
+        priority: 40,
+        group: "action",
+        label: "Project planning",
+        title: project.name,
+        description: "Continue preparing the project plan before it is submitted for review.",
+        meta: projectMeta,
+        state: "Planning",
+        href: projectHref,
+        actionLabel: getDraftProjectActionCopy(project.currentRole),
+      });
+      continue;
+    }
+
+    if (project.status === "DRAFT" && project.currentRole === "HEAD_SA") {
+      items.push({
+        id: `sales-waiting-${project.id}`,
+        priority: 20,
+        group: "waiting",
+        label: "Plan under review",
+        title: project.name,
+        description: "Head SA is reviewing the submitted project plan.",
+        meta: projectMeta,
+        state: "Under review",
+        href: projectHref,
+      });
+      continue;
+    }
+
+    if (project.status === "POSTPONED" && isOwner) {
+      items.push({
+        id: `sales-resume-${project.id}`,
+        priority: 50,
+        group: "action",
+        label: "Project postponed",
+        title: project.name,
+        description: "Review the project status and resume delivery when it is ready to continue.",
+        meta: projectMeta,
+        state: "Postponed",
+        href: projectHref,
+        actionLabel: "Resume project",
+      });
+    }
+  }
+
+  return items;
+};
+
+const getHeadSaItems = (approvals: ApprovalItem[], projects: Project[]): DashboardWorkItem[] => {
+  const items: DashboardWorkItem[] = approvals.map((approval) => {
+    const presentation = getApprovalPresentation(approval);
+    const milestoneSuffix = approval.milestoneName ? ` - ${approval.milestoneName}` : "";
+    const requestedAt = formatDashboardDate(approval.requestedAt || approval.submittedAt);
+    const meta = [approval.submittedBy ? `Requested by ${approval.submittedBy}` : undefined, requestedAt].filter(Boolean).join(" - ");
+
+    return {
+      id: `approval-${approval.id}`,
+      priority: presentation.priority,
+      group: "action",
+      label: presentation.label,
+      title: `${approval.projectName}${milestoneSuffix}`,
+      description: presentation.description,
+      meta: meta || undefined,
+      state: "Pending review",
+      href: getApprovalProjectHref(approval.projectId, approval.category, approval.milestoneId),
+      actionLabel: presentation.actionLabel,
+    };
+  });
+
+  for (const project of projects) {
+    if (project.status === "DRAFT" && project.currentRole === "SALES") {
+      items.push({
+        id: `head-sa-waiting-${project.id}`,
+        priority: 40,
+        group: "waiting",
+        label: "Plan in preparation",
+        title: project.name,
+        description: "Sales is preparing the project plan for review.",
+        meta: project.customer ? `Customer: ${project.customer}` : undefined,
+        state: "Planning",
+        href: `/projects/${project.id}`,
+      });
+      continue;
+    }
+
+    if (project.status !== "ACTIVE" || project.pic || project.currentRole !== "HEAD_SA") continue;
+
+    items.push({
+      id: `assign-pic-${project.id}`,
+      priority: 36,
+      group: "action",
+      label: "PIC assignment",
+      title: project.name,
+      description: "The project is ready for a Solution Architect assignment.",
+      meta: project.customer ? `Customer: ${project.customer}` : undefined,
+      state: "Needs assignment",
+      href: `/projects/${project.id}#project-pic-assignment`,
+      actionLabel: "Assign PIC",
+    });
+  }
+
+  return items;
+};
+
+const getSaItems = (milestones: AssignedMilestone[], userId?: string): DashboardWorkItem[] => {
+  const items: DashboardWorkItem[] = [];
+
+  for (const milestone of milestones) {
+    if (milestone.pic_id !== userId) continue;
+
+    const projectId = milestone.project?.id || milestone.project_id;
+    const projectName = milestone.project?.name || "Assigned project";
+    const projectMeta = milestone.project?.customer
+      ? `Customer: ${milestone.project.customer}`
+      : `Stage ${milestone.step_order}`;
+    const href = getMilestoneProjectHref(projectId, milestone.id);
+    const title = `${projectName} - ${milestone.name}`;
+
+    if (milestone.status === "REJECTED") {
+      items.push({
+        id: `revise-${milestone.id}`,
+        priority: 10,
+        group: "action",
+        label: "Revision required",
+        title,
+        description: "Review the feedback, update the work, and submit a new package.",
+        meta: projectMeta,
+        state: "Revision required",
+        href,
+        actionLabel: "Revise submission",
+      });
+      continue;
+    }
+
+    if (milestone.status === "IN_PROGRESS") {
+      items.push({
+        id: `continue-${milestone.id}`,
+        priority: 30,
+        group: "action",
+        label: "Active delivery work",
+        title,
+        description: "Continue the assigned milestone and submit work when it is ready.",
+        meta: projectMeta,
+        state: "In progress",
+        href,
+        actionLabel: "Continue work",
+      });
+      continue;
+    }
+
+    if (milestone.status === "SUBMITTED") {
+      items.push({
+        id: `sa-waiting-${milestone.id}`,
+        priority: 20,
+        group: "waiting",
+        label: "Submission under review",
+        title,
+        description: "Head SA is reviewing the submitted work.",
+        meta: projectMeta,
+        state: "Under review",
+        href,
+      });
+    }
+  }
+
+  return items;
+};
+
+const getSuperAdminItems = (summary: DashboardSummary, projectProgress: ProjectProgress[]): DashboardWorkItem[] => {
+  const items: DashboardWorkItem[] = [];
+
+  for (const project of projectProgress.filter((item) => item.overdueMilestones > 0)) {
+    items.push({
+      id: `overdue-${project.id}`,
+      priority: 10,
+      group: "action",
+      label: "Delivery exception",
+      title: project.name,
+      description: `${project.overdueMilestones} milestone${project.overdueMilestones === 1 ? " is" : "s are"} overdue.`,
+      meta: project.clientName ? `Customer: ${project.clientName}` : undefined,
+      state: "Needs attention",
+      href: `/projects/${project.id}`,
+      actionLabel: "Review project",
+    });
+  }
+
+  if (summary.waitingApproval > 0) {
+    items.push({
+      id: "approval-pipeline",
+      priority: 20,
+      group: "action",
+      label: "Approval pipeline",
+      title: `${summary.waitingApproval} item${summary.waitingApproval === 1 ? "" : "s"} awaiting review`,
+      description: "Open the Approval Center to monitor decisions waiting in the workflow.",
+      state: "Pending review",
+      href: "/approvals",
+      actionLabel: "Open approvals",
+    });
+  }
+
+  return items;
+};
+
+const getRoleSummary = ({
+  role,
+  projects,
+  approvals,
+  milestones,
+  summary,
+}: {
+  role: string;
+  projects: Project[];
+  approvals: ApprovalItem[];
+  milestones: AssignedMilestone[];
+  summary: DashboardSummary;
+}): SummaryMetric[] => {
+  if (role === "SALES") {
+    return [
+      { label: "Planning", value: projects.filter((project) => project.status === "DRAFT").length },
+      { label: "Waiting for review", value: projects.filter((project) => project.status === "DRAFT" && project.currentRole === "HEAD_SA").length },
+      { label: "Active projects", value: projects.filter((project) => project.status === "ACTIVE").length },
+      { label: "Postponed", value: projects.filter((project) => project.status === "POSTPONED").length },
+    ];
+  }
+
+  if (role === "HEAD_SA") {
+    return [
+      { label: "Plans to review", value: approvals.filter((item) => item.category === "PROJECT_PLAN").length },
+      { label: "Work submissions", value: approvals.filter((item) => item.category === "SUBMISSION").length },
+      { label: "Deadline requests", value: approvals.filter((item) => item.category === "DEADLINE").length },
+      { label: "Unassigned projects", value: projects.filter((project) => project.status === "ACTIVE" && !project.pic && project.currentRole === "HEAD_SA").length },
+    ];
+  }
+
+  if (role === "SA") {
+    return [
+      { label: "In progress", value: milestones.filter((milestone) => milestone.status === "IN_PROGRESS").length },
+      { label: "Needs revision", value: milestones.filter((milestone) => milestone.status === "REJECTED").length },
+      { label: "Waiting for review", value: milestones.filter((milestone) => milestone.status === "SUBMITTED").length },
+      { label: "Completed", value: milestones.filter((milestone) => milestone.status === "COMPLETED" || milestone.status === "APPROVED").length },
+    ];
+  }
+
+  return [
+    { label: "Active projects", value: summary.activeProjects },
+    { label: "Overdue milestones", value: summary.overdueMilestones },
+    { label: "Pending reviews", value: summary.waitingApproval },
+    { label: "Completed projects", value: summary.completedProjects },
+  ];
+};
+
+const getViewAllHref = (role: string): string => {
+  if (role === "HEAD_SA") return "/approvals";
+  if (role === "SA") return "/milestones";
+  return "/projects";
+};
+
+type MetricVisual = {
+  description: string;
+  icon: typeof ClipboardCheck;
+  iconClassName: string;
+};
+
+const getMetricVisual = (label: string): MetricVisual => {
+  const descriptions: Record<string, string> = {
+    "Plans to review": "Project plans awaiting a decision",
+    "Work submissions": "Submitted packages awaiting review",
+    "Deadline requests": "Timeline changes awaiting review",
+    "Unassigned projects": "Active projects without a PIC",
+    Planning: "Projects still being prepared",
+    "Waiting for review": "Items currently with a reviewer",
+    "Active projects": "Projects currently in delivery",
+    Postponed: "Projects temporarily paused",
+    "In progress": "Assigned milestones underway",
+    "Needs revision": "Submissions returned for revision",
+    Completed: "Assigned milestones completed",
+    "Overdue milestones": "Delivery stages past their due date",
+    "Pending reviews": "Decisions pending across the portfolio",
+    "Completed projects": "Projects with delivery completed",
+  };
+
+  if (/overdue|revision/i.test(label)) {
+    return {
+      description: descriptions[label] || "Items needing attention",
+      icon: RotateCcw,
+      iconClassName: "bg-destructive/10 text-destructive",
+    };
+  }
+  if (/unassigned/i.test(label)) {
+    return {
+      description: descriptions[label] || "Projects waiting for assignment",
+      icon: UserRound,
+      iconClassName: "bg-[hsl(var(--warning)/0.12)] text-[hsl(var(--warning))]",
+    };
+  }
+  if (/postponed/i.test(label)) {
+    return {
+      description: descriptions[label] || "Projects temporarily paused",
+      icon: PauseCircle,
+      iconClassName: "bg-[hsl(var(--warning)/0.12)] text-[hsl(var(--warning))]",
+    };
+  }
+  if (/deadline|waiting/i.test(label)) {
+    return {
+      description: descriptions[label] || "Items waiting in the workflow",
+      icon: CalendarClock,
+      iconClassName: "bg-[hsl(var(--warning)/0.12)] text-[hsl(var(--warning))]",
+    };
+  }
+  if (/completed/i.test(label)) {
+    return {
+      description: descriptions[label] || "Completed workflow items",
+      icon: CheckCircle2,
+      iconClassName: "bg-[hsl(var(--success)/0.12)] text-[hsl(var(--success))]",
+    };
+  }
+  if (/active|progress/i.test(label)) {
+    return {
+      description: descriptions[label] || "Work currently underway",
+      icon: FolderKanban,
+      iconClassName: "bg-primary/10 text-primary",
+    };
+  }
+  return {
+    description: descriptions[label] || "Available in your workspace",
+    icon: ClipboardCheck,
+    iconClassName: "bg-primary/10 text-primary",
+  };
+};
+
+function MetricCard({ metric }: { metric: SummaryMetric }) {
+  const visual = getMetricVisual(metric.label);
+  const Icon = visual.icon;
+
+  return (
+    <div className="min-w-0 rounded-xl border border-border bg-card p-4 sm:p-5">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-xs font-medium leading-5 text-muted-foreground">{metric.label}</p>
+          <p className="mt-1 text-2xl font-semibold text-foreground">{metric.value}</p>
+        </div>
+        <span className={["flex h-9 w-9 shrink-0 items-center justify-center rounded-lg", visual.iconClassName].join(" ")}>
+          <Icon className="h-4 w-4" />
+        </span>
+      </div>
+      <p className="mt-3 text-xs leading-5 text-muted-foreground">{visual.description}</p>
+    </div>
+  );
+}
+
+const getProjectStatusClassName = (status: string): string => {
+  if (status === "ACTIVE") return "border-primary/25 bg-primary/10 text-primary";
+  if (status === "COMPLETED") {
+    return "border-[hsl(var(--success)/0.25)] bg-[hsl(var(--success)/0.1)] text-[hsl(var(--success))]";
+  }
+  if (status === "POSTPONED" || status === "ON_HOLD") {
+    return "border-[hsl(var(--warning)/0.25)] bg-[hsl(var(--warning)/0.1)] text-[hsl(var(--warning))]";
+  }
+  if (status === "CANCELLED") return "border-destructive/25 bg-destructive/10 text-destructive";
+  return "border-border bg-muted text-muted-foreground";
+};
+
+function ProjectDeliveryRow({
+  project,
+  role,
+  hasOverdueData,
+}: {
+  project: DashboardProjectHealth;
+  role: string;
+  hasOverdueData: boolean;
+}) {
+  const targetDate = formatDashboardDate(project.targetEndDate);
+  const healthLabel = getDashboardProjectHealthLabel(project, role);
+  const hasProgress = project.percentage !== null;
+  const deadlineLabel = project.overdueMilestones > 0
+    ? String(project.overdueMilestones) + " overdue"
+    : targetDate
+    ? "Due " + targetDate
+    : "Not available";
+  const riskDetail = project.overdueMilestones > 0
+    ? "Needs attention"
+    : hasOverdueData && healthLabel !== formatDashboardLabel(project.status)
+    ? healthLabel
+    : null;
+  const ownerLabel = project.ownerName || (project.ownerKnown ? "Unassigned" : "Not available");
+
+  return (
+    <div className="grid gap-4 px-4 py-4 lg:grid-cols-[minmax(170px,1.4fr)_minmax(110px,0.9fr)_110px_minmax(145px,1fr)_minmax(135px,1fr)_minmax(110px,0.9fr)_auto] lg:items-center lg:px-5">
+      <div className="min-w-0">
+        <p className="break-words text-sm font-semibold text-foreground">{project.name}</p>
+      </div>
+      <div className="min-w-0">
+        <p className="text-xs text-muted-foreground lg:hidden">Customer</p>
+        <p className="mt-1 break-words text-sm text-foreground lg:mt-0">{project.clientName || "Not available"}</p>
+      </div>
+      <div>
+        <p className="text-xs text-muted-foreground lg:hidden">Status</p>
+        <span className={["mt-1 inline-flex rounded-full border px-2 py-1 text-xs font-medium lg:mt-0", getProjectStatusClassName(project.status)].join(" ")}>
+          {formatDashboardLabel(project.status)}
+        </span>
+      </div>
+      <div>
+        <div className="flex items-center justify-between gap-2 text-xs">
+          <span className="text-muted-foreground lg:hidden">Progress</span>
+          <span className="text-foreground">{hasProgress ? String(project.percentage) + "%" : "Unknown"}</span>
+        </div>
+        <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted">
+          {hasProgress && (
+            <div
+              className="h-full rounded-full bg-primary"
+              style={{ width: String(Math.min(100, Math.max(0, project.percentage || 0))) + "%" }}
+            />
+          )}
+        </div>
+        <p className="mt-1 text-xs text-muted-foreground">
+          {project.totalMilestones > 0
+            ? String(project.completedMilestones) + " of " + String(project.totalMilestones) + " stages"
+            : "Stage data unavailable"}
+        </p>
+      </div>
+      <div>
+        <p className="text-xs text-muted-foreground lg:hidden">Deadline / Risk</p>
+        <p className={["mt-1 text-sm lg:mt-0", project.overdueMilestones > 0 ? "text-destructive" : "text-foreground"].join(" ")}>
+          {deadlineLabel}
+        </p>
+        {riskDetail && <p className="mt-0.5 text-xs text-muted-foreground">{riskDetail}</p>}
+      </div>
+      <div className="min-w-0">
+        <p className="text-xs text-muted-foreground lg:hidden">Owner</p>
+        <p className="mt-1 break-words text-sm text-foreground lg:mt-0">{ownerLabel}</p>
+      </div>
+      <Link
+        href={"/projects/" + project.id}
+        className="inline-flex min-h-10 items-center justify-center gap-1 rounded-md border border-border px-3 text-sm font-medium text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring lg:min-h-0 lg:border-0 lg:px-0 lg:text-primary lg:hover:bg-transparent lg:hover:underline"
+      >
+        Open
+        <ChevronRight className="h-4 w-4" />
+      </Link>
+    </div>
+  );
+}
+
+function DeliveryHealthPanel({
+  statusDistribution,
+  scenarioDistribution,
+  projects,
+  role,
+  loading,
+}: {
+  statusDistribution: Array<{ status: string; count: number; color: string }>;
+  scenarioDistribution: Array<{ scenarioName: string; count: number }>;
+  projects: DashboardProjectHealth[];
+  role: string;
+  loading: boolean;
+}) {
+  const statusData = statusDistribution
+    .filter((item) => item.count > 0)
+    .map((item) => ({ name: formatDashboardLabel(item.status), value: item.count, color: item.color }));
+  const statusTotal = statusData.reduce((total, item) => total + item.value, 0);
+  const scenarios = buildDashboardDistribution(
+    scenarioDistribution.map((item) => ({ label: item.scenarioName, count: item.count }))
+  );
+  const projectCompletion = projects.filter((project) => project.percentage !== null).slice(0, 5);
+  const showScenarioBreakdown = scenarios.length > 0 && (
+    shouldShowDashboardInsights(role, scenarios.length, statusData.length) || projectCompletion.length === 0
+  );
+
+  return (
+    <section aria-labelledby="delivery-health-heading" className="rounded-xl border border-border bg-card p-5 sm:p-6">
+      <div className="flex items-start gap-3">
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+          <BarChart3 className="h-4 w-4" />
+        </span>
+        <div>
+          <h2 id="delivery-health-heading" className="text-base font-semibold text-foreground">Delivery health</h2>
+          <p className="mt-1 text-sm text-muted-foreground">Project execution and review status</p>
+        </div>
+      </div>
+
+      {loading && statusData.length === 0 ? (
+        <div className="mt-6 grid gap-6 sm:grid-cols-2" aria-label="Loading delivery health">
+          <div className="mx-auto h-48 w-48 animate-pulse rounded-full bg-muted" />
+          <div className="space-y-4">
+            {[0, 1, 2, 3].map((item) => <div key={item} className="h-9 animate-pulse rounded bg-muted" />)}
+          </div>
+        </div>
+      ) : (
+        <div className="mt-6 grid gap-7 sm:grid-cols-[minmax(220px,0.85fr)_minmax(0,1.15fr)] sm:items-center">
+          <div>
+            {statusData.length > 0 ? (
+              <>
+                <div className="relative mx-auto h-48 w-full max-w-[240px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={statusData}
+                        dataKey="value"
+                        nameKey="name"
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={57}
+                        outerRadius={78}
+                        paddingAngle={2}
+                        stroke="none"
+                        isAnimationActive={false}
+                      >
+                        {statusData.map((entry) => <Cell key={entry.name} fill={entry.color} />)}
+                      </Pie>
+                      <Tooltip
+                        formatter={(value) => [Number(value), "Projects"]}
+                        contentStyle={{
+                          background: "hsl(var(--popover))",
+                          border: "1px solid hsl(var(--border))",
+                          borderRadius: "8px",
+                          color: "hsl(var(--popover-foreground))",
+                          fontSize: "12px",
+                        }}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                  <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
+                    <span className="text-2xl font-semibold text-foreground">{statusTotal}</span>
+                    <span className="text-xs text-muted-foreground">projects</span>
+                  </div>
+                </div>
+                <div className="mt-2 flex flex-wrap justify-center gap-x-4 gap-y-2">
+                  {statusData.map((item) => (
+                    <span key={item.name} className="inline-flex items-center gap-2 text-xs text-muted-foreground">
+                      <span className="h-2 w-2 rounded-full" style={{ backgroundColor: item.color }} />
+                      {item.name} {item.value}
+                    </span>
+                  ))}
+                </div>
+              </>
+            ) : (
+              <div className="py-10 text-center">
+                <p className="text-sm font-medium text-foreground">No project status data yet</p>
+                <p className="mt-1 text-xs leading-5 text-muted-foreground">Status distribution will appear when projects are available.</p>
+              </div>
+            )}
+          </div>
+
+          <div className="min-w-0">
+            <p className="text-xs font-medium text-muted-foreground">
+              {showScenarioBreakdown ? "Projects by scenario" : "Project completion"}
+            </p>
+            <div className="mt-4 space-y-4">
+              {showScenarioBreakdown ? (
+                scenarios.map((item) => (
+                  <div key={item.label}>
+                    <div className="flex items-center justify-between gap-3 text-xs">
+                      <span className="min-w-0 break-words text-foreground">{item.label}</span>
+                      <span className="shrink-0 text-muted-foreground">
+                        {item.count} ({item.percentage}%)
+                      </span>
+                    </div>
+                    <div className="mt-2 h-2 overflow-hidden rounded-full bg-muted">
+                      <div className="h-full rounded-full bg-primary" style={{ width: String(item.percentage) + "%" }} />
+                    </div>
+                  </div>
+                ))
+              ) : projectCompletion.length > 0 ? (
+                projectCompletion.map((project) => (
+                  <div key={project.id}>
+                    <div className="flex items-center justify-between gap-3 text-xs">
+                      <span className="min-w-0 truncate text-foreground">{project.name}</span>
+                      <span className="shrink-0 text-muted-foreground">{project.percentage}%</span>
+                    </div>
+                    <div className="mt-2 h-2 overflow-hidden rounded-full bg-muted">
+                      <div
+                        className="h-full rounded-full bg-primary"
+                        style={{ width: String(Math.min(100, Math.max(0, project.percentage || 0))) + "%" }}
+                      />
+                    </div>
+                  </div>
+                ))
+              ) : scenarios.length > 0 ? (
+                scenarios.map((item) => (
+                  <div key={item.label} className="flex items-center justify-between gap-4 border-b border-border pb-3 last:border-0 last:pb-0">
+                    <span className="text-sm text-foreground">{item.label}</span>
+                    <span className="text-sm font-medium text-muted-foreground">{item.count}</span>
+                  </div>
+                ))
+              ) : (
+                <p className="text-sm leading-6 text-muted-foreground">Project completion data is not available yet.</p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function QuickInsightsPanel({
+  insights,
+  loading,
+  viewAllHref,
+  hasMore,
+}: {
+  insights: ReturnType<typeof getDashboardInsights>;
+  loading: boolean;
+  viewAllHref: string;
+  hasMore: boolean;
+}) {
+  return (
+    <section aria-labelledby="quick-insights-heading" className="rounded-xl border border-border bg-card p-5 sm:p-6">
+      <div>
+        <h2 id="quick-insights-heading" className="text-base font-semibold text-foreground">Quick insights</h2>
+        <p className="mt-1 text-sm text-muted-foreground">Things worth your attention</p>
+      </div>
+
+      {loading && insights.length === 0 ? (
+        <div className="mt-5 space-y-4" aria-label="Loading quick insights">
+          {[0, 1, 2, 3].map((item) => <div key={item} className="h-16 animate-pulse rounded bg-muted" />)}
+        </div>
+      ) : insights.length > 0 ? (
+        <div className="mt-5 divide-y divide-border">
+          {insights.map((insight) => {
+            const isRisk = insight.tone === "risk";
+            const isWaiting = insight.tone === "waiting";
+            const Icon = isRisk ? AlertTriangle : isWaiting ? Clock3 : ChevronRight;
+            const iconClassName = isRisk
+              ? "bg-destructive/10 text-destructive"
+              : isWaiting
+              ? "bg-[hsl(var(--warning)/0.12)] text-[hsl(var(--warning))]"
+              : "bg-primary/10 text-primary";
+            const content = (
+              <div className="flex min-w-0 items-start gap-3 py-4 first:pt-0 last:pb-0">
+                <span className={["mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg", iconClassName].join(" ")}>
+                  <Icon className="h-4 w-4" />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="break-words text-sm font-medium text-foreground">{insight.title}</p>
+                  <p className="mt-1 text-xs leading-5 text-muted-foreground">{insight.description}</p>
+                  <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                    {[insight.label, insight.meta, insight.state].filter(Boolean).join(" - ")}
+                  </p>
+                </div>
+                {insight.href && <ArrowRight className="mt-1 h-4 w-4 shrink-0 text-muted-foreground" />}
+              </div>
+            );
+
+            return insight.href ? (
+              <Link
+                key={insight.id}
+                href={insight.href}
+                className="block rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                {content}
+              </Link>
+            ) : (
+              <div key={insight.id}>{content}</div>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="mt-5 flex items-start gap-3 py-4">
+          <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-[hsl(var(--success))]" />
+          <div>
+            <p className="text-sm font-medium text-foreground">No additional items need attention</p>
+            <p className="mt-1 text-xs leading-5 text-muted-foreground">Your visible workflow queue is clear.</p>
+          </div>
+        </div>
+      )}
+
+      {hasMore && (
+        <Link href={viewAllHref} className="mt-5 inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline">
+          View full queue
+          <ArrowRight className="h-4 w-4" />
+        </Link>
+      )}
+    </section>
+  );
+}
 
 export default function DashboardPage() {
   const { user } = useAuth();
+  const [greeting, setGreeting] = useState("Hello");
   const userRole = user?.role || "GUEST";
+  const isHeadSa = userRole === "HEAD_SA";
+  const isSa = userRole === "SA";
 
-  const { data, isLoading, isError } = useDashboard();
-  const { data: approvalStats } = useApprovalStats();
-  const { data: assignedMilestones = [] } = useMyAssignedMilestones(userRole === "SA" || userRole === "HEAD_SA");
-  const { data: projectsData } = useProjects({ limit: 100 });
+  useEffect(() => {
+    setGreeting(getDashboardGreeting(new Date().getHours()));
+  }, []);
 
-  const summary = data?.summary;
-  const scenarioDistribution = data?.scenarioDistribution || [];
-  const statusDistribution = data?.statusDistribution || [];
-  const projectProgress = data?.projectProgress || [];
-  const recentActivity = data?.recentActivity || [];
-  const allProjects = projectsData?.projects || [];
+  const dashboardQuery = useDashboard();
+  const approvalStatsQuery = useApprovalStats();
+  const approvalsQuery = useApprovals({}, isHeadSa);
+  const assignedMilestonesQuery = useMyAssignedMilestones(isSa || isHeadSa);
+  const projectsQuery = useProjects({ limit: 100 });
 
-  const statusColors: Record<string, string> = {
-    DRAFT: "#64748b",
-    ACTIVE: "#3b82f6",
-    POSTPONED: "#f59e0b",
-    COMPLETED: "#22c55e",
-    CANCELLED: "#ef4444",
+  const summary = dashboardQuery.data?.summary;
+  const summaryForMetrics: DashboardSummary = {
+    totalProjects: summary?.totalProjects || 0,
+    activeProjects: summary?.activeProjects || 0,
+    completedProjects: summary?.completedProjects || 0,
+    onHoldProjects: summary?.onHoldProjects || 0,
+    postponedProjects: summary?.postponedProjects || 0,
+    overdueMilestones: summary?.overdueMilestones || 0,
+    waitingApproval: summary?.waitingApproval ?? approvalStatsQuery.data?.totalPending ?? 0,
   };
+  const projectProgress = dashboardQuery.data?.projectProgress || [];
+  const recentActivity = dashboardQuery.data?.recentActivity || [];
+  const statusDistribution = dashboardQuery.data?.statusDistribution || [];
+  const scenarioDistribution = dashboardQuery.data?.scenarioDistribution || [];
+  const projects = projectsQuery.data?.projects || [];
+  const approvals = approvalsQuery.data || [];
+  const assignedMilestones = assignedMilestonesQuery.data || [];
+  const roleContent = getDashboardRoleContent(userRole);
+  const firstName = user?.fullName?.trim().split(/\s+/)[0] || "there";
 
-  const getProgressColor = (pct: number) => {
-    if (pct >= 80) return "text-emerald-400";
-    if (pct >= 50) return "text-blue-400";
-    if (pct >= 25) return "text-amber-400";
-    return "text-red-400";
+  const roleItems =
+    userRole === "SALES"
+      ? getSalesItems(projects, user?.id)
+      : userRole === "HEAD_SA"
+      ? getHeadSaItems(approvals, projects)
+      : userRole === "SA"
+      ? getSaItems(assignedMilestones, user?.id)
+      : userRole === "SUPER_ADMIN"
+      ? getSuperAdminItems(summaryForMetrics, projectProgress)
+      : [];
+  const actionItems = sortDashboardItems(roleItems.filter((item) => item.group === "action"));
+  const nextTask = actionItems[0];
+  const quickInsights = getDashboardInsights(roleItems, nextTask?.id, 5);
+  const remainingItemCount = Math.max(0, roleItems.length - (nextTask ? 1 : 0));
+  const viewAllHref = getViewAllHref(userRole);
+  const calculatedMetrics = getRoleSummary({
+    role: userRole,
+    projects,
+    approvals,
+    milestones: assignedMilestones,
+    summary: summaryForMetrics,
+  });
+  const metricValues = new Map(calculatedMetrics.map((metric) => [metric.label, metric.value]));
+  const metrics = getDashboardKpiLabels(userRole).map((label) => ({
+    label,
+    value: metricValues.get(label) || 0,
+  }));
+  const isRoleDataLoading =
+    (userRole === "SALES" && projectsQuery.isLoading) ||
+    (isHeadSa && (approvalsQuery.isLoading || projectsQuery.isLoading)) ||
+    (isSa && assignedMilestonesQuery.isLoading) ||
+    (userRole === "SUPER_ADMIN" && dashboardQuery.isLoading);
+  const hasPartialError =
+    dashboardQuery.isError ||
+    projectsQuery.isError ||
+    (isHeadSa && approvalsQuery.isError) ||
+    (isSa && assignedMilestonesQuery.isError);
+
+  const projectsById = new Map(projects.map((project) => [project.id, project]));
+  const healthSource: DashboardProjectHealth[] = (
+    projectProgress.length > 0
+      ? projectProgress
+      : projects.map((project) => ({
+          id: project.id,
+          name: project.name,
+          clientName: project.customer,
+          status: project.status,
+          targetEndDate: project.targetEndDate || null,
+          totalMilestones: project.totalMilestones || 0,
+          completedMilestones: project.completedMilestones || 0,
+          overdueMilestones: 0,
+          percentage: typeof project.progress === "number" ? project.progress : null,
+        }))
+  ).map((project) => {
+    const matchingProject = projectsById.get(project.id);
+    const owner = matchingProject?.pic || matchingProject?.sales || matchingProject?.salesPIC || null;
+
+    return {
+      id: project.id,
+      name: project.name,
+      clientName: project.clientName || matchingProject?.customer,
+      status: project.status,
+      percentage: project.percentage,
+      completedMilestones: project.completedMilestones,
+      totalMilestones: project.totalMilestones,
+      overdueMilestones: project.overdueMilestones,
+      targetEndDate: project.targetEndDate,
+      ownerName: owner?.fullName || owner?.full_name || null,
+      ownerKnown: Boolean(matchingProject),
+      hasPic: matchingProject ? Boolean(matchingProject.pic) : undefined,
+      currentRole: matchingProject?.currentRole,
+    };
+  });
+  const projectDelivery = sortDashboardProjectHealth(healthSource, userRole).slice(0, 8);
+  const projectProgressIds = new Set(projectProgress.map((project) => project.id));
+  const isProjectDeliveryLoading = dashboardQuery.isLoading && projectsQuery.isLoading;
+  const hasProjectDeliveryError = dashboardQuery.isError && projectsQuery.isError;
+
+  const retryVisibleQueries = () => {
+    void dashboardQuery.refetch();
+    void projectsQuery.refetch();
+    void approvalStatsQuery.refetch();
+    if (isHeadSa) void approvalsQuery.refetch();
+    if (isSa) void assignedMilestonesQuery.refetch();
   };
-
-  const getProgressBarColor = (pct: number) => {
-    if (pct >= 80) return "bg-emerald-500";
-    if (pct >= 50) return "bg-blue-500";
-    if (pct >= 25) return "bg-amber-500";
-    return "bg-red-500";
-  };
-
-  const getActionIcon = (action: string) => {
-    switch (action) {
-      case "APPROVE":
-        return <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />;
-      case "REJECT":
-        return <AlertTriangle className="h-3.5 w-3.5 text-red-400" />;
-      case "UPLOAD_DOCUMENT":
-        return <ArrowUpRight className="h-3.5 w-3.5 text-blue-400" />;
-      default:
-        return <Activity className="h-3.5 w-3.5 text-primary" />;
-    }
-  };
-
-  // Build role-aware "Needs Attention" items
-  const attentionItems: Array<{
-    id: string;
-    title: string;
-    description: string;
-    href: string;
-    actionLabel: string;
-    icon: React.ReactNode;
-    badgeVariant?: "default" | "warning" | "destructive" | "outline" | "success";
-    badgeText?: string;
-  }> = [];
-
-  if (userRole === "HEAD_SA") {
-    const pendingTotal = approvalStats?.totalPending || 0;
-    if (pendingTotal > 0) {
-      attentionItems.push({
-        id: "head-sa-approvals",
-        title: `${pendingTotal} Approval${pendingTotal > 1 ? "s" : ""} Waiting Review`,
-        description: `${approvalStats?.pendingProjectPlans || 0} Project Plans, ${approvalStats?.pendingDeadlines || 0} Deadline Changes, ${approvalStats?.pendingSubmissions || 0} SA Submissions.`,
-        href: "/approvals",
-        actionLabel: "Review Now",
-        icon: <ShieldCheck className="h-4 w-4 text-amber-400" />,
-        badgeVariant: "warning",
-        badgeText: `${pendingTotal} Pending`,
-      });
-    }
-
-    const unassignedPicProjects = allProjects.filter(
-      (p) => p.status === "ACTIVE" && (!p.pic || p.currentStage === "Assign PIC")
-    );
-    if (unassignedPicProjects.length > 0) {
-      attentionItems.push({
-        id: "head-sa-unassigned",
-        title: `${unassignedPicProjects.length} Project${unassignedPicProjects.length > 1 ? "s" : ""} Need PIC Assignment`,
-        description: `Active projects waiting for Solution Architect assignment: ${unassignedPicProjects.map((p) => p.name).slice(0, 2).join(", ")}${unassignedPicProjects.length > 2 ? "..." : ""}`,
-        href: `/projects/${unassignedPicProjects[0].id}`,
-        actionLabel: "Assign PIC",
-        icon: <Users className="h-4 w-4 text-blue-400" />,
-        badgeVariant: "default",
-        badgeText: "Action Required",
-      });
-    }
-  } else if (userRole === "SALES") {
-    const draftProjects = allProjects.filter((p) => p.status === "DRAFT");
-    if (draftProjects.length > 0) {
-      attentionItems.push({
-        id: "sales-drafts",
-        title: `${draftProjects.length} Draft Project${draftProjects.length > 1 ? "s" : ""} Ready for Plan Submission`,
-        description: "Configure timeline start dates and working durations, then submit for Head SA review.",
-        href: `/projects/${draftProjects[0].id}`,
-        actionLabel: "Open Project",
-        icon: <FolderKanban className="h-4 w-4 text-primary" />,
-        badgeVariant: "outline",
-        badgeText: `${draftProjects.length} Draft`,
-      });
-    }
-
-    const postponedProjects = allProjects.filter((p) => p.status === "POSTPONED" || p.is_postponed);
-    if (postponedProjects.length > 0) {
-      attentionItems.push({
-        id: "sales-postponed",
-        title: `${postponedProjects.length} Postponed Project${postponedProjects.length > 1 ? "s" : ""}`,
-        description: "These projects are temporarily paused. Resume execution whenever ready.",
-        href: `/projects/${postponedProjects[0].id}`,
-        actionLabel: "Resume Workflow",
-        icon: <PauseCircle className="h-4 w-4 text-amber-400" />,
-        badgeVariant: "warning",
-        badgeText: "Postponed",
-      });
-    }
-  } else if (userRole === "SA") {
-    const rejectedMilestones = assignedMilestones.filter((m) => m.status === "REJECTED");
-    if (rejectedMilestones.length > 0) {
-      attentionItems.push({
-        id: "sa-revisions",
-        title: `${rejectedMilestones.length} Milestone${rejectedMilestones.length > 1 ? "s" : ""} Need Revision`,
-        description: `Head SA requested revisions for: ${rejectedMilestones.map((m) => m.name).join(", ")}.`,
-        href: "/milestones",
-        actionLabel: "Start Revision",
-        icon: <AlertTriangle className="h-4 w-4 text-destructive" />,
-        badgeVariant: "destructive",
-        badgeText: "Revision Required",
-      });
-    }
-
-    const inProgressMilestones = assignedMilestones.filter((m) => m.status === "IN_PROGRESS");
-    if (inProgressMilestones.length > 0) {
-      attentionItems.push({
-        id: "sa-inprogress",
-        title: `${inProgressMilestones.length} Milestone${inProgressMilestones.length > 1 ? "s" : ""} In Progress`,
-        description: `Deliverables ready for your execution and submission: ${inProgressMilestones.map((m) => m.name).slice(0, 2).join(", ")}.`,
-        href: "/milestones",
-        actionLabel: "Submit Work",
-        icon: <FileCheck2 className="h-4 w-4 text-emerald-400" />,
-        badgeVariant: "default",
-        badgeText: "In Progress",
-      });
-    }
-  } else if (userRole === "SUPER_ADMIN") {
-    const pendingTotal = approvalStats?.totalPending || 0;
-    if (pendingTotal > 0) {
-      attentionItems.push({
-        id: "admin-approvals",
-        title: `${pendingTotal} Approvals in Pipeline`,
-        description: "Global queue of project plans, deadline change requests, and milestone submissions.",
-        href: "/approvals",
-        actionLabel: "View Approvals",
-        icon: <ShieldCheck className="h-4 w-4 text-amber-400" />,
-        badgeVariant: "warning",
-        badgeText: `${pendingTotal} Pending`,
-      });
-    }
-    if ((summary?.overdueMilestones || 0) > 0) {
-      attentionItems.push({
-        id: "admin-overdue",
-        title: `${summary?.overdueMilestones} Overdue Milestone${(summary?.overdueMilestones || 0) > 1 ? "s" : ""}`,
-        description: "Stages past their effective calculated due date across active projects.",
-        href: "/projects",
-        actionLabel: "Track Projects",
-        icon: <AlertTriangle className="h-4 w-4 text-destructive" />,
-        badgeVariant: "destructive",
-        badgeText: "Overdue",
-      });
-    }
-  }
-
-  if (isLoading) {
-    return (
-      <div className="container py-12 space-y-6">
-        <div className="h-16 rounded-xl bg-card/40 border border-border/40 animate-pulse" />
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="h-28 rounded-xl bg-card/40 border border-border/40 animate-pulse" />
-          ))}
-        </div>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="h-72 rounded-xl bg-card/40 border border-border/40 animate-pulse" />
-          <div className="h-72 rounded-xl bg-card/40 border border-border/40 animate-pulse" />
-        </div>
-      </div>
-    );
-  }
-
-  if (isError) {
-    return (
-      <div className="container py-20 text-center text-destructive">
-        <AlertTriangle className="h-8 w-8 mx-auto mb-3" />
-        <p className="font-medium">Failed to load dashboard data.</p>
-      </div>
-    );
-  }
 
   return (
-    <div className="container py-8 space-y-8">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-border/50 pb-6">
-        <div>
-          <div className="flex items-center gap-2 text-primary text-xs font-semibold uppercase tracking-wider mb-1">
-            <Sparkles className="h-4 w-4" />
-            <span>WorkflowHub Operations</span>
-          </div>
-          <h1 className="text-3xl font-bold tracking-tight">Dashboard Overview</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Real-time operational metrics, project progression, and approval pipeline status.
-          </p>
-        </div>
-        <div className="flex items-center gap-3 self-start sm:self-auto">
-          {(userRole === "HEAD_SA" || userRole === "SUPER_ADMIN") && (
-            <Link href="/approvals">
-              <Button variant="outline" className="gap-2">
-                <ShieldCheck className="h-4 w-4" />
-                <span>Approval Center</span>
-              </Button>
-            </Link>
+    <div className="mx-auto w-full max-w-[1280px] space-y-6 px-4 py-6 sm:px-6 lg:px-8">
+      <header className="flex flex-col gap-5 border-b border-border pb-6 sm:flex-row sm:items-end sm:justify-between">
+        <div className="min-w-0">
+          <p className="text-xs font-semibold text-primary">{roleContent.eyebrow}</p>
+          <h1 className="mt-2 break-words text-2xl font-semibold text-foreground sm:text-3xl">
+            {greeting}, {firstName}
+          </h1>
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">{roleContent.description}</p>
+          {nextTask && (
+            <p className="mt-3 break-words text-sm text-muted-foreground">
+              <span className="font-medium text-foreground">Next:</span> {nextTask.title}
+            </p>
           )}
-          <Link href="/projects">
-            <Button className="gap-2 shadow-md">
-              <FolderKanban className="h-4 w-4" />
-              <span>Projects</span>
-            </Button>
+        </div>
+
+        {isRoleDataLoading && !nextTask ? (
+          <div className="h-10 w-full animate-pulse rounded-md bg-muted sm:w-36" aria-label="Loading next task" />
+        ) : nextTask ? (
+          <Link
+            href={nextTask.href || viewAllHref}
+            className="inline-flex min-h-10 w-full shrink-0 items-center justify-center gap-2 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:w-auto"
+          >
+            {nextTask.actionLabel}
+            <ArrowRight className="h-4 w-4" />
           </Link>
-        </div>
-      </div>
-
-      {/* ─── Compact Role-Aware Needs Attention Section ─── */}
-      <div className="rounded-xl border border-primary/20 bg-gradient-to-r from-primary/5 via-card/70 to-primary/5 p-4 sm:p-5 shadow-sm space-y-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/20 text-primary">
-              <Bell className="h-4 w-4" />
-            </div>
-            <div>
-              <h2 className="text-sm sm:text-base font-bold text-foreground tracking-tight">
-                Needs Attention
-              </h2>
-              <p className="text-[11px] text-muted-foreground">
-                Action items requiring your role&apos;s prompt execution or review
-              </p>
-            </div>
-          </div>
-          <Badge variant="outline" className="text-[10px] font-mono uppercase tracking-wider">
-            {userRole.replace(/_/g, " ")}
-          </Badge>
-        </div>
-
-        {attentionItems.length === 0 ? (
-          <div className="flex items-center gap-3 rounded-lg border border-border/40 bg-card/60 px-4 py-3 text-xs text-muted-foreground">
-            <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
-            <span>All caught up! No urgent workflow actions currently require your attention.</span>
-          </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 pt-1">
-            {attentionItems.map((item) => (
-              <div
-                key={item.id}
-                className="flex flex-col justify-between rounded-lg border border-border/60 bg-card/90 p-3.5 space-y-3 hover:border-primary/40 transition shadow-sm"
-              >
-                <div className="space-y-1.5">
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
-                      {item.icon}
-                      <span className="truncate">{item.title}</span>
-                    </div>
-                    {item.badgeText && (
-                      <Badge variant={item.badgeVariant || "outline"} className="text-[10px] shrink-0">
-                        {item.badgeText}
-                      </Badge>
-                    )}
-                  </div>
-                  <p className="text-[11px] text-muted-foreground leading-relaxed">
-                    {item.description}
-                  </p>
-                </div>
+          <Link href="/projects" className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline">
+            View projects
+            <ArrowRight className="h-4 w-4" />
+          </Link>
+        )}
+      </header>
 
-                <div className="pt-2 border-t border-border/40 flex justify-end">
-                  <Link href={item.href}>
-                    <Button size="sm" variant="default" className="h-7 text-xs gap-1.5 shadow-none">
-                      <span>{item.actionLabel}</span>
-                      <ArrowUpRight className="h-3 w-3" />
-                    </Button>
-                  </Link>
-                </div>
-              </div>
+      {hasPartialError && (
+        <div className="flex flex-col gap-3 rounded-lg border border-[hsl(var(--warning)/0.3)] bg-[hsl(var(--warning)/0.08)] p-4 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-[hsl(var(--warning))]" />
+            <p>Part of this page didn&apos;t load. The available data is still shown below.</p>
+          </div>
+          <button
+            type="button"
+            onClick={retryVisibleQueries}
+            className="text-left text-sm font-medium text-foreground underline underline-offset-4 hover:text-primary sm:text-right"
+          >
+            Try again
+          </button>
+        </div>
+      )}
+
+      <section aria-label={getDashboardSnapshotTitle(userRole)}>
+        {isRoleDataLoading ? (
+          <div className="grid grid-cols-2 gap-3 xl:grid-cols-4" aria-label="Loading role metrics">
+            {[0, 1, 2, 3].map((item) => (
+              <div key={item} className="h-32 animate-pulse rounded-xl border border-border bg-muted" />
             ))}
           </div>
+        ) : (
+          <dl className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+            {metrics.map((metric) => (
+              <div key={metric.label}>
+                <dt className="sr-only">{metric.label}</dt>
+                <dd><MetricCard metric={metric} /></dd>
+              </div>
+            ))}
+          </dl>
         )}
+      </section>
+
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px] lg:items-start">
+        <DeliveryHealthPanel
+          statusDistribution={statusDistribution}
+          scenarioDistribution={scenarioDistribution}
+          projects={projectDelivery}
+          role={userRole}
+          loading={dashboardQuery.isLoading}
+        />
+        <QuickInsightsPanel
+          insights={quickInsights}
+          loading={isRoleDataLoading}
+          viewAllHref={viewAllHref}
+          hasMore={remainingItemCount > quickInsights.length}
+        />
       </div>
 
-      {/* ─── KPI Summary Cards ─── */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-        {/* Total Projects */}
-        <Card className="group flex min-h-[184px] flex-col border-border/60 bg-card/70 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md">
-          <CardHeader className="flex flex-row items-start justify-between gap-4 space-y-0 pb-5">
-            <div className="space-y-1">
-              <CardTitle className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-                Total Projects
-              </CardTitle>
-              <CardDescription className="text-[11px] text-muted-foreground/80">
-                Across all scenarios
-              </CardDescription>
-            </div>
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-primary/15 bg-primary/10 text-primary">
-              <FolderKanban className="h-4 w-4" />
-            </div>
-          </CardHeader>
-          <CardContent className="mt-auto pt-0">
-            <div className="text-4xl font-bold tracking-tight text-primary">{summary?.totalProjects ?? 0}</div>
-            <p className="mt-1.5 text-xs text-muted-foreground">
-              Registered workflow projects
-            </p>
-          </CardContent>
-        </Card>
-
-        {/* Active Projects */}
-        <Card className="group flex min-h-[184px] flex-col border-border/60 bg-card/70 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-blue-400/40 hover:shadow-md">
-          <CardHeader className="flex flex-row items-start justify-between gap-4 space-y-0 pb-5">
-            <div className="space-y-1">
-              <CardTitle className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-                Active Projects
-              </CardTitle>
-              <CardDescription className="text-[11px] text-muted-foreground/80">
-                Currently executing
-              </CardDescription>
-            </div>
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-blue-400/15 bg-blue-400/10 text-blue-400">
-              <Activity className="h-4 w-4" />
-            </div>
-          </CardHeader>
-          <CardContent className="mt-auto pt-0">
-            <div className="text-4xl font-bold tracking-tight text-blue-400">
-              {summary?.activeProjects ?? 0}
-            </div>
-            <p className="mt-1.5 text-xs text-muted-foreground">
-              Workflows currently active
-            </p>
-          </CardContent>
-        </Card>
-
-        {/* Overdue Milestones */}
-        <Card className="group flex min-h-[184px] flex-col border-border/60 bg-card/70 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-red-400/40 hover:shadow-md">
-          <CardHeader className="flex flex-row items-start justify-between gap-4 space-y-0 pb-5">
-            <div className="space-y-1">
-              <CardTitle className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-                Overdue Milestones
-              </CardTitle>
-              <CardDescription className="text-[11px] text-muted-foreground/80">
-                Past effective deadline
-              </CardDescription>
-            </div>
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-red-400/15 bg-red-400/10 text-red-400">
-              <AlertTriangle className="h-4 w-4" />
-            </div>
-          </CardHeader>
-          <CardContent className="mt-auto pt-0">
-            <div className="text-4xl font-bold tracking-tight text-red-400">
-              {summary?.overdueMilestones ?? 0}
-            </div>
-            <p className="mt-1.5 text-xs text-muted-foreground">
-              Milestones requiring attention
-            </p>
-          </CardContent>
-        </Card>
-
-        {/* Waiting Approval */}
-        <Card className="group flex min-h-[184px] flex-col border-border/60 bg-card/70 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-amber-400/40 hover:shadow-md">
-          <CardHeader className="flex flex-row items-start justify-between gap-4 space-y-0 pb-5">
-            <div className="space-y-1">
-              <CardTitle className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-                Waiting Approval
-              </CardTitle>
-              <CardDescription className="text-[11px] text-muted-foreground/80">
-                Pending Head SA review
-              </CardDescription>
-            </div>
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-amber-400/15 bg-amber-400/10 text-amber-400">
-              <ShieldCheck className="h-4 w-4" />
-            </div>
-          </CardHeader>
-          <CardContent className="mt-auto pt-0">
-            <div className="text-4xl font-bold tracking-tight text-amber-400">
-              {summary?.waitingApproval ?? 0}
-            </div>
-            <p className="mt-1.5 text-xs text-muted-foreground">
-              Items awaiting sign-off
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* ─── Charts Row ─── */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Project by Scenario — Bar Chart */}
-        <Card className="border-border/60 bg-card/70 shadow-sm transition-all duration-200 hover:border-primary/20 hover:shadow-md">
-          <CardHeader className="pb-4">
-            <div className="flex items-center gap-3">
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-primary/15 bg-primary/10 text-primary">
-                <BarChart3 className="h-4 w-4" />
-              </div>
-              <div className="min-w-0 space-y-0.5">
-                <CardTitle className="text-base font-semibold tracking-tight">Project by Scenario</CardTitle>
-                <CardDescription className="text-xs text-muted-foreground">
-                  Distribution of projects across workflow scenarios
-                </CardDescription>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent className="pt-0">
-            {scenarioDistribution.length === 0 ? (
-              <div className="h-[260px] flex items-center justify-center text-xs text-muted-foreground">
-                No scenario data available yet.
-              </div>
-            ) : (
-              <ResponsiveContainer width="100%" height={260}>
-                <BarChart
-                  data={scenarioDistribution}
-                  margin={{ top: 10, right: 10, left: -10, bottom: 0 }}
-                >
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.4} />
-                  <XAxis
-                    dataKey="scenarioName"
-                    tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }}
-                    axisLine={{ stroke: "hsl(var(--border))" }}
-                    tickLine={false}
-                  />
-                  <YAxis
-                    allowDecimals={false}
-                    tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }}
-                    axisLine={false}
-                    tickLine={false}
-                  />
-                  <Tooltip content={<CustomTooltip />} />
-                  <Bar
-                    dataKey="count"
-                    name="Projects"
-                    fill="hsl(var(--primary))"
-                    radius={[6, 6, 0, 0]}
-                    maxBarSize={60}
-                  />
-                </BarChart>
-              </ResponsiveContainer>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Project Status Distribution — Pie Chart */}
-        <Card className="border-border/60 bg-card/70 shadow-sm transition-all duration-200 hover:border-primary/20 hover:shadow-md">
-          <CardHeader className="pb-4">
-            <div className="flex items-center gap-3">
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-primary/15 bg-primary/10 text-primary">
-                <Layers className="h-4 w-4" />
-              </div>
-              <div className="min-w-0 space-y-0.5">
-                <CardTitle className="text-base font-semibold tracking-tight">Status Distribution</CardTitle>
-                <CardDescription className="text-xs text-muted-foreground">
-                  Current status breakdown across all projects
-                </CardDescription>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent className="pt-0">
-            {statusDistribution.length === 0 ? (
-              <div className="h-[260px] flex items-center justify-center text-xs text-muted-foreground">
-                No projects to display.
-              </div>
-            ) : (
-              <ResponsiveContainer width="100%" height={260}>
-                <PieChart>
-                  <Pie
-                    data={statusDistribution.map((d) => ({
-                      ...d,
-                      name: formatProjectStatusLabel(d.status),
-                    }))}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={55}
-                    outerRadius={95}
-                    paddingAngle={4}
-                    dataKey="count"
-                    label={renderPieLabel}
-                    labelLine={{ stroke: "hsl(var(--muted-foreground))", strokeWidth: 1 }}
-                  >
-                    {statusDistribution.map((entry, index) => (
-                      <Cell
-                        key={`cell-${index}`}
-                        fill={statusColors[entry.status] || entry.color}
-                        stroke="hsl(var(--card))"
-                        strokeWidth={2}
-                      />
-                    ))}
-                  </Pie>
-                  <Tooltip content={<CustomTooltip />} />
-                  <Legend
-                    verticalAlign="bottom"
-                    iconType="circle"
-                    iconSize={8}
-                    wrapperStyle={{ fontSize: 11 }}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* ─── Progress Project Table ─── */}
-      <Card className="border-border/60 bg-card/70 shadow-sm transition-all duration-200 hover:border-primary/20 hover:shadow-md">
-        <CardHeader className="pb-4">
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex min-w-0 items-center gap-3">
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-primary/15 bg-primary/10 text-primary">
-                <TrendingUp className="h-4 w-4" />
-              </div>
-              <div className="min-w-0 space-y-0.5">
-                <CardTitle className="text-base font-semibold tracking-tight">Project Progress Tracker</CardTitle>
-                <CardDescription className="text-xs text-muted-foreground">
-                  Active, postponed, and completed projects with milestone completion percentage
-                </CardDescription>
-              </div>
-            </div>
-            <Link href="/projects">
-              <Button variant="ghost" size="sm" className="h-8 gap-1.5 rounded-lg px-2.5 text-xs text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground">
-                <span>View All</span>
-                <ArrowUpRight className="h-3.5 w-3.5" />
-              </Button>
+      <section aria-labelledby="project-delivery-heading" className="overflow-hidden rounded-xl border border-border bg-card">
+        <div className="flex flex-col gap-3 border-b border-border px-5 py-5 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 id="project-delivery-heading" className="text-base font-semibold text-foreground">Project delivery</h2>
+            <p className="mt-1 text-sm text-muted-foreground">Current progress across active and planning projects</p>
+          </div>
+          {projectDelivery.length > 0 && (
+            <Link href="/projects" className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline">
+              View all projects
+              <ArrowRight className="h-4 w-4" />
             </Link>
-          </div>
-        </CardHeader>
-        <CardContent className="pt-0">
-          {projectProgress.length === 0 ? (
-            <div className="py-10 text-center text-xs text-muted-foreground">
-              No active projects to track.
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {/* Table Header */}
-              <div className="mb-2 hidden border-b border-border/60 px-3 pb-2.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground sm:grid sm:grid-cols-12 sm:gap-3">
-                <div className="col-span-4">Project</div>
-                <div className="col-span-2 text-center">Status</div>
-                <div className="col-span-2 text-center">Milestones</div>
-                <div className="col-span-3">Progress</div>
-                <div className="col-span-1 text-center">Overdue</div>
-              </div>
-
-              {projectProgress.map((p) => (
-                <Link key={p.id} href={`/projects/${p.id}`}>
-                  <div className="grid grid-cols-1 items-center gap-3 rounded-xl border border-border/40 bg-muted/10 px-3 py-3.5 transition-all duration-200 hover:border-primary/30 hover:bg-muted/30 sm:grid-cols-12 sm:px-4 cursor-pointer">
-                    {/* Project Name */}
-                    <div className="col-span-4 space-y-0.5">
-                      <p className="text-sm font-semibold text-foreground truncate">
-                        {p.name}
-                      </p>
-                      <p className="text-[11px] text-muted-foreground">
-                        <span className="font-mono">{p.projectCode}</span> • {p.clientName}
-                      </p>
-                    </div>
-
-                    {/* Status */}
-                    <div className="col-span-2 text-center">
-                      <Badge
-                        variant={
-                          p.status === "ACTIVE"
-                            ? "default"
-                            : p.status === "POSTPONED"
-                            ? "warning"
-                            : p.status === "COMPLETED"
-                            ? "success"
-                            : "outline"
-                        }
-                        className="text-[10px]"
-                      >
-                        {formatProjectStatusLabel(p.status)}
-                      </Badge>
-                    </div>
-
-                    {/* Milestones */}
-                    <div className="col-span-2 text-center text-xs text-muted-foreground">
-                      <span className="font-bold text-foreground">{p.completedMilestones}</span>
-                      <span> / {p.totalMilestones}</span>
-                    </div>
-
-                    {/* Progress Bar */}
-                    <div className="col-span-3 space-y-1">
-                      <div className="flex items-center justify-between text-[11px]">
-                        <span className={`font-bold ${getProgressColor(p.percentage)}`}>
-                          {p.percentage}%
-                        </span>
-                        {p.targetEndDate && (
-                          <span className="text-muted-foreground font-mono text-[10px]">
-                            Due {new Date(p.targetEndDate).toLocaleDateString("id-ID", { dateStyle: "short" })}
-                          </span>
-                        )}
-                      </div>
-                      <div className="h-2.5 w-full overflow-hidden rounded-full bg-muted/60 ring-1 ring-inset ring-border/40">
-                        <div
-                          className={`h-full rounded-full transition-all duration-500 ${getProgressBarColor(p.percentage)}`}
-                          style={{ width: `${p.percentage}%` }}
-                        />
-                      </div>
-                    </div>
-
-                    {/* Overdue Count */}
-                    <div className="col-span-1 text-center">
-                      {p.overdueMilestones > 0 ? (
-                        <span className="inline-flex items-center gap-1 text-xs font-bold text-red-400">
-                          <AlertTriangle className="h-3 w-3" />
-                          {p.overdueMilestones}
-                        </span>
-                      ) : (
-                        <CheckCircle2 className="h-4 w-4 text-emerald-400 mx-auto" />
-                      )}
-                    </div>
-                  </div>
-                </Link>
-              ))}
-            </div>
           )}
-        </CardContent>
-      </Card>
+        </div>
 
-      {/* ─── Recent Activity Feed ─── */}
-      <Card className="bg-card/50 backdrop-blur">
-        <CardHeader>
-          <div className="flex items-center gap-2">
-            <Clock className="h-4 w-4 text-primary" />
-            <CardTitle className="text-base">Recent Activity</CardTitle>
+        <div className="hidden grid-cols-[minmax(170px,1.4fr)_minmax(110px,0.9fr)_110px_minmax(145px,1fr)_minmax(135px,1fr)_minmax(110px,0.9fr)_auto] gap-4 border-b border-border bg-muted/40 px-5 py-3 text-xs font-medium text-muted-foreground lg:grid">
+          <span>Project</span>
+          <span>Customer</span>
+          <span>Status</span>
+          <span>Progress</span>
+          <span>Deadline / Risk</span>
+          <span>Owner</span>
+          <span>Action</span>
+        </div>
+
+        {isProjectDeliveryLoading && projectDelivery.length === 0 ? (
+          <div className="space-y-3 p-5" aria-label="Loading project delivery">
+            {[0, 1, 2, 3].map((item) => <div key={item} className="h-16 animate-pulse rounded bg-muted" />)}
           </div>
-          <CardDescription className="text-xs">
-            Latest actions across the workflow management system
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {recentActivity.length === 0 ? (
-            <div className="py-10 text-center text-xs text-muted-foreground">
-              No activity recorded yet.
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {recentActivity.map((a) => (
-                <div
-                  key={a.id}
-                  className="flex items-start gap-3 px-3 py-2.5 rounded-lg border border-border/30 hover:bg-muted/10 transition text-xs"
-                >
-                  <div className="mt-0.5">{getActionIcon(a.action)}</div>
-                  <div className="flex-1 space-y-0.5">
-                    <p className="text-foreground">
-                      <span className="font-semibold">{a.user.fullName}</span>
-                      <span className="text-muted-foreground"> ({a.user.role}) </span>
-                      <span className="text-muted-foreground">{a.details}</span>
-                    </p>
-                    {a.project && (
-                      <p className="text-[11px] text-muted-foreground">
-                        Project: <span className="font-mono">{a.project.projectCode}</span> — {a.project.name}
-                      </p>
-                    )}
+        ) : projectDelivery.length > 0 ? (
+          <div className="divide-y divide-border">
+            {projectDelivery.map((project) => (
+              <ProjectDeliveryRow
+                key={project.id}
+                project={project}
+                role={userRole}
+                hasOverdueData={projectProgressIds.has(project.id)}
+              />
+            ))}
+          </div>
+        ) : hasProjectDeliveryError ? (
+          <div className="px-5 py-8 text-sm text-muted-foreground">
+            Couldn&apos;t load project delivery. Try again from the notice above.
+          </div>
+        ) : (
+          <div className="flex flex-col items-start gap-3 px-5 py-8">
+            <p className="text-sm font-medium text-foreground">No project delivery data yet</p>
+            <p className="text-sm text-muted-foreground">Projects available to your role will appear here.</p>
+            <Link href="/projects" className="text-sm font-medium text-primary hover:underline">View projects</Link>
+          </div>
+        )}
+      </section>
+
+      <section aria-labelledby="recent-activity-heading" className="overflow-hidden rounded-xl border border-border bg-card">
+        <div className="border-b border-border px-5 py-5">
+          <h2 id="recent-activity-heading" className="text-base font-semibold text-foreground">Recent activity</h2>
+          <p className="mt-1 text-sm text-muted-foreground">Latest changes across your accessible projects</p>
+        </div>
+
+        {dashboardQuery.isLoading && recentActivity.length === 0 ? (
+          <div className="space-y-3 p-5" aria-label="Loading recent activity">
+            {[0, 1, 2, 3].map((item) => <div key={item} className="h-14 animate-pulse rounded bg-muted" />)}
+          </div>
+        ) : recentActivity.length > 0 ? (
+          <div className="divide-y divide-border">
+            {recentActivity.slice(0, 8).map((activity: RecentActivity) => {
+              const timestamp = formatDashboardTimestamp(activity.createdAt);
+              const content = (
+                <div className="grid gap-2 px-5 py-4 sm:grid-cols-[minmax(170px,0.8fr)_minmax(220px,1.5fr)_minmax(170px,0.9fr)_auto] sm:items-center sm:gap-5">
+                  <p className="text-sm font-medium text-foreground">{formatDashboardActivityLabel(activity.action)}</p>
+                  <div className="min-w-0">
+                    <p className="break-words text-sm text-foreground">{activity.project?.name || "Project unavailable"}</p>
+                    <p className="mt-1 break-words text-xs leading-5 text-muted-foreground">{activity.details}</p>
                   </div>
-                  <span className="text-[10px] text-muted-foreground font-mono shrink-0">
-                    {new Date(a.createdAt).toLocaleString("id-ID", {
-                      dateStyle: "short",
-                      timeStyle: "short",
-                    })}
-                  </span>
+                  <p className="text-xs text-muted-foreground">
+                    {[activity.user.fullName, formatActorRoleLabel(activity.user.role)].filter(Boolean).join(" - ")}
+                  </p>
+                  <div className="flex items-center justify-between gap-3 sm:justify-end">
+                    <span className="text-xs text-muted-foreground">{timestamp || "Time unavailable"}</span>
+                    {activity.project && <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />}
+                  </div>
                 </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+              );
+
+              return activity.project ? (
+                <Link
+                  key={activity.id}
+                  href={"/projects/" + activity.project.id}
+                  className="block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+                >
+                  {content}
+                </Link>
+              ) : (
+                <div key={activity.id}>{content}</div>
+              );
+            })}
+          </div>
+        ) : dashboardQuery.isError ? (
+          <div className="px-5 py-8 text-sm text-muted-foreground">Recent activity couldn&apos;t be loaded.</div>
+        ) : (
+          <div className="px-5 py-8 text-sm text-muted-foreground">No recent activity is available for your projects yet.</div>
+        )}
+      </section>
     </div>
   );
 }
