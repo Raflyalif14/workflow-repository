@@ -208,7 +208,9 @@ export function Sidebar() {
       <div className="border-t border-[hsl(var(--sidebar-border))] p-2 shrink-0">
         {/* Collapse Toggle */}
         <button
+          type="button"
           onClick={() => setCollapsed(!collapsed)}
+          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
           className="hidden lg:flex h-10 w-full items-center gap-2.5 rounded-md px-3 text-sm text-[hsl(var(--sidebar-foreground))] hover:bg-[hsl(var(--sidebar-hover))] hover:text-foreground transition-colors"
           title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
         >
@@ -252,7 +254,9 @@ export function Sidebar() {
       >
         {/* Mobile Close Button */}
         <button
+          type="button"
           onClick={() => setMobileOpen(false)}
+          aria-label="Close navigation"
           className="absolute top-4 right-3 p-1 rounded-md text-[hsl(var(--sidebar-foreground))] hover:text-foreground hover:bg-[hsl(var(--sidebar-hover))] transition"
         >
           <X className="h-5 w-5" />
@@ -306,7 +310,9 @@ export function TopBar() {
         {/* Left: Mobile Hamburger + Global Search */}
         <div className="flex items-center gap-3">
           <button
+            type="button"
             onClick={() => setMobileOpen(true)}
+            aria-label="Open navigation"
             className="lg:hidden p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition"
           >
             <Menu className="h-5 w-5" />
@@ -352,7 +358,9 @@ export function TopBar() {
 
             {/* Logout Button */}
             <button
+              type="button"
               onClick={() => logout()}
+              aria-label="Sign out"
               className="ml-1 flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
               title="Sign Out"
             >

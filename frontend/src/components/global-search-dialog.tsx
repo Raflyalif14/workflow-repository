@@ -12,6 +12,10 @@ import {
   isGlobalSearchEligible,
   moveGlobalSearchSelection,
 } from "@/lib/global-search";
+import {
+  formatMilestoneStatusLabel,
+  formatProjectStatusLabel,
+} from "@/lib/workflow-ux-helpers";
 
 type GlobalSearchDialogProps = {
   open: boolean;
@@ -132,7 +136,13 @@ export function GlobalSearchDialog({ open, onOpenChange }: GlobalSearchDialogPro
                           <span className="block truncate text-sm font-medium">{result.title}</span>
                           <span className="block truncate text-xs text-muted-foreground">{result.subtitle}</span>
                         </span>
-                        {result.status && <span className="shrink-0 text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">{result.status}</span>}
+                        {result.status && (
+                          <span className="shrink-0 text-[10px] font-semibold text-muted-foreground">
+                            {result.type === "PROJECT"
+                              ? formatProjectStatusLabel(result.status)
+                              : formatMilestoneStatusLabel(result.status)}
+                          </span>
+                        )}
                       </button>
                     );
                   })}

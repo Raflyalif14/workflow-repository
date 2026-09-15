@@ -169,12 +169,14 @@ export default function DocumentsPage() {
               <Input
                 type="text"
                 placeholder="Search document title"
+                aria-label="Search documents"
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
                 className="pl-9"
               />
             </div>
             <select
+              aria-label="Filter documents by category"
               value={categoryFilter}
               onChange={(event) =>
                 setCategoryFilter(event.target.value as DocumentCategory | "ALL")
@@ -192,6 +194,7 @@ export default function DocumentsPage() {
               <option value="OTHER">Other</option>
             </select>
             <select
+              aria-label="Filter documents by status"
               value={statusFilter}
               onChange={(event) =>
                 setStatusFilter(event.target.value as DocumentStatus | "ALL")

@@ -354,6 +354,7 @@ export default function ProjectsPage() {
               <Input
                 className="pl-9"
                 placeholder="Search project or customer"
+                aria-label="Search projects"
                 value={search}
                 onChange={(event) => {
                   setSearch(event.target.value);
@@ -362,6 +363,7 @@ export default function ProjectsPage() {
               />
             </div>
             <select
+              aria-label="Filter projects by scenario"
               className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
               value={scenarioId}
               onChange={(event) => {

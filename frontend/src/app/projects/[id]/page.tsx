@@ -1436,33 +1436,44 @@ function DeadlineDialog({
       </DialogHeader>
       <form className="space-y-4" onSubmit={submit}>
         <div>
-          <label className="block text-xs font-semibold text-muted-foreground mb-1">New Start Date</label>
-          <Input type="date" value={startDate} onChange={(event) => setStartDate(event.target.value)} required />
+          <label htmlFor="deadline-start-date" className="block text-xs font-semibold text-muted-foreground mb-1">New Start Date</label>
+          <Input
+            id="deadline-start-date"
+            type="date"
+            value={startDate}
+            onChange={(event) => setStartDate(event.target.value)}
+            aria-describedby={error ? "deadline-change-error" : undefined}
+            required
+          />
         </div>
         <div>
-          <label className="block text-xs font-semibold text-muted-foreground mb-1">Working Days Duration</label>
+          <label htmlFor="deadline-working-days" className="block text-xs font-semibold text-muted-foreground mb-1">Working Days Duration</label>
           <Input
+            id="deadline-working-days"
             type="number"
             min="1"
             step="1"
             value={duration}
             onChange={(event) => setDuration(event.target.value)}
             placeholder="Working days"
+            aria-describedby={error ? "deadline-change-error" : undefined}
             required
           />
         </div>
         <div>
-          <label className="block text-xs font-semibold text-muted-foreground mb-1">Reason for Deadline Change *</label>
+          <label htmlFor="deadline-change-reason" className="block text-xs font-semibold text-muted-foreground mb-1">Reason for Deadline Change *</label>
           <textarea
+            id="deadline-change-reason"
             rows={3}
             value={reason}
             onChange={(event) => setReason(event.target.value)}
             placeholder="Explain why the timeline needs to be modified..."
             className="flex w-full rounded-md border border-input bg-card px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-primary"
+            aria-describedby={error ? "deadline-change-error" : undefined}
             required
           />
         </div>
-        {error && <p className="text-sm text-destructive">{error}</p>}
+        {error && <p id="deadline-change-error" className="text-sm text-destructive" role="alert">{error}</p>}
         <DialogFooter>
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
             Cancel

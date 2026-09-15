@@ -19,6 +19,7 @@ import {
   MAX_DOCUMENT_FILES,
   removeDocumentFile,
 } from "@/lib/document-file-selection";
+import { formatActorRoleLabel } from "@/lib/workflow-ux-helpers";
 
 function formatFileSize(value: number): string {
   if (value < 1024 * 1024) return `${Math.max(1, Math.round(value / 1024))} KB`;
@@ -166,7 +167,9 @@ export function MilestoneContributionsPanel({
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <p className="text-[11px] font-medium text-foreground">
                   Shared by {contribution.contributed_by?.full_name || "Project Sales"}
-                  {contribution.contributed_by?.role ? ` · ${contribution.contributed_by.role}` : ""}
+                  {contribution.contributed_by?.role
+                    ? ` · ${formatActorRoleLabel(contribution.contributed_by.role)}`
+                    : ""}
                 </p>
                 <span className="text-[10px] text-muted-foreground">{formatDateTime(contribution.created_at)}</span>
               </div>

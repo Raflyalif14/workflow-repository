@@ -21,7 +21,8 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { getApprovalTypeDisplay } from "@/lib/workflow-ux-helpers";
+import { formatActorRoleLabel, getApprovalTypeDisplay } from "@/lib/workflow-ux-helpers";
+import { formatReviewStatus } from "@/lib/review-surface-ux";
 
 interface ApprovalActionDialogProps {
   open: boolean;
@@ -241,7 +242,7 @@ export function ApprovalActionDialog({
                     <option value="">Select Solution Architect</option>
                     {pics.map((pic) => (
                       <option key={pic.id} value={pic.id}>
-                        {pic.full_name} ({pic.role}) - {pic.email}
+                        {pic.full_name} ({formatActorRoleLabel(pic.role)}) - {pic.email}
                       </option>
                     ))}
                   </select>
@@ -254,10 +255,11 @@ export function ApprovalActionDialog({
             )}
 
             <div>
-              <label className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+              <label htmlFor="approval-feedback" className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
                 {action === "REJECT" ? "Rejection Reason / Revision Notes *" : "Approval Remarks (Optional)"}
               </label>
               <textarea
+                id="approval-feedback"
                 rows={3}
                 placeholder={
                   action === "REJECT"
@@ -271,11 +273,13 @@ export function ApprovalActionDialog({
                 }}
                 className="flex w-full rounded-lg border border-input bg-background/50 px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-primary"
                 required={action === "REJECT"}
+                aria-invalid={Boolean(error) && action === "REJECT"}
+                aria-describedby={error ? "approval-action-error" : undefined}
               />
             </div>
 
             {error && (
-              <div className="flex items-start gap-2 rounded-xl border border-destructive/40 bg-destructive/10 p-3 text-xs text-destructive">
+              <div id="approval-action-error" className="flex items-start gap-2 rounded-xl border border-destructive/40 bg-destructive/10 p-3 text-xs text-destructive" role="alert">
                 <AlertCircle className="h-4 w-4 shrink-0" />
                 <span>{error}</span>
               </div>
@@ -308,7 +312,7 @@ export function ApprovalActionDialog({
         ) : (
           <div className="space-y-3">
             <div className="space-y-1 rounded-xl border border-border/40 bg-muted/15 p-3 text-xs">
-              <p>Status: <strong className="text-foreground">{item.status}</strong></p>
+              <p>Status: <strong className="text-foreground">{formatReviewStatus(item.status)}</strong></p>
               <p>Reviewed by: <strong className="text-foreground">{item.reviewer?.full_name || item.reviewer?.fullName || "-"}</strong></p>
               {item.reviewNote && <p>Review note: <strong className="text-foreground">&quot;{item.reviewNote}&quot;</strong></p>}
             </div>
