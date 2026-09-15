@@ -143,7 +143,7 @@ export function ProjectTimelineEditor({
   if (!rows.length) return null;
 
   return (
-    <Card className="border-border/60 bg-card/70 shadow-sm">
+    <Card className="min-w-0 border-border/60 bg-card/70 shadow-sm">
       <CardHeader className="flex flex-col gap-3 pb-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex items-start gap-3">
           <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-primary/15 bg-primary/10 text-primary">
@@ -170,10 +170,10 @@ export function ProjectTimelineEditor({
           </Button>
         )}
       </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="overflow-hidden">
-          <div className="space-y-2 text-sm">
-            <div className="hidden grid-cols-[50px_minmax(180px,1.8fr)_90px_150px_110px_150px] gap-3 border-b border-border/60 px-3 pb-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground xl:grid">
+      <CardContent className="min-w-0 space-y-4">
+        <div className="max-w-full overflow-x-auto">
+          <div className="min-w-0 space-y-2 text-sm xl:min-w-[652px]">
+            <div className="hidden grid-cols-[44px_minmax(140px,1.6fr)_70px_minmax(116px,1fr)_92px_minmax(126px,1fr)] gap-2 border-b border-border/60 px-3 pb-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground xl:grid">
               <span>Step</span>
               <span>Milestone</span>
               <span>Role</span>
@@ -193,7 +193,7 @@ export function ProjectTimelineEditor({
               return (
                 <div
                   key={row.milestoneId}
-                  className={`grid grid-cols-1 gap-3 rounded-xl border p-3 transition-colors duration-200 xl:grid-cols-[50px_minmax(180px,1.8fr)_90px_150px_110px_150px] xl:items-center xl:px-3 xl:py-3 ${
+                  className={`grid grid-cols-1 gap-3 rounded-xl border p-3 transition-colors duration-200 xl:grid-cols-[44px_minmax(140px,1.6fr)_70px_minmax(116px,1fr)_92px_minmax(126px,1fr)] xl:items-center xl:gap-2 xl:px-3 xl:py-3 ${
                     isRowIncomplete && canEdit
                       ? "border-destructive/40 bg-destructive/5"
                       : "border-border/40 bg-muted/10 hover:border-primary/25"
@@ -204,7 +204,7 @@ export function ProjectTimelineEditor({
                     {String(row.stepOrder).padStart(2, "0")}
                   </span>
                   <div className="min-w-0">
-                    <span className="truncate text-sm font-semibold tracking-tight text-foreground" title={row.name}>
+                    <span className="block truncate text-sm font-semibold tracking-tight text-foreground" title={row.name}>
                       {row.name}
                     </span>
                     {isRowIncomplete && canEdit && (
