@@ -12,6 +12,7 @@ import {
   resolveNextActionTargetId,
 } from "./workflow-ux-helpers";
 import { Project, ProjectMilestonePhase4, ProjectPlanApproval } from "@/types/project";
+import { getLocalDateOnlyKey } from "./dates";
 
 const baseProject: Project = {
   id: "project-1",
@@ -432,6 +433,65 @@ const completedAction = resolveNextAction(completedProject, saMilestones, null, 
 });
 if (completedAction.actionType !== "NONE" || completedAction.isWaiting) {
   throw new Error("Completed project should show Workflow Completed with no pending actions");
+}
+
+// ─── Test 9: Effective start date gate ───
+const futureMilestone: ProjectMilestonePhase4 = {
+  ...milestone3,
+  status: "IN_PROGRESS",
+  start_date: "2099-01-01",
+};
+const futureStageAction = resolveNextAction(
+  activeProject,
+  [milestone1, { ...milestone2, status: "COMPLETED" }, futureMilestone],
+  null,
+  { id: "sa-1", role: "SA" }
+);
+if (futureStageAction.canPerformAction || !futureStageAction.isWaiting) {
+  throw new Error("Milestone with future start date must not be actionable");
+}
+if (!futureStageAction.description.startsWith("Upcoming — Starts ")) {
+  throw new Error(`Expected description to start with 'Upcoming — Starts ', got '${futureStageAction.description}'`);
+}
+
+const currentMilestoneStartToday: ProjectMilestonePhase4 = {
+  ...milestone3,
+  status: "IN_PROGRESS",
+  start_date: getLocalDateOnlyKey(),
+};
+const todayStageAction = resolveNextAction(
+  activeProject,
+  [milestone1, { ...milestone2, status: "COMPLETED" }, currentMilestoneStartToday],
+  null,
+  { id: "sa-1", role: "SA" }
+);
+if (!todayStageAction.canPerformAction || todayStageAction.isWaiting) {
+  throw new Error("Milestone starting today must be actionable");
+}
+
+const activeRevisionAction = resolveNextAction(
+  activeProject,
+  [milestone1, { ...milestone2, status: "COMPLETED" }, futureMilestone],
+  null,
+  { id: "sa-1", role: "SA" },
+  { activeRevisionMilestoneId: futureMilestone.id }
+);
+if (!activeRevisionAction.canPerformAction || activeRevisionAction.actionLabel !== "Submit Work") {
+  throw new Error("An active revision must bypass the initial start-date gate");
+}
+
+const historicalRejectionAction = resolveNextAction(
+  activeProject,
+  [milestone1, { ...milestone2, status: "COMPLETED" }, futureMilestone],
+  null,
+  { id: "sa-1", role: "SA" }
+);
+if (historicalRejectionAction.canPerformAction || historicalRejectionAction.actionLabel !== "Prepare submission") {
+  throw new Error("A historical rejection alone must not bypass the initial start-date gate");
+}
+
+if (getLocalDateOnlyKey(new Date("2026-09-14T17:30:00.000Z")) !== "2026-09-15") {
+  throw new Error("Start-date eligibility must use the Asia/Jakarta date boundary");
 }
 
 console.log("All workflow UX helper tests passed successfully!");

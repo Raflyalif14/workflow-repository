@@ -4,6 +4,7 @@ import { useState, type FormEvent } from "react";
 import {
   AlertCircle,
   CalendarDays,
+  Clock3,
   Eye,
   FileCheck2,
   FileText,
@@ -36,6 +37,7 @@ import {
   removeDocumentFile,
 } from "@/lib/document-file-selection";
 import { getMilestoneSubmissionPresentation } from "@/lib/milestone-submission-ux";
+import { formatMilestoneDate, isInitialSubmissionBeforeEffectiveStart } from "@/lib/dates";
 
 function formatFileSize(size: number | string): string {
   const bytes = typeof size === "string" ? Number(size) : size;
@@ -77,8 +79,10 @@ interface MilestoneSubmissionDialogProps {
   milestoneName: string;
   milestoneStatus?: string;
   stepOrder?: number;
+  startDate?: string | null;
   dueDate?: string | null;
-  onSuccess: () => void;
+  onSuccess?: () => void;
+  onSubmitted?: () => void;
 }
 
 export function MilestoneSubmissionDialog({
@@ -90,8 +94,10 @@ export function MilestoneSubmissionDialog({
   milestoneName,
   milestoneStatus = "IN_PROGRESS",
   stepOrder,
+  startDate,
   dueDate,
   onSuccess,
+  onSubmitted,
 }: MilestoneSubmissionDialogProps) {
   const submitMilestone = useSubmitMilestone(projectId, milestoneId);
   const history = useSubmissionPackageHistory(milestoneId, open);
@@ -106,6 +112,12 @@ export function MilestoneSubmissionDialog({
     history.data?.items
   );
   const revision = presentation.latestRejectedRevision;
+  const isActiveRevision =
+    milestoneStatus === "IN_PROGRESS" && history.data?.items[0]?.status === "REJECTED";
+  const isBeforeStart = isInitialSubmissionBeforeEffectiveStart(
+    startDate,
+    isActiveRevision
+  );
   const dueDateLabel = formatDate(dueDate);
   const reviewedAtLabel = formatDateTime(revision?.review.reviewedAt);
   const isActionable =
@@ -153,6 +165,7 @@ export function MilestoneSubmissionDialog({
     event.preventDefault();
     if (
       !isActionable ||
+      isBeforeStart ||
       !canSubmitDocumentFiles(files, selectionError) ||
       submitMilestone.isPending
     ) {
@@ -163,7 +176,8 @@ export function MilestoneSubmissionDialog({
     try {
       await submitMilestone.mutateAsync({ files, note });
       reset();
-      onSuccess();
+      onSuccess?.();
+      onSubmitted?.();
       onOpenChange(false);
     } catch {
       setError(
@@ -235,6 +249,18 @@ export function MilestoneSubmissionDialog({
             </div>
           )}
         </div>
+
+        {isBeforeStart && (
+          <div
+            className="mb-4 flex items-center gap-2 rounded-lg border border-border/70 bg-muted/40 p-3 text-xs text-muted-foreground"
+            role="status"
+          >
+            <Clock3 className="h-4 w-4 shrink-0 text-muted-foreground" />
+            <span>
+              Upcoming — Starts {formatMilestoneDate(startDate)}. You may prepare the submission now, but it can only be sent on or after the start date.
+            </span>
+          </div>
+        )}
 
         {presentation.mode === "REVISION" && (
           <section className="mb-4 rounded-lg border border-amber-500/30 bg-amber-500/10 p-4">
@@ -506,6 +532,7 @@ export function MilestoneSubmissionDialog({
               <Button
                 type="submit"
                 disabled={
+                  isBeforeStart ||
                   !canSubmitDocumentFiles(files, selectionError) ||
                   submitMilestone.isPending
                 }
@@ -513,7 +540,9 @@ export function MilestoneSubmissionDialog({
               >
                 <FileCheck2 className="h-4 w-4" />
                 <span>
-                  {submitMilestone.isPending
+                  {isBeforeStart
+                    ? `Upcoming — Starts ${formatMilestoneDate(startDate)}`
+                    : submitMilestone.isPending
                     ? presentation.pendingLabel
                     : presentation.primaryLabel}
                 </span>

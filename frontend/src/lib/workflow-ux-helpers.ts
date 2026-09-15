@@ -9,6 +9,9 @@ import {
   ProjectStatus,
 } from "@/types/project";
 import { isMilestoneCompleted } from "./milestone-ui-state";
+import { formatMilestoneDate, isInitialSubmissionBeforeEffectiveStart } from "./dates";
+
+export { formatMilestoneDate, isInitialSubmissionBeforeEffectiveStart } from "./dates";
 
 export type ActorRole = "SALES" | "HEAD_SA" | "SA" | "SUPER_ADMIN" | "GUEST" | string;
 
@@ -255,7 +258,8 @@ export function resolveNextAction(
   project: Project,
   milestones: ProjectMilestonePhase4[] = [],
   planApproval?: ProjectPlanApproval | null,
-  actor?: CurrentActor
+  actor?: CurrentActor,
+  context?: { activeRevisionMilestoneId?: string | null }
 ): NextActionInfo {
   const role = actor?.role || "GUEST";
   const isSalesOwner = role === "SALES" && project.sales_id === actor?.id;
@@ -523,6 +527,25 @@ export function resolveNextAction(
 
       if (stageRole === "SA") {
         if (isAssignedPic) {
+          const isBeforeStart = isInitialSubmissionBeforeEffectiveStart(
+            currentMilestone.start_date,
+            context?.activeRevisionMilestoneId === currentMilestone.id
+          );
+
+          if (isBeforeStart) {
+            return {
+              title: `Upcoming stage: ${currentMilestone.name}`,
+              description: `Upcoming — Starts ${formatMilestoneDate(currentMilestone.start_date)}`,
+              actionLabel: "Prepare submission",
+              actionType: "SUBMIT_WORK",
+              isWaiting: true,
+              waitingForRole: "SA",
+              canPerformAction: false,
+              targetMilestoneId: currentMilestone.id,
+              targetMilestoneName: currentMilestone.name,
+            };
+          }
+
           return {
             title: `Submit work: ${currentMilestone.name}`,
             description: `Complete your deliverables for '${currentMilestone.name}' and submit for Head SA review.`,

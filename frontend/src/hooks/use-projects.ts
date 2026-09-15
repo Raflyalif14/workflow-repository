@@ -42,6 +42,7 @@ export interface AssignedMilestone {
   step_order: number;
   status: string;
   pic_id: string;
+  start_date?: string | null;
   project?: {
     id: string;
     name: string;

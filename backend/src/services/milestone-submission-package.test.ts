@@ -1,5 +1,6 @@
 import { supabaseAdmin } from '../config/supabase';
 import { DocumentStorageService } from '../utils/storage.util';
+import { getDateOnlyKeyInTimeZone } from '../utils/dates';
 import {
   MilestoneSubmissionPackageError,
   MilestoneSubmissionPackageService,
@@ -14,6 +15,8 @@ type Scenario = {
   projectStatus?: string;
   projectPostponed?: boolean;
   picId?: string;
+  startDate?: string | null;
+  approvalStatuses?: Array<'PENDING' | 'APPROVED' | 'REJECTED'>;
   activePackage?: boolean;
   uploadFailsAt?: number;
   attachmentMetadataFails?: boolean;
@@ -26,7 +29,7 @@ type Scenario = {
 
 type State = {
   scenario: Scenario;
-  milestone: { id: string; project_id: string; name: string; status: string; pic_id: string | null };
+  milestone: { id: string; project_id: string; name: string; status: string; pic_id: string | null; start_date: string | null };
   project: { id: string; name: string; status: string; is_postponed: boolean };
   package: Record<string, any> | null;
   historicalPackage: Record<string, any> | null;
@@ -61,6 +64,7 @@ const makeState = (scenario: Scenario = {}): State => ({
     name: 'Customer Assessment',
     status: scenario.milestoneStatus || 'IN_PROGRESS',
     pic_id: scenario.picId === undefined ? saPic.userId : scenario.picId,
+    start_date: scenario.startDate !== undefined ? scenario.startDate : null,
   },
   project: {
     id: 'project-1',
@@ -81,7 +85,12 @@ const makeState = (scenario: Scenario = {}): State => ({
         status: 'REJECTED',
       }]
     : [],
-  approvals: [],
+  approvals: (scenario.approvalStatuses || (scenario.rejectedPackage ? ['REJECTED'] : [])).map((status, index) => ({
+    id: `approval-v${index + 1}`,
+    milestone_id: 'milestone-1',
+    status,
+    submitted_at: `2026-09-${String(index + 1).padStart(2, '0')}T08:00:00.000Z`,
+  })),
   uploadedPaths: [],
   cleanupPaths: [],
   tablesTouched: [],
@@ -124,6 +133,10 @@ class QueryMock {
   }
 
   order(): this {
+    return this;
+  }
+
+  limit(): this {
     return this;
   }
 
@@ -184,8 +197,12 @@ class QueryMock {
 
   private executeApprovals(): { data: any; error: any } {
     if (this.operation === 'select') {
-      const pending = this.state.approvals.find((approval) => approval.status === this.filterValue('status')) || null;
-      return { data: pending, error: null };
+      const status = this.filterValue('status');
+      const approval = status
+        ? this.state.approvals.find((item) => item.status === status) || null
+        : [...this.state.approvals]
+            .sort((left, right) => String(right.submitted_at).localeCompare(String(left.submitted_at)))[0] || null;
+      return { data: approval, error: null };
     }
     if (this.operation === 'insert') {
       if (this.state.scenario.approvalFails) return { data: null, error: { code: 'XX001' } };
@@ -465,6 +482,50 @@ async function run(): Promise<void> {
     assert(state.attachments.some((attachment) => attachment.package_id === result.package.id && attachment.status === 'PENDING'), 'Test 15: v2 attachments must remain independently pending review');
     console.log('Test 15 - Rejected package evidence remains intact while a new revision package is submitted: passed');
   });
+
+  const todayKey = getDateOnlyKeyInTimeZone();
+  const [y, m, d] = todayKey.split('-').map(Number);
+  const tomorrow = new Date(Date.UTC(y, m - 1, d + 1));
+  const tomorrowKey = tomorrow.toISOString().slice(0, 10);
+
+  await withScenario({ startDate: tomorrowKey }, async (state) => {
+    await expectSubmissionError(
+      () => MilestoneSubmissionPackageService.submit('milestone-1', saPic, [makeFile('early.pdf')]),
+      'Milestone work cannot be submitted before its effective start date.',
+      409
+    );
+    assert(state.package === null && state.cleanupPaths.length === 0, 'Test 16: early submission must be rejected before staging package or uploads');
+    assert(state.approvals.length === 0, 'Test 16: early submission must not create approval record');
+    console.log('Test 16 - Submission one day before effective start date is rejected: passed');
+  });
+
+  await withScenario({ startDate: todayKey }, async (state) => {
+    const result = await MilestoneSubmissionPackageService.submit('milestone-1', saPic, [makeFile('on-time.pdf')]);
+    assert(result.package.status === 'PENDING_REVIEW', 'Test 17: submission on exact start date must succeed');
+    assert(state.milestone.status === 'SUBMITTED', 'Test 17: milestone must transition to SUBMITTED');
+    console.log('Test 17 - Submission on exact effective start date is allowed: passed');
+  });
+
+  await withScenario({ startDate: tomorrowKey, rejectedPackage: true }, async (state) => {
+    const result = await MilestoneSubmissionPackageService.submit('milestone-1', saPic, [makeFile('revision-early.pdf')], 'Resubmitting early revision');
+    assert(result.package.status === 'PENDING_REVIEW', 'Test 18: revision submission must bypass initial start date gate');
+    assert(state.milestone.status === 'SUBMITTED', 'Test 18: milestone must transition to SUBMITTED');
+    console.log('Test 18 - Rejected revision submit is allowed even before effective start date: passed');
+  });
+
+  await withScenario({ startDate: tomorrowKey, approvalStatuses: ['REJECTED', 'APPROVED'] }, async (state) => {
+    await expectSubmissionError(
+      () => MilestoneSubmissionPackageService.submit('milestone-1', saPic, [makeFile('not-active-revision.pdf')]),
+      'Milestone work cannot be submitted before its effective start date.',
+      409
+    );
+    assert(state.package === null, 'Test 19: a historical rejection must not bypass the initial start-date gate');
+    console.log('Test 19 - Only the latest rejected approval in an active revision bypasses the start-date gate: passed');
+  });
+
+  const jakartaBoundary = getDateOnlyKeyInTimeZone(new Date('2026-09-14T17:30:00.000Z'));
+  assert(jakartaBoundary === '2026-09-15', 'Test 20: Asia/Jakarta date boundary must be used for submission eligibility');
+  console.log('Test 20 - Submission eligibility uses the Asia/Jakarta date boundary: passed');
 }
 
 run().catch((error) => {

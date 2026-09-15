@@ -36,7 +36,30 @@ const toDateOnly = (date: DateInput): Date => {
   return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
 };
 
-const toDateOnlyKey = (date: DateInput): string => toDateOnly(date).toISOString().slice(0, 10);
+export const toDateOnlyKey = (date: DateInput): string => toDateOnly(date).toISOString().slice(0, 10);
+
+export const BUSINESS_TIME_ZONE = 'Asia/Jakarta';
+
+export const getDateOnlyKeyInTimeZone = (
+  date = new Date(),
+  timeZone = BUSINESS_TIME_ZONE
+): string => {
+  if (Number.isNaN(date.getTime())) throw new Error('Invalid date value');
+
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(date);
+  const values = new Map(parts.map((part) => [part.type, part.value]));
+  const year = values.get('year');
+  const month = values.get('month');
+  const day = values.get('day');
+  if (!year || !month || !day) throw new Error('Invalid date value');
+
+  return `${year}-${month}-${day}`;
+};
 
 const getHolidayDate = (holiday: HolidayInput): DateInput | null => {
   if (holiday instanceof Date || typeof holiday === 'string') return holiday;

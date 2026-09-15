@@ -441,6 +441,37 @@ export class MilestoneSubmissionPackageReviewService {
     throw new MilestoneSubmissionPackageReviewError('Milestone not found', 404);
   }
 
+  private static assertHistoryReadAccess(context: ReadMilestoneContext, actor: Actor): void {
+    if (!context.project) throw new MilestoneSubmissionPackageReviewError('Milestone not found', 404);
+    if (actor.role === 'SUPER_ADMIN' || actor.role === 'HEAD_SA') return;
+    if (actor.role === 'SA' && context.pic_id === actor.userId) return;
+    if (actor.role === 'SALES' && context.project.sales_id === actor.userId) return;
+    throw new MilestoneSubmissionPackageReviewError('Milestone not found', 404);
+  }
+
+  static canAccessPackageAttachments(
+    packageStatus: PackageStatus,
+    context: ReadMilestoneContext,
+    actor: Actor
+  ): boolean {
+    if (!context.project) return false;
+
+    const isAssignedSa = actor.role === 'SA' && context.pic_id === actor.userId;
+    const isHeadSa = actor.role === 'HEAD_SA';
+    const isOwningSales = actor.role === 'SALES' && context.project.sales_id === actor.userId;
+    const isSuperAdmin = actor.role === 'SUPER_ADMIN';
+
+    if (packageStatus === 'PENDING_REVIEW' || packageStatus === 'REJECTED') {
+      return isAssignedSa || isHeadSa;
+    }
+
+    if (packageStatus === 'APPROVED') {
+      return isAssignedSa || isHeadSa || isOwningSales || isSuperAdmin;
+    }
+
+    return false;
+  }
+
   private static attachmentStatusForPackage(status: PackageStatus): 'PENDING' | 'PROMOTED' | 'REJECTED' | null {
     if (status === 'PENDING_REVIEW') return 'PENDING';
     if (status === 'APPROVED') return 'PROMOTED';
@@ -450,7 +481,7 @@ export class MilestoneSubmissionPackageReviewService {
 
   static async getPackageHistory(milestoneId: string, actor: Actor) {
     const milestone = await this.getReadMilestoneContext(milestoneId);
-    this.assertReadAccess(milestone, actor);
+    this.assertHistoryReadAccess(milestone, actor);
 
     const { data: packageRows, error: packageError } = await supabaseAdmin
       .from('milestone_submission_packages')
@@ -538,6 +569,8 @@ export class MilestoneSubmissionPackageReviewService {
         throw new MilestoneSubmissionPackageReviewError('Milestone submission history is incomplete.', 409);
       }
 
+      const hasAttachmentAccess = this.canAccessPackageAttachments(packageRow.status, milestone, actor);
+
       return {
         id: packageRow.id,
         revision: index + 1,
@@ -553,14 +586,16 @@ export class MilestoneSubmissionPackageReviewService {
           reviewedAt: approval.reviewed_at,
           reviewedBy: actorSummary(approval.reviewed_by),
         },
-        attachments: attachments.map((attachment) => ({
-          id: attachment.id,
-          fileName: attachment.file_name,
-          fileSize: attachment.file_size,
-          mimeType: attachment.mime_type,
-          status: attachment.status,
-          promotedDocumentId: attachment.promoted_document_id,
-        })),
+        attachments: hasAttachmentAccess
+          ? attachments.map((attachment) => ({
+              id: attachment.id,
+              fileName: attachment.file_name,
+              fileSize: attachment.file_size,
+              mimeType: attachment.mime_type,
+              status: attachment.status,
+              promotedDocumentId: attachment.promoted_document_id,
+            }))
+          : [],
       };
     });
 
@@ -582,11 +617,24 @@ export class MilestoneSubmissionPackageReviewService {
     if (!packageRow) return null;
 
     const packageData = packageRow as SubmissionPackage;
+    const hasAttachmentAccess = this.canAccessPackageAttachments(packageData.status, milestone, actor);
+    if (!hasAttachmentAccess) {
+      return {
+        id: packageData.id,
+        status: packageData.status,
+        submission_approval_id: packageData.milestone_approval_id,
+        attachment_count: packageData.attachment_count,
+        attachments: [],
+      };
+    }
+
     const attachmentStatus = packageData.status === 'PENDING_REVIEW'
       ? 'PENDING'
       : packageData.status === 'REJECTED'
         ? 'REJECTED'
-        : null;
+        : packageData.status === 'APPROVED'
+          ? 'PROMOTED'
+          : null;
     if (!attachmentStatus) {
       return {
         id: packageData.id,
@@ -632,6 +680,10 @@ export class MilestoneSubmissionPackageReviewService {
     if (packageError) throw new MilestoneSubmissionPackageReviewError('Failed to retrieve milestone submission attachment.', 500);
     if (!packageRow) throw new MilestoneSubmissionPackageReviewError('Milestone submission attachment not found', 404);
 
+    if (!this.canAccessPackageAttachments(packageRow.status as PackageStatus, milestone, actor)) {
+      throw new MilestoneSubmissionPackageReviewError('Milestone submission attachment not found', 404);
+    }
+
     const attachmentStatus = packageRow.status === 'PENDING_REVIEW'
       ? 'PENDING'
       : packageRow.status === 'REJECTED'
@@ -667,7 +719,7 @@ export class MilestoneSubmissionPackageReviewService {
     actor: Actor
   ) {
     const milestone = await this.getReadMilestoneContext(milestoneId);
-    this.assertReadAccess(milestone, actor);
+    this.assertHistoryReadAccess(milestone, actor);
 
     const { data: packageRow, error: packageError } = await supabaseAdmin
       .from('milestone_submission_packages')
@@ -677,6 +729,10 @@ export class MilestoneSubmissionPackageReviewService {
       .maybeSingle();
     if (packageError) throw new MilestoneSubmissionPackageReviewError('Failed to retrieve milestone submission attachment.', 500);
     if (!packageRow) throw new MilestoneSubmissionPackageReviewError('Milestone submission attachment not found', 404);
+
+    if (!this.canAccessPackageAttachments(packageRow.status as PackageStatus, milestone, actor)) {
+      throw new MilestoneSubmissionPackageReviewError('Milestone submission attachment not found', 404);
+    }
 
     const attachmentStatus = this.attachmentStatusForPackage(packageRow.status as PackageStatus);
     if (!attachmentStatus) throw new MilestoneSubmissionPackageReviewError('Milestone submission attachment not found', 404);

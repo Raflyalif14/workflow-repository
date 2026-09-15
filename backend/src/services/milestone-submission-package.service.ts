@@ -7,6 +7,7 @@ import {
   MAX_DOCUMENT_FILE_SIZE_BYTES,
   MAX_MILESTONE_SUBMISSION_FILES,
 } from '../utils/storage.util';
+import { getDateOnlyKeyInTimeZone, toDateOnlyKey } from '../utils/dates';
 import { notifyMilestoneSubmitted } from './milestone-notification.service';
 import { logWorkflowActivityBestEffort } from './workflow-progression.service';
 
@@ -18,6 +19,7 @@ type SubmissionContext = {
   name: string;
   status: string;
   pic_id: string | null;
+  start_date: string | null;
   project: {
     id: string;
     name: string;
@@ -63,7 +65,8 @@ function businessError(error: unknown): MilestoneSubmissionPackageError {
   if (
     message === 'Project is postponed.' ||
     message === 'Project is not active.' ||
-    message === 'Only an IN_PROGRESS milestone can be submitted.'
+    message === 'Only an IN_PROGRESS milestone can be submitted.' ||
+    message === 'Milestone work cannot be submitted before its effective start date.'
   ) {
     return new MilestoneSubmissionPackageError(message, 409);
   }
@@ -75,7 +78,20 @@ function isUniqueViolation(error: unknown): boolean {
   return typeof error === 'object' && error !== null && (error as { code?: string }).code === '23505';
 }
 
-function validateMilestoneSubmissionState(context: SubmissionContext, actor: Actor): void {
+export function isInitialSubmissionBeforeEffectiveStart(
+  startDate: string | null,
+  isActiveRevision: boolean,
+  today = getDateOnlyKeyInTimeZone()
+): boolean {
+  if (!startDate || isActiveRevision) return false;
+  return toDateOnlyKey(startDate) > toDateOnlyKey(today);
+}
+
+function validateMilestoneSubmissionState(
+  context: SubmissionContext,
+  actor: Actor,
+  isActiveRevision: boolean
+): void {
   if (!['SA', 'HEAD_SA'].includes(actor.role)) throw new Error('Forbidden');
   if (!context.project) throw new Error('Project not found');
   if (context.pic_id !== actor.userId) throw new Error('Forbidden');
@@ -84,13 +100,16 @@ function validateMilestoneSubmissionState(context: SubmissionContext, actor: Act
   }
   if (context.project.status !== 'ACTIVE') throw new Error('Project is not active.');
   if (context.status !== 'IN_PROGRESS') throw new Error('Only an IN_PROGRESS milestone can be submitted.');
+  if (isInitialSubmissionBeforeEffectiveStart(context.start_date, isActiveRevision)) {
+    throw new Error('Milestone work cannot be submitted before its effective start date.');
+  }
 }
 
 export class MilestoneSubmissionPackageService {
   private static async getContext(milestoneId: string): Promise<SubmissionContext> {
     const { data, error } = await supabaseAdmin
       .from('project_milestones')
-      .select('id,project_id,name,status,pic_id,project:projects!project_milestones_project_id_fkey(id,name,status,is_postponed)')
+      .select('id,project_id,name,status,pic_id,start_date,project:projects!project_milestones_project_id_fkey(id,name,status,is_postponed)')
       .eq('id', milestoneId)
       .maybeSingle();
 
@@ -127,6 +146,20 @@ export class MilestoneSubmissionPackageService {
 
     if (error) throw new MilestoneSubmissionPackageError('Failed to retrieve milestone submission data.', 500);
     if (data) throw new MilestoneSubmissionPackageError('This milestone already has a pending approval.', 409);
+  }
+
+  private static async getLatestSubmissionApprovalStatus(milestoneId: string): Promise<string | null> {
+    const { data, error } = await supabaseAdmin
+      .from('milestone_approvals')
+      .select('status')
+      .eq('milestone_id', milestoneId)
+      .order('submitted_at', { ascending: false })
+      .order('id', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (error) throw new MilestoneSubmissionPackageError('Failed to retrieve milestone submission data.', 500);
+    return data?.status || null;
   }
 
   private static async createStagingPackage(context: SubmissionContext, actor: Actor, packageId: string): Promise<void> {
@@ -389,8 +422,10 @@ export class MilestoneSubmissionPackageService {
     this.assertFilesValid(files);
 
     const context = await this.getContext(milestoneId);
+    const latestApprovalStatus = await this.getLatestSubmissionApprovalStatus(milestoneId);
+    const isActiveRevision = context.status === 'IN_PROGRESS' && latestApprovalStatus === 'REJECTED';
     try {
-      validateMilestoneSubmissionState(context, actor);
+      validateMilestoneSubmissionState(context, actor, isActiveRevision);
     } catch (error) {
       throw businessError(error);
     }

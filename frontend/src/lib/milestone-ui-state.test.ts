@@ -124,7 +124,13 @@ if (!canReadSubmissionPackageHistory({ id: "admin", role: "SUPER_ADMIN" }, compl
   throw new Error("SUPER_ADMIN must read submission package history");
 }
 if (canReadSubmissionPackageHistory({ id: "sales-1", role: "SALES" }, completedMilestone)) {
-  throw new Error("SALES must not read submission package history");
+  throw new Error("SALES must not read submission package history without project ownership");
+}
+if (!canReadSubmissionPackageHistory({ id: "sales-1", role: "SALES" }, completedMilestone, "sales-1")) {
+  throw new Error("Project owner SALES must read submission package history");
+}
+if (canReadSubmissionPackageHistory({ id: "sales-2", role: "SALES" }, completedMilestone, "sales-1")) {
+  throw new Error("Non-owner SALES must not read submission package history");
 }
 if (canReadSubmissionPackageHistory({ id: "sa-other", role: "SA" }, completedMilestone)) {
   throw new Error("Unassigned SA must not read submission package history");

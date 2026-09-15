@@ -26,6 +26,7 @@ const superAdmin = { userId: 'admin-1', role: 'SUPER_ADMIN', fullName: 'Admin' }
 const assignedSa = { userId: 'sa-pic-1', role: 'SA', fullName: 'Assigned SA' };
 const unrelatedSa = { userId: 'sa-other-1', role: 'SA', fullName: 'Other SA' };
 const salesOwner = { userId: 'sales-1', role: 'SALES', fullName: 'Sales Owner' };
+const unrelatedSales = { userId: 'sales-other', role: 'SALES', fullName: 'Other Sales' };
 
 const createState = (): HistoryState => ({
   packages: [
@@ -129,6 +130,9 @@ class QueryMock {
   in(column: string, values: unknown[]): this { this.inFilters.push({ column, values }); return this; }
   order(column: string, options?: { ascending?: boolean }): this {
     this.orders.push({ column, ascending: options?.ascending !== false });
+    return this;
+  }
+  limit(): this {
     return this;
   }
   maybeSingle(): Promise<{ data: Row | null; error: null }> {
@@ -251,33 +255,88 @@ async function run(): Promise<void> {
   });
 
   await withState(async () => {
-    for (const actor of [headSa, superAdmin, assignedSa]) {
+    for (const actor of [headSa, assignedSa]) {
       const result = await MilestoneSubmissionPackageReviewService.getPackageHistory('milestone-1', actor);
       assert(result.items.length === 3, `Test 3: ${actor.role} must read authorized package history`);
+      assert(
+        result.items.every((item) => item.attachments.length === 1),
+        `Test 3: ${actor.role} must receive attachments for all revision states`
+      );
     }
-    await expectNotFound(
-      () => MilestoneSubmissionPackageReviewService.getPackageHistory('milestone-1', salesOwner),
-      'Test 3: SALES must not discover package metadata'
-    );
+
+    const salesResult = await MilestoneSubmissionPackageReviewService.getPackageHistory('milestone-1', salesOwner);
+    assert(salesResult.items.length === 3, 'Test 3: SALES must read package history items');
+    assert(salesResult.items[0].status === 'APPROVED' && salesResult.items[0].attachments.length === 1, 'Test 3: SALES must receive approved attachments');
+    assert(salesResult.items[1].status === 'PENDING_REVIEW' && salesResult.items[1].attachments.length === 0, 'Test 3: SALES must not receive pending attachments');
+    assert(salesResult.items[2].status === 'REJECTED' && salesResult.items[2].attachments.length === 0, 'Test 3: SALES must not receive rejected attachments');
+
+    const adminResult = await MilestoneSubmissionPackageReviewService.getPackageHistory('milestone-1', superAdmin);
+    assert(adminResult.items.length === 3, 'Test 3: SUPER_ADMIN must read package history items');
+    assert(adminResult.items[0].status === 'APPROVED' && adminResult.items[0].attachments.length === 1, 'Test 3: SUPER_ADMIN must receive approved attachments');
+    assert(adminResult.items[1].status === 'PENDING_REVIEW' && adminResult.items[1].attachments.length === 0, 'Test 3: SUPER_ADMIN must not receive pending attachments');
+    assert(adminResult.items[2].status === 'REJECTED' && adminResult.items[2].attachments.length === 0, 'Test 3: SUPER_ADMIN must not receive rejected attachments');
+
     await expectNotFound(
       () => MilestoneSubmissionPackageReviewService.getPackageHistory('milestone-1', unrelatedSa),
       'Test 3: unrelated SA must not discover package metadata'
     );
-    console.log('Test 3 - Package history is restricted to reviewers and the assigned PIC: passed');
+    await expectNotFound(
+      () => MilestoneSubmissionPackageReviewService.getPackageHistory('milestone-1', unrelatedSales),
+      'Test 3: unrelated SALES must not discover package metadata'
+    );
+    console.log('Test 3 - Package history enforces attachment visibility by status and role: passed');
   });
 
   await withState(async (state) => {
-    for (const [packageId, attachmentId] of [
-      ['package-1', 'attachment-1'],
-      ['package-2', 'attachment-2'],
-      ['package-3', 'attachment-3'],
-    ]) {
-      const result = await MilestoneSubmissionPackageReviewService.getHistoricalAttachmentDownloadUrl(
-        'milestone-1', packageId, attachmentId, headSa
-      );
-      assert(result.expiresInSeconds === 300 && result.attachmentId === attachmentId, 'Test 4: historical download must remain short-lived and exact');
+    for (const actor of [headSa, assignedSa]) {
+      for (const [packageId, attachmentId] of [
+        ['package-1', 'attachment-1'],
+        ['package-2', 'attachment-2'],
+        ['package-3', 'attachment-3'],
+      ]) {
+        const result = await MilestoneSubmissionPackageReviewService.getHistoricalAttachmentDownloadUrl(
+          'milestone-1', packageId, attachmentId, actor
+        );
+        assert(result.expiresInSeconds === 300 && result.attachmentId === attachmentId, 'Test 4: historical download must remain short-lived and exact');
+      }
     }
-    assert(state.signedPaths.length === 3, 'Test 4: every authorized historical file download must use a DB-derived path');
+
+    const salesApproved = await MilestoneSubmissionPackageReviewService.getHistoricalAttachmentDownloadUrl(
+      'milestone-1', 'package-3', 'attachment-3', salesOwner
+    );
+    assert(salesApproved.attachmentId === 'attachment-3', 'Test 4: SALES must be allowed to download approved attachment');
+
+    const adminApproved = await MilestoneSubmissionPackageReviewService.getHistoricalAttachmentDownloadUrl(
+      'milestone-1', 'package-3', 'attachment-3', superAdmin
+    );
+    assert(adminApproved.attachmentId === 'attachment-3', 'Test 4: SUPER_ADMIN must be allowed to download approved attachment');
+
+    await expectNotFound(
+      () => MilestoneSubmissionPackageReviewService.getHistoricalAttachmentDownloadUrl('milestone-1', 'package-1', 'attachment-1', salesOwner),
+      'Test 4: SALES must not obtain rejected attachment signed URLs'
+    );
+    await expectNotFound(
+      () => MilestoneSubmissionPackageReviewService.getHistoricalAttachmentDownloadUrl('milestone-1', 'package-2', 'attachment-2', salesOwner),
+      'Test 4: SALES must not obtain pending attachment signed URLs'
+    );
+    await expectNotFound(
+      () => MilestoneSubmissionPackageReviewService.getHistoricalAttachmentDownloadUrl('milestone-1', 'package-1', 'attachment-1', superAdmin),
+      'Test 4: SUPER_ADMIN must not obtain rejected attachment signed URLs'
+    );
+    await expectNotFound(
+      () => MilestoneSubmissionPackageReviewService.getHistoricalAttachmentDownloadUrl('milestone-1', 'package-2', 'attachment-2', superAdmin),
+      'Test 4: SUPER_ADMIN must not obtain pending attachment signed URLs'
+    );
+
+    await expectNotFound(
+      () => MilestoneSubmissionPackageReviewService.getHistoricalAttachmentDownloadUrl('milestone-1', 'package-3', 'attachment-3', unrelatedSa),
+      'Test 4: unrelated SA must not download attachments'
+    );
+    await expectNotFound(
+      () => MilestoneSubmissionPackageReviewService.getHistoricalAttachmentDownloadUrl('milestone-1', 'package-3', 'attachment-3', unrelatedSales),
+      'Test 4: unrelated SALES must not download attachments'
+    );
+
     await expectNotFound(
       () => MilestoneSubmissionPackageReviewService.getHistoricalAttachmentDownloadUrl('milestone-1', 'package-2', 'attachment-1', headSa),
       'Test 4: attachment must belong to the requested package'
@@ -286,10 +345,26 @@ async function run(): Promise<void> {
       () => MilestoneSubmissionPackageReviewService.getHistoricalAttachmentDownloadUrl('milestone-2', 'package-1', 'attachment-1', headSa),
       'Test 4: package must belong to the requested milestone'
     );
+
+    // Pending download endpoint tests
+    const pendingHead = await MilestoneSubmissionPackageReviewService.getPendingAttachmentDownloadUrl('milestone-1', 'attachment-2', headSa);
+    assert(pendingHead.attachment_id === 'attachment-2', 'Test 4: HEAD_SA can access pending attachment download URL');
+    const pendingPic = await MilestoneSubmissionPackageReviewService.getPendingAttachmentDownloadUrl('milestone-1', 'attachment-2', assignedSa);
+    assert(pendingPic.attachment_id === 'attachment-2', 'Test 4: assigned SA can access pending attachment download URL');
+
     await expectNotFound(
-      () => MilestoneSubmissionPackageReviewService.getHistoricalAttachmentDownloadUrl('milestone-1', 'package-1', 'attachment-1', salesOwner),
-      'Test 4: SALES must not obtain historical package signed URLs'
+      () => MilestoneSubmissionPackageReviewService.getPendingAttachmentDownloadUrl('milestone-1', 'attachment-2', salesOwner),
+      'Test 4: SALES must not obtain pending attachment signed URL'
     );
+    await expectNotFound(
+      () => MilestoneSubmissionPackageReviewService.getPendingAttachmentDownloadUrl('milestone-1', 'attachment-2', superAdmin),
+      'Test 4: SUPER_ADMIN must not obtain pending attachment signed URL'
+    );
+    await expectNotFound(
+      () => MilestoneSubmissionPackageReviewService.getPendingAttachmentDownloadUrl('milestone-1', 'attachment-2', unrelatedSa),
+      'Test 4: unrelated SA must not obtain pending attachment signed URL'
+    );
+
     assert(state.storageRemovals.length === 0, 'Test 4: history reads and downloads must not mutate storage');
     console.log('Test 4 - Historical signed downloads validate package, attachment, status, and role access: passed');
   });

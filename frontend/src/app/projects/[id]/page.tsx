@@ -13,8 +13,10 @@ import {
   ChevronRight,
   CircleDashed,
   Clock,
+  Clock3,
   Download,
   FileCheck2,
+  FileText,
   PauseCircle,
   RotateCcw,
   Send,
@@ -59,6 +61,7 @@ import {
   resolveNextAction,
   resolveNextActionTargetId,
 } from "@/lib/workflow-ux-helpers";
+import { formatMilestoneDate, isInitialSubmissionBeforeEffectiveStart } from "@/lib/dates";
 import {
   formatReviewDate,
   formatReviewDateTime,
@@ -169,12 +172,19 @@ export default function ProjectDetailPage() {
   const assignPicIsCurrent = milestones.some(
     (m) => m.status === "IN_PROGRESS" && m.name.trim().toLowerCase() === "assign pic"
   );
+  const currentStageApproval = currentStageMilestone
+    ? approvalByMilestone.get(currentStageMilestone.id)?.submissionApproval
+    : null;
+  const activeRevisionMilestoneId =
+    currentStageMilestone?.status === "IN_PROGRESS" && currentStageApproval?.status === "REJECTED"
+      ? currentStageMilestone.id
+      : null;
 
   const nextAction = resolveNextAction(project, milestones, planApproval, {
     id: user?.id,
     role: user?.role,
     fullName: user?.fullName,
-  });
+  }, { activeRevisionMilestoneId });
   const showPlanCardSubmit =
     isSalesOwner &&
     planApproval?.status !== "PENDING" &&
@@ -1057,7 +1067,7 @@ function MilestoneRow({
   const isAssignedPic =
     (user?.role === "SA" || user?.role === "HEAD_SA") && milestone.pic_id === user.id;
   const canReadSubmissionHistory =
-    submissionHistory.length > 0 && canReadSubmissionPackageHistory(user, milestone);
+    submissionHistory.length > 0 && canReadSubmissionPackageHistory(user, milestone, project.sales_id);
   const projectIsActive = project.status === "ACTIVE" && !project.is_postponed;
   const isAssignPic = milestone.name.trim().toLowerCase() === "assign pic";
   const isCompleted = isMilestoneCompleted(milestone);
@@ -1080,7 +1090,24 @@ function MilestoneRow({
     !isAssignPic &&
     ((stageRole === "SALES" && isSalesOwner) || (stageRole === "HEAD_SA" && isHeadSa));
 
-  const canSubmit = projectIsActive && stageRole === "SA" && isAssignedPic && milestoneStatus === "IN_PROGRESS";
+  const isActiveRevision =
+    milestoneStatus === "IN_PROGRESS" && submissionApproval?.status === "REJECTED";
+  const isBeforeStartDate = isInitialSubmissionBeforeEffectiveStart(
+    milestone.start_date,
+    isActiveRevision
+  );
+  const canSubmit =
+    projectIsActive &&
+    stageRole === "SA" &&
+    isAssignedPic &&
+    milestoneStatus === "IN_PROGRESS" &&
+    !isBeforeStartDate;
+  const isUpcomingStart =
+    projectIsActive &&
+    stageRole === "SA" &&
+    isAssignedPic &&
+    milestoneStatus === "IN_PROGRESS" &&
+    isBeforeStartDate;
   const canRevise = projectIsActive && stageRole === "SA" && isAssignedPic && milestoneStatus === "REJECTED";
   const canReviewSubmission = projectIsActive && isHeadSa && milestoneStatus === "SUBMITTED" && hasPendingSubmission;
   const canReviewDeadline = projectIsActive && isHeadSa && hasPendingDeadline;
@@ -1198,6 +1225,18 @@ function MilestoneRow({
               <CheckCircle2 className="h-3.5 w-3.5" />
               <span>{complete.isPending ? "Completing..." : "Mark Complete"}</span>
             </Button>
+          )}
+          {isUpcomingStart && (
+            <div className="flex items-center gap-2">
+              <Badge variant="outline" className="h-8 gap-1.5 px-3 text-xs text-muted-foreground font-normal border-border/70">
+                <Clock3 className="h-3.5 w-3.5 text-muted-foreground" />
+                <span>Upcoming — Starts {formatMilestoneDate(milestone.start_date)}</span>
+              </Badge>
+              <Button size="sm" variant="outline" className="h-8 gap-1.5 text-xs" onClick={() => setSubmitOpen(true)}>
+                <FileText className="h-3.5 w-3.5" />
+                <span>Prepare submission</span>
+              </Button>
+            </div>
           )}
           {canSubmit && (
             <Button size="sm" className="h-8 gap-1.5 text-xs shadow-none" onClick={() => setSubmitOpen(true)}>
@@ -1332,6 +1371,7 @@ function MilestoneRow({
         milestoneName={milestone.name}
         milestoneStatus={milestoneStatus}
         stepOrder={milestone.step_order}
+        startDate={milestone.start_date}
         dueDate={effectiveDeadline.due_date}
         onSuccess={() => {
           setError("");

@@ -392,13 +392,13 @@ async function run(): Promise<void> {
     const assignedResult = await MilestoneSubmissionPackageReviewService.getCurrentPackage('milestone-1', assignedSa);
     assert(assignedResult?.attachments.length === 1, 'Test 5: assigned PIC may read retained rejected attachment metadata');
     const adminResult = await MilestoneSubmissionPackageReviewService.getCurrentPackage('milestone-1', superAdmin);
-    assert(adminResult?.attachments.length === 1, 'Test 5: SUPER_ADMIN may read retained rejected attachment metadata');
+    assert(adminResult?.attachments.length === 0, 'Test 5: SUPER_ADMIN must not receive retained rejected attachment metadata');
     await expectReviewError(
       () => MilestoneSubmissionPackageReviewService.getCurrentPackage('milestone-1', salesOwner),
       'Milestone not found',
       404
     );
-    console.log('Test 5 - Rejected attachment metadata remains readable only to reviewers and the assigned PIC: passed');
+    console.log('Test 5 - Rejected attachment metadata remains readable only to HEAD_SA and the assigned PIC: passed');
   });
 
   await withScenario({}, async (state) => {
@@ -456,8 +456,11 @@ async function run(): Promise<void> {
       assert(download.url === 'https://signed.example/temporary' && download.attachment_id === 'attachment-1', 'Test 8: authorized review download must return a short-lived signed URL');
       const assignedDownload = await MilestoneSubmissionPackageReviewService.getPendingAttachmentDownloadUrl('milestone-1', 'attachment-1', assignedSa);
       assert(assignedDownload.url === 'https://signed.example/temporary', 'Test 8: assigned PIC may download a pending attachment');
-      const adminDownload = await MilestoneSubmissionPackageReviewService.getPendingAttachmentDownloadUrl('milestone-1', 'attachment-1', superAdmin);
-      assert(adminDownload.url === 'https://signed.example/temporary', 'Test 8: SUPER_ADMIN may download a pending attachment');
+      await expectReviewError(
+        () => MilestoneSubmissionPackageReviewService.getPendingAttachmentDownloadUrl('milestone-1', 'attachment-1', superAdmin),
+        'Milestone submission attachment not found',
+        404
+      );
       await expectReviewError(
         () => MilestoneSubmissionPackageReviewService.getPendingAttachmentDownloadUrl('milestone-1', 'attachment-1', salesOwner),
         'Milestone not found',
@@ -477,10 +480,13 @@ async function run(): Promise<void> {
       (DocumentStorageService as any).createSignedDownloadUrl = async () => 'https://signed.example/rejected';
       const headSaDownload = await MilestoneSubmissionPackageReviewService.getPendingAttachmentDownloadUrl('milestone-1', 'attachment-1', headSa);
       const assignedDownload = await MilestoneSubmissionPackageReviewService.getPendingAttachmentDownloadUrl('milestone-1', 'attachment-1', assignedSa);
-      const adminDownload = await MilestoneSubmissionPackageReviewService.getPendingAttachmentDownloadUrl('milestone-1', 'attachment-1', superAdmin);
       assert(headSaDownload.url === 'https://signed.example/rejected', 'Test 8b: HEAD_SA may download retained rejected evidence');
       assert(assignedDownload.url === 'https://signed.example/rejected', 'Test 8b: assigned PIC may download retained rejected evidence');
-      assert(adminDownload.url === 'https://signed.example/rejected', 'Test 8b: SUPER_ADMIN may download retained rejected evidence');
+      await expectReviewError(
+        () => MilestoneSubmissionPackageReviewService.getPendingAttachmentDownloadUrl('milestone-1', 'attachment-1', superAdmin),
+        'Milestone submission attachment not found',
+        404
+      );
       await expectReviewError(
         () => MilestoneSubmissionPackageReviewService.getPendingAttachmentDownloadUrl('milestone-1', 'attachment-1', salesOwner),
         'Milestone not found',

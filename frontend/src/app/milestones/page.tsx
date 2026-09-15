@@ -18,9 +18,10 @@ import { MilestoneSubmissionDialog } from "@/components/projects/milestone-submi
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useApprovals } from "@/hooks/use-approvals";
-import { useStartMilestoneRevision } from "@/hooks/use-milestone-workflow";
+import { useStartMilestoneRevision, useSubmissionPackageHistory } from "@/hooks/use-milestone-workflow";
 import { AssignedMilestone, useMyAssignedMilestones } from "@/hooks/use-projects";
 import { formatMilestoneStatusLabel } from "@/lib/workflow-ux-helpers";
+import { formatMilestoneDate, isInitialSubmissionBeforeEffectiveStart } from "@/lib/dates";
 import { ApprovalItem } from "@/types/approval";
 
 type QueueTab = "ACTION" | "REVIEW" | "PENDING_REVIEW" | "COMPLETED" | "ALL";
@@ -436,6 +437,16 @@ function AssignedMilestoneRow({
   const projectId = milestone.project?.id || milestone.project_id;
   const isAssignedPic =
     (user?.role === "SA" || user?.role === "HEAD_SA") && milestone.pic_id === user?.id;
+  const submissionHistory = useSubmissionPackageHistory(
+    milestone.id,
+    isAssignedPic && milestone.status === "IN_PROGRESS"
+  );
+  const isActiveRevision =
+    milestone.status === "IN_PROGRESS" && submissionHistory.data?.items[0]?.status === "REJECTED";
+  const isBeforeStartDate = isInitialSubmissionBeforeEffectiveStart(
+    milestone.start_date,
+    isActiveRevision
+  );
   const startRevision = useStartMilestoneRevision(projectId, milestone.id);
 
   const handleStartRevision = async () => {
@@ -477,10 +488,17 @@ function AssignedMilestoneRow({
 
         <div className="flex shrink-0 flex-wrap gap-2 sm:pl-11 lg:pl-0">
           {isAssignedPic && milestone.status === "IN_PROGRESS" && (
-            <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setSubmitOpen(true)}>
-              <FileCheck2 className="h-3.5 w-3.5" />
-              Submit work
-            </Button>
+            isBeforeStartDate ? (
+              <Badge variant="outline" className="gap-1.5 py-1 text-xs text-muted-foreground font-normal border-border/70">
+                <Clock3 className="h-3.5 w-3.5 text-muted-foreground" />
+                Upcoming — Starts {formatMilestoneDate(milestone.start_date)}
+              </Badge>
+            ) : (
+              <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setSubmitOpen(true)}>
+                <FileCheck2 className="h-3.5 w-3.5" />
+                Submit work
+              </Button>
+            )
           )}
           {isHeadSa && milestone.status === "SUBMITTED" && (
             <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setReviewOpen(true)}>
@@ -520,6 +538,7 @@ function AssignedMilestoneRow({
         milestoneName={milestone.name}
         milestoneStatus={milestone.status}
         stepOrder={milestone.step_order}
+        startDate={milestone.start_date}
         onSuccess={() => setMessage("Milestone submitted successfully for Head SA review.")}
       />
       <MilestoneSubmissionReviewDialog

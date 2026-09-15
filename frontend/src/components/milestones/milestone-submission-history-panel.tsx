@@ -95,39 +95,41 @@ export function MilestoneSubmissionHistoryPanel({
                   {" · "}{formatDateTime(revision.review.reviewedAt)}
                 </p>
               )}
-              <div className="mt-2 space-y-1.5">
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Attachments</p>
-                {revision.attachments.map((attachment) => {
-                  const isDownloading =
-                    download.isPending &&
-                    download.variables?.packageId === revision.id &&
-                    download.variables.attachmentId === attachment.id;
-                  return (
-                    <div key={attachment.id} className="flex flex-col gap-2 rounded-md border border-border/40 bg-card/70 p-2 sm:flex-row sm:items-center">
-                      <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate font-medium text-foreground">{attachment.fileName}</p>
-                        <p className="text-[10px] text-muted-foreground">
-                          {formatFileSize(attachment.fileSize)}{attachment.mimeType ? ` · ${attachment.mimeType}` : ""}
-                        </p>
+              {revision.attachments.length > 0 && (
+                <div className="mt-2 space-y-1.5">
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Attachments</p>
+                  {revision.attachments.map((attachment) => {
+                    const isDownloading =
+                      download.isPending &&
+                      download.variables?.packageId === revision.id &&
+                      download.variables.attachmentId === attachment.id;
+                    return (
+                      <div key={attachment.id} className="flex flex-col gap-2 rounded-md border border-border/40 bg-card/70 p-2 sm:flex-row sm:items-center">
+                        <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate font-medium text-foreground">{attachment.fileName}</p>
+                          <p className="text-[10px] text-muted-foreground">
+                            {formatFileSize(attachment.fileSize)}{attachment.mimeType ? ` · ${attachment.mimeType}` : ""}
+                          </p>
+                        </div>
+                        {attachment.promotedDocumentId && (
+                          <Badge variant="outline" className="w-fit border-emerald-500/30 bg-emerald-500/10 text-[10px] text-emerald-400">In Repository</Badge>
+                        )}
+                        <div className="flex gap-1 self-start sm:self-auto">
+                          <Button type="button" size="sm" variant="ghost" className="h-7 gap-1 px-2 text-[11px] text-primary" disabled={isDownloading} onClick={() => openAttachment(revision.id, attachment.id)}>
+                            {isDownloading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Eye className="h-3 w-3" />}
+                            View
+                          </Button>
+                          <Button type="button" size="sm" variant="ghost" className="h-7 gap-1 px-2 text-[11px]" disabled={isDownloading} onClick={() => openAttachment(revision.id, attachment.id)}>
+                            <Download className="h-3 w-3" />
+                            Download
+                          </Button>
+                        </div>
                       </div>
-                      {attachment.promotedDocumentId && (
-                        <Badge variant="outline" className="w-fit border-emerald-500/30 bg-emerald-500/10 text-[10px] text-emerald-400">In Repository</Badge>
-                      )}
-                      <div className="flex gap-1 self-start sm:self-auto">
-                        <Button type="button" size="sm" variant="ghost" className="h-7 gap-1 px-2 text-[11px] text-primary" disabled={isDownloading} onClick={() => openAttachment(revision.id, attachment.id)}>
-                          {isDownloading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Eye className="h-3 w-3" />}
-                          View
-                        </Button>
-                        <Button type="button" size="sm" variant="ghost" className="h-7 gap-1 px-2 text-[11px]" disabled={isDownloading} onClick={() => openAttachment(revision.id, attachment.id)}>
-                          <Download className="h-3 w-3" />
-                          Download
-                        </Button>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           ))}
         </div>

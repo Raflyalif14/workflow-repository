@@ -69,10 +69,12 @@ export function getLatestSubmissionApproval(history: MilestoneSubmissionApproval
 
 export function canReadSubmissionPackageHistory(
   actor: { id?: string; role?: string } | null | undefined,
-  milestone: Pick<ProjectMilestonePhase4, "pic_id">
+  milestone: Pick<ProjectMilestonePhase4, "pic_id">,
+  projectSalesId?: string | null
 ) {
   if (!actor) return false;
   if (actor.role === "SUPER_ADMIN" || actor.role === "HEAD_SA") return true;
+  if (actor.role === "SALES" && projectSalesId && actor.id === projectSalesId) return true;
   return actor.role === "SA" && milestone.pic_id === actor.id;
 }
 
