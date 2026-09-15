@@ -9,9 +9,15 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { useUploadNewVersion } from "@/hooks/use-documents";
+import {
+  formatDocumentFileSize,
+  formatDocumentMimeType,
+  getVersionLabel,
+} from "@/lib/document-surface-ux";
 import { DocumentItem } from "@/types/document";
-import { History, FileUp, FileText } from "lucide-react";
+import { AlertCircle, FileText, FileUp, X } from "lucide-react";
 
 interface UploadVersionDialogProps {
   open: boolean;
@@ -28,6 +34,7 @@ export function UploadVersionDialog({
 
   const [changelog, setChangelog] = useState("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [error, setError] = useState("");
 
   if (!document) return null;
 
@@ -37,11 +44,11 @@ export function UploadVersionDialog({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedFile) {
-      alert("Please select the updated file version.");
+      setError("Please select the updated file version.");
       return;
     }
     if (!changelog.trim()) {
-      alert("Please enter a brief changelog describing the updates.");
+      setError("Please enter a brief changelog describing the updates.");
       return;
     }
 
@@ -50,98 +57,167 @@ export function UploadVersionDialog({
     formData.append("changelog", changelog);
 
     try {
+      setError("");
       await uploadVersionMutation.mutateAsync({
         documentId: document.id,
         formData,
       });
-      alert(`Version v${nextVersion} uploaded successfully.`);
       onOpenChange(false);
       setSelectedFile(null);
       setChangelog("");
-    } catch (err: any) {
-      alert(err.message || "Failed to upload version");
+      setError("");
+    } catch (err: unknown) {
+      const errorMsg = err instanceof Error ? err.message : "Failed to upload version";
+      setError(errorMsg);
     }
   };
 
+  const handleOpenChange = (nextOpen: boolean) => {
+    if (!nextOpen && !uploadVersionMutation.isPending) setError("");
+    onOpenChange(nextOpen);
+  };
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogHeader>
-        <div className="flex items-center gap-2 text-primary mb-1">
-          <FileUp className="h-5 w-5" />
-          <DialogTitle>Upload New Version (v{nextVersion})</DialogTitle>
-        </div>
-        <DialogDescription>
-          Publish a revised version for <span className="font-semibold text-foreground">{document.title}</span>.
-          Previous versions will be archived and superseded automatically.
-        </DialogDescription>
-      </DialogHeader>
-
-      <form onSubmit={handleSubmit} className="space-y-4">
-        {/* File Picker */}
-        <div>
-          <label className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1">
-            New File Attachment *
-          </label>
-          <div className="flex items-center justify-center w-full">
-            <label className="flex flex-col items-center justify-center w-full h-28 border-2 border-dashed border-border rounded-xl cursor-pointer bg-card hover:bg-muted/20 hover:border-primary/50 transition">
-              <div className="flex flex-col items-center justify-center pt-5 pb-6 text-center px-4">
-                <FileText className="w-8 h-8 mb-2 text-muted-foreground" />
-                {selectedFile ? (
-                  <p className="text-xs font-semibold text-primary">
-                    {selectedFile.name} ({(selectedFile.size / 1024 / 1024).toFixed(2)} MB)
-                  </p>
-                ) : (
-                  <>
-                    <p className="text-xs text-foreground font-medium">
-                      Click to choose revision file
-                    </p>
-                    <p className="text-[11px] text-muted-foreground mt-0.5">
-                      PDF, DOCX, XLSX, Images, ZIP
-                    </p>
-                  </>
-                )}
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <div className="max-h-[calc(100vh-5rem)] overflow-y-auto pr-1">
+        <DialogHeader className="mb-4">
+          <div className="flex items-start gap-3 pr-6">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-primary/20 bg-primary/10 text-primary">
+              <FileUp className="h-4 w-4" />
+            </span>
+            <div className="min-w-0 space-y-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <DialogTitle className="text-base">Upload new version</DialogTitle>
+                <Badge variant="outline">{getVersionLabel(nextVersion)}</Badge>
               </div>
-              <input
-                type="file"
-                className="hidden"
-                onChange={(e) => {
-                  if (e.target.files?.[0]) setSelectedFile(e.target.files[0]);
-                }}
-              />
-            </label>
+              <DialogDescription className="mt-0 text-xs leading-5">
+                <span className="font-medium text-foreground">{document.title}</span>
+                {document.project?.name ? ` · ${document.project.name}` : ""}
+              </DialogDescription>
+            </div>
           </div>
-        </div>
+        </DialogHeader>
 
-        {/* Changelog */}
-        <div>
-          <label className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1">
-            Changelog / Revision Summary *
-          </label>
-          <textarea
-            rows={3}
-            placeholder="e.g. Updated network topology diagram as requested by Head SA..."
-            value={changelog}
-            onChange={(e) => setChangelog(e.target.value)}
-            className="flex w-full rounded-md border border-input bg-card px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-primary"
-            required
-            disabled={uploadVersionMutation.isPending}
-          />
-        </div>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label
+              htmlFor="document-version-file"
+              className="mb-2 block text-sm font-medium text-foreground"
+            >
+              Revision file <span className="text-destructive">*</span>
+            </label>
+            <input
+              id="document-version-file"
+              type="file"
+              className="sr-only"
+              onChange={(event) => {
+                const file = event.target.files?.[0];
+                if (file) {
+                  setSelectedFile(file);
+                  setError("");
+                }
+                event.currentTarget.value = "";
+              }}
+              disabled={uploadVersionMutation.isPending}
+              aria-describedby={error ? "upload-version-error" : undefined}
+            />
 
-        <DialogFooter>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => onOpenChange(false)}
-            disabled={uploadVersionMutation.isPending}
-          >
-            Cancel
-          </Button>
-          <Button type="submit" disabled={uploadVersionMutation.isPending}>
-            {uploadVersionMutation.isPending ? "Uploading Version..." : `Publish v${nextVersion}`}
-          </Button>
-        </DialogFooter>
-      </form>
+            {selectedFile ? (
+              <div className="flex min-w-0 items-center gap-3 rounded-lg border border-border/60 bg-muted/10 p-3">
+                <FileText className="h-5 w-5 shrink-0 text-primary" />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium text-foreground" title={selectedFile.name}>
+                    {selectedFile.name}
+                  </p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">
+                    {formatDocumentMimeType(selectedFile.type)} ·{" "}
+                    {formatDocumentFileSize(selectedFile.size)}
+                  </p>
+                </div>
+                <label
+                  htmlFor="document-version-file"
+                  className="cursor-pointer rounded-md px-2 py-1 text-xs font-medium text-primary outline-none hover:bg-primary/10 focus-within:ring-2 focus-within:ring-ring"
+                >
+                  Replace
+                </label>
+                <Button
+                  type="button"
+                  size="icon"
+                  variant="ghost"
+                  className="h-8 w-8 shrink-0"
+                  onClick={() => setSelectedFile(null)}
+                  disabled={uploadVersionMutation.isPending}
+                  aria-label="Remove selected file"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            ) : (
+              <label
+                htmlFor="document-version-file"
+                className="flex h-28 cursor-pointer flex-col items-center justify-center rounded-lg border border-dashed border-border bg-muted/10 px-4 text-center outline-none hover:border-primary/50 hover:bg-muted/20 focus-within:ring-2 focus-within:ring-ring"
+              >
+                <FileText className="mb-2 h-7 w-7 text-muted-foreground" />
+                <span className="text-sm font-medium text-foreground">
+                  Choose revision file
+                </span>
+                <span className="mt-1 text-xs text-muted-foreground">
+                  PDF, DOCX, XLSX, images, or ZIP
+                </span>
+              </label>
+            )}
+          </div>
+
+          <div>
+            <label
+              htmlFor="document-version-note"
+              className="mb-2 block text-sm font-medium text-foreground"
+            >
+              Version note <span className="text-destructive">*</span>
+            </label>
+            <textarea
+              id="document-version-note"
+              rows={3}
+              placeholder="Describe what changed in this version..."
+              value={changelog}
+              onChange={(event) => {
+                setChangelog(event.target.value);
+                setError("");
+              }}
+              className="flex w-full rounded-md border border-input bg-card px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-primary"
+              required
+              disabled={uploadVersionMutation.isPending}
+              aria-invalid={Boolean(error)}
+              aria-describedby={error ? "upload-version-error" : undefined}
+            />
+          </div>
+
+          {error && (
+            <div
+              id="upload-version-error"
+              className="flex items-start gap-2 rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-xs text-destructive"
+              role="alert"
+            >
+              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+              <span>{error}</span>
+            </div>
+          )}
+
+          <DialogFooter className="border-t border-border/60 pt-4">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => handleOpenChange(false)}
+              disabled={uploadVersionMutation.isPending}
+            >
+              Cancel
+            </Button>
+            <Button type="submit" disabled={uploadVersionMutation.isPending}>
+              {uploadVersionMutation.isPending ? "Uploading..." : "Upload version"}
+            </Button>
+          </DialogFooter>
+        </form>
+      </div>
     </Dialog>
   );
 }

@@ -80,10 +80,7 @@ export default function DocumentsPage() {
   const [statusFilter, setStatusFilter] = useState<DocumentStatus | "ALL">("ALL");
   const [selectedDocForVersion, setSelectedDocForVersion] = useState<DocumentItem | null>(null);
   const [isUploadVersionOpen, setIsUploadVersionOpen] = useState(false);
-  const [commentsState, setCommentsState] = useState<{
-    docId: string | null;
-    docTitle: string;
-  }>({ docId: null, docTitle: "" });
+  const [selectedDocForDetail, setSelectedDocForDetail] = useState<DocumentItem | null>(null);
   const [downloadError, setDownloadError] = useState("");
 
   const { data: documents = [], isLoading, isError } = useDocuments({
@@ -271,9 +268,7 @@ export default function DocumentsPage() {
                 document={document}
                 downloadPending={documentDownload.isPending}
                 onDownload={handleDownload}
-                onOpenComments={() =>
-                  setCommentsState({ docId: document.id, docTitle: document.title })
-                }
+                onOpenDetails={() => setSelectedDocForDetail(document)}
                 onUploadVersion={() => {
                   setSelectedDocForVersion(document);
                   setIsUploadVersionOpen(true);
@@ -290,12 +285,17 @@ export default function DocumentsPage() {
         document={selectedDocForVersion}
       />
       <DocumentCommentsDrawer
-        open={Boolean(commentsState.docId)}
+        open={Boolean(selectedDocForDetail)}
         onOpenChange={(open) => {
-          if (!open) setCommentsState({ docId: null, docTitle: "" });
+          if (!open) setSelectedDocForDetail(null);
         }}
-        documentId={commentsState.docId || ""}
-        documentTitle={commentsState.docTitle}
+        document={selectedDocForDetail}
+        canUploadVersion
+        onUploadVersion={(document) => {
+          setSelectedDocForVersion(document);
+          setSelectedDocForDetail(null);
+          setIsUploadVersionOpen(true);
+        }}
       />
     </div>
   );
@@ -305,13 +305,13 @@ function DocumentRow({
   document,
   downloadPending,
   onDownload,
-  onOpenComments,
+  onOpenDetails,
   onUploadVersion,
 }: {
   document: DocumentItem;
   downloadPending: boolean;
   onDownload: (versionId: string) => Promise<void>;
-  onOpenComments: () => void;
+  onOpenDetails: () => void;
   onUploadVersion: () => void;
 }) {
   const latestVersion = document.versions?.[0];
@@ -325,7 +325,13 @@ function DocumentRow({
           {getStatusBadge(document.status)}
         </div>
         <h3 className="mt-2 truncate font-semibold text-foreground" title={document.title}>
-          {document.title}
+          <button
+            type="button"
+            className="max-w-full truncate text-left outline-none hover:text-primary focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            onClick={onOpenDetails}
+          >
+            {document.title}
+          </button>
         </h3>
         {document.milestone && (
           <p className="mt-1 truncate text-xs text-muted-foreground">
@@ -394,9 +400,9 @@ function DocumentRow({
             Download
           </Button>
         )}
-        <Button size="sm" variant="ghost" className="gap-1.5" onClick={onOpenComments}>
+        <Button size="sm" variant="ghost" className="gap-1.5" onClick={onOpenDetails}>
           <MessageSquare className="h-3.5 w-3.5" />
-          {document._count?.comments || 0}
+          {document._count?.comments || 0} comments
         </Button>
         <Button size="sm" variant="outline" className="gap-1.5" onClick={onUploadVersion}>
           <FileUp className="h-3.5 w-3.5" />
