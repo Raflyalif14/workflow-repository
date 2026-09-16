@@ -13,6 +13,7 @@ import {
 import { buildDeadlineProposalArtifacts } from './deadline.service';
 import { advanceToNextMilestone, completeMilestoneStage, getAutoStartBlockReason } from './workflow-progression.service';
 import { supabaseAdmin } from '../config/supabase';
+import { CreateNotificationInput, NotificationService } from './notification.service';
 import { strict as strictAssert } from 'assert';
 
 const headSa = { userId: 'head-sa-1', role: 'HEAD_SA', fullName: 'Head Solution Architect Test' };
@@ -214,6 +215,7 @@ type ProgressionState = {
   milestones: MockRow[];
   writes: MockRow[];
   logs: MockRow[];
+  notifications: CreateNotificationInput[];
   reportedErrors: unknown[][];
   failProjectUpdate: boolean;
   failNextStart: boolean;
@@ -281,15 +283,22 @@ async function withProgression(count: number, action: (state: ProgressionState) 
       workflow_stage: { default_role: index === count - 1 ? 'SALES' : 'SA', is_required: true },
     })),
     writes: [], logs: [], reportedErrors: [], failProjectUpdate: false, failNextStart: false, failLog: null, throwLog: false,
+    notifications: [],
   };
   const originalFrom = supabaseAdmin.from;
+  const originalCreateNotification = NotificationService.createNotification;
   const originalConsoleError = console.error;
   try {
     (supabaseAdmin as any).from = (table: string) => new ProgressionQueryMock(state, table);
+    (NotificationService as any).createNotification = async (input: CreateNotificationInput) => {
+      state.notifications.push(input);
+      return {};
+    };
     console.error = (...args: unknown[]) => { state.reportedErrors.push(args); };
     await action(state);
   } finally {
     supabaseAdmin.from = originalFrom;
+    (NotificationService as any).createNotification = originalCreateNotification;
     console.error = originalConsoleError;
   }
 }
@@ -352,6 +361,30 @@ async function runProgressionRecoveryTests() {
     strictAssert.equal(duplicate.blocked_reason, null);
     strictAssert.equal(JSON.stringify(state), before);
     console.log('Recovery - Failed next-start retries start the correct stage once; later retries never restart it');
+  });
+
+  await withProgression(2, async (state) => {
+    Object.assign(state.milestones[0], { status: 'COMPLETED', workflow_stage: { default_role: 'SA' } });
+    Object.assign(state.milestones[1], {
+      name: 'Commercial Negotiation',
+      status: 'CREATED',
+      workflow_stage: { default_role: 'SALES' },
+      pic_id: null,
+    });
+
+    const first = await advanceToNextMilestone('project-1', 'milestone-1', headSa);
+    strictAssert.equal(first.started, true);
+    strictAssert.equal(state.milestones[1].status, 'IN_PROGRESS');
+    strictAssert.equal(state.notifications.length, 1);
+    strictAssert.equal(state.notifications[0].userId, sales.userId);
+    strictAssert.equal(state.notifications[0].milestoneId, 'milestone-2');
+    strictAssert.equal(state.notifications[0].actionUrl, '/projects/project-1#project-milestone-milestone-2');
+
+    const retry = await advanceToNextMilestone('project-1', 'milestone-1', headSa);
+    strictAssert.equal(retry.started, false);
+    strictAssert.equal(retry.blocked_reason, null);
+    strictAssert.equal(state.notifications.length, 1);
+    console.log('Handoff - Persisted SALES role starts the owner task and retry does not duplicate its notification');
   });
 
   for (const action of ['MILESTONE_COMPLETED', 'PROJECT_COMPLETED']) {

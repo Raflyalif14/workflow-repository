@@ -37,8 +37,8 @@ import {
   getDashboardProjectHealthLabel,
   getDashboardRoleContent,
   getDashboardSnapshotTitle,
-  getDraftProjectActionCopy,
   getMilestoneProjectHref,
+  getSalesDashboardItems,
   sortDashboardItems,
   sortDashboardProjectHealth,
   shouldShowDashboardInsights,
@@ -77,64 +77,6 @@ const getApprovalPresentation = (item: ApprovalItem) => {
         description: "A deadline change is waiting for your decision.",
       };
   }
-};
-
-const getSalesItems = (projects: Project[], userId?: string): DashboardWorkItem[] => {
-  const items: DashboardWorkItem[] = [];
-
-  for (const project of projects) {
-    const isOwner = !project.sales_id || project.sales_id === userId;
-    const projectHref = `/projects/${project.id}`;
-    const projectMeta = project.customer ? `Customer: ${project.customer}` : undefined;
-
-    if (isOwner && project.status === "DRAFT" && project.currentRole === "SALES") {
-      items.push({
-        id: `sales-planning-${project.id}`,
-        priority: 40,
-        group: "action",
-        label: "Project planning",
-        title: project.name,
-        description: "Continue preparing the project plan before it is submitted for review.",
-        meta: projectMeta,
-        state: "Planning",
-        href: projectHref,
-        actionLabel: getDraftProjectActionCopy(project.currentRole),
-      });
-      continue;
-    }
-
-    if (project.status === "DRAFT" && project.currentRole === "HEAD_SA") {
-      items.push({
-        id: `sales-waiting-${project.id}`,
-        priority: 20,
-        group: "waiting",
-        label: "Plan under review",
-        title: project.name,
-        description: "Head SA is reviewing the submitted project plan.",
-        meta: projectMeta,
-        state: "Under review",
-        href: projectHref,
-      });
-      continue;
-    }
-
-    if (project.status === "POSTPONED" && isOwner) {
-      items.push({
-        id: `sales-resume-${project.id}`,
-        priority: 50,
-        group: "action",
-        label: "Project postponed",
-        title: project.name,
-        description: "Review the project status and resume delivery when it is ready to continue.",
-        meta: projectMeta,
-        state: "Postponed",
-        href: projectHref,
-        actionLabel: "Resume project",
-      });
-    }
-  }
-
-  return items;
 };
 
 const getHeadSaItems = (approvals: ApprovalItem[], projects: Project[]): DashboardWorkItem[] => {
@@ -804,7 +746,7 @@ export default function DashboardPage() {
 
   const roleItems =
     userRole === "SALES"
-      ? getSalesItems(projects, user?.id)
+      ? getSalesDashboardItems(projects, user?.id)
       : userRole === "HEAD_SA"
       ? getHeadSaItems(approvals, projects)
       : userRole === "SA"

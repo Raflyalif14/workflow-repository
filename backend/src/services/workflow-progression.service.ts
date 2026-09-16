@@ -1,4 +1,5 @@
 import { supabaseAdmin } from '../config/supabase';
+import { notifySalesMilestoneStarted } from './milestone-notification.service';
 
 export type WorkflowActor = {
   userId: string;
@@ -257,6 +258,15 @@ export async function advanceToNextMilestone(
   }
 
   await logWorkflowActivityBestEffort(actor, project.id, 'MILESTONE_STARTED', `${actor.fullName} started milestone '${startedMilestone.name}'`);
+  if (stageRole === 'SALES') {
+    await notifySalesMilestoneStarted({
+      projectId: project.id,
+      projectName: project.name,
+      milestoneId: startedMilestone.id,
+      milestoneName: startedMilestone.name,
+      salesOwnerId: project.sales_id,
+    });
+  }
 
   return {
     next_milestone: startedMilestone,

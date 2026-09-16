@@ -202,6 +202,15 @@ export class ProjectManagementService {
         p.progress = progressPct;
         p.currentStage = currentMilestone?.name || (p.status === 'COMPLETED' ? 'Workflow Completed' : null);
         p.currentRole = stageRole ? (stagePic ? `${stageRole} (${stagePic})` : stageRole) : null;
+        p.currentMilestone = currentMilestone?.id
+          ? {
+              id: currentMilestone.id,
+              name: currentMilestone.name,
+              step_order: currentMilestone.step_order,
+              status: currentMilestone.status,
+              default_role: stageRole,
+            }
+          : null;
       }
     }
 

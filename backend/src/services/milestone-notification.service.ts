@@ -10,9 +10,35 @@ export type MilestoneNotificationContext = {
   picId: string | null;
 };
 
+export type SalesMilestoneStartedNotificationContext = {
+  projectId: string;
+  projectName: string;
+  milestoneId: string;
+  milestoneName: string;
+  salesOwnerId: string | null;
+};
+
 type ActiveHeadSaRow = { id: string };
 
 const projectActionUrl = (projectId: string) => `/projects/${projectId}`;
+const milestoneActionUrl = (projectId: string, milestoneId: string) =>
+  `/projects/${projectId}#project-milestone-${milestoneId}`;
+
+export function buildSalesMilestoneStartedNotification(
+  context: SalesMilestoneStartedNotificationContext
+): CreateNotificationInput | null {
+  if (!context.salesOwnerId) return null;
+
+  return {
+    userId: context.salesOwnerId,
+    type: 'MILESTONE_STARTED',
+    title: 'Sales Milestone Ready',
+    message: `Milestone '${context.milestoneName}' for project '${context.projectName}' is ready for your action.`,
+    projectId: context.projectId,
+    milestoneId: context.milestoneId,
+    actionUrl: milestoneActionUrl(context.projectId, context.milestoneId),
+  };
+}
 
 export function buildMilestoneSubmittedNotification(
   userId: string,
@@ -92,4 +118,15 @@ export async function notifyMilestoneApproved(context: MilestoneNotificationCont
 
 export async function notifyMilestoneRejected(context: MilestoneNotificationContext): Promise<void> {
   await notifyMilestoneDecision(context, 'REJECTED');
+}
+
+export async function notifySalesMilestoneStarted(
+  context: SalesMilestoneStartedNotificationContext
+): Promise<void> {
+  const notification = buildSalesMilestoneStartedNotification(context);
+  if (!notification) return;
+
+  await runNotificationBestEffort('Sales milestone start notification', () =>
+    NotificationService.createNotification(notification)
+  );
 }

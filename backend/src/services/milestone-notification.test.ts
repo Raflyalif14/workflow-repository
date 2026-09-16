@@ -3,6 +3,7 @@ import { join } from 'path';
 import { supabaseAdmin } from '../config/supabase';
 import { CreateNotificationInput, NotificationService } from './notification.service';
 import {
+  notifySalesMilestoneStarted,
   notifyMilestoneApproved,
   notifyMilestoneRejected,
   notifyMilestoneSubmitted,
@@ -97,6 +98,30 @@ async function run(): Promise<void> {
     await notifyMilestoneRejected({ ...context, picId: null });
     assert(requestedNotifications.length === 0, 'Test 6: approve/reject must safely skip notifications without a PIC');
     console.log('Test 6 - Missing PIC safely skips approval and rejection notifications: passed');
+
+    await notifySalesMilestoneStarted({
+      projectId: context.projectId,
+      projectName: context.projectName,
+      milestoneId: 'sales-milestone-1',
+      milestoneName: 'Commercial Negotiation',
+      salesOwnerId: 'sales-owner-1',
+    });
+    assert(requestedNotifications.length === 1, 'Test 7: Sales handoff must create one owner notification');
+    assert(requestedNotifications[0].userId === 'sales-owner-1', 'Test 7: Sales handoff recipient must be the trusted project owner');
+    assert(
+      requestedNotifications[0].actionUrl === '/projects/project-1#project-milestone-sales-milestone-1',
+      'Test 7: Sales handoff notification must link directly to the milestone'
+    );
+    requestedNotifications.length = 0;
+    await notifySalesMilestoneStarted({
+      projectId: context.projectId,
+      projectName: context.projectName,
+      milestoneId: 'sales-milestone-1',
+      milestoneName: 'Commercial Negotiation',
+      salesOwnerId: null,
+    });
+    assert(requestedNotifications.length === 0, 'Test 7: missing trusted owner must safely skip notification');
+    console.log('Test 7 - Sales milestone handoff targets the trusted project owner with a direct milestone link: passed');
   } finally {
     (supabaseAdmin as any).from = originalFrom;
     (NotificationService as any).createNotification = originalCreateNotification;

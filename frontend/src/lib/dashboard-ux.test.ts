@@ -18,12 +18,14 @@ import {
   getDashboardQueueTitle,
   getDashboardSnapshotTitle,
   getMilestoneProjectHref,
+  getSalesDashboardItems,
   hasAdditionalDashboardItems,
   isDashboardAction,
   sortDashboardItems,
   sortDashboardProjectHealth,
   shouldShowDashboardInsights,
 } from "./dashboard-ux";
+import type { Project } from "@/types/project";
 
 const roleCases: Array<[string | undefined, string]> = [
   ["SALES", "Sales workspace"],
@@ -131,6 +133,86 @@ if (getDraftProjectActionCopy("SALES") !== "Continue project planning") {
 
 if (/ready/i.test(getDraftProjectActionCopy("SALES"))) {
   throw new Error("Draft projects must not be described as ready for submission without evidence");
+}
+
+const salesMilestoneProject: Project = {
+  id: "project-sales-stage",
+  name: "Commercial Delivery",
+  customer: "Customer One",
+  sales_id: "sales-owner",
+  status: "ACTIVE",
+  is_postponed: false,
+  currentMilestone: {
+    id: "milestone-commercial",
+    name: "Commercial Negotiation",
+    step_order: 6,
+    status: "IN_PROGRESS",
+    default_role: "SALES",
+  },
+  createdAt: "2026-09-16T00:00:00.000Z",
+  updatedAt: "2026-09-16T00:00:00.000Z",
+};
+
+const salesMilestoneItems = getSalesDashboardItems([salesMilestoneProject], "sales-owner");
+if (
+  salesMilestoneItems.length !== 1 ||
+  salesMilestoneItems[0].href !== "/projects/project-sales-stage#project-milestone-milestone-commercial" ||
+  salesMilestoneItems[0].group !== "action"
+) {
+  throw new Error("The owning Sales user should receive a direct actionable item for an active Sales-role milestone");
+}
+
+if (getSalesDashboardItems([salesMilestoneProject], "other-sales").length !== 0) {
+  throw new Error("An unrelated Sales user must not receive another owner's milestone task");
+}
+
+const duplicateSalesItems = getSalesDashboardItems(
+  [salesMilestoneProject, salesMilestoneProject],
+  "sales-owner"
+);
+if (duplicateSalesItems.length !== 1) {
+  throw new Error("A Sales milestone must not be duplicated in the dashboard queue");
+}
+
+for (const status of ["CREATED", "COMPLETED", "SUBMITTED"] as const) {
+  const inactiveItems = getSalesDashboardItems(
+    [{ ...salesMilestoneProject, currentMilestone: { ...salesMilestoneProject.currentMilestone!, status } }],
+    "sales-owner"
+  );
+  if (inactiveItems.some((item) => item.id === "sales-milestone-milestone-commercial")) {
+    throw new Error(`A ${status} Sales milestone must not be an actionable dashboard task`);
+  }
+}
+
+const postponedSalesItems = getSalesDashboardItems(
+  [{ ...salesMilestoneProject, status: "POSTPONED", is_postponed: true }],
+  "sales-owner"
+);
+if (postponedSalesItems.some((item) => item.id === "sales-milestone-milestone-commercial")) {
+  throw new Error("A Sales milestone must not remain actionable while its project is postponed");
+}
+if (postponedSalesItems.some((item) => item.group === "action")) {
+  throw new Error("A postponed project must not become a Sales next task");
+}
+
+const prioritizedSalesItems = sortDashboardItems([
+  ...salesMilestoneItems,
+  ...getSalesDashboardItems(
+    [{
+      id: "draft-project",
+      name: "Draft",
+      customer: "Customer Two",
+      sales_id: "sales-owner",
+      status: "DRAFT",
+      currentRole: "SALES",
+      createdAt: "2026-09-16T00:00:00.000Z",
+      updatedAt: "2026-09-16T00:00:00.000Z",
+    }],
+    "sales-owner"
+  ),
+]);
+if (prioritizedSalesItems[0]?.id !== "sales-milestone-milestone-commercial") {
+  throw new Error("An active Sales milestone should be prioritized ahead of routine project planning");
 }
 
 const waitingItem: DashboardWorkItem = {

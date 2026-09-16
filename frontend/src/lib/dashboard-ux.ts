@@ -1,4 +1,5 @@
 import { formatActivityAction } from "@/lib/activity-timeline";
+import type { Project } from "@/types/project";
 
 export type DashboardRole = "SALES" | "HEAD_SA" | "SA" | "SUPER_ADMIN" | string | undefined;
 
@@ -183,6 +184,90 @@ export const getMilestoneProjectHref = (projectId: string, milestoneId: string):
 
 export const getDraftProjectActionCopy = (currentRole?: string | null): string =>
   currentRole === "SALES" ? "Continue project planning" : "Review project status";
+
+export const getSalesDashboardItems = (projects: Project[], userId?: string): DashboardWorkItem[] => {
+  const items = new Map<string, DashboardWorkItem>();
+
+  for (const project of projects) {
+    const isOwner = !project.sales_id || project.sales_id === userId;
+    const projectHref = `/projects/${project.id}`;
+    const projectMeta = project.customer ? `Customer: ${project.customer}` : undefined;
+    const milestone = project.currentMilestone;
+
+    if (
+      project.sales_id === userId &&
+      project.status === "ACTIVE" &&
+      !project.is_postponed &&
+      milestone?.status === "IN_PROGRESS" &&
+      milestone.default_role === "SALES"
+    ) {
+      const id = `sales-milestone-${milestone.id}`;
+      items.set(id, {
+        id,
+        priority: 30,
+        group: "action",
+        label: "Sales milestone",
+        title: `${project.name} - ${milestone.name}`,
+        description: "Continue the active Sales stage for this project.",
+        meta: projectMeta,
+        state: "In progress",
+        href: getMilestoneProjectHref(project.id, milestone.id),
+        actionLabel: "Open milestone",
+      });
+      continue;
+    }
+
+    if (isOwner && project.status === "DRAFT" && project.currentRole === "SALES") {
+      const id = `sales-planning-${project.id}`;
+      items.set(id, {
+        id,
+        priority: 40,
+        group: "action",
+        label: "Project planning",
+        title: project.name,
+        description: "Continue preparing the project plan before it is submitted for review.",
+        meta: projectMeta,
+        state: "Planning",
+        href: projectHref,
+        actionLabel: getDraftProjectActionCopy(project.currentRole),
+      });
+      continue;
+    }
+
+    if (project.status === "DRAFT" && project.currentRole === "HEAD_SA") {
+      const id = `sales-waiting-${project.id}`;
+      items.set(id, {
+        id,
+        priority: 20,
+        group: "waiting",
+        label: "Plan under review",
+        title: project.name,
+        description: "Head SA is reviewing the submitted project plan.",
+        meta: projectMeta,
+        state: "Under review",
+        href: projectHref,
+      });
+      continue;
+    }
+
+    if (project.status === "POSTPONED" && isOwner) {
+      const id = `sales-resume-${project.id}`;
+      items.set(id, {
+        id,
+        priority: 50,
+        group: "informational",
+        label: "Project postponed",
+        title: project.name,
+        description: "Delivery is paused for this project.",
+        meta: projectMeta,
+        state: "Postponed",
+        href: projectHref,
+      });
+    }
+  }
+
+  return [...items.values()];
+};
 
 export const getDashboardSnapshotTitle = (role: DashboardRole): string => {
   switch (role) {

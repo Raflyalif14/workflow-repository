@@ -321,6 +321,13 @@ export interface Project {
   progress?: number;
   currentStage?: string | null;
   currentRole?: string | null;
+  currentMilestone?: {
+    id: string;
+    name: string;
+    step_order: number;
+    status: MilestoneStatus;
+    default_role: string | null;
+  } | null;
   is_postponed?: boolean;
   postponed_at?: string | null;
   postpone_reason?: string | null;
