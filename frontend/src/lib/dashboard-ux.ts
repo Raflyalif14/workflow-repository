@@ -32,6 +32,10 @@ export type DashboardProjectHealth = {
   ownerKnown?: boolean;
   hasPic?: boolean;
   currentRole?: string | null;
+  currentStage?: string | null;
+  currentDeadline?: string | null;
+  picName?: string | null;
+  estimatedRevenue?: number | null;
 };
 
 export type DashboardDistributionItem = {
@@ -129,11 +133,11 @@ export const getDashboardGreetingSubject = (
 export const getDashboardKpiLabels = (role: DashboardRole): string[] => {
   switch (role) {
     case "HEAD_SA":
-      return ["Plans to review", "Work submissions", "Deadline requests", "Unassigned projects"];
+      return ["Assigned architects", "Active delivery", "Work submissions", "Unassigned projects"];
     case "SALES":
-      return ["Planning", "Waiting for review", "Active projects", "Postponed"];
+      return ["Total estimated revenue", "Waiting result", "Won", "Lost"];
     case "SA":
-      return ["In progress", "Needs revision", "Waiting for review", "Completed"];
+      return ["In progress", "Needs revision", "Upcoming deadlines", "Overdue"];
     case "SUPER_ADMIN":
       return ["Active projects", "Overdue milestones", "Pending reviews", "Completed projects"];
     default:
@@ -150,6 +154,9 @@ export const formatDashboardLabel = (value?: string | null): string => {
     POSTPONED: "Postponed",
     COMPLETED: "Completed",
     CANCELLED: "Cancelled",
+    WAITING_RESULT: "Waiting result",
+    WON: "Won",
+    LOST: "Lost",
     CREATED: "Not started",
     IN_PROGRESS: "In progress",
     SUBMITTED: "Under review",
@@ -193,6 +200,23 @@ export const getSalesDashboardItems = (projects: Project[], userId?: string): Da
     const projectHref = `/projects/${project.id}`;
     const projectMeta = project.customer ? `Customer: ${project.customer}` : undefined;
     const milestone = project.currentMilestone;
+
+    if (project.sales_id === userId && project.status === "WAITING_RESULT") {
+      const id = `sales-result-${project.id}`;
+      items.set(id, {
+        id,
+        priority: 5,
+        group: "action",
+        label: "Tender result",
+        title: project.name,
+        description: "Delivery is complete. Record whether the project was won or lost.",
+        meta: projectMeta,
+        state: "Waiting result",
+        href: projectHref,
+        actionLabel: "Record result",
+      });
+      continue;
+    }
 
     if (
       project.sales_id === userId &&
@@ -377,12 +401,13 @@ export const shouldShowDashboardInsights = (
 
 const getProjectHealthPriority = (project: DashboardProjectHealth, role: DashboardRole): number => {
   if (project.overdueMilestones > 0) return 0;
+  if (role === "SALES" && project.status === "WAITING_RESULT") return 1;
   if (role === "HEAD_SA" && project.status === "ACTIVE" && !project.hasPic && project.currentRole === "HEAD_SA") return 1;
   if (project.status === "POSTPONED" || project.status === "ON_HOLD") return 1;
   if (role === "SUPER_ADMIN" && project.status === "ACTIVE" && project.percentage !== null && project.percentage < 25) return 2;
   if (project.status === "ACTIVE") return 3;
   if (project.status === "DRAFT") return 4;
-  if (project.status === "COMPLETED" || project.status === "CANCELLED") return 7;
+  if (["COMPLETED", "CANCELLED", "WON", "LOST"].includes(project.status)) return 7;
   if (project.targetEndDate && formatDashboardDate(project.targetEndDate)) return 5;
   return 6;
 };

@@ -11,7 +11,7 @@ import {
   calculateMilestoneProgress,
 } from './milestone.service';
 import { buildDeadlineProposalArtifacts } from './deadline.service';
-import { advanceToNextMilestone, completeMilestoneStage, getAutoStartBlockReason } from './workflow-progression.service';
+import { advanceToNextMilestone, areSelectedProjectOutputsApproved, completeMilestoneStage, getAutoStartBlockReason } from './workflow-progression.service';
 import { supabaseAdmin } from '../config/supabase';
 import { CreateNotificationInput, NotificationService } from './notification.service';
 import { strict as strictAssert } from 'assert';
@@ -213,6 +213,7 @@ type MockRow = Record<string, any>;
 type ProgressionState = {
   project: MockRow;
   milestones: MockRow[];
+  outputDocuments: MockRow[];
   writes: MockRow[];
   logs: MockRow[];
   notifications: CreateNotificationInput[];
@@ -251,13 +252,17 @@ class ProgressionQueryMock {
       this.state.logs.push({ ...this.payload });
       return { data: null, error: null };
     }
-    strictAssert(['projects', 'project_milestones'].includes(this.table), `Unexpected table: ${this.table}`);
+    strictAssert(['projects', 'project_milestones', 'project_output_documents'].includes(this.table), `Unexpected table: ${this.table}`);
     if (this.operation === 'update' && (
       (this.table === 'projects' && this.state.failProjectUpdate)
       || (this.table === 'project_milestones' && this.payload.status === 'IN_PROGRESS' && this.state.failNextStart)
     )) return { data: null, error: { message: 'simulated progression write failure' } };
 
-    const source = this.table === 'projects' ? [this.state.project] : this.state.milestones;
+    const source = this.table === 'projects'
+      ? [this.state.project]
+      : this.table === 'project_output_documents'
+        ? this.state.outputDocuments
+        : this.state.milestones;
     const matching = source.filter((row) => this.filters.every(([key, value]) => row[key] === value));
     if (this.operation === 'update') {
       for (const row of matching) {
@@ -276,6 +281,7 @@ class ProgressionQueryMock {
 async function withProgression(count: number, action: (state: ProgressionState) => Promise<void>) {
   const state: ProgressionState = {
     project: { id: 'project-1', name: 'Workflow test', sales_id: sales.userId, pic_id: saPic.userId, status: 'ACTIVE', is_postponed: false },
+    outputDocuments: [{ id: 'output-1', project_id: 'project-1', is_required: true, is_selected: true, status: 'APPROVED' }],
     milestones: Array.from({ length: count }, (_, index) => ({
       id: `milestone-${index + 1}`, project_id: 'project-1', name: index === count - 1 ? 'Tender Process' : `Stage ${index + 1}`,
       step_order: index + 1, status: index === count - 1 ? 'IN_PROGRESS' : 'COMPLETED', pic_id: saPic.userId,
@@ -304,18 +310,39 @@ async function withProgression(count: number, action: (state: ProgressionState) 
 }
 
 async function runProgressionRecoveryTests() {
+  strictAssert.equal(areSelectedProjectOutputsApproved([
+    { is_required: true, is_selected: true, status: 'APPROVED' },
+    { is_required: false, is_selected: false, status: 'DRAFT' },
+  ]), true);
+  strictAssert.equal(areSelectedProjectOutputsApproved([
+    { is_required: true, is_selected: true, status: 'DRAFT' },
+  ]), false);
+  console.log('Output gate - only selected or required approved outputs satisfy delivery completion');
+
+  await withProgression(6, async (state) => {
+    state.outputDocuments[0].status = 'IN_REVIEW';
+    const result = await completeMilestoneStage('milestone-6', sales);
+    strictAssert.equal(result.project_completed, false);
+    strictAssert.equal(result.blocked_reason, 'OUTPUT_DOCUMENTS_PENDING');
+    strictAssert.equal(state.project.status, 'ACTIVE');
+  });
+  console.log('Output gate - partial submission cannot move the project to WAITING_RESULT');
+
   for (const [label, count] of [['Assessment V2', 8], ['Existing TOR V2', 6], ['Assessment LEGACY', 13], ['Existing TOR LEGACY', 11]] as const) {
     await withProgression(count, async (state) => {
       if (label.includes('LEGACY')) state.milestones[0].status = 'APPROVED';
       const result = await completeMilestoneStage(`milestone-${count}`, sales);
       strictAssert.equal(result.status, 'COMPLETED');
       strictAssert.ok(result.completed_at);
-      strictAssert.equal(state.project.status, 'COMPLETED');
+      strictAssert.equal(state.project.status, 'WAITING_RESULT');
       strictAssert.equal(result.project_completed, true);
       strictAssert.equal(result.next_milestone, null);
       strictAssert.equal(result.started, false);
       strictAssert.equal(state.writes.length, 2);
-      strictAssert.deepEqual(state.logs.map((log) => log.action), ['MILESTONE_COMPLETED', 'PROJECT_COMPLETED']);
+      strictAssert.deepEqual(state.logs.map((log) => log.action), ['MILESTONE_COMPLETED', 'PROJECT_WAITING_RESULT']);
+      strictAssert.equal(state.notifications.length, 1);
+      strictAssert.equal(state.notifications[0].type, 'PROJECT_WAITING_RESULT');
+      strictAssert.equal(state.notifications[0].userId, sales.userId);
       const before = JSON.stringify(state);
       const duplicate = await completeMilestoneStage(`milestone-${count}`, sales);
       strictAssert.equal(duplicate.project_completed, true);
@@ -336,7 +363,7 @@ async function runProgressionRecoveryTests() {
     strictAssert(results.every((result) => result.project_completed && result.blocked_reason === null));
     strictAssert.equal(state.milestones[7].completed_at, completedAt);
     strictAssert.equal(state.writes.filter((row) => row.table === 'projects').length, 1);
-    strictAssert.equal(state.logs.filter((row) => row.action === 'PROJECT_COMPLETED').length, 1);
+    strictAssert.equal(state.logs.filter((row) => row.action === 'PROJECT_WAITING_RESULT').length, 1);
     strictAssert.equal(state.logs.filter((row) => row.action === 'MILESTONE_COMPLETED').length, 1);
     console.log('Recovery - Failed project write is reconciled once by concurrent SALES retries');
   });
@@ -387,13 +414,13 @@ async function runProgressionRecoveryTests() {
     console.log('Handoff - Persisted SALES role starts the owner task and retry does not duplicate its notification');
   });
 
-  for (const action of ['MILESTONE_COMPLETED', 'PROJECT_COMPLETED']) {
+  for (const action of ['MILESTONE_COMPLETED', 'PROJECT_WAITING_RESULT']) {
     for (const throws of [false, true]) {
       await withProgression(6, async (state) => {
         state.failLog = action;
         state.throwLog = throws;
         strictAssert.equal((await completeMilestoneStage('milestone-6', sales)).project_completed, true);
-        strictAssert.equal(state.project.status, 'COMPLETED');
+        strictAssert.equal(state.project.status, 'WAITING_RESULT');
         strictAssert.equal(state.reportedErrors.length, 1);
         strictAssert(!JSON.stringify(state.reportedErrors).includes('private provider'));
         strictAssert.equal((await completeMilestoneStage('milestone-6', sales)).project_completed, true);

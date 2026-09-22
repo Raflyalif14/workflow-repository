@@ -36,6 +36,7 @@ import { PostponeProjectDialog } from "@/components/projects/postpone-project-di
 import { ProjectDeletionDangerZone } from "@/components/projects/project-deletion-danger-zone";
 import { ProjectTimelineEditor } from "@/components/projects/project-timeline-editor";
 import { SalesMilestoneDocumentUploadDialog } from "@/components/projects/sales-milestone-document-upload-dialog";
+import { OutputDocumentsSection } from "@/components/projects/output-documents-section";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -83,6 +84,7 @@ import {
   useProjectProgress,
   useResumeProject,
   useReviewProjectPlan,
+  useSetProjectOutcome,
   useSolutionArchitects,
   useSubmitProjectPlan,
 } from "@/hooks/use-projects";
@@ -107,6 +109,12 @@ import {
   ProjectPlanApproval,
 } from "@/types/project";
 
+function formatIdr(value: number | null | undefined): string {
+  return value === null || value === undefined
+    ? "Not available"
+    : new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(value);
+}
+
 export default function ProjectDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
@@ -118,10 +126,14 @@ export default function ProjectDetailPage() {
   const approvalQueries = useMilestoneApprovalStates(milestones, Boolean(milestones.length));
   const submitProjectPlan = useSubmitProjectPlan(id);
   const resumeProject = useResumeProject();
+  const setProjectOutcome = useSetProjectOutcome(id);
 
   const [postponeOpen, setPostponeOpen] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [outcomeDecision, setOutcomeDecision] = useState<"WON" | "LOST" | null>(null);
+  const [finalContractValue, setFinalContractValue] = useState("");
+  const [lossReason, setLossReason] = useState("");
 
   const approvalByMilestone = useMemo(() => {
     const states = new Map<string, MilestoneApprovalState>();
@@ -164,7 +176,8 @@ export default function ProjectDetailPage() {
   const isDraft = project.status === "DRAFT";
   const isActive = project.status === "ACTIVE";
   const isPostponed = project.status === "POSTPONED" || project.is_postponed;
-  const isCompleted = project.status === "COMPLETED";
+  const isCompleted = ["COMPLETED", "WAITING_RESULT", "WON", "LOST"].includes(project.status);
+  const isWaitingResult = project.status === "WAITING_RESULT";
   const isHeadSaPlanReviewWorkspace =
     isHeadSa && isDraft && planApproval?.status === "PENDING";
 
@@ -225,6 +238,34 @@ export default function ProjectDetailPage() {
     }
   };
 
+  const recordOutcome = async () => {
+    if (!outcomeDecision) return;
+    setError("");
+    setMessage("");
+    const parsedFinalContractValue = Number(finalContractValue);
+    if (outcomeDecision === "WON" && (!finalContractValue.trim() || !Number.isFinite(parsedFinalContractValue) || parsedFinalContractValue <= 0)) {
+      setError("Final contract value is required for a won project.");
+      return;
+    }
+    if (outcomeDecision === "LOST" && !lossReason.trim()) {
+      setError("Loss reason is required for a lost project.");
+      return;
+    }
+    try {
+      await setProjectOutcome.mutateAsync({
+        outcome: outcomeDecision,
+        finalContractValue: outcomeDecision === "WON" ? parsedFinalContractValue : undefined,
+        lossReason: outcomeDecision === "LOST" ? lossReason : undefined,
+      });
+      setMessage(`Project result recorded as ${outcomeDecision}.`);
+      setOutcomeDecision(null);
+      setFinalContractValue("");
+      setLossReason("");
+    } catch (outcomeError) {
+      setError(outcomeError instanceof Error ? outcomeError.message : "Failed to record project result.");
+    }
+  };
+
   const handleNextAction = () => {
     switch (nextAction.actionType) {
       case "SUBMIT_PLAN":
@@ -268,6 +309,9 @@ export default function ProjectDetailPage() {
           </p>
           <p className="text-sm text-muted-foreground">
             Sales owner: <strong className="text-foreground">{project.sales?.full_name || project.sales?.fullName || "Unassigned"}</strong>
+          </p>
+          <p className="text-sm text-muted-foreground">
+            Estimated revenue: <strong className="text-foreground">{formatIdr(project.estimated_revenue)}</strong>
           </p>
         </div>
 
@@ -324,17 +368,131 @@ export default function ProjectDetailPage() {
         </div>
       )}
 
-      {/* ─── Completed Success Banner ─── */}
-      {isCompleted && (
-        <div className="flex flex-col gap-4 rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
+      {/* Delivery result */}
+      {isWaitingResult && (
+        <div className="flex flex-col gap-4 rounded-lg border border-amber-500/30 bg-amber-500/10 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
           <div className="space-y-1">
-            <div className="flex items-center gap-2 text-sm font-semibold tracking-tight text-emerald-400">
+            <div className="flex items-center gap-2 text-sm font-semibold text-amber-300">
+              <Clock3 className="h-5 w-5 shrink-0" />
+              <span>Delivery complete - waiting for tender result</span>
+            </div>
+            <p className="text-xs leading-5 text-muted-foreground">
+              All milestones are complete. The Sales owner must record whether the project was won or lost.
+            </p>
+          </div>
+          {isSalesOwner && (
+            <div className="flex w-full gap-2 sm:w-auto">
+              <Button
+                type="button"
+                size="sm"
+                className="flex-1 sm:flex-none"
+                disabled={setProjectOutcome.isPending}
+                onClick={() => {
+                  setError("");
+                  setOutcomeDecision("WON");
+                }}
+              >
+                Mark Won
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="flex-1 sm:flex-none"
+                disabled={setProjectOutcome.isPending}
+                onClick={() => {
+                  setError("");
+                  setOutcomeDecision("LOST");
+                }}
+              >
+                Mark Lost
+              </Button>
+            </div>
+          )}
+        </div>
+      )}
+
+      <Dialog
+        open={Boolean(outcomeDecision)}
+        onOpenChange={(open) => {
+          if (!open && !setProjectOutcome.isPending) setOutcomeDecision(null);
+        }}
+      >
+        <DialogHeader>
+          <DialogTitle>{outcomeDecision === "WON" ? "Record won project" : "Record lost project"}</DialogTitle>
+          <DialogDescription>
+            {outcomeDecision === "WON"
+              ? "Provide the final contract value before recording this result."
+              : "Provide the reason this project was lost before recording this result."}
+          </DialogDescription>
+        </DialogHeader>
+        <form
+          className="space-y-4"
+          onSubmit={(event) => {
+            event.preventDefault();
+            void recordOutcome();
+          }}
+        >
+          {outcomeDecision === "WON" ? (
+            <div>
+              <label htmlFor="final-contract-value" className="mb-1 block text-xs font-semibold text-muted-foreground">
+                Final Contract Value (IDR)
+              </label>
+              <Input
+                id="final-contract-value"
+                type="number"
+                min="0.01"
+                step="0.01"
+                inputMode="decimal"
+                value={finalContractValue}
+                onChange={(event) => setFinalContractValue(event.target.value)}
+                disabled={setProjectOutcome.isPending}
+                required
+              />
+            </div>
+          ) : (
+            <div>
+              <label htmlFor="loss-reason" className="mb-1 block text-xs font-semibold text-muted-foreground">
+                Loss Reason
+              </label>
+              <textarea
+                id="loss-reason"
+                value={lossReason}
+                onChange={(event) => setLossReason(event.target.value)}
+                className="min-h-24 w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                disabled={setProjectOutcome.isPending}
+                maxLength={2000}
+                required
+              />
+            </div>
+          )}
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setOutcomeDecision(null)} disabled={setProjectOutcome.isPending}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={setProjectOutcome.isPending}>
+              {setProjectOutcome.isPending ? "Saving..." : outcomeDecision === "WON" ? "Record Won" : "Record Lost"}
+            </Button>
+          </DialogFooter>
+        </form>
+      </Dialog>
+
+      {(project.status === "WON" || project.status === "LOST" || project.status === "COMPLETED") && (
+        <div className={`flex flex-col gap-4 rounded-lg border p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5 ${project.status === "LOST" ? "border-destructive/30 bg-destructive/10" : "border-emerald-500/30 bg-emerald-500/10"}`}>
+          <div className="space-y-1">
+            <div className={`flex items-center gap-2 text-sm font-semibold tracking-tight ${project.status === "LOST" ? "text-destructive" : "text-emerald-400"}`}>
               <CheckCircle2 className="h-5 w-5 shrink-0" />
-              <span>Project Completed — 100%</span>
+              <span>{project.status === "COMPLETED" ? "Project completed" : `Project ${project.status}`} - 100%</span>
             </div>
             <p className="text-xs text-muted-foreground">
-              All workflow milestones have been fulfilled and approved. No further actions are required.
+              All workflow milestones have been fulfilled and the delivery result has been recorded.
             </p>
+            {project.status === "WON" && (
+              <p className="text-xs text-muted-foreground">Final contract value: <strong className="text-foreground">{formatIdr(project.final_contract_value)}</strong></p>
+            )}
+            {project.status === "LOST" && project.loss_reason && (
+              <p className="text-xs text-muted-foreground">Loss reason: <strong className="text-foreground">{project.loss_reason}</strong></p>
+            )}
           </div>
           <Badge variant="success" className="self-start px-3 py-1 text-xs sm:self-auto">
             {formatProjectStatusLabel(project.status)}
@@ -469,6 +627,7 @@ export default function ProjectDetailPage() {
       )}
 
       {!isHeadSaPlanReviewWorkspace && <ProjectIntakeSection projectId={project.id} />}
+      <OutputDocumentsSection project={project} />
       <ProjectDocumentsSection projectId={project.id} />
 
       {/* ─── Milestones Execution List & Activity Log ─── */}
@@ -1096,12 +1255,8 @@ function MilestoneRow({
     milestone.start_date,
     isActiveRevision
   );
-  const canSubmit =
-    projectIsActive &&
-    stageRole === "SA" &&
-    isAssignedPic &&
-    milestoneStatus === "IN_PROGRESS" &&
-    !isBeforeStartDate;
+  const canSubmit = projectIsActive && stageRole === "SA" && isAssignedPic && milestoneStatus === "IN_PROGRESS";
+  const canSubmitWork = canSubmit && !isBeforeStartDate;
   const isUpcomingStart =
     projectIsActive &&
     stageRole === "SA" &&
@@ -1238,7 +1393,7 @@ function MilestoneRow({
               </Button>
             </div>
           )}
-          {canSubmit && (
+          {canSubmitWork && (
             <Button size="sm" className="h-8 gap-1.5 text-xs shadow-none" onClick={() => setSubmitOpen(true)}>
               <FileCheck2 className="h-3.5 w-3.5" />
               <span>Submit Work</span>
@@ -2095,6 +2250,12 @@ function StatusBadge({ status }: { status: string }) {
       return <Badge variant="destructive">Cancelled</Badge>;
     case "POSTPONED":
       return <Badge variant="warning">Postponed</Badge>;
+    case "WAITING_RESULT":
+      return <Badge variant="warning">Waiting Result</Badge>;
+    case "WON":
+      return <Badge variant="success">Won</Badge>;
+    case "LOST":
+      return <Badge variant="destructive">Lost</Badge>;
     case "DRAFT":
       return <Badge variant="outline">{formatProjectStatusLabel(status)}</Badge>;
     case "CREATED":

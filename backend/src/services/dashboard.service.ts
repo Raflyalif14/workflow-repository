@@ -18,6 +18,7 @@ export type DashboardProjectRow = {
   is_postponed?: boolean | null;
   created_at?: string | null;
   updated_at?: string | null;
+  estimated_revenue?: number | string | null;
 };
 
 export type DashboardMilestoneRow = {
@@ -70,13 +71,16 @@ export type DashboardSourceRows = {
   users: DashboardUserRow[];
 };
 
-const LIVE_PROJECT_STATUSES = ['DRAFT', 'ACTIVE', 'POSTPONED', 'COMPLETED', 'CANCELLED'] as const;
+const LIVE_PROJECT_STATUSES = ['DRAFT', 'ACTIVE', 'POSTPONED', 'WAITING_RESULT', 'WON', 'LOST', 'COMPLETED', 'CANCELLED'] as const;
 const COMPLETED_MILESTONE_STATUSES = new Set(['COMPLETED', 'APPROVED']);
 const PROJECT_STATUS_COLORS: Record<string, string> = {
   DRAFT: '#64748b',
   ACTIVE: '#3b82f6',
   POSTPONED: '#f59e0b',
   COMPLETED: '#22c55e',
+  WAITING_RESULT: '#f59e0b',
+  WON: '#22c55e',
+  LOST: '#ef4444',
   CANCELLED: '#ef4444',
 };
 
@@ -108,7 +112,7 @@ export function countOverdueMilestones(
       project.status === 'DRAFT' ||
       project.status === 'CANCELLED' ||
       project.status === 'POSTPONED' ||
-      project.status === 'COMPLETED' ||
+      ['COMPLETED', 'WAITING_RESULT', 'WON', 'LOST'].includes(project.status) ||
       project.is_postponed
     ) {
       return false;
@@ -135,10 +139,11 @@ function sortNewestFirst<T extends { created_at?: string | null; updated_at?: st
 
 function calculateProjectProgress(project: DashboardProjectRow, milestones: DashboardMilestoneRow[], today: string) {
   const total = milestones.length;
-  const completed = project.status === 'COMPLETED'
+  const deliveryCompleted = ['COMPLETED', 'WAITING_RESULT', 'WON', 'LOST'].includes(project.status);
+  const completed = deliveryCompleted
     ? total
     : milestones.filter((milestone) => isMilestoneCompletedLike(milestone.status)).length;
-  const percentage = project.status === 'COMPLETED'
+  const percentage = deliveryCompleted
     ? 100
     : total > 0
       ? Math.round((completed / total) * 100)
@@ -191,7 +196,7 @@ export function buildDashboardOverviewFromRows(
   }
 
   const projectProgress = sortNewestFirst(
-    projects.filter((project) => ['ACTIVE', 'POSTPONED', 'COMPLETED'].includes(project.status))
+    projects.filter((project) => ['ACTIVE', 'POSTPONED', 'WAITING_RESULT', 'WON', 'LOST', 'COMPLETED'].includes(project.status))
   )
     .slice(0, 10)
     .map((project) =>
@@ -246,7 +251,10 @@ export function buildDashboardOverviewFromRows(
     summary: {
       totalProjects: projects.length,
       activeProjects: statusCounts.get('ACTIVE') || 0,
-      completedProjects: statusCounts.get('COMPLETED') || 0,
+      completedProjects: (statusCounts.get('COMPLETED') || 0)
+        + (statusCounts.get('WAITING_RESULT') || 0)
+        + (statusCounts.get('WON') || 0)
+        + (statusCounts.get('LOST') || 0),
       postponedProjects,
       onHoldProjects: postponedProjects,
       cancelledProjects,
@@ -277,7 +285,7 @@ export function toSafeDashboardError(error: unknown, context: string) {
 async function getScopedProjects(actor: DashboardActor) {
   let query = supabaseAdmin
     .from('projects')
-    .select('id,name,customer,scenario_id,sales_id,pic_id,status,is_postponed,created_at,updated_at')
+    .select('id,name,customer,scenario_id,sales_id,pic_id,status,is_postponed,estimated_revenue,created_at,updated_at')
     .order('updated_at', { ascending: false });
 
   if (actor.role === 'SALES') query = query.eq('sales_id', actor.userId);

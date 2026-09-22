@@ -25,6 +25,7 @@ type State = {
   project: Record<string, any> | null;
   intakeAttachments: Array<Record<string, any>>;
   milestones: Array<Record<string, any>>;
+  outputDocuments: Array<Record<string, any>>;
   uploadedPaths: string[];
   cleanedPaths: string[];
   tablesTouched: string[];
@@ -39,6 +40,7 @@ const input = {
   name: 'Enterprise Discovery',
   customer: 'Customer Test',
   scenario_id: '00000000-0000-4000-8000-000000000001',
+  estimated_revenue: 1500000000,
 };
 
 const makeFile = (name: string, mimetype = 'application/pdf', fieldname = 'documents'): Express.Multer.File =>
@@ -69,6 +71,7 @@ const makeState = (scenario: Scenario = {}): State => ({
   project: null,
   intakeAttachments: [],
   milestones: [],
+  outputDocuments: [],
   uploadedPaths: [],
   cleanedPaths: [],
   tablesTouched: [],
@@ -78,7 +81,7 @@ const makeState = (scenario: Scenario = {}): State => ({
 });
 
 class QueryMock {
-  private operation: 'select' | 'insert' | 'delete' = 'select';
+  private operation: 'select' | 'insert' | 'upsert' | 'delete' = 'select';
   private payload: any;
   private readonly filters: Array<{ column: string; value: unknown }> = [];
   private readonly inFilters: Array<{ column: string; values: unknown[] }> = [];
@@ -89,6 +92,7 @@ class QueryMock {
 
   select(): this { return this; }
   insert(payload: any): this { this.operation = 'insert'; this.payload = payload; return this; }
+  upsert(payload: any): this { this.operation = 'upsert'; this.payload = payload; return this; }
   delete(): this { this.operation = 'delete'; return this; }
   eq(column: string, value: unknown): this { this.filters.push({ column, value }); return this; }
   in(column: string, values: unknown[]): this { this.inFilters.push({ column, values }); return this; }
@@ -124,6 +128,7 @@ class QueryMock {
     if (this.table === 'projects') return this.projects();
     if (this.table === 'project_intake_attachments') return this.intakeAttachments();
     if (this.table === 'project_milestones') return this.milestones();
+    if (this.table === 'project_output_documents') return this.outputDocuments();
     if (this.table === 'activity_logs') return { data: null, error: null };
     return { data: null, error: null };
   }
@@ -172,6 +177,17 @@ class QueryMock {
       this.state.milestones = [];
     }
     return { data: null, error: null };
+  }
+
+  private outputDocuments(): { data: any; error: any } {
+    if (this.operation === 'upsert') {
+      this.state.outputDocuments = (this.payload || []).map((row: Record<string, any>, index: number) => ({
+        id: `output-${index + 1}`,
+        ...row,
+      }));
+    }
+    if (this.operation === 'delete') this.state.outputDocuments = [];
+    return { data: this.state.outputDocuments, error: null };
   }
 }
 
@@ -226,6 +242,7 @@ async function run(): Promise<void> {
     const result = await ProjectManagementService.create(input, sales, files());
     assert(result.intake_attachments.length === 2 && result.intake_attachments[0].kind === 'MOM' && result.intake_attachments[1].kind === 'PHOTO', 'Test 1: required MoM and photo must be returned as safe intake summaries');
     assert(state.project?.id === 'project-1' && state.milestoneInitializeCalls === 1, 'Test 1: project and existing milestone initialization must succeed once');
+    assert(state.project?.estimated_revenue === input.estimated_revenue && state.outputDocuments.length > 0, 'Test 1: estimated revenue and output checklist must be initialized without changing milestones');
     assert(state.intakeAttachments.length === 2 && state.intakeAttachments.every((attachment) => attachment.project_id === 'project-1'), 'Test 1: MoM and photo must belong to the new project intake');
     assert(state.intakeAttachments.map((attachment) => attachment.kind).join(',') === 'MOM,PHOTO', 'Test 1: intake evidence preserves the MoM and photo classifications');
     assert(!state.tablesTouched.includes('documents') && !state.tablesTouched.includes('document_versions'), 'Test 1: project intake evidence must not create official document rows or versions');

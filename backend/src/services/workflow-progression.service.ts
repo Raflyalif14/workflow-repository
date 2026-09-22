@@ -1,5 +1,7 @@
 import { supabaseAdmin } from '../config/supabase';
 import { notifySalesMilestoneStarted } from './milestone-notification.service';
+import { NotificationService } from './notification.service';
+import { runNotificationBestEffort } from './notification-dispatch.service';
 
 export type WorkflowActor = {
   userId: string;
@@ -36,6 +38,15 @@ const stageRoleOf = (milestone: WorkflowMilestone): string | null =>
   normalizeRelatedOne(milestone.workflow_stage)?.default_role || null;
 
 const nowIso = () => new Date().toISOString();
+const RESULT_PHASE_STATUSES = new Set(['WAITING_RESULT', 'WON', 'LOST']);
+
+export const areSelectedProjectOutputsApproved = (
+  rows: Array<{ is_required: boolean; is_selected: boolean; status: string }>
+): boolean => {
+  const requiredOrSelected = rows.filter((row) => row.is_required || row.is_selected);
+  return requiredOrSelected.length > 0
+    && requiredOrSelected.every((row) => row.status === 'APPROVED');
+};
 
 export const isMilestoneCompletedLike = (status: string): boolean =>
   status === 'COMPLETED' || status === 'APPROVED';
@@ -165,7 +176,7 @@ export async function advanceToNextMilestone(
     return { next_milestone: null, started: false, project_completed: false, blocked_reason: 'CURRENT_NOT_COMPLETED' as const };
   }
 
-  if (project.status === 'COMPLETED' && !project.is_postponed) {
+  if ((project.status === 'COMPLETED' || RESULT_PHASE_STATUSES.has(project.status)) && !project.is_postponed) {
     return { next_milestone: null, started: false, project_completed: true, blocked_reason: null };
   }
   if (project.status !== 'ACTIVE' || project.is_postponed) {
@@ -180,9 +191,18 @@ export async function advanceToNextMilestone(
       return { next_milestone: null, started: false, project_completed: false, blocked_reason: 'REMAINING_MILESTONES' as const };
     }
 
+    const { data: outputDocuments, error: outputError } = await supabaseAdmin
+      .from('project_output_documents')
+      .select('is_required,is_selected,status')
+      .eq('project_id', project.id);
+    if (outputError) throw new Error('Failed to verify project output documents.');
+    if (!areSelectedProjectOutputsApproved(outputDocuments || [])) {
+      return { next_milestone: null, started: false, project_completed: false, blocked_reason: 'OUTPUT_DOCUMENTS_PENDING' as const };
+    }
+
     const { data: completedProject, error } = await supabaseAdmin
       .from('projects')
-      .update({ status: 'COMPLETED', updated_at: nowIso() })
+      .update({ status: 'WAITING_RESULT', updated_at: nowIso() })
       .eq('id', project.id)
       .eq('status', 'ACTIVE')
       .eq('is_postponed', false)
@@ -194,14 +214,25 @@ export async function advanceToNextMilestone(
       await logWorkflowActivityBestEffort(
         actor,
         project.id,
-        'PROJECT_COMPLETED',
-        `${actor.fullName} completed project '${project.name}' after milestone '${current.name}'`
+        'PROJECT_WAITING_RESULT',
+        `${actor.fullName} completed delivery for project '${project.name}' after milestone '${current.name}'`
+      );
+      await runNotificationBestEffort('project result notification', () =>
+        NotificationService.createNotification({
+          userId: project.sales_id,
+          type: 'PROJECT_WAITING_RESULT',
+          title: 'Project Result Required',
+          message: `Delivery for project '${project.name}' is complete. Record the tender result as WON or LOST.`,
+          projectId: project.id,
+          actionUrl: `/projects/${project.id}`,
+        })
       );
     }
 
     // A concurrent reconciler may have won the CAS. Read its result, not our stale snapshot.
     const latestProject = completedProject ? project : await getProject(project.id);
-    const projectCompleted = Boolean(completedProject) || (latestProject.status === 'COMPLETED' && !latestProject.is_postponed);
+    const projectCompleted = Boolean(completedProject)
+      || ((latestProject.status === 'COMPLETED' || RESULT_PHASE_STATUSES.has(latestProject.status)) && !latestProject.is_postponed);
     return {
       next_milestone: null,
       started: false,
@@ -241,7 +272,7 @@ export async function advanceToNextMilestone(
   if (error) throw new Error(error.message);
   if (!startedMilestone) {
     const [latestProject, latestMilestones] = await Promise.all([getProject(projectId), getProjectMilestones(projectId)]);
-    if (latestProject.status === 'COMPLETED' && !latestProject.is_postponed) {
+    if ((latestProject.status === 'COMPLETED' || RESULT_PHASE_STATUSES.has(latestProject.status)) && !latestProject.is_postponed) {
       return { next_milestone: null, started: false, project_completed: true, blocked_reason: null };
     }
     if (latestProject.status !== 'ACTIVE' || latestProject.is_postponed) {
@@ -278,7 +309,9 @@ export async function advanceToNextMilestone(
 
 function assertCanCompleteOrReconcile(milestone: WorkflowMilestone, project: WorkflowProject, actor: WorkflowActor) {
   assertActorCanComplete(milestone, project, actor);
-  if (!(milestone.status === 'COMPLETED' && project.status === 'COMPLETED' && !project.is_postponed)) {
+  if (!(milestone.status === 'COMPLETED'
+    && (project.status === 'COMPLETED' || RESULT_PHASE_STATUSES.has(project.status))
+    && !project.is_postponed)) {
     assertProjectIsActive(project);
   }
   if (milestone.name.trim().toLocaleLowerCase() === 'assign pic') {

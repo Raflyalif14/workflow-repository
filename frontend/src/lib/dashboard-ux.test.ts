@@ -72,16 +72,16 @@ for (const [displayName, role, expectedSubject] of greetingSubjectCases) {
   }
 }
 
-if (getDashboardKpiLabels("HEAD_SA").join(",") !== "Plans to review,Work submissions,Deadline requests,Unassigned projects") {
-  throw new Error("Head SA KPI labels should describe the real review workload");
+if (getDashboardKpiLabels("HEAD_SA").join(",") !== "Assigned architects,Active delivery,Work submissions,Unassigned projects") {
+  throw new Error("Head SA KPI labels should describe SA workload and current delivery status");
 }
 
-if (getDashboardKpiLabels("SALES").join(",") !== "Planning,Waiting for review,Active projects,Postponed") {
-  throw new Error("Sales KPI labels should describe the real project pipeline");
+if (getDashboardKpiLabels("SALES").join(",") !== "Total estimated revenue,Waiting result,Won,Lost") {
+  throw new Error("Sales KPI labels should describe commercial results and revenue");
 }
 
-if (getDashboardKpiLabels("SA").join(",") !== "In progress,Needs revision,Waiting for review,Completed") {
-  throw new Error("SA KPI labels should describe assigned delivery work");
+if (getDashboardKpiLabels("SA").join(",") !== "In progress,Needs revision,Upcoming deadlines,Overdue") {
+  throw new Error("SA KPI labels should prioritize assigned deadlines");
 }
 
 if (getDashboardKpiLabels("SUPER_ADMIN").join(",") !== "Active projects,Overdue milestones,Pending reviews,Completed projects") {
@@ -164,6 +164,21 @@ if (
 
 if (getSalesDashboardItems([salesMilestoneProject], "other-sales").length !== 0) {
   throw new Error("An unrelated Sales user must not receive another owner's milestone task");
+}
+
+const waitingResultProject: Project = {
+  ...salesMilestoneProject,
+  id: "project-waiting-result",
+  status: "WAITING_RESULT",
+  currentMilestone: null,
+};
+const waitingResultItems = getSalesDashboardItems([waitingResultProject], "sales-owner");
+if (
+  waitingResultItems.length !== 1 ||
+  waitingResultItems[0].id !== "sales-result-project-waiting-result" ||
+  waitingResultItems[0].actionLabel !== "Record result"
+) {
+  throw new Error("Sales should receive one direct action to record a completed project's result");
 }
 
 const duplicateSalesItems = getSalesDashboardItems(

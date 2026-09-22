@@ -63,6 +63,14 @@ export function buildMilestoneContributionStoragePath(
   return `milestone-contributions/${projectId}/${milestoneId}/${contributionId}/${randomUUID()}-${sanitizeStorageFileName(originalName)}`;
 }
 
+export function buildOutputDocumentStoragePath(
+  projectId: string,
+  documentKey: string,
+  originalName: string
+): string {
+  return `output-documents/${projectId}/${documentKey}/${randomUUID()}-${sanitizeStorageFileName(originalName)}`;
+}
+
 export const uploadMiddleware = multer({
   storage: multer.memoryStorage(),
   limits: {

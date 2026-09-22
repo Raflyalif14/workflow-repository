@@ -55,6 +55,12 @@ function getStatusBadge(projectStatus: ProjectStatus) {
       return <Badge variant="warning">Postponed</Badge>;
     case "COMPLETED":
       return <Badge variant="success">Completed</Badge>;
+    case "WAITING_RESULT":
+      return <Badge variant="warning">Waiting Result</Badge>;
+    case "WON":
+      return <Badge variant="success">Won</Badge>;
+    case "LOST":
+      return <Badge variant="destructive">Lost</Badge>;
     case "CANCELLED":
       return <Badge variant="destructive">Cancelled</Badge>;
     default:
@@ -94,9 +100,9 @@ function getProgressPresentation(project: Project) {
       showDeliveryProgress: false,
     };
   }
-  if (project.status === "ACTIVE" || project.status === "COMPLETED") {
+  if (["ACTIVE", "COMPLETED", "WAITING_RESULT", "WON", "LOST"].includes(project.status)) {
     return {
-      label: project.status === "COMPLETED" ? "Delivery complete" : "Delivery progress",
+      label: project.status === "ACTIVE" ? "Delivery progress" : "Delivery complete",
       detail: null,
       showDeliveryProgress: true,
     };
@@ -114,26 +120,26 @@ function getProjectPriority(project: Project, role: string) {
 
   if (role === "SALES") {
     return priorityFrom(
-      { DRAFT: 0, ACTIVE: 1, POSTPONED: 2, COMPLETED: 3, CANCELLED: 4 },
-      5
+      { WAITING_RESULT: 0, DRAFT: 1, ACTIVE: 2, POSTPONED: 3, WON: 4, LOST: 4, COMPLETED: 4, CANCELLED: 5 },
+      6
     );
   }
   if (role === "HEAD_SA") {
     if (project.status === "ACTIVE" && !project.pic) return 0;
     return priorityFrom(
-      { DRAFT: 1, ACTIVE: 2, POSTPONED: 3, COMPLETED: 4, CANCELLED: 5 },
-      6
+      { DRAFT: 1, ACTIVE: 2, POSTPONED: 3, WAITING_RESULT: 4, WON: 5, LOST: 5, COMPLETED: 5, CANCELLED: 6 },
+      7
     );
   }
   if (role === "SA") {
     return priorityFrom(
-      { ACTIVE: 0, POSTPONED: 1, DRAFT: 2, COMPLETED: 3, CANCELLED: 4 },
-      5
+      { ACTIVE: 0, POSTPONED: 1, DRAFT: 2, WAITING_RESULT: 3, WON: 4, LOST: 4, COMPLETED: 4, CANCELLED: 5 },
+      6
     );
   }
   if (project.status === "POSTPONED") return 0;
   if (project.status === "ACTIVE" && !project.pic) return 1;
-  return priorityFrom({ ACTIVE: 2, DRAFT: 3, COMPLETED: 4, CANCELLED: 5 }, 6);
+  return priorityFrom({ ACTIVE: 2, DRAFT: 3, WAITING_RESULT: 4, WON: 5, LOST: 5, COMPLETED: 5, CANCELLED: 6 }, 7);
 }
 
 function getResponsibleLabel(project: Project) {

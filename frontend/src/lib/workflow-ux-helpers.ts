@@ -145,6 +145,12 @@ export function formatProjectStatusLabel(status: ProjectStatus | string): string
       return "Postponed";
     case "COMPLETED":
       return "Completed";
+    case "WAITING_RESULT":
+      return "Waiting Result";
+    case "WON":
+      return "Won";
+    case "LOST":
+      return "Lost";
     case "CANCELLED":
       return "Cancelled";
     default:

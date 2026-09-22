@@ -4,7 +4,7 @@ import { sendError, sendSuccess } from '../utils/response.util';
 import { getRouteParam } from '../utils/request.util';
 import { ProjectCreationError, ProjectManagementService } from '../services/project-management.service';
 import { MilestoneService } from '../services/milestone.service';
-import { createProjectManagementSchema, projectQuerySchema, updateProjectManagementSchema, postponeManagementSchema } from '../validators/project-management.validator';
+import { createProjectManagementSchema, projectOutcomeSchema, projectQuerySchema, updateProjectManagementSchema, postponeManagementSchema } from '../validators/project-management.validator';
 
 const actor = (req: AuthenticatedRequest) => req.user!;
 const run = async (res: Response, action: () => Promise<unknown>, message: string, status = 200) => {
@@ -39,6 +39,11 @@ export class ProjectManagementController {
   static update = (req: AuthenticatedRequest, res: Response) => run(res, () => ProjectManagementService.update(getRouteParam(req, 'id'), updateProjectManagementSchema.parse(req.body), actor(req)), 'Project updated successfully');
   static postpone = (req: AuthenticatedRequest, res: Response) => run(res, () => ProjectManagementService.postpone(getRouteParam(req, 'id'), postponeManagementSchema.parse(req.body).reason, actor(req)), 'Project postponed successfully');
   static resume = (req: AuthenticatedRequest, res: Response) => run(res, () => ProjectManagementService.resume(getRouteParam(req, 'id'), actor(req)), 'Project resumed successfully');
+  static setOutcome = (req: AuthenticatedRequest, res: Response) => run(
+    res,
+    () => ProjectManagementService.setOutcome(getRouteParam(req, 'id'), projectOutcomeSchema.parse(req.body), actor(req)),
+    'Project outcome recorded successfully'
+  );
   static milestones = (req: AuthenticatedRequest, res: Response) => run(res, () => MilestoneService.list(getRouteParam(req, 'projectId'), actor(req)), 'Project milestones retrieved successfully');
   static progress = (req: AuthenticatedRequest, res: Response) => run(res, () => MilestoneService.progress(getRouteParam(req, 'projectId'), actor(req)), 'Project progress retrieved successfully');
 }

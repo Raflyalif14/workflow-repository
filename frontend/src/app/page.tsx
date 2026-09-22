@@ -53,6 +53,13 @@ type SummaryMetric = {
   value: number;
 };
 
+const formatRevenue = (value: number): string =>
+  new Intl.NumberFormat("id-ID", {
+    style: "currency",
+    currency: "IDR",
+    maximumFractionDigits: 0,
+  }).format(value);
+
 const getApprovalPresentation = (item: ApprovalItem) => {
   switch (item.category) {
     case "PROJECT_PLAN":
@@ -249,28 +256,41 @@ const getRoleSummary = ({
 }): SummaryMetric[] => {
   if (role === "SALES") {
     return [
-      { label: "Planning", value: projects.filter((project) => project.status === "DRAFT").length },
-      { label: "Waiting for review", value: projects.filter((project) => project.status === "DRAFT" && project.currentRole === "HEAD_SA").length },
-      { label: "Active projects", value: projects.filter((project) => project.status === "ACTIVE").length },
-      { label: "Postponed", value: projects.filter((project) => project.status === "POSTPONED").length },
+      { label: "Total estimated revenue", value: projects.reduce((total, project) => total + (project.estimated_revenue || 0), 0) },
+      { label: "Waiting result", value: projects.filter((project) => project.status === "WAITING_RESULT").length },
+      { label: "Won", value: projects.filter((project) => project.status === "WON").length },
+      { label: "Lost", value: projects.filter((project) => project.status === "LOST").length },
     ];
   }
 
   if (role === "HEAD_SA") {
+    const assignedArchitectIds = new Set(
+      projects.filter((project) => project.status === "ACTIVE" && project.pic?.id).map((project) => project.pic!.id)
+    );
     return [
-      { label: "Plans to review", value: approvals.filter((item) => item.category === "PROJECT_PLAN").length },
+      { label: "Assigned architects", value: assignedArchitectIds.size },
+      { label: "Active delivery", value: projects.filter((project) => project.status === "ACTIVE").length },
       { label: "Work submissions", value: approvals.filter((item) => item.category === "SUBMISSION").length },
-      { label: "Deadline requests", value: approvals.filter((item) => item.category === "DEADLINE").length },
       { label: "Unassigned projects", value: projects.filter((project) => project.status === "ACTIVE" && !project.pic && project.currentRole === "HEAD_SA").length },
     ];
   }
 
   if (role === "SA") {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const actionable = milestones.filter((milestone) => ["IN_PROGRESS", "REJECTED", "SUBMITTED"].includes(milestone.status));
+    const deadlineDistance = (value?: string | null) => value ? Math.ceil((new Date(`${value}T00:00:00`).getTime() - today.getTime()) / 86400000) : null;
     return [
       { label: "In progress", value: milestones.filter((milestone) => milestone.status === "IN_PROGRESS").length },
       { label: "Needs revision", value: milestones.filter((milestone) => milestone.status === "REJECTED").length },
-      { label: "Waiting for review", value: milestones.filter((milestone) => milestone.status === "SUBMITTED").length },
-      { label: "Completed", value: milestones.filter((milestone) => milestone.status === "COMPLETED" || milestone.status === "APPROVED").length },
+      { label: "Upcoming deadlines", value: actionable.filter((milestone) => {
+        const distance = deadlineDistance(milestone.due_date);
+        return distance !== null && distance >= 0 && distance <= 7;
+      }).length },
+      { label: "Overdue", value: actionable.filter((milestone) => {
+        const distance = deadlineDistance(milestone.due_date);
+        return distance !== null && distance < 0;
+      }).length },
     ];
   }
 
@@ -310,6 +330,14 @@ const getMetricVisual = (label: string): MetricVisual => {
     "Overdue milestones": "Delivery stages past their due date",
     "Pending reviews": "Decisions pending across the portfolio",
     "Completed projects": "Projects with delivery completed",
+    "Total estimated revenue": "Estimated revenue across your projects",
+    "Waiting result": "Completed delivery awaiting a tender result",
+    Won: "Projects recorded as won",
+    Lost: "Projects recorded as lost",
+    "Assigned architects": "Solution Architects carrying active work",
+    "Active delivery": "Projects currently being delivered",
+    "Upcoming deadlines": "Assigned work due within seven days",
+    Overdue: "Assigned work past its due date",
   };
 
   if (/overdue|revision/i.test(label)) {
@@ -370,7 +398,9 @@ function MetricCard({ metric }: { metric: SummaryMetric }) {
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-xs font-medium leading-5 text-muted-foreground">{metric.label}</p>
-          <p className="mt-1 text-2xl font-semibold text-foreground">{metric.value}</p>
+          <p className="mt-1 text-2xl font-semibold text-foreground">
+            {metric.label === "Total estimated revenue" ? formatRevenue(metric.value) : metric.value}
+          </p>
         </div>
         <span className={["flex h-8 w-8 shrink-0 items-center justify-center rounded-lg sm:h-9 sm:w-9", visual.iconClassName].join(" ")}>
           <Icon className="h-4 w-4" />
@@ -383,13 +413,13 @@ function MetricCard({ metric }: { metric: SummaryMetric }) {
 
 const getProjectStatusClassName = (status: string): string => {
   if (status === "ACTIVE") return "border-primary/25 bg-primary/10 text-primary";
-  if (status === "COMPLETED") {
+  if (status === "COMPLETED" || status === "WON") {
     return "border-[hsl(var(--success)/0.25)] bg-[hsl(var(--success)/0.1)] text-[hsl(var(--success))]";
   }
-  if (status === "POSTPONED" || status === "ON_HOLD") {
+  if (status === "POSTPONED" || status === "ON_HOLD" || status === "WAITING_RESULT") {
     return "border-[hsl(var(--warning)/0.25)] bg-[hsl(var(--warning)/0.1)] text-[hsl(var(--warning))]";
   }
-  if (status === "CANCELLED") return "border-destructive/25 bg-destructive/10 text-destructive";
+  if (status === "CANCELLED" || status === "LOST") return "border-destructive/25 bg-destructive/10 text-destructive";
   return "border-border bg-muted text-muted-foreground";
 };
 
@@ -416,6 +446,54 @@ function ProjectDeliveryRow({
     ? healthLabel
     : null;
   const ownerLabel = project.ownerName || (project.ownerKnown ? "Unassigned" : "Not available");
+  const openProject = (
+    <Link
+      href={"/projects/" + project.id}
+      className="inline-flex min-h-10 items-center justify-center gap-1 rounded-md border border-border px-3 text-sm font-medium text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring lg:min-h-0 lg:border-0 lg:px-0 lg:text-primary lg:hover:bg-transparent lg:hover:underline"
+    >
+      Open
+      <ChevronRight className="h-4 w-4" />
+    </Link>
+  );
+
+  if (role === "SALES") {
+    return (
+      <div className="grid gap-4 px-4 py-4 lg:grid-cols-[minmax(180px,1.3fr)_minmax(130px,1fr)_minmax(160px,1fr)_minmax(140px,0.9fr)_110px_auto] lg:items-center lg:px-5">
+        <p className="break-words text-sm font-semibold text-foreground">{project.name}</p>
+        <div><p className="text-xs text-muted-foreground lg:hidden">Estimated revenue</p><p className="mt-1 text-sm text-foreground lg:mt-0">{project.estimatedRevenue === null || project.estimatedRevenue === undefined ? "Not available" : formatRevenue(project.estimatedRevenue)}</p></div>
+        <div><p className="text-xs text-muted-foreground lg:hidden">Stage</p><p className="mt-1 break-words text-sm text-foreground lg:mt-0">{project.currentStage || "Not available"}</p></div>
+        <div><p className="text-xs text-muted-foreground lg:hidden">PIC</p><p className="mt-1 break-words text-sm text-foreground lg:mt-0">{project.picName || "Unassigned"}</p></div>
+        <div><p className="text-xs text-muted-foreground lg:hidden">Status</p><span className={["mt-1 inline-flex rounded-full border px-2 py-1 text-xs font-medium lg:mt-0", getProjectStatusClassName(project.status)].join(" ")}>{formatDashboardLabel(project.status)}</span></div>
+        {openProject}
+      </div>
+    );
+  }
+
+  if (role === "HEAD_SA") {
+    return (
+      <div className="grid gap-4 px-4 py-4 lg:grid-cols-[minmax(180px,1.3fr)_minmax(140px,1fr)_minmax(180px,1.1fr)_110px_minmax(150px,1fr)_auto] lg:items-center lg:px-5">
+        <p className="break-words text-sm font-semibold text-foreground">{project.name}</p>
+        <div><p className="text-xs text-muted-foreground lg:hidden">Solution Architect</p><p className="mt-1 break-words text-sm text-foreground lg:mt-0">{project.picName || "Unassigned"}</p></div>
+        <div><p className="text-xs text-muted-foreground lg:hidden">Current work</p><p className="mt-1 break-words text-sm text-foreground lg:mt-0">{project.currentStage || "Not available"}</p></div>
+        <div><p className="text-xs text-muted-foreground lg:hidden">Status</p><span className={["mt-1 inline-flex rounded-full border px-2 py-1 text-xs font-medium lg:mt-0", getProjectStatusClassName(project.status)].join(" ")}>{formatDashboardLabel(project.status)}</span></div>
+        <div><p className="text-xs text-muted-foreground lg:hidden">Progress</p><p className="mt-1 text-sm text-foreground lg:mt-0">{hasProgress ? `${project.percentage}%` : "Unknown"}</p><p className="mt-1 text-xs text-muted-foreground">{project.totalMilestones > 0 ? `${project.completedMilestones} of ${project.totalMilestones} stages` : "Stage data unavailable"}</p></div>
+        {openProject}
+      </div>
+    );
+  }
+
+  if (role === "SA") {
+    return (
+      <div className="grid gap-4 px-4 py-4 lg:grid-cols-[minmax(180px,1.3fr)_minmax(140px,1fr)_minmax(180px,1.1fr)_minmax(140px,0.9fr)_110px_auto] lg:items-center lg:px-5">
+        <p className="break-words text-sm font-semibold text-foreground">{project.name}</p>
+        <div><p className="text-xs text-muted-foreground lg:hidden">Customer</p><p className="mt-1 break-words text-sm text-foreground lg:mt-0">{project.clientName || "Not available"}</p></div>
+        <div><p className="text-xs text-muted-foreground lg:hidden">Current work</p><p className="mt-1 break-words text-sm text-foreground lg:mt-0">{project.currentStage || "Not available"}</p></div>
+        <div><p className="text-xs text-muted-foreground lg:hidden">Deadline</p><p className={["mt-1 text-sm lg:mt-0", project.overdueMilestones > 0 ? "text-destructive" : "text-foreground"].join(" ")}>{deadlineLabel}</p></div>
+        <div><p className="text-xs text-muted-foreground lg:hidden">Status</p><span className={["mt-1 inline-flex rounded-full border px-2 py-1 text-xs font-medium lg:mt-0", getProjectStatusClassName(project.status)].join(" ")}>{formatDashboardLabel(project.status)}</span></div>
+        {openProject}
+      </div>
+    );
+  }
 
   return (
     <div className="grid gap-4 px-4 py-4 lg:grid-cols-[minmax(170px,1.4fr)_minmax(110px,0.9fr)_110px_minmax(145px,1fr)_minmax(135px,1fr)_minmax(110px,0.9fr)_auto] lg:items-center lg:px-5">
@@ -462,13 +540,7 @@ function ProjectDeliveryRow({
         <p className="text-xs text-muted-foreground lg:hidden">Owner</p>
         <p className="mt-1 break-words text-sm text-foreground lg:mt-0">{ownerLabel}</p>
       </div>
-      <Link
-        href={"/projects/" + project.id}
-        className="inline-flex min-h-10 items-center justify-center gap-1 rounded-md border border-border px-3 text-sm font-medium text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring lg:min-h-0 lg:border-0 lg:px-0 lg:text-primary lg:hover:bg-transparent lg:hover:underline"
-      >
-        Open
-        <ChevronRight className="h-4 w-4" />
-      </Link>
+      {openProject}
     </div>
   );
 }
@@ -791,7 +863,7 @@ export default function DashboardPage() {
           name: project.name,
           clientName: project.customer,
           status: project.status,
-          targetEndDate: project.targetEndDate || null,
+          targetEndDate: project.currentMilestone?.due_date || project.targetEndDate || null,
           totalMilestones: project.totalMilestones || 0,
           completedMilestones: project.completedMilestones || 0,
           overdueMilestones: 0,
@@ -810,14 +882,32 @@ export default function DashboardPage() {
       completedMilestones: project.completedMilestones,
       totalMilestones: project.totalMilestones,
       overdueMilestones: project.overdueMilestones,
-      targetEndDate: project.targetEndDate,
+      targetEndDate: project.targetEndDate || matchingProject?.currentMilestone?.due_date || null,
       ownerName: owner?.fullName || owner?.full_name || null,
       ownerKnown: Boolean(matchingProject),
       hasPic: matchingProject ? Boolean(matchingProject.pic) : undefined,
       currentRole: matchingProject?.currentRole,
+      currentStage: matchingProject?.currentStage,
+      currentDeadline: matchingProject?.currentMilestone?.due_date || null,
+      picName: matchingProject?.pic?.fullName || matchingProject?.pic?.full_name || null,
+      estimatedRevenue: matchingProject?.estimated_revenue ?? null,
     };
   });
   const projectDelivery = sortDashboardProjectHealth(healthSource, userRole).slice(0, 8);
+  const projectDeliveryTitle = userRole === "SALES"
+    ? "Revenue pipeline"
+    : userRole === "HEAD_SA"
+    ? "SA workload"
+    : userRole === "SA"
+    ? "Assigned deadlines"
+    : "Project delivery";
+  const projectDeliveryDescription = userRole === "SALES"
+    ? "Revenue, delivery stage, and assigned PIC for your projects"
+    : userRole === "HEAD_SA"
+    ? "Current project load and work status for each Solution Architect"
+    : userRole === "SA"
+    ? "Current stages and deadlines for projects assigned to you"
+    : "Current progress across active and planning projects";
   const projectProgressIds = new Set(projectProgress.map((project) => project.id));
   const isProjectDeliveryLoading = dashboardQuery.isLoading && projectsQuery.isLoading;
   const hasProjectDeliveryError = dashboardQuery.isError && projectsQuery.isError;
@@ -918,8 +1008,8 @@ export default function DashboardPage() {
       <section aria-labelledby="project-delivery-heading" className="overflow-hidden rounded-xl border border-border bg-card">
         <div className="flex flex-col gap-3 border-b border-border px-5 py-5 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h2 id="project-delivery-heading" className="text-base font-semibold text-foreground">Project delivery</h2>
-            <p className="mt-1 text-sm text-muted-foreground">Current progress across active and planning projects</p>
+            <h2 id="project-delivery-heading" className="text-base font-semibold text-foreground">{projectDeliveryTitle}</h2>
+            <p className="mt-1 text-sm text-muted-foreground">{projectDeliveryDescription}</p>
           </div>
           {projectDelivery.length > 0 && (
             <Link href="/projects" className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline">
@@ -929,15 +1019,23 @@ export default function DashboardPage() {
           )}
         </div>
 
-        <div className="hidden grid-cols-[minmax(170px,1.4fr)_minmax(110px,0.9fr)_110px_minmax(145px,1fr)_minmax(135px,1fr)_minmax(110px,0.9fr)_auto] gap-4 border-b border-border bg-muted/40 px-5 py-3 text-xs font-medium text-muted-foreground lg:grid">
-          <span>Project</span>
-          <span>Customer</span>
-          <span>Status</span>
-          <span>Progress</span>
-          <span>Deadline / Risk</span>
-          <span>Owner</span>
-          <span>Action</span>
-        </div>
+        {userRole === "SALES" ? (
+          <div className="hidden grid-cols-[minmax(180px,1.3fr)_minmax(130px,1fr)_minmax(160px,1fr)_minmax(140px,0.9fr)_110px_auto] gap-4 border-b border-border bg-muted/40 px-5 py-3 text-xs font-medium text-muted-foreground lg:grid">
+            <span>Project</span><span>Revenue</span><span>Stage</span><span>PIC</span><span>Status</span><span>Action</span>
+          </div>
+        ) : userRole === "HEAD_SA" ? (
+          <div className="hidden grid-cols-[minmax(180px,1.3fr)_minmax(140px,1fr)_minmax(180px,1.1fr)_110px_minmax(150px,1fr)_auto] gap-4 border-b border-border bg-muted/40 px-5 py-3 text-xs font-medium text-muted-foreground lg:grid">
+            <span>Project</span><span>Solution Architect</span><span>Current work</span><span>Status</span><span>Progress</span><span>Action</span>
+          </div>
+        ) : userRole === "SA" ? (
+          <div className="hidden grid-cols-[minmax(180px,1.3fr)_minmax(140px,1fr)_minmax(180px,1.1fr)_minmax(140px,0.9fr)_110px_auto] gap-4 border-b border-border bg-muted/40 px-5 py-3 text-xs font-medium text-muted-foreground lg:grid">
+            <span>Project</span><span>Customer</span><span>Current work</span><span>Deadline</span><span>Status</span><span>Action</span>
+          </div>
+        ) : (
+          <div className="hidden grid-cols-[minmax(170px,1.4fr)_minmax(110px,0.9fr)_110px_minmax(145px,1fr)_minmax(135px,1fr)_minmax(110px,0.9fr)_auto] gap-4 border-b border-border bg-muted/40 px-5 py-3 text-xs font-medium text-muted-foreground lg:grid">
+            <span>Project</span><span>Customer</span><span>Status</span><span>Progress</span><span>Deadline / Risk</span><span>Owner</span><span>Action</span>
+          </div>
+        )}
 
         {isProjectDeliveryLoading && projectDelivery.length === 0 ? (
           <div className="space-y-3 p-5" aria-label="Loading project delivery">

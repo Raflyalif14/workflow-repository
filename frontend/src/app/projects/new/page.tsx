@@ -1,22 +1,31 @@
 "use client";
 
-import { useRef, useState, type FormEvent, type ReactNode } from "react";
+import { useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import {
   AlertCircle,
   ArrowLeft,
   CheckCircle2,
   Circle,
+  FileCheck,
   FileText,
   ImageIcon,
+  Lock,
   Paperclip,
   X,
 } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useCreateProject } from "@/hooks/use-projects";
 import { useScenarios } from "@/hooks/use-scenarios";
+import {
+  getMandatoryDocumentKeys,
+  getScenarioDocuments,
+  resolveScenarioKey,
+  SCENARIO_DEFINITIONS,
+} from "@/constants/scenarios";
 import {
   appendDocumentFiles,
   appendProjectPhotoFiles,
@@ -41,6 +50,7 @@ function getProjectValidationError({
   name,
   customer,
   scenarioId,
+  estimatedRevenue,
   mom,
   photos,
   documents,
@@ -48,6 +58,7 @@ function getProjectValidationError({
   name: string;
   customer: string;
   scenarioId: string;
+  estimatedRevenue: string;
   mom: File | null;
   photos: File[];
   documents: File[];
@@ -55,6 +66,9 @@ function getProjectValidationError({
   if (!name.trim()) return "Project name is required.";
   if (!customer.trim()) return "Customer is required.";
   if (!scenarioId) return "Please select an active scenario.";
+  if (!estimatedRevenue.trim()) return "Estimated revenue is required.";
+  const revenueValue = Number(estimatedRevenue);
+  if (!Number.isFinite(revenueValue) || revenueValue < 0) return "Estimated revenue must be a valid non-negative amount.";
   if (!mom) return "A MoM file is required to create a project.";
   if (!photos.length) return "At least one project photo is required to create a project.";
   return [
@@ -64,15 +78,15 @@ function getProjectValidationError({
   ].find(Boolean) || null;
 }
 
+function getScenarioDisplayName(scenarioName: string): string {
+  const key = resolveScenarioKey(scenarioName);
+  return SCENARIO_DEFINITIONS[key].label;
+}
+
 function getScenarioContext(name?: string, description?: string | null): string {
   if (description?.trim()) return description;
-  if (name === "Assessment") {
-    return "Use this workflow when the engagement begins with customer assessment and discovery.";
-  }
-  if (name === "Existing TOR") {
-    return "Use this workflow when the customer already has an established Terms of Reference.";
-  }
-  return "The selected scenario determines the delivery stages used during planning.";
+  const key = resolveScenarioKey(name);
+  return SCENARIO_DEFINITIONS[key].description;
 }
 
 function SelectedFileRow({
@@ -156,6 +170,8 @@ export default function NewProjectPage() {
   const [name, setName] = useState("");
   const [customer, setCustomer] = useState("");
   const [scenarioId, setScenarioId] = useState("");
+  const [estimatedRevenue, setEstimatedRevenue] = useState("");
+  const [selectedOptionalKeys, setSelectedOptionalKeys] = useState<string[]>([]);
   const [mom, setMom] = useState<File | null>(null);
   const [photos, setPhotos] = useState<File[]>([]);
   const [documents, setDocuments] = useState<File[]>([]);
@@ -168,7 +184,26 @@ export default function NewProjectPage() {
   }
 
   const selectedScenario = scenarios.find((scenario) => scenario.id === scenarioId);
-  const projectDetailsComplete = Boolean(name.trim() && customer.trim() && scenarioId);
+  const scenarioKey = resolveScenarioKey(selectedScenario?.name);
+  const scenarioDocuments = scenarioId ? getScenarioDocuments(scenarioKey) : [];
+  const mandatoryKeys = useMemo(
+    () => (scenarioId ? getMandatoryDocumentKeys(scenarioKey) : []),
+    [scenarioId, scenarioKey]
+  );
+  const allSelectedDocumentKeys = useMemo(() => {
+    if (!scenarioId) return [];
+    return Array.from(new Set([...mandatoryKeys, ...selectedOptionalKeys]));
+  }, [scenarioId, mandatoryKeys, selectedOptionalKeys]);
+
+  const toggleOptionalKey = (key: string) => {
+    setSelectedOptionalKeys((current) =>
+      current.includes(key) ? current.filter((k) => k !== key) : [...current, key]
+    );
+  };
+
+  const projectDetailsComplete = Boolean(
+    name.trim() && customer.trim() && scenarioId && estimatedRevenue.trim() && Number(estimatedRevenue) >= 0
+  );
   const clearError = () => setSubmitError(null);
 
   const removeMom = () => {
@@ -200,7 +235,7 @@ export default function NewProjectPage() {
       return;
     }
 
-    const validationError = getProjectValidationError({ name, customer, scenarioId, mom, photos, documents });
+    const validationError = getProjectValidationError({ name, customer, scenarioId, estimatedRevenue, mom, photos, documents });
     if (validationError) {
       setSubmitError(validationError);
       return;
@@ -211,9 +246,11 @@ export default function NewProjectPage() {
         name: name.trim(),
         customer: customer.trim(),
         scenario_id: scenarioId,
+        estimated_revenue: Number(estimatedRevenue),
         mom: mom!,
         photos,
         documents,
+        selectedDocumentKeys: allSelectedDocumentKeys,
       });
       setMom(null);
       setPhotos([]);
@@ -296,6 +333,31 @@ export default function NewProjectPage() {
                   <p id="project-customer-error" className="mt-1.5 text-xs text-destructive">Customer is required.</p>
                 )}
               </div>
+
+              <div className="sm:col-span-2">
+                <label className="mb-2 block text-sm font-medium" htmlFor="project-estimated-revenue">
+                  Estimated Revenue <span className="text-destructive" aria-hidden="true">*</span>
+                </label>
+                <Input
+                  id="project-estimated-revenue"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  inputMode="decimal"
+                  value={estimatedRevenue}
+                  onChange={(event) => {
+                    setEstimatedRevenue(event.target.value);
+                    clearError();
+                  }}
+                  placeholder="e.g. 1500000000"
+                  disabled={create.isPending}
+                  aria-invalid={submitAttempted && (!estimatedRevenue.trim() || !Number.isFinite(Number(estimatedRevenue)) || Number(estimatedRevenue) < 0)}
+                />
+                <p className="mt-1.5 text-xs text-muted-foreground">Enter the estimated project revenue in IDR.</p>
+                {submitAttempted && (!estimatedRevenue.trim() || !Number.isFinite(Number(estimatedRevenue)) || Number(estimatedRevenue) < 0) && (
+                  <p className="mt-1.5 text-xs text-destructive">Estimated revenue is required and must be a valid non-negative amount.</p>
+                )}
+              </div>
             </div>
           </section>
 
@@ -313,6 +375,7 @@ export default function NewProjectPage() {
               value={scenarioId}
               onChange={(event) => {
                 setScenarioId(event.target.value);
+                setSelectedOptionalKeys([]);
                 clearError();
               }}
               disabled={isLoading || create.isPending}
@@ -322,17 +385,87 @@ export default function NewProjectPage() {
               <option value="">{isLoading ? "Loading scenarios..." : "Select scenario"}</option>
               {scenarios.map((scenario) => (
                 <option key={scenario.id} value={scenario.id}>
-                  {scenario.name}
+                  {getScenarioDisplayName(scenario.name)}
                 </option>
               ))}
             </select>
             <p id="project-scenario-context" className="mt-2 text-xs leading-5 text-muted-foreground">
               {selectedScenario
                 ? getScenarioContext(selectedScenario.name, selectedScenario.description)
-                : "Select Assessment or Existing TOR based on the customer engagement."}
+                : "Pilih Pra-Tender atau On Submission Tender sesuai konteks penugasan."}
             </p>
             {submitAttempted && !scenarioId && (
               <p className="mt-1.5 text-xs text-destructive">Please select an active scenario.</p>
+            )}
+
+            {/* Output Document Checklist Panel */}
+            {scenarioDocuments.length > 0 && (
+              <div className="mt-5 rounded-lg border border-border/80 bg-muted/20 p-4">
+                <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between border-b border-border/50 pb-3">
+                  <div>
+                    <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                      <FileCheck className="h-4 w-4 text-primary" />
+                      Output Document Checklist
+                    </h3>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Dokumen Wajib otomatis terpilih. Centang dokumen Opsional yang dibutuhkan untuk proyek ini.
+                    </p>
+                  </div>
+                  <Badge variant="outline" className="self-start sm:self-auto text-xs font-mono">
+                    {allSelectedDocumentKeys.length} / {scenarioDocuments.length} Dokumen Terpilih
+                  </Badge>
+                </div>
+
+                <div className="mt-3 divide-y divide-border/40">
+                  {scenarioDocuments.map((doc) => {
+                    const isChecked = doc.isRequired || selectedOptionalKeys.includes(doc.key);
+                    return (
+                      <div
+                        key={doc.key}
+                        className={`flex items-start justify-between gap-3 py-2.5 px-2 rounded transition-colors ${
+                          doc.isRequired ? "bg-muted/10" : "hover:bg-muted/30"
+                        }`}
+                      >
+                        <label
+                          htmlFor={`doc-${doc.key}`}
+                          className={`flex items-start gap-3 select-none flex-1 min-w-0 ${
+                            doc.isRequired ? "cursor-not-allowed" : "cursor-pointer"
+                          }`}
+                        >
+                          <input
+                            id={`doc-${doc.key}`}
+                            type="checkbox"
+                            checked={isChecked}
+                            disabled={doc.isRequired || create.isPending}
+                            onChange={() => !doc.isRequired && toggleOptionalKey(doc.key)}
+                            className="mt-1 h-4 w-4 rounded border-input text-primary focus:ring-primary disabled:opacity-75"
+                          />
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm font-medium text-foreground flex items-center gap-2 flex-wrap">
+                              <span>{doc.name}</span>
+                              {doc.isRequired && (
+                                <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
+                                  <Lock className="h-3 w-3" /> (Wajib)
+                                </span>
+                              )}
+                            </p>
+                          </div>
+                        </label>
+                        <Badge
+                          variant={doc.isRequired ? "default" : "secondary"}
+                          className={`shrink-0 text-[10px] uppercase font-semibold ${
+                            doc.isRequired
+                              ? "bg-primary/20 text-primary border-primary/30"
+                              : "bg-muted text-muted-foreground"
+                          }`}
+                        >
+                          {doc.isRequired ? "Wajib" : "Opsional"}
+                        </Badge>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
             )}
           </section>
 
@@ -512,6 +645,15 @@ export default function NewProjectPage() {
               label="MoM PDF"
               detail={mom ? mom.name : "Attach the required meeting record."}
               complete={Boolean(mom)}
+            />
+            <ChecklistItem
+              label="Output Documents Checklist"
+              detail={
+                scenarioId
+                  ? `${allSelectedDocumentKeys.length} dokumen dipilih (${mandatoryKeys.length} wajib, ${selectedOptionalKeys.length} opsional)`
+                  : "Pilih skenario terlebih dahulu."
+              }
+              complete={Boolean(scenarioId && allSelectedDocumentKeys.length > 0)}
             />
             <ChecklistItem
               label="Image evidence"

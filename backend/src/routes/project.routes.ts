@@ -6,12 +6,16 @@ import { MilestoneInitiationApprovalController } from '../controllers/milestone-
 import { AssignmentPhase5Controller } from '../controllers/assignment-phase5.controller';
 import { ProjectDeletionController } from '../controllers/project-deletion.controller';
 import { ProjectIntakeController } from '../controllers/project-intake.controller';
+import { OutputDocumentController } from '../controllers/output-document.controller';
+import { retryProjectCompletion, ProjectCompletionRetryError } from '../services/project-completion-retry.service';
+import { sendSuccess, sendError } from '../utils/response.util';
+import { getRouteParam } from '../utils/request.util';
 import {
   MAX_PROJECT_CREATION_OPTIONAL_DOCUMENTS,
   MAX_PROJECT_CREATION_PHOTOS,
 } from '../services/project-management.service';
 import { assignPicSchema } from '../validators/assignment-phase5.validator';
-import { authenticateJwt, requireRoles } from '../middlewares/auth.middleware';
+import { authenticateJwt, AuthenticatedRequest, requireRoles } from '../middlewares/auth.middleware';
 import { validateBody } from '../middlewares/validate.middleware';
 import { uploadMiddleware } from '../utils/storage.util';
 import {
@@ -59,6 +63,52 @@ router.get(
   '/:projectId/intake-attachments/:attachmentId/download-url',
   requireRoles(['SUPER_ADMIN', 'SALES', 'HEAD_SA', 'SA']),
   ProjectIntakeController.getDownloadUrl
+);
+router.get(
+  '/:projectId/output-documents',
+  requireRoles(['SUPER_ADMIN', 'SALES', 'HEAD_SA', 'SA']),
+  OutputDocumentController.list
+);
+router.post(
+  '/:projectId/output-documents/:key/upload',
+  requireRoles(['HEAD_SA', 'SA']),
+  uploadMiddleware.single('file'),
+  OutputDocumentController.upload
+);
+router.post(
+  '/:projectId/output-documents/submit',
+  requireRoles(['HEAD_SA', 'SA']),
+  OutputDocumentController.submit
+);
+router.post(
+  '/:projectId/output-documents/review',
+  requireRoles(['HEAD_SA']),
+  OutputDocumentController.review
+);
+router.put(
+  '/:projectId/output-documents/checklist',
+  requireRoles(['SALES']),
+  OutputDocumentController.updateChecklist
+);
+router.get(
+  '/:projectId/output-documents/download-all',
+  requireRoles(['SUPER_ADMIN', 'SALES', 'HEAD_SA', 'SA']),
+  OutputDocumentController.downloadAll
+);
+router.get(
+  '/:projectId/output-documents/:key/download',
+  requireRoles(['SUPER_ADMIN', 'SALES', 'HEAD_SA', 'SA']),
+  OutputDocumentController.downloadUrl
+);
+router.get(
+  '/:projectId/output-documents/:key/versions',
+  requireRoles(['HEAD_SA', 'SA']),
+  OutputDocumentController.versions
+);
+router.get(
+  '/:projectId/output-documents/:key/versions/:versionId/download',
+  requireRoles(['HEAD_SA', 'SA']),
+  OutputDocumentController.versionDownloadUrl
 );
 router.get('/:id', ProjectManagementController.get);
 
@@ -114,6 +164,27 @@ router.post(
 
 router.patch('/:id', ProjectManagementController.update);
 router.post('/:id/resume', requireRoles(['SALES']), ProjectManagementController.resume);
+router.post(
+  '/:id/retry-completion',
+  requireRoles(['HEAD_SA', 'SALES']),
+  async (req: Request, res: Response) => {
+    const authReq = req as AuthenticatedRequest;
+    const actor = authReq.user!;
+    const projectId = getRouteParam(req, 'id');
+    try {
+      const result = await retryProjectCompletion(projectId, actor);
+      sendSuccess(res, 'Project completion retry processed.', result);
+    } catch (error: unknown) {
+      if (error instanceof ProjectCompletionRetryError) {
+        sendError(res, error.message, null, error.statusCode);
+        return;
+      }
+      console.error('[ProjectRoutes] Unexpected project completion retry error.', { projectId });
+      sendError(res, 'Unable to retry project completion.', null, 500);
+    }
+  }
+);
+router.post('/:id/outcome', requireRoles(['SALES']), ProjectManagementController.setOutcome);
 
 router.post('/:projectId/initialize-workflow', MilestoneInitiationApprovalController.retired);
 router.get('/:projectId/milestones', ProjectManagementController.milestones);

@@ -5,7 +5,10 @@ export type ProjectStatus =
   | "IN_PROGRESS"
   | "ON_HOLD"
   | "COMPLETED"
-  | "CANCELLED";
+  | "CANCELLED"
+  | "WAITING_RESULT"
+  | "WON"
+  | "LOST";
 
 export type MilestoneStatus =
   | "CREATED"
@@ -327,7 +330,17 @@ export interface Project {
     step_order: number;
     status: MilestoneStatus;
     default_role: string | null;
+    start_date?: string | null;
+    due_date?: string | null;
   } | null;
+  selected_document_keys?: string[];
+  selectedDocumentKeys?: string[];
+  estimated_revenue?: number | null;
+  final_contract_value?: number | null;
+  loss_reason?: string | null;
+  outcome_decided_by?: string | null;
+  outcome_decided_at?: string | null;
+  output_documents?: ProjectOutputDocumentItem[];
   is_postponed?: boolean;
   postponed_at?: string | null;
   postpone_reason?: string | null;
@@ -336,6 +349,45 @@ export interface Project {
   createdAt: string;
   updatedAt: string;
 }
+
+export interface ProjectOutputDocumentItem {
+  id: string;
+  projectId: string;
+  key: string;
+  name: string;
+  group: "PRA_TENDER" | "ON_SUBMISSION_TENDER";
+  isRequired: boolean;
+  isSelected: boolean;
+  status: "NOT_REQUIRED" | "TO_DO" | "DRAFT" | "IN_REVIEW" | "REVISION_REQUIRED" | "APPROVED";
+  fileName?: string | null;
+  fileSize?: number | null;
+  mimeType?: string | null;
+  uploadedAt?: string | null;
+  uploadedBy?: { id: string; fullName: string; role: string } | null;
+  downloadUrl?: string | null;
+  reviewedAt?: string | null;
+  reviewedBy?: { id: string; fullName: string; role: string } | null;
+  reviewFeedback?: string | null;
+  currentVersionId?: string | null;
+  versionCount?: number;
+}
+
+export interface ProjectOutputDocumentVersion {
+  id: string;
+  versionNumber: number;
+  status: "DRAFT" | "IN_REVIEW" | "REVISION_REQUIRED" | "APPROVED";
+  fileName: string;
+  fileSize?: number | null;
+  mimeType?: string | null;
+  uploadedAt: string;
+  uploadedBy?: { id: string; fullName: string; role: string } | null;
+  submittedAt?: string | null;
+  submissionNote?: string | null;
+  reviewedAt?: string | null;
+  reviewedBy?: { id: string; fullName: string; role: string } | null;
+  reviewFeedback?: string | null;
+}
+
 
 export interface ProjectsResponse {
   projects: Project[];

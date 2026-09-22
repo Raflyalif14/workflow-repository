@@ -43,6 +43,7 @@ export interface AssignedMilestone {
   status: string;
   pic_id: string;
   start_date?: string | null;
+  due_date?: string | null;
   project?: {
     id: string;
     name: string;
@@ -118,17 +119,26 @@ export function useCreateProject() {
       mom?: File;
       photos?: File[];
       documents?: File[];
+      selectedDocumentKeys?: string[];
+      estimated_revenue?: number;
     }) => {
       if (!data.mom) throw new Error("A MoM file is required to create a project.");
       if (!data.photos?.length) throw new Error("At least one project photo is required to create a project.");
+      if (!Number.isFinite(data.estimated_revenue) || (data.estimated_revenue ?? 0) < 0) {
+        throw new Error("Estimated revenue is required and must be a valid non-negative amount.");
+      }
 
       const formData = new FormData();
       formData.append("name", data.name);
       formData.append("customer", data.customer || data.clientName || "");
       formData.append("scenario_id", data.scenario_id || data.scenarioId || "");
+      formData.append("estimated_revenue", String(data.estimated_revenue));
       formData.append("mom", data.mom);
       for (const file of data.photos) formData.append("photos", file);
       for (const file of data.documents || []) formData.append("documents", file);
+      if (data.selectedDocumentKeys && data.selectedDocumentKeys.length > 0) {
+        formData.append("selectedDocumentKeys", JSON.stringify(data.selectedDocumentKeys));
+      }
 
       return apiClient<Project>("/projects", { method: "POST", body: formData });
     },
@@ -136,11 +146,28 @@ export function useCreateProject() {
   });
 }
 
+export function useSetProjectOutcome(projectId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (data: { outcome: "WON" | "LOST"; finalContractValue?: number; lossReason?: string }) =>
+      apiClient<Project>(`/projects/${projectId}/outcome`, {
+        method: "POST",
+        body: JSON.stringify({
+          outcome: data.outcome,
+          final_contract_value: data.finalContractValue,
+          loss_reason: data.lossReason?.trim() || undefined,
+        }),
+      }),
+    onSuccess: () => invalidateProjectRuntime(queryClient, projectId),
+  });
+}
+
 export function useUpdateProject(id: string) {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (data: { name?: string; customer?: string; scenario_id?: string }) =>
+    mutationFn: (data: { name?: string; customer?: string; scenario_id?: string; selectedDocumentKeys?: string[] }) =>
       apiClient<Project>(`/projects/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: projectKeys.all() });
@@ -148,6 +175,7 @@ export function useUpdateProject(id: string) {
     },
   });
 }
+
 
 export function usePostponeProject() {
   const queryClient = useQueryClient();
@@ -168,6 +196,22 @@ export function useResumeProject() {
   return useMutation({
     mutationFn: (projectId: string) => apiClient<Project>(`/projects/${projectId}/resume`, { method: "POST" }),
     onSuccess: (_, projectId) => invalidateProjectRuntime(queryClient, projectId),
+  });
+}
+
+export function useRetryProjectCompletion(projectId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: () =>
+      apiClient<{ retried: boolean; status: string; reason: string }>(
+        `/projects/${projectId}/retry-completion`,
+        { method: "POST" }
+      ),
+    onSuccess: () => {
+      invalidateProjectRuntime(queryClient, projectId);
+      queryClient.invalidateQueries({ queryKey: ["output-documents", projectId] });
+    },
   });
 }
 
