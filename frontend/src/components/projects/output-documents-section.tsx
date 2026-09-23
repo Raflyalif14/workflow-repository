@@ -19,7 +19,7 @@ import {
   useUploadOutputDocument,
 } from "@/hooks/use-output-documents";
 import { authorizedFetch } from "@/lib/api-client";
-import { getActiveOutputDocuments } from "@/lib/output-document-ux";
+import { getActiveOutputDocuments, getOutputDocumentContextMessage, getOutputDocumentsHeaderDescription } from "@/lib/output-document-ux";
 import { useRetryProjectCompletion } from "@/hooks/use-projects";
 import type { Project, ProjectOutputDocumentItem } from "@/types/project";
 
@@ -75,12 +75,14 @@ function BatchResultNotice({ results }: { results: OutputDocumentBatchResult[] }
   );
 }
 
-function OutputDocumentRow({ projectId, document, canUpload, canReview, canReadHistory, submitChecked, approveChecked, onToggleSubmit, onToggleApprove, onRevision, onHistory }: {
+function OutputDocumentRow({ projectId, document, canUpload, canReview, canReadHistory, hasAssignedPic, role, submitChecked, approveChecked, onToggleSubmit, onToggleApprove, onRevision, onHistory }: {
   projectId: string;
   document: ProjectOutputDocumentItem;
   canUpload: boolean;
   canReview: boolean;
   canReadHistory: boolean;
+  hasAssignedPic: boolean;
+  role?: string;
   submitChecked: boolean;
   approveChecked: boolean;
   onToggleSubmit: () => void;
@@ -96,6 +98,13 @@ function OutputDocumentRow({ projectId, document, canUpload, canReview, canReadH
   const uploadable = canUpload && ["TO_DO", "DRAFT", "REVISION_REQUIRED"].includes(document.status);
   const submittable = canUpload && Boolean(document.fileName) && ["DRAFT", "REVISION_REQUIRED"].includes(document.status);
   const reviewable = canReview && document.status === "IN_REVIEW";
+  const contextMessage = getOutputDocumentContextMessage({
+    role,
+    status: document.status,
+    canUpload: uploadable,
+    canReview: reviewable,
+    hasAssignedPic,
+  });
 
   const uploadFile = async (file?: File) => {
     if (!file) return;
@@ -167,7 +176,7 @@ function OutputDocumentRow({ projectId, document, canUpload, canReview, canReadH
             </Button>
           </div>
         ) : (
-          <p className="text-xs text-muted-foreground">{document.status === "IN_REVIEW" ? "Waiting for Head SA review." : document.status === "APPROVED" ? "Official approved output." : "No action available."}</p>
+          contextMessage && <p className="text-xs text-muted-foreground">{contextMessage}</p>
         )}
       </div>
 
@@ -350,7 +359,7 @@ export function OutputDocumentsSection({ project }: OutputDocumentsSectionProps)
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2"><FileText className="h-4 w-4 text-primary" /><CardTitle className="text-base">Output Documents</CardTitle>{isScopeLocked && <Badge variant="secondary" className="gap-1 text-[11px]"><Lock className="h-3 w-3" /> Scope locked</Badge>}</div>
-            <CardDescription className="mt-1">Upload, submit, and review each agreed output independently.</CardDescription>
+            <CardDescription className="mt-1">{getOutputDocumentsHeaderDescription(user?.role)}</CardDescription>
           </div>
           <div className="flex flex-wrap gap-2">
             {isSalesOwner && !isScopeLocked && <Button type="button" size="sm" variant="outline" onClick={openChecklist}>Edit optional outputs</Button>}
@@ -377,7 +386,7 @@ export function OutputDocumentsSection({ project }: OutputDocumentsSectionProps)
           <section key={group.key} className="min-w-0 space-y-2">
             <div className="flex items-center justify-between gap-3"><div><h3 className="text-sm font-semibold">{group.title}</h3><p className="text-xs text-muted-foreground">{group.documents.length} output(s)</p></div><p className="text-xs text-muted-foreground">{group.documents.filter((document) => document.status === "APPROVED").length} approved</p></div>
             <div className="min-w-0 divide-y divide-border/50 overflow-hidden rounded-md border border-border/60">
-              {group.documents.map((document) => <OutputDocumentRow key={document.key} projectId={project.id} document={document} canUpload={canUpload} canReview={isHeadSa} canReadHistory={canReadHistory} submitChecked={submitSelection.includes(document.key)} approveChecked={approveSelection.includes(document.key)} onToggleSubmit={() => setSubmitSelection((current) => current.includes(document.key) ? current.filter((key) => key !== document.key) : [...current, document.key])} onToggleApprove={() => setApproveSelection((current) => current.includes(document.key) ? current.filter((key) => key !== document.key) : [...current, document.key])} onRevision={() => { setRevisionTarget(document); setRevisionFeedback(""); }} onHistory={() => setHistoryDocument(document)} />)}
+              {group.documents.map((document) => <OutputDocumentRow key={document.key} projectId={project.id} document={document} canUpload={canUpload} canReview={isHeadSa} canReadHistory={canReadHistory} hasAssignedPic={Boolean(project.pic?.id)} role={user?.role} submitChecked={submitSelection.includes(document.key)} approveChecked={approveSelection.includes(document.key)} onToggleSubmit={() => setSubmitSelection((current) => current.includes(document.key) ? current.filter((key) => key !== document.key) : [...current, document.key])} onToggleApprove={() => setApproveSelection((current) => current.includes(document.key) ? current.filter((key) => key !== document.key) : [...current, document.key])} onRevision={() => { setRevisionTarget(document); setRevisionFeedback(""); }} onHistory={() => setHistoryDocument(document)} />)}
             </div>
           </section>
         ))}
