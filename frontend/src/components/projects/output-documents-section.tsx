@@ -237,18 +237,22 @@ export function OutputDocumentsSection({ project }: OutputDocumentsSectionProps)
   const [completionRetryMessage, setCompletionRetryMessage] = useState<string | null>(null);
 
   const documents = outputQuery.data?.documents || [];
+  const activeDocuments = useMemo(
+    () => documents.filter((document) => document.isRequired || document.isSelected),
+    [documents]
+  );
   const isHeadSa = user?.role === "HEAD_SA";
   const isAssignedPic = (user?.role === "SA" || user?.role === "HEAD_SA") && project.pic?.id === user?.id;
   const canUpload = Boolean(isAssignedPic && project.status === "ACTIVE" && !project.is_postponed);
   const canReadHistory = Boolean(isHeadSa || isAssignedPic);
   const isSalesOwner = user?.role === "SALES" && project.sales_id === user.id;
   const isScopeLocked = outputQuery.data?.isScopeLocked ?? project.status !== "DRAFT";
-  const approvedCount = documents.filter((document) => document.status === "APPROVED").length;
+  const approvedCount = activeDocuments.filter((document) => document.status === "APPROVED").length;
 
   const groups = useMemo(() => ([
-    { key: "PRA_TENDER" as const, title: "Pra-Tender", documents: documents.filter((document) => document.group === "PRA_TENDER") },
-    { key: "ON_SUBMISSION_TENDER" as const, title: "On Submission Tender", documents: documents.filter((document) => document.group === "ON_SUBMISSION_TENDER") },
-  ]).filter((group) => group.documents.length > 0), [documents]);
+    { key: "PRA_TENDER" as const, title: "Pra-Tender", documents: activeDocuments.filter((document) => document.group === "PRA_TENDER") },
+    { key: "ON_SUBMISSION_TENDER" as const, title: "On Submission Tender", documents: activeDocuments.filter((document) => document.group === "ON_SUBMISSION_TENDER") },
+  ]).filter((group) => group.documents.length > 0), [activeDocuments]);
 
   const batchItems = (keys: string[]) => keys.map((key) => {
     const document = documents.find((candidate) => candidate.key === key);
@@ -354,8 +358,8 @@ export function OutputDocumentsSection({ project }: OutputDocumentsSectionProps)
           </div>
         </div>
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
-          {(["TO_DO", "DRAFT", "IN_REVIEW", "REVISION_REQUIRED", "APPROVED"] as const).map((status) => <div key={status} className="rounded-md border border-border/50 px-3 py-2"><p className="text-lg font-semibold">{documents.filter((document) => document.status === status).length}</p><p className="text-[11px] text-muted-foreground">{status.replaceAll("_", " ").toLowerCase()}</p></div>)}
-          <div className="rounded-md border border-border/50 px-3 py-2"><p className="text-lg font-semibold">{documents.length}</p><p className="text-[11px] text-muted-foreground">total</p></div>
+          {(["TO_DO", "DRAFT", "IN_REVIEW", "REVISION_REQUIRED", "APPROVED"] as const).map((status) => <div key={status} className="rounded-md border border-border/50 px-3 py-2"><p className="text-lg font-semibold">{activeDocuments.filter((document) => document.status === status).length}</p><p className="text-[11px] text-muted-foreground">{status.replaceAll("_", " ").toLowerCase()}</p></div>)}
+          <div className="rounded-md border border-border/50 px-3 py-2"><p className="text-lg font-semibold">{activeDocuments.length}</p><p className="text-[11px] text-muted-foreground">total</p></div>
         </div>
         {submitSelection.length > 0 && canUpload && <div className="flex flex-col gap-2 rounded-md border border-primary/30 bg-primary/5 p-3 sm:flex-row sm:items-center sm:justify-between"><p className="text-sm">{submitSelection.length} document(s) selected and ready.</p><Button type="button" size="sm" disabled={submit.isPending} onClick={() => void submitSelected()}><Send className="mr-1.5 h-3.5 w-3.5" />{submit.isPending ? "Submitting..." : "Submit selected"}</Button></div>}
         {approveSelection.length > 0 && isHeadSa && <div className="flex flex-col gap-2 rounded-md border border-emerald-500/30 bg-emerald-500/5 p-3 sm:flex-row sm:items-center sm:justify-between"><p className="text-sm">{approveSelection.length} document(s) selected for approval.</p><Button type="button" size="sm" disabled={review.isPending} onClick={() => void approveSelected()}><CheckCircle2 className="mr-1.5 h-3.5 w-3.5" />{review.isPending ? "Approving..." : "Approve selected"}</Button></div>}
@@ -367,7 +371,7 @@ export function OutputDocumentsSection({ project }: OutputDocumentsSectionProps)
       <CardContent className="min-w-0 space-y-5 p-3 sm:p-5">
         {outputQuery.isLoading && <div className="flex items-center justify-center gap-2 py-8 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Loading outputs...</div>}
         {outputQuery.isError && <div className="flex items-center justify-center gap-2 py-8 text-sm text-destructive"><AlertCircle className="h-4 w-4" /> Unable to load output documents.</div>}
-        {!outputQuery.isLoading && !outputQuery.isError && documents.length === 0 && <p className="py-8 text-center text-sm text-muted-foreground">No output documents are available.</p>}
+        {!outputQuery.isLoading && !outputQuery.isError && activeDocuments.length === 0 && <p className="py-8 text-center text-sm text-muted-foreground">No output documents are selected for this project.</p>}
         {groups.map((group) => (
           <section key={group.key} className="min-w-0 space-y-2">
             <div className="flex items-center justify-between gap-3"><div><h3 className="text-sm font-semibold">{group.title}</h3><p className="text-xs text-muted-foreground">{group.documents.length} output(s)</p></div><p className="text-xs text-muted-foreground">{group.documents.filter((document) => document.status === "APPROVED").length} approved</p></div>
