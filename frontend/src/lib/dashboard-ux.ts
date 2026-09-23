@@ -223,6 +223,149 @@ export const getSaOutputRevisionItems = (
   actionLabel: "Revise outputs",
 }));
 
+export type SaDashboardMilestone = {
+  id: string;
+  project_id: string;
+  name: string;
+  step_order: number;
+  status: string;
+  pic_id: string | null;
+  due_date?: string | null;
+  project?: {
+    id: string;
+    name: string;
+    customer?: string | null;
+    status?: string;
+    is_postponed?: boolean;
+  } | null;
+};
+
+export type SaDashboardMetrics = {
+  inProgress: number;
+  needsRevision: number;
+  upcomingDeadlines: number;
+  overdue: number;
+};
+
+export const isPausedSaMilestone = (milestone: SaDashboardMilestone): boolean =>
+  milestone.project?.status === "POSTPONED" || milestone.project?.is_postponed === true;
+
+export const isActionableSaMilestone = (milestone: SaDashboardMilestone): boolean =>
+  milestone.project?.status === "ACTIVE" && milestone.project?.is_postponed !== true;
+
+export const getSaDashboardItems = (
+  milestones: SaDashboardMilestone[],
+  userId?: string
+): DashboardWorkItem[] => {
+  const items: DashboardWorkItem[] = [];
+
+  for (const milestone of milestones) {
+    if (milestone.pic_id !== userId) continue;
+
+    const projectId = milestone.project?.id || milestone.project_id;
+    const projectName = milestone.project?.name || "Assigned project";
+    const projectMeta = milestone.project?.customer
+      ? `Customer: ${milestone.project.customer}`
+      : `Stage ${milestone.step_order}`;
+    const href = getMilestoneProjectHref(projectId, milestone.id);
+    const title = `${projectName} - ${milestone.name}`;
+
+    if (isPausedSaMilestone(milestone)) {
+      if (["IN_PROGRESS", "REJECTED", "SUBMITTED"].includes(milestone.status)) {
+        items.push({
+          id: `sa-paused-${milestone.id}`,
+          priority: 50,
+          group: "waiting",
+          label: "Project paused",
+          title,
+          description: "Work is paused until Sales resumes the project.",
+          meta: projectMeta,
+          state: "Paused",
+          href,
+        });
+      }
+      continue;
+    }
+
+    if (!isActionableSaMilestone(milestone)) continue;
+
+    if (milestone.status === "REJECTED") {
+      items.push({
+        id: `revise-${milestone.id}`,
+        priority: 10,
+        group: "action",
+        label: "Revision required",
+        title,
+        description: "Review the feedback, update the work, and submit a new package.",
+        meta: projectMeta,
+        state: "Revision required",
+        href,
+        actionLabel: "Revise submission",
+      });
+      continue;
+    }
+
+    if (milestone.status === "IN_PROGRESS") {
+      items.push({
+        id: `continue-${milestone.id}`,
+        priority: 30,
+        group: "action",
+        label: "Active delivery work",
+        title,
+        description: "Continue the assigned milestone and submit work when it is ready.",
+        meta: projectMeta,
+        state: "In progress",
+        href,
+        actionLabel: "Continue work",
+      });
+      continue;
+    }
+
+    if (milestone.status === "SUBMITTED") {
+      items.push({
+        id: `sa-waiting-${milestone.id}`,
+        priority: 20,
+        group: "waiting",
+        label: "Submission under review",
+        title,
+        description: "Head SA is reviewing the submitted work.",
+        meta: projectMeta,
+        state: "Under review",
+        href,
+      });
+    }
+  }
+
+  return items;
+};
+
+export const getSaDashboardMetrics = (
+  milestones: SaDashboardMilestone[],
+  now = new Date()
+): SaDashboardMetrics => {
+  const today = new Date(now);
+  today.setHours(0, 0, 0, 0);
+  const activeMilestones = milestones.filter(isActionableSaMilestone);
+  const actionable = activeMilestones.filter((milestone) =>
+    ["IN_PROGRESS", "REJECTED", "SUBMITTED"].includes(milestone.status)
+  );
+  const deadlineDistance = (value?: string | null) =>
+    value ? Math.ceil((new Date(`${value}T00:00:00`).getTime() - today.getTime()) / 86400000) : null;
+
+  return {
+    inProgress: activeMilestones.filter((milestone) => milestone.status === "IN_PROGRESS").length,
+    needsRevision: activeMilestones.filter((milestone) => milestone.status === "REJECTED").length,
+    upcomingDeadlines: actionable.filter((milestone) => {
+      const distance = deadlineDistance(milestone.due_date);
+      return distance !== null && distance >= 0 && distance <= 7;
+    }).length,
+    overdue: actionable.filter((milestone) => {
+      const distance = deadlineDistance(milestone.due_date);
+      return distance !== null && distance < 0;
+    }).length,
+  };
+};
+
 export const getDraftProjectActionCopy = (currentRole?: string | null): string =>
   currentRole === "SALES" ? "Continue project planning" : "Review project status";
 

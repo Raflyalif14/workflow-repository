@@ -21,6 +21,8 @@ import {
   getHeadSaOutputReviewItems,
   getMilestoneProjectHref,
   getOutputDocumentsHref,
+  getSaDashboardItems,
+  getSaDashboardMetrics,
   getSalesDashboardItems,
   getSaOutputRevisionItems,
   hasAdditionalDashboardItems,
@@ -146,6 +148,83 @@ if (headSaOutputItems.length !== 1 || headSaOutputItems[0].href !== "/projects/p
 const saOutputItems = getSaOutputRevisionItems([{ projectId: "project-output", projectName: "Output Revision", count: 1 }]);
 if (saOutputItems.length !== 1 || saOutputItems[0].priority >= 10 || saOutputItems[0].href !== "/projects/project-output#output-documents") {
   throw new Error("Assigned SA output revisions should be a high-priority direct task");
+}
+
+const activeSaMilestone = {
+  id: "sa-active-milestone",
+  project_id: "sa-active-project",
+  name: "Requirement Gathering",
+  step_order: 1,
+  status: "IN_PROGRESS",
+  pic_id: "sa-1",
+  due_date: "2026-09-12",
+  project: { id: "sa-active-project", name: "Active delivery", customer: "Customer One", status: "ACTIVE", is_postponed: false },
+};
+
+const activeSaItems = getSaDashboardItems([activeSaMilestone], "sa-1");
+if (activeSaItems.length !== 1 || activeSaItems[0].group !== "action" || activeSaItems[0].actionLabel !== "Continue work") {
+  throw new Error("An active SA milestone should remain a Continue work action");
+}
+
+const pausedSaMilestone = {
+  ...activeSaMilestone,
+  id: "sa-paused-milestone",
+  project_id: "sa-paused-project",
+  project: { ...activeSaMilestone.project, id: "sa-paused-project", name: "Paused delivery", status: "POSTPONED", is_postponed: false },
+};
+const pausedSaItems = getSaDashboardItems([pausedSaMilestone], "sa-1");
+if (
+  pausedSaItems.length !== 1 ||
+  pausedSaItems[0].group !== "waiting" ||
+  pausedSaItems[0].label !== "Project paused" ||
+  pausedSaItems[0].state !== "Paused" ||
+  pausedSaItems[0].description !== "Work is paused until Sales resumes the project." ||
+  pausedSaItems[0].actionLabel
+) {
+  throw new Error("A postponed SA milestone should be informational only");
+}
+if (pausedSaItems.some(isDashboardAction) || sortDashboardItems(pausedSaItems).find(isDashboardAction)) {
+  throw new Error("A paused SA milestone must not become the next actionable task");
+}
+
+const inconsistentPausedSaItems = getSaDashboardItems([
+  { ...pausedSaMilestone, id: "sa-inconsistent-paused", project: { ...pausedSaMilestone.project, status: "ACTIVE", is_postponed: true } },
+], "sa-1");
+if (inconsistentPausedSaItems[0]?.label !== "Project paused" || inconsistentPausedSaItems[0]?.actionLabel) {
+  throw new Error("is_postponed must pause SA work even if the project status is ACTIVE");
+}
+
+for (const status of ["DRAFT", "WAITING_RESULT", "WON", "LOST", "COMPLETED", "CANCELLED"] as const) {
+  const inactiveProjectItems = getSaDashboardItems([
+    { ...activeSaMilestone, id: `sa-${status.toLowerCase()}`, project: { ...activeSaMilestone.project, status } },
+  ], "sa-1");
+  if (inactiveProjectItems.length !== 0) {
+    throw new Error(`${status} projects must not produce an SA dashboard action or waiting item`);
+  }
+}
+
+const pausedRevisionItems = getSaDashboardItems([
+  { ...pausedSaMilestone, id: "sa-paused-revision", status: "REJECTED" },
+], "sa-1");
+if (pausedRevisionItems.some((item) => item.actionLabel === "Revise submission")) {
+  throw new Error("A paused rejected milestone must not become a revision action");
+}
+
+const saMetrics = getSaDashboardMetrics([
+  activeSaMilestone,
+  { ...activeSaMilestone, id: "sa-active-revision", status: "REJECTED", due_date: "2026-09-09" },
+  { ...pausedSaMilestone, id: "sa-paused-overdue", due_date: "2026-09-09" },
+  { ...pausedSaMilestone, id: "sa-paused-revision-metric", status: "REJECTED", due_date: "2026-09-12" },
+  ...["DRAFT", "WAITING_RESULT", "WON", "LOST", "COMPLETED", "CANCELLED"].map((status) => ({
+    ...activeSaMilestone,
+    id: `sa-metric-${status.toLowerCase()}`,
+    status: "IN_PROGRESS",
+    due_date: "2026-09-09",
+    project: { ...activeSaMilestone.project, status },
+  })),
+], new Date("2026-09-10T12:00:00"));
+if (saMetrics.inProgress !== 1 || saMetrics.needsRevision !== 1 || saMetrics.upcomingDeadlines !== 1 || saMetrics.overdue !== 1) {
+  throw new Error("Paused and non-active SA milestones must be excluded from active, revision, upcoming, and overdue metrics");
 }
 
 if (getDraftProjectActionCopy("SALES") !== "Continue project planning") {

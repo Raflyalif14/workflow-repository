@@ -39,7 +39,8 @@ import {
   getDashboardRoleContent,
   getHeadSaOutputReviewItems,
   getDashboardSnapshotTitle,
-  getMilestoneProjectHref,
+  getSaDashboardItems,
+  getSaDashboardMetrics,
   getSaOutputRevisionItems,
   getSalesDashboardItems,
   sortDashboardItems,
@@ -147,70 +148,6 @@ const getHeadSaItems = (approvals: ApprovalItem[], projects: Project[]): Dashboa
   return items;
 };
 
-const getSaItems = (milestones: AssignedMilestone[], userId?: string): DashboardWorkItem[] => {
-  const items: DashboardWorkItem[] = [];
-
-  for (const milestone of milestones) {
-    if (milestone.pic_id !== userId) continue;
-
-    const projectId = milestone.project?.id || milestone.project_id;
-    const projectName = milestone.project?.name || "Assigned project";
-    const projectMeta = milestone.project?.customer
-      ? `Customer: ${milestone.project.customer}`
-      : `Stage ${milestone.step_order}`;
-    const href = getMilestoneProjectHref(projectId, milestone.id);
-    const title = `${projectName} - ${milestone.name}`;
-
-    if (milestone.status === "REJECTED") {
-      items.push({
-        id: `revise-${milestone.id}`,
-        priority: 10,
-        group: "action",
-        label: "Revision required",
-        title,
-        description: "Review the feedback, update the work, and submit a new package.",
-        meta: projectMeta,
-        state: "Revision required",
-        href,
-        actionLabel: "Revise submission",
-      });
-      continue;
-    }
-
-    if (milestone.status === "IN_PROGRESS") {
-      items.push({
-        id: `continue-${milestone.id}`,
-        priority: 30,
-        group: "action",
-        label: "Active delivery work",
-        title,
-        description: "Continue the assigned milestone and submit work when it is ready.",
-        meta: projectMeta,
-        state: "In progress",
-        href,
-        actionLabel: "Continue work",
-      });
-      continue;
-    }
-
-    if (milestone.status === "SUBMITTED") {
-      items.push({
-        id: `sa-waiting-${milestone.id}`,
-        priority: 20,
-        group: "waiting",
-        label: "Submission under review",
-        title,
-        description: "Head SA is reviewing the submitted work.",
-        meta: projectMeta,
-        state: "Under review",
-        href,
-      });
-    }
-  }
-
-  return items;
-};
-
 const getSuperAdminItems = (summary: DashboardSummary, projectProgress: ProjectProgress[]): DashboardWorkItem[] => {
   const items: DashboardWorkItem[] = [];
 
@@ -281,21 +218,12 @@ const getRoleSummary = ({
   }
 
   if (role === "SA") {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const actionable = milestones.filter((milestone) => ["IN_PROGRESS", "REJECTED", "SUBMITTED"].includes(milestone.status));
-    const deadlineDistance = (value?: string | null) => value ? Math.ceil((new Date(`${value}T00:00:00`).getTime() - today.getTime()) / 86400000) : null;
+    const metrics = getSaDashboardMetrics(milestones);
     return [
-      { label: "In progress", value: milestones.filter((milestone) => milestone.status === "IN_PROGRESS").length },
-      { label: "Needs revision", value: milestones.filter((milestone) => milestone.status === "REJECTED").length },
-      { label: "Upcoming deadlines", value: actionable.filter((milestone) => {
-        const distance = deadlineDistance(milestone.due_date);
-        return distance !== null && distance >= 0 && distance <= 7;
-      }).length },
-      { label: "Overdue", value: actionable.filter((milestone) => {
-        const distance = deadlineDistance(milestone.due_date);
-        return distance !== null && distance < 0;
-      }).length },
+      { label: "In progress", value: metrics.inProgress },
+      { label: "Needs revision", value: metrics.needsRevision },
+      { label: "Upcoming deadlines", value: metrics.upcomingDeadlines },
+      { label: "Overdue", value: metrics.overdue },
     ];
   }
 
@@ -919,7 +847,7 @@ export default function DashboardPage() {
       : userRole === "HEAD_SA"
       ? [...getHeadSaItems(approvals, projects), ...getHeadSaOutputReviewItems(outputDocuments.reviewQueue)]
       : userRole === "SA"
-      ? [...getSaItems(assignedMilestones, user?.id), ...getSaOutputRevisionItems(outputDocuments.revisionQueue)]
+      ? [...getSaDashboardItems(assignedMilestones, user?.id), ...getSaOutputRevisionItems(outputDocuments.revisionQueue)]
       : userRole === "SUPER_ADMIN"
       ? getSuperAdminItems(summaryForMetrics, projectProgress)
       : [];

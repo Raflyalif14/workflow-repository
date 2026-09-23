@@ -48,6 +48,8 @@ export interface AssignedMilestone {
     id: string;
     name: string;
     customer: string;
+    status?: string;
+    is_postponed?: boolean;
   } | null;
 }
 

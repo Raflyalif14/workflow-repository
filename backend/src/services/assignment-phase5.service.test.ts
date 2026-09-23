@@ -120,6 +120,35 @@ async function verifyAvailablePics(): Promise<void> {
   }
 }
 
+async function verifyAssignedMilestoneProjectMetadata(): Promise<void> {
+  const originalFrom = supabaseAdmin.from;
+  let selection = '';
+
+  (supabaseAdmin as any).from = (table: string) => {
+    assert(table === 'project_milestones', 'Test 14A: assigned milestones must query project_milestones');
+    const query: any = {
+      select: (value: string) => {
+        selection = value;
+        return query;
+      },
+      eq: () => query,
+      order: () => Promise.resolve({ data: [], error: null }),
+    };
+    return query;
+  };
+
+  try {
+    await AssignmentPhase5Service.assignedMilestones({ userId: 'sa-1', role: 'SA', fullName: 'Solution Architect One' });
+    assert(
+      selection.includes('project:projects!project_milestones_project_id_fkey(id,name,customer,status,is_postponed)'),
+      'Test 14A: assigned milestone project metadata must include status and is_postponed'
+    );
+    console.log('Test 14A - Assigned milestones include project pause metadata: passed');
+  } finally {
+    (supabaseAdmin as any).from = originalFrom;
+  }
+}
+
 type AssignmentTestState = {
   workflow_model: string;
   workflow_version: number;
@@ -466,6 +495,7 @@ async function runWorkflowModelAssignmentTests(): Promise<void> {
 
 async function run(): Promise<void> {
   await verifyAvailablePics();
+  await verifyAssignedMilestoneProjectMetadata();
   await runWorkflowModelAssignmentTests();
 }
 

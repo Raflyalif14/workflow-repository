@@ -311,7 +311,7 @@ export class AssignmentPhase5Service {
 
   static async assignedMilestones(actor: Actor) {
     if (!['SA', 'HEAD_SA'].includes(actor.role)) throw new Error('Forbidden');
-    const { data, error } = await supabaseAdmin.from('project_milestones').select('id,project_id,name,step_order,status,pic_id,start_date,due_date,project:projects!project_milestones_project_id_fkey(id,name,customer)').eq('pic_id', actor.userId).order('created_at', { ascending: false });
+    const { data, error } = await supabaseAdmin.from('project_milestones').select('id,project_id,name,step_order,status,pic_id,start_date,due_date,project:projects!project_milestones_project_id_fkey(id,name,customer,status,is_postponed)').eq('pic_id', actor.userId).order('created_at', { ascending: false });
     if (error) throw new Error(error.message);
     return data || [];
   }
