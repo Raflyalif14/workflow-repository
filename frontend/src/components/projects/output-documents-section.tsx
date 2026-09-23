@@ -19,6 +19,7 @@ import {
   useUploadOutputDocument,
 } from "@/hooks/use-output-documents";
 import { authorizedFetch } from "@/lib/api-client";
+import { getActiveOutputDocuments } from "@/lib/output-document-ux";
 import { useRetryProjectCompletion } from "@/hooks/use-projects";
 import type { Project, ProjectOutputDocumentItem } from "@/types/project";
 
@@ -238,7 +239,7 @@ export function OutputDocumentsSection({ project }: OutputDocumentsSectionProps)
 
   const documents = outputQuery.data?.documents || [];
   const activeDocuments = useMemo(
-    () => documents.filter((document) => document.isRequired || document.isSelected),
+    () => getActiveOutputDocuments(documents),
     [documents]
   );
   const isHeadSa = user?.role === "HEAD_SA";
