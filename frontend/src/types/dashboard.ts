@@ -59,6 +59,17 @@ export interface DashboardOutputDocuments {
   salesProgress: Array<{ projectId: string; approvedCount: number; selectedCount: number }>;
 }
 
+export interface DashboardSaWorkload {
+  saId: string;
+  saName: string;
+  activeProjectCount: number;
+  activeMilestoneCount: number;
+  overdueCount: number;
+  revisionCount: number;
+  waitingReviewCount: number;
+  nearestDeadline: string | null;
+}
+
 export interface DashboardData {
   summary: DashboardSummary;
   scenarioDistribution: ScenarioDistribution[];
@@ -66,4 +77,5 @@ export interface DashboardData {
   projectProgress: ProjectProgress[];
   recentActivity: RecentActivity[];
   outputDocuments: DashboardOutputDocuments;
+  saWorkload: DashboardSaWorkload[];
 }

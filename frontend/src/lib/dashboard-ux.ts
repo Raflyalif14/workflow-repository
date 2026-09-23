@@ -1,5 +1,5 @@
 import { formatActivityAction } from "@/lib/activity-timeline";
-import type { DashboardOutputDocuments } from "@/types/dashboard";
+import type { DashboardOutputDocuments, DashboardSaWorkload } from "@/types/dashboard";
 import type { Project } from "@/types/project";
 
 export type DashboardRole = "SALES" | "HEAD_SA" | "SA" | "SUPER_ADMIN" | string | undefined;
@@ -357,6 +357,8 @@ export const getDashboardQueueTitle = (role: DashboardRole): string => {
   }
 };
 
+export const shouldShowSaWorkload = (role: DashboardRole): boolean => role === "HEAD_SA";
+
 export const getAdditionalDashboardItems = (items: DashboardWorkItem[], limit = 4): DashboardWorkItem[] =>
   sortDashboardItems(items).slice(1, limit + 1);
 
@@ -386,6 +388,44 @@ export const formatDashboardTimestamp = (value?: string | null): string | null =
     timeStyle: "short",
   });
 };
+
+const getSafeDateOnlyTimestamp = (value?: string | null): number | null => {
+  const match = value?.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) return null;
+
+  const [year, month, day] = match.slice(1).map(Number);
+  const timestamp = Date.UTC(year, month - 1, day);
+  const date = new Date(timestamp);
+  return date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day
+    ? timestamp
+    : null;
+};
+
+export const formatDashboardDeadline = (value?: string | null): string | null => {
+  const timestamp = getSafeDateOnlyTimestamp(value);
+  if (timestamp === null) return null;
+
+  return new Date(timestamp).toLocaleDateString("id-ID", {
+    dateStyle: "medium",
+    timeZone: "UTC",
+  });
+};
+
+export const sortSaWorkload = (workload: DashboardSaWorkload[]): DashboardSaWorkload[] =>
+  [...workload].sort((left, right) => {
+    if (left.overdueCount !== right.overdueCount) return right.overdueCount - left.overdueCount;
+    if (left.revisionCount !== right.revisionCount) return right.revisionCount - left.revisionCount;
+    if (left.activeMilestoneCount !== right.activeMilestoneCount) {
+      return right.activeMilestoneCount - left.activeMilestoneCount;
+    }
+
+    const leftDeadline = getSafeDateOnlyTimestamp(left.nearestDeadline);
+    const rightDeadline = getSafeDateOnlyTimestamp(right.nearestDeadline);
+    if (leftDeadline !== null && rightDeadline !== null && leftDeadline !== rightDeadline) return leftDeadline - rightDeadline;
+    if (leftDeadline !== null) return -1;
+    if (rightDeadline !== null) return 1;
+    return left.saName.localeCompare(right.saName);
+  });
 
 export const buildDashboardDistribution = (
   items: Array<{ label: string; count: number }>,

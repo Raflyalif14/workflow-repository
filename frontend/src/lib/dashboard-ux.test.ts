@@ -4,6 +4,7 @@ import {
   buildDashboardDistribution,
   formatDashboardActivityLabel,
   formatDashboardDate,
+  formatDashboardDeadline,
   formatDashboardLabel,
   formatDashboardTimestamp,
   getAdditionalDashboardItems,
@@ -26,9 +27,12 @@ import {
   isDashboardAction,
   sortDashboardItems,
   sortDashboardProjectHealth,
+  sortSaWorkload,
+  shouldShowSaWorkload,
   shouldShowDashboardInsights,
 } from "./dashboard-ux";
 import type { Project } from "@/types/project";
+import type { DashboardSaWorkload } from "@/types/dashboard";
 
 const roleCases: Array<[string | undefined, string]> = [
   ["SALES", "Sales workspace"],
@@ -321,6 +325,31 @@ if (formatDashboardActivityLabel("MILESTONE_SUBMITTED") !== "Work Submitted" || 
 
 if (formatDashboardDate(undefined) !== null || formatDashboardDate("not-a-date") !== null) {
   throw new Error("Missing or invalid dashboard dates should be safely omitted");
+}
+
+if (formatDashboardDeadline(undefined) !== null || formatDashboardDeadline("2026-02-30") !== null) {
+  throw new Error("Missing or invalid workload deadlines should be safely omitted");
+}
+
+const saWorkload: DashboardSaWorkload[] = [
+  { saId: "idle", saName: "Zero", activeProjectCount: 0, activeMilestoneCount: 0, overdueCount: 0, revisionCount: 0, waitingReviewCount: 0, nearestDeadline: null },
+  { saId: "later", saName: "Later", activeProjectCount: 1, activeMilestoneCount: 1, overdueCount: 0, revisionCount: 0, waitingReviewCount: 0, nearestDeadline: "2026-09-25" },
+  { saId: "revision", saName: "Revision", activeProjectCount: 1, activeMilestoneCount: 1, overdueCount: 0, revisionCount: 2, waitingReviewCount: 0, nearestDeadline: "2026-09-10" },
+  { saId: "overdue", saName: "Overdue", activeProjectCount: 1, activeMilestoneCount: 1, overdueCount: 1, revisionCount: 0, waitingReviewCount: 0, nearestDeadline: "2026-09-30" },
+  { saId: "active", saName: "Active", activeProjectCount: 1, activeMilestoneCount: 2, overdueCount: 0, revisionCount: 0, waitingReviewCount: 0, nearestDeadline: "2026-09-28" },
+  { saId: "soon", saName: "Soon", activeProjectCount: 1, activeMilestoneCount: 1, overdueCount: 0, revisionCount: 0, waitingReviewCount: 0, nearestDeadline: "2026-09-20" },
+];
+
+if (sortSaWorkload(saWorkload).map((item) => item.saId).join(",") !== "overdue,revision,active,soon,later,idle") {
+  throw new Error("SA workload must sort by overdue, revision, active work, nearest deadline, then name");
+}
+
+if (sortSaWorkload([]).length !== 0) {
+  throw new Error("An empty SA workload should remain empty");
+}
+
+if (!shouldShowSaWorkload("HEAD_SA") || shouldShowSaWorkload("SALES") || shouldShowSaWorkload("SA") || shouldShowSaWorkload("SUPER_ADMIN")) {
+  throw new Error("Only Head SA presentation may render team workload");
 }
 
 if (formatDashboardTimestamp(undefined) !== null || formatDashboardTimestamp("not-a-date") !== null) {

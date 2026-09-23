@@ -1,4 +1,5 @@
 import { supabaseAdmin } from '../config/supabase';
+import { getDateOnlyKeyInTimeZone } from '../utils/dates';
 import { UserRole } from '../validators/auth.validator';
 
 export type DashboardActor = {
@@ -24,6 +25,7 @@ export type DashboardProjectRow = {
 export type DashboardMilestoneRow = {
   id: string;
   project_id: string;
+  pic_id?: string | null;
   status: string;
   due_date: string | null;
 };
@@ -37,6 +39,7 @@ export type DashboardApprovalRow = {
   id?: string;
   milestone_id: string;
   status: string;
+  submitted_at?: string | null;
 };
 
 export type DashboardProjectPlanApprovalRow = {
@@ -73,6 +76,24 @@ export type DashboardOutputDocuments = {
   salesProgress: Array<{ projectId: string; approvedCount: number; selectedCount: number }>;
 };
 
+export type DashboardSaUserRow = {
+  id: string;
+  full_name: string | null;
+  role: string | null;
+  is_active: boolean | null;
+};
+
+export type DashboardSaWorkload = {
+  saId: string;
+  saName: string;
+  activeProjectCount: number;
+  activeMilestoneCount: number;
+  overdueCount: number;
+  revisionCount: number;
+  waitingReviewCount: number;
+  nearestDeadline: string | null;
+};
+
 export type DashboardSourceRows = {
   projects: DashboardProjectRow[];
   milestones: DashboardMilestoneRow[];
@@ -83,10 +104,12 @@ export type DashboardSourceRows = {
   activityLogs: DashboardActivityRow[];
   users: DashboardUserRow[];
   outputDocuments?: DashboardOutputDocumentRow[];
+  saUsers?: DashboardSaUserRow[];
 };
 
 const LIVE_PROJECT_STATUSES = ['DRAFT', 'ACTIVE', 'POSTPONED', 'WAITING_RESULT', 'WON', 'LOST', 'COMPLETED', 'CANCELLED'] as const;
 const COMPLETED_MILESTONE_STATUSES = new Set(['COMPLETED', 'APPROVED']);
+const SA_ACTIONABLE_MILESTONE_STATUSES = new Set(['IN_PROGRESS', 'REJECTED']);
 const PROJECT_STATUS_COLORS: Record<string, string> = {
   DRAFT: '#64748b',
   ACTIVE: '#3b82f6',
@@ -100,6 +123,19 @@ const PROJECT_STATUS_COLORS: Record<string, string> = {
 
 const todayKey = () => new Date().toISOString().slice(0, 10);
 const dateOnly = (value: string) => value.slice(0, 10);
+
+const getValidDateOnly = (value?: string | null): string | null => {
+  const match = value?.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!match) return null;
+
+  const [year, month, day] = match.slice(1).map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  if (date.getUTCFullYear() !== year || date.getUTCMonth() !== month - 1 || date.getUTCDate() !== day) {
+    return null;
+  }
+
+  return `${match[1]}-${match[2]}-${match[3]}`;
+};
 
 export function isProjectVisibleToActor(project: DashboardProjectRow, actor: DashboardActor) {
   if (actor.role === 'SUPER_ADMIN' || actor.role === 'HEAD_SA') return true;
@@ -143,6 +179,80 @@ export function countWaitingApprovals(
   return approvalGroups.flat().filter(
     (approval) => approval.status === 'PENDING' && milestoneIds.has(approval.milestone_id)
   ).length;
+}
+
+function buildSaWorkload(
+  rows: DashboardSourceRows,
+  projects: DashboardProjectRow[],
+  milestones: DashboardMilestoneRow[],
+  today: string
+): DashboardSaWorkload[] {
+  const activeProjects = projects.filter((project) => project.status === 'ACTIVE' && !project.is_postponed);
+  const activeProjectIds = new Set(activeProjects.map((project) => project.id));
+  const activeProjectById = new Map(activeProjects.map((project) => [project.id, project]));
+  const pendingMilestoneIds = new Set(
+    rows.milestoneApprovals
+      .filter((approval) => approval.status === 'PENDING')
+      .map((approval) => approval.milestone_id)
+  );
+  const latestApprovalByMilestone = new Map<string, DashboardApprovalRow>();
+  const compareApprovalRecency = (left: DashboardApprovalRow, right: DashboardApprovalRow) => {
+    const leftTimestamp = left.submitted_at ? Date.parse(left.submitted_at) : Number.NaN;
+    const rightTimestamp = right.submitted_at ? Date.parse(right.submitted_at) : Number.NaN;
+    if (!Number.isNaN(leftTimestamp) && !Number.isNaN(rightTimestamp) && leftTimestamp !== rightTimestamp) {
+      return leftTimestamp - rightTimestamp;
+    }
+    if (!Number.isNaN(leftTimestamp) && Number.isNaN(rightTimestamp)) return 1;
+    if (Number.isNaN(leftTimestamp) && !Number.isNaN(rightTimestamp)) return -1;
+    return (left.id || '').localeCompare(right.id || '');
+  };
+  for (const approval of rows.milestoneApprovals) {
+    const current = latestApprovalByMilestone.get(approval.milestone_id);
+    if (!current || compareApprovalRecency(approval, current) > 0) {
+      latestApprovalByMilestone.set(approval.milestone_id, approval);
+    }
+  }
+  const outputRows = (rows.outputDocuments || []).filter((output) =>
+    activeProjectIds.has(output.project_id) && (output.is_required || output.is_selected)
+  );
+
+  return (rows.saUsers || [])
+    .filter((user) => user.role === 'SA' && user.is_active === true)
+    .map((sa) => {
+      const saProjects = activeProjects.filter((project) => project.pic_id === sa.id);
+      const saProjectIds = new Set(saProjects.map((project) => project.id));
+      const saMilestones = milestones.filter((milestone) => {
+        const project = activeProjectById.get(milestone.project_id);
+        return Boolean(project && (milestone.pic_id || project.pic_id) === sa.id);
+      });
+      const actionableMilestones = saMilestones.filter((milestone) =>
+        SA_ACTIONABLE_MILESTONE_STATUSES.has(milestone.status)
+      );
+      const revisionCount = saMilestones.filter((milestone) =>
+        milestone.status === 'REJECTED'
+        || (milestone.status === 'IN_PROGRESS' && latestApprovalByMilestone.get(milestone.id)?.status === 'REJECTED')
+      ).length
+        + outputRows.filter((output) => output.project_id && saProjectIds.has(output.project_id) && output.status === 'REVISION_REQUIRED').length;
+      const waitingReviewCount = saMilestones.filter((milestone) =>
+        milestone.status === 'SUBMITTED' && pendingMilestoneIds.has(milestone.id)
+      ).length + outputRows.filter((output) =>
+        saProjectIds.has(output.project_id) && output.status === 'IN_REVIEW'
+      ).length;
+      const actionableDueDates = actionableMilestones
+        .map((milestone) => getValidDateOnly(milestone.due_date))
+        .filter((dueDate): dueDate is string => Boolean(dueDate));
+
+      return {
+        saId: sa.id,
+        saName: sa.full_name || 'Solution Architect',
+        activeProjectCount: saProjects.length,
+        activeMilestoneCount: actionableMilestones.length,
+        overdueCount: actionableDueDates.filter((dueDate) => dueDate < today).length,
+        revisionCount,
+        waitingReviewCount,
+        nearestDeadline: actionableDueDates.sort((left, right) => left.localeCompare(right))[0] || null,
+      };
+    });
 }
 
 function sortNewestFirst<T extends { created_at?: string | null; updated_at?: string | null }>(items: T[]) {
@@ -286,6 +396,9 @@ export function buildDashboardOverviewFromRows(
         };
       }).filter((item) => item.selectedCount > 0)
     : [];
+  const saWorkload = actor.role === 'HEAD_SA'
+    ? buildSaWorkload(rows, projects, milestones, today)
+    : [];
 
   return {
     summary: {
@@ -318,6 +431,7 @@ export function buildDashboardOverviewFromRows(
       revisionQueue: actor.role === 'SA' ? countByProject('REVISION_REQUIRED') : [],
       salesProgress,
     } satisfies DashboardOutputDocuments,
+    saWorkload,
   };
 }
 
@@ -341,6 +455,18 @@ async function getScopedProjects(actor: DashboardActor) {
   return (data || []) as DashboardProjectRow[];
 }
 
+async function getActiveSolutionArchitects() {
+  const { data, error } = await supabaseAdmin
+    .from('users')
+    .select('id,full_name,role,is_active')
+    .eq('role', 'SA')
+    .eq('is_active', true)
+    .order('full_name', { ascending: true });
+
+  if (error) throw toSafeDashboardError(error, 'solution_architects');
+  return (data || []) as DashboardSaUserRow[];
+}
+
 async function getRowsByProjectIds(projectIds: string[]) {
   if (!projectIds.length) {
     return {
@@ -358,7 +484,7 @@ async function getRowsByProjectIds(projectIds: string[]) {
   const [milestoneResult, scenarioResult, activityResult, outputDocumentResult] = await Promise.all([
     supabaseAdmin
       .from('project_milestones')
-      .select('id,project_id,status,due_date')
+      .select('id,project_id,pic_id,status,due_date')
       .in('project_id', projectIds),
     supabaseAdmin
       .from('scenarios')
@@ -406,9 +532,10 @@ async function getRowsByProjectIds(projectIds: string[]) {
     milestoneIds.length
       ? supabaseAdmin
           .from('milestone_approvals')
-          .select('id,milestone_id,status')
-          .eq('status', 'PENDING')
+          .select('id,milestone_id,status,submitted_at')
           .in('milestone_id', milestoneIds)
+          .order('submitted_at', { ascending: false })
+          .order('id', { ascending: false })
       : Promise.resolve({ data: [], error: null }),
     userIds.length
       ? supabaseAdmin
@@ -438,14 +565,19 @@ async function getRowsByProjectIds(projectIds: string[]) {
 export class DashboardService {
   static async getOverview(actor: DashboardActor) {
     const projects = await getScopedProjects(actor);
-    const scopedRows = await getRowsByProjectIds(projects.map((project) => project.id));
+    const [scopedRows, saUsers] = await Promise.all([
+      getRowsByProjectIds(projects.map((project) => project.id)),
+      actor.role === 'HEAD_SA' ? getActiveSolutionArchitects() : Promise.resolve([]),
+    ]);
 
     return buildDashboardOverviewFromRows(
       {
         projects,
         ...scopedRows,
+        saUsers,
       },
-      actor
+      actor,
+      actor.role === 'HEAD_SA' ? getDateOnlyKeyInTimeZone() : undefined
     );
   }
 }

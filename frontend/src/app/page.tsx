@@ -27,6 +27,7 @@ import {
   DashboardWorkItem,
   formatDashboardActivityLabel,
   formatDashboardDate,
+  formatDashboardDeadline,
   formatDashboardLabel,
   formatDashboardTimestamp,
   getApprovalProjectHref,
@@ -43,11 +44,13 @@ import {
   getSalesDashboardItems,
   sortDashboardItems,
   sortDashboardProjectHealth,
+  sortSaWorkload,
+  shouldShowSaWorkload,
   shouldShowDashboardInsights,
 } from "@/lib/dashboard-ux";
 import { formatActorRoleLabel } from "@/lib/workflow-ux-helpers";
 import { ApprovalItem } from "@/types/approval";
-import { DashboardSummary, ProjectProgress, RecentActivity } from "@/types/dashboard";
+import { DashboardSaWorkload, DashboardSummary, ProjectProgress, RecentActivity } from "@/types/dashboard";
 import { Project } from "@/types/project";
 
 type SummaryMetric = {
@@ -781,6 +784,96 @@ function QuickInsightsPanel({
   );
 }
 
+function SolutionArchitectWorkloadPanel({
+  workload,
+  loading,
+  hasError,
+}: {
+  workload: DashboardSaWorkload[];
+  loading: boolean;
+  hasError: boolean;
+}) {
+  const everyoneIdle = workload.length > 0 && workload.every((item) =>
+    item.activeProjectCount === 0
+    && item.activeMilestoneCount === 0
+    && item.revisionCount === 0
+    && item.waitingReviewCount === 0
+    && item.overdueCount === 0
+  );
+
+  return (
+    <section aria-labelledby="sa-workload-heading" className="overflow-hidden rounded-xl border border-border bg-card">
+      <div className="border-b border-border px-5 py-5">
+        <h2 id="sa-workload-heading" className="text-base font-semibold text-foreground">Solution Architect workload</h2>
+        <p className="mt-1 text-sm text-muted-foreground">Work distribution, deadlines, and review status across the SA team.</p>
+      </div>
+
+      {loading && workload.length === 0 ? (
+        <div className="space-y-3 p-5" aria-label="Loading Solution Architect workload">
+          {[0, 1, 2].map((item) => <div key={item} className="h-16 animate-pulse rounded bg-muted" />)}
+        </div>
+      ) : hasError && workload.length === 0 ? (
+        <div className="px-5 py-8 text-sm text-muted-foreground">Solution Architect workload couldn&apos;t be loaded.</div>
+      ) : workload.length === 0 ? (
+        <div className="px-5 py-8 text-sm text-muted-foreground">No active Solution Architects are available.</div>
+      ) : (
+        <>
+          {everyoneIdle && <p className="border-b border-border bg-muted/30 px-5 py-3 text-sm text-muted-foreground">All Solution Architects currently have no active work.</p>}
+          <div className="hidden overflow-x-auto lg:block">
+            <table className="w-full min-w-[860px] text-sm">
+              <thead className="bg-muted/40 text-left text-xs font-medium text-muted-foreground">
+                <tr>
+                  <th className="px-5 py-3 font-medium">Solution Architect</th>
+                  <th className="px-3 py-3 text-center font-medium">Active projects</th>
+                  <th className="px-3 py-3 text-center font-medium">Active work</th>
+                  <th className="px-3 py-3 font-medium">Nearest deadline</th>
+                  <th className="px-3 py-3 text-center font-medium">Revision</th>
+                  <th className="px-3 py-3 text-center font-medium">Waiting review</th>
+                  <th className="px-5 py-3 text-center font-medium">Overdue</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {workload.map((item) => {
+                  const deadline = formatDashboardDeadline(item.nearestDeadline);
+                  return (
+                    <tr key={item.saId}>
+                      <td className="px-5 py-4 font-medium text-foreground">{item.saName}</td>
+                      <td className="px-3 py-4 text-center text-foreground">{item.activeProjectCount}</td>
+                      <td className="px-3 py-4 text-center text-foreground">{item.activeMilestoneCount || <span className="text-muted-foreground">No active work</span>}</td>
+                      <td className="px-3 py-4 text-muted-foreground">{deadline || "No deadline"}</td>
+                      <td className="px-3 py-4 text-center"><span className={item.revisionCount > 0 ? "font-medium text-[hsl(var(--warning))]" : "text-muted-foreground"}>{item.revisionCount}</span></td>
+                      <td className="px-3 py-4 text-center text-muted-foreground">{item.waitingReviewCount}</td>
+                      <td className="px-5 py-4 text-center"><span className={item.overdueCount > 0 ? "font-semibold text-destructive" : "text-muted-foreground"}>{item.overdueCount}</span></td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          <div className="divide-y divide-border lg:hidden">
+            {workload.map((item) => {
+              const deadline = formatDashboardDeadline(item.nearestDeadline);
+              return (
+                <div key={item.saId} className="space-y-3 px-5 py-4">
+                  <p className="font-medium text-foreground">{item.saName}</p>
+                  <dl className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
+                    <div><dt className="text-xs text-muted-foreground">Active projects</dt><dd className="mt-1 text-foreground">{item.activeProjectCount}</dd></div>
+                    <div><dt className="text-xs text-muted-foreground">Active work</dt><dd className="mt-1 text-foreground">{item.activeMilestoneCount || "No active work"}</dd></div>
+                    <div><dt className="text-xs text-muted-foreground">Nearest deadline</dt><dd className="mt-1 text-foreground">{deadline || "No deadline"}</dd></div>
+                    <div><dt className="text-xs text-muted-foreground">Waiting review</dt><dd className="mt-1 text-foreground">{item.waitingReviewCount}</dd></div>
+                    <div><dt className="text-xs text-muted-foreground">Revision</dt><dd className={item.revisionCount > 0 ? "mt-1 font-medium text-[hsl(var(--warning))]" : "mt-1 text-foreground"}>{item.revisionCount}</dd></div>
+                    <div><dt className="text-xs text-muted-foreground">Overdue</dt><dd className={item.overdueCount > 0 ? "mt-1 font-semibold text-destructive" : "mt-1 text-foreground"}>{item.overdueCount}</dd></div>
+                  </dl>
+                </div>
+              );
+            })}
+          </div>
+        </>
+      )}
+    </section>
+  );
+}
+
 export default function DashboardPage() {
   const { user } = useAuth();
   const [greeting, setGreeting] = useState("Hello");
@@ -813,6 +906,7 @@ export default function DashboardPage() {
   const statusDistribution = dashboardQuery.data?.statusDistribution || [];
   const scenarioDistribution = dashboardQuery.data?.scenarioDistribution || [];
   const outputDocuments = dashboardQuery.data?.outputDocuments || { reviewQueue: [], revisionQueue: [], salesProgress: [] };
+  const saWorkload = sortSaWorkload(dashboardQuery.data?.saWorkload || []);
   const projects = projectsQuery.data?.projects || [];
   const approvals = approvalsQuery.data || [];
   const assignedMilestones = assignedMilestonesQuery.data || [];
@@ -904,14 +998,14 @@ export default function DashboardPage() {
   const projectDeliveryTitle = userRole === "SALES"
     ? "Revenue pipeline"
     : userRole === "HEAD_SA"
-    ? "SA workload"
+    ? "Project delivery"
     : userRole === "SA"
     ? "Assigned deadlines"
     : "Project delivery";
   const projectDeliveryDescription = userRole === "SALES"
     ? "Revenue, delivery stage, and assigned PIC for your projects"
     : userRole === "HEAD_SA"
-    ? "Current project load and work status for each Solution Architect"
+    ? "Current projects, assigned PICs, and delivery status"
     : userRole === "SA"
     ? "Current stages and deadlines for projects assigned to you"
     : "Current progress across active and planning projects";
@@ -1011,6 +1105,14 @@ export default function DashboardPage() {
           hasMore={remainingItemCount > quickInsights.length}
         />
       </div>
+
+      {shouldShowSaWorkload(userRole) && (
+        <SolutionArchitectWorkloadPanel
+          workload={saWorkload}
+          loading={dashboardQuery.isLoading}
+          hasError={dashboardQuery.isError}
+        />
+      )}
 
       <section aria-labelledby="project-delivery-heading" className="overflow-hidden rounded-xl border border-border bg-card">
         <div className="flex flex-col gap-3 border-b border-border px-5 py-5 sm:flex-row sm:items-center sm:justify-between">
