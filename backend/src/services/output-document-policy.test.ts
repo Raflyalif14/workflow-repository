@@ -124,3 +124,23 @@ assert(outputDocumentService.includes('current_version_id'));
 assert(outputDocumentService.includes("if (versionError) {"));
 assert(outputDocumentService.includes('Output document version history is unavailable'));
 console.log('Test 9 - Version history, CAS transitions, and exact-path deletion cleanup are migration-backed: passed');
+
+assert(revisionMigration.includes('\nbegin;'));
+assert(revisionMigration.trimEnd().endsWith('select count(*) from public.project_output_documents where storage_path is not null and current_version_id is null;'));
+assert(revisionMigration.includes('lock table public.projects, public.project_output_documents in share row exclusive mode;'));
+assert(revisionMigration.includes("when od.status in ('DRAFT', 'IN_REVIEW', 'REVISION_REQUIRED', 'APPROVED') then od.status"));
+assert(revisionMigration.includes('and od.current_version_id is null'));
+assert(revisionMigration.includes('foreign key (current_version_id, id)'));
+assert(revisionMigration.includes('v_document.current_version_id is distinct from p_expected_version_id'));
+assert(revisionMigration.includes("where id = p_expected_version_id\n    and output_document_id = v_document.id\n    and status = v_document.status;"));
+assert(revisionMigration.includes('\ncommit;'));
+console.log('Test 10 - Phase 13 is transactional, backfills existing file state, and enforces version CAS: passed');
+
+assert(outputDocumentService.includes("'OUTPUT_DOCUMENT_UPLOADED'"));
+assert(outputDocumentService.includes("'OUTPUT_DOCUMENTS_SUBMITTED'"));
+assert(outputDocumentService.includes("'OUTPUT_DOCUMENTS_APPROVED'"));
+assert(outputDocumentService.includes("'OUTPUT_DOCUMENTS_REVISION_REQUESTED'"));
+assert(outputDocumentService.includes("runNotificationBestEffort('submit output documents notification'"));
+assert(outputDocumentService.includes("runNotificationBestEffort('review output documents notification'"));
+assert(outputDocumentService.includes('actionUrl: `/projects/${project.id}`'));
+console.log('Test 11 - Output actions retain activity timeline events and best-effort project-linked notifications: passed');

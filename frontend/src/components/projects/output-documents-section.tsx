@@ -340,7 +340,7 @@ export function OutputDocumentsSection({ project }: OutputDocumentsSectionProps)
   };
 
   return (
-    <Card className="min-w-0 border-border/60 bg-card/70 shadow-none">
+    <Card id="output-documents-section" tabIndex={-1} className="min-w-0 scroll-mt-20 border-border/60 bg-card/70 shadow-none focus:outline-none focus:ring-2 focus:ring-primary/60 focus:ring-offset-2 focus:ring-offset-background">
       <CardHeader className="space-y-4 border-b border-border/40 pb-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0">
