@@ -36,8 +36,10 @@ import {
   getDashboardKpiLabels,
   getDashboardProjectHealthLabel,
   getDashboardRoleContent,
+  getHeadSaOutputReviewItems,
   getDashboardSnapshotTitle,
   getMilestoneProjectHref,
+  getSaOutputRevisionItems,
   getSalesDashboardItems,
   sortDashboardItems,
   sortDashboardProjectHealth,
@@ -459,7 +461,7 @@ function ProjectDeliveryRow({
   if (role === "SALES") {
     return (
       <div className="grid gap-4 px-4 py-4 lg:grid-cols-[minmax(180px,1.3fr)_minmax(130px,1fr)_minmax(160px,1fr)_minmax(140px,0.9fr)_110px_auto] lg:items-center lg:px-5">
-        <p className="break-words text-sm font-semibold text-foreground">{project.name}</p>
+        <div className="min-w-0"><p className="break-words text-sm font-semibold text-foreground">{project.name}</p>{project.outputSelectedCount !== undefined && <p className="mt-1 text-xs text-muted-foreground">{project.outputApprovedCount || 0} of {project.outputSelectedCount} outputs approved</p>}</div>
         <div><p className="text-xs text-muted-foreground lg:hidden">Estimated revenue</p><p className="mt-1 text-sm text-foreground lg:mt-0">{project.estimatedRevenue === null || project.estimatedRevenue === undefined ? "Not available" : formatRevenue(project.estimatedRevenue)}</p></div>
         <div><p className="text-xs text-muted-foreground lg:hidden">Stage</p><p className="mt-1 break-words text-sm text-foreground lg:mt-0">{project.currentStage || "Not available"}</p></div>
         <div><p className="text-xs text-muted-foreground lg:hidden">PIC</p><p className="mt-1 break-words text-sm text-foreground lg:mt-0">{project.picName || "Unassigned"}</p></div>
@@ -810,6 +812,7 @@ export default function DashboardPage() {
   const recentActivity = dashboardQuery.data?.recentActivity || [];
   const statusDistribution = dashboardQuery.data?.statusDistribution || [];
   const scenarioDistribution = dashboardQuery.data?.scenarioDistribution || [];
+  const outputDocuments = dashboardQuery.data?.outputDocuments || { reviewQueue: [], revisionQueue: [], salesProgress: [] };
   const projects = projectsQuery.data?.projects || [];
   const approvals = approvalsQuery.data || [];
   const assignedMilestones = assignedMilestonesQuery.data || [];
@@ -820,9 +823,9 @@ export default function DashboardPage() {
     userRole === "SALES"
       ? getSalesDashboardItems(projects, user?.id)
       : userRole === "HEAD_SA"
-      ? getHeadSaItems(approvals, projects)
+      ? [...getHeadSaItems(approvals, projects), ...getHeadSaOutputReviewItems(outputDocuments.reviewQueue)]
       : userRole === "SA"
-      ? getSaItems(assignedMilestones, user?.id)
+      ? [...getSaItems(assignedMilestones, user?.id), ...getSaOutputRevisionItems(outputDocuments.revisionQueue)]
       : userRole === "SUPER_ADMIN"
       ? getSuperAdminItems(summaryForMetrics, projectProgress)
       : [];
@@ -855,6 +858,7 @@ export default function DashboardPage() {
     (isSa && assignedMilestonesQuery.isError);
 
   const projectsById = new Map(projects.map((project) => [project.id, project]));
+  const salesOutputProgressByProject = new Map(outputDocuments.salesProgress.map((item) => [item.projectId, item]));
   const healthSource: DashboardProjectHealth[] = (
     projectProgress.length > 0
       ? projectProgress
@@ -871,6 +875,7 @@ export default function DashboardPage() {
         }))
   ).map((project) => {
     const matchingProject = projectsById.get(project.id);
+    const outputProgress = salesOutputProgressByProject.get(project.id);
     const owner = matchingProject?.pic || matchingProject?.sales || matchingProject?.salesPIC || null;
 
     return {
@@ -891,6 +896,8 @@ export default function DashboardPage() {
       currentDeadline: matchingProject?.currentMilestone?.due_date || null,
       picName: matchingProject?.pic?.fullName || matchingProject?.pic?.full_name || null,
       estimatedRevenue: matchingProject?.estimated_revenue ?? null,
+      outputApprovedCount: outputProgress?.approvedCount,
+      outputSelectedCount: outputProgress?.selectedCount,
     };
   });
   const projectDelivery = sortDashboardProjectHealth(healthSource, userRole).slice(0, 8);

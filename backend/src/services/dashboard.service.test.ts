@@ -56,6 +56,13 @@ const rows: DashboardSourceRows = {
     { id: 'sales-1', full_name: 'Sales Test', role: 'SALES' },
     { id: 'sales-3', full_name: 'Other Sales', role: 'SALES' },
   ],
+  outputDocuments: [
+    { project_id: 'project-sales', status: 'IN_REVIEW', is_required: true, is_selected: true },
+    { project_id: 'project-sales', status: 'APPROVED', is_required: true, is_selected: true },
+    { project_id: 'project-sa', status: 'REVISION_REQUIRED', is_required: true, is_selected: true },
+    { project_id: 'project-sa', status: 'DRAFT', is_required: false, is_selected: true },
+    { project_id: 'project-postponed', status: 'IN_REVIEW', is_required: true, is_selected: true },
+  ],
 };
 
 const superAdmin = { userId: 'admin-1', role: 'SUPER_ADMIN' };
@@ -122,3 +129,17 @@ const removedOrm = ['pri', 'sma'].join('');
 assert(!serviceSource.includes(`../config/${removedOrm}`) && !serviceSource.includes(`${removedOrm}.`), 'Test 13: DashboardService should contain no removed ORM runtime query');
 assert(!serviceSource.includes("from('milestone_initiation_approvals')"), 'Test 13: dashboard must not count initiation approvals');
 console.log('Test 13 - Dashboard uses Supabase runtime and excludes initiation approval KPI: passed');
+
+const headSaOutputQueue = buildDashboardOverviewFromRows(rows, headSa, today).outputDocuments.reviewQueue;
+assert(headSaOutputQueue.length === 1 && headSaOutputQueue[0].projectId === 'project-sales' && headSaOutputQueue[0].count === 1, 'Test 14: HEAD_SA should receive one grouped active-project IN_REVIEW queue item');
+const saOutputQueue = buildDashboardOverviewFromRows(rows, sa, today).outputDocuments.revisionQueue;
+assert(saOutputQueue.length === 1 && saOutputQueue[0].projectId === 'project-sa' && saOutputQueue[0].count === 1, 'Test 14: assigned SA should receive only its active-project REVISION_REQUIRED output queue');
+assert(buildDashboardOverviewFromRows(rows, { userId: 'sa-other', role: 'SA' }, today).outputDocuments.revisionQueue.length === 0, 'Test 14: non-PIC SA must not receive output tasks');
+console.log('Test 14 - Output queues are role-scoped, grouped by project, and exclude postponed work: passed');
+
+const salesOutputProgress = salesDashboard.outputDocuments.salesProgress;
+const ownedOutputProgress = salesOutputProgress.find((item) => item.projectId === 'project-sales');
+assert(ownedOutputProgress?.approvedCount === 1 && ownedOutputProgress.selectedCount === 2, 'Test 15: SALES sees approved/selected aggregate only');
+assert(!salesOutputProgress.some((item) => item.projectId === 'project-sa'), 'Test 15: SALES must not receive another project output aggregate');
+assert(!JSON.stringify(salesOutputProgress).includes('IN_REVIEW') && !JSON.stringify(salesOutputProgress).includes('REVISION_REQUIRED'), 'Test 15: SALES aggregate must not expose non-final statuses');
+console.log('Test 15 - SALES output progress is owner-scoped and contains aggregate counts only: passed');

@@ -4,6 +4,7 @@ import path from 'path';
 import {
   canReadNonFinalOutput,
   canUploadOutput,
+  formatOutputDocumentNames,
   isCurrentOutputVersion,
   isOutputReadyForReview,
   isOutputReadyForSubmission,
@@ -88,6 +89,13 @@ assert(!reviewOutputDocumentsSchema.safeParse({ decision: 'REVISE', feedback: 'R
 assert(isOutputReadyForReview('IN_REVIEW') && !isOutputReadyForReview('APPROVED'));
 console.log('Test 6 - Batch approval and per-document revision validation are enforced: passed');
 
+const notificationNames = formatOutputDocumentNames(
+  ['proposal_teknis', 'timeline_proyek', 'identitas_barang_produk', 'spesifikasi_teknis_toc'],
+  getScenarioDocuments('On Submission Tender')
+);
+assert(notificationNames.includes('Proposal Teknis') && notificationNames.includes('and 1 more'));
+console.log('Test 7 - Output notification names are capped to three visible entries: passed');
+
 assert(!areSelectedProjectOutputsApproved([
   { is_required: true, is_selected: true, status: 'APPROVED' },
   { is_required: false, is_selected: true, status: 'DRAFT' },
@@ -96,7 +104,7 @@ assert(areSelectedProjectOutputsApproved([
   { is_required: true, is_selected: true, status: 'APPROVED' },
   { is_required: false, is_selected: false, status: 'DRAFT' },
 ]));
-console.log('Test 7 - Partial submission does not satisfy project output completion: passed');
+console.log('Test 8 - Partial submission does not satisfy project output completion: passed');
 
 const migrationPath = path.resolve(__dirname, '../../supabase/phase12-project-output-documents.sql');
 const migration = readFileSync(migrationPath, 'utf8');
@@ -108,7 +116,7 @@ assert(!migration.includes('update public.workflow_stages'));
 assert(!migration.includes('update public.project_milestones'));
 assert(migration.includes('estimated_revenue') && migration.includes('final_contract_value') && migration.includes('loss_reason'));
 assert(migration.includes("projects_outcome_details_check"));
-console.log('Test 8 - Phase 12 preserves milestones, captures output storage paths, and stores distinct commercial outcomes: passed');
+console.log('Test 9 - Phase 12 preserves milestones, captures output storage paths, and stores distinct commercial outcomes: passed');
 
 const revisionMigrationPath = path.resolve(__dirname, '../../supabase/phase13-output-document-revisions.sql');
 const revisionMigration = readFileSync(revisionMigrationPath, 'utf8');
@@ -123,7 +131,7 @@ const outputDocumentService = readFileSync(path.resolve(__dirname, './output-doc
 assert(outputDocumentService.includes('current_version_id'));
 assert(outputDocumentService.includes("if (versionError) {"));
 assert(outputDocumentService.includes('Output document version history is unavailable'));
-console.log('Test 9 - Version history, CAS transitions, and exact-path deletion cleanup are migration-backed: passed');
+console.log('Test 10 - Version history, CAS transitions, and exact-path deletion cleanup are migration-backed: passed');
 
 assert(revisionMigration.includes('\nbegin;'));
 assert(revisionMigration.trimEnd().endsWith('select count(*) from public.project_output_documents where storage_path is not null and current_version_id is null;'));
@@ -134,7 +142,7 @@ assert(revisionMigration.includes('foreign key (current_version_id, id)'));
 assert(revisionMigration.includes('v_document.current_version_id is distinct from p_expected_version_id'));
 assert(revisionMigration.includes("where id = p_expected_version_id\n    and output_document_id = v_document.id\n    and status = v_document.status;"));
 assert(revisionMigration.includes('\ncommit;'));
-console.log('Test 10 - Phase 13 is transactional, backfills existing file state, and enforces version CAS: passed');
+console.log('Test 11 - Phase 13 is transactional, backfills existing file state, and enforces version CAS: passed');
 
 assert(outputDocumentService.includes("'OUTPUT_DOCUMENT_UPLOADED'"));
 assert(outputDocumentService.includes("'OUTPUT_DOCUMENTS_SUBMITTED'"));
@@ -142,5 +150,5 @@ assert(outputDocumentService.includes("'OUTPUT_DOCUMENTS_APPROVED'"));
 assert(outputDocumentService.includes("'OUTPUT_DOCUMENTS_REVISION_REQUESTED'"));
 assert(outputDocumentService.includes("runNotificationBestEffort('submit output documents notification'"));
 assert(outputDocumentService.includes("runNotificationBestEffort('review output documents notification'"));
-assert(outputDocumentService.includes('actionUrl: `/projects/${project.id}`'));
-console.log('Test 11 - Output actions retain activity timeline events and best-effort project-linked notifications: passed');
+assert(outputDocumentService.includes('actionUrl: `/projects/${project.id}#output-documents`'));
+console.log('Test 12 - Output actions retain activity timeline events and best-effort deep-linked notifications: passed');

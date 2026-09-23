@@ -17,8 +17,11 @@ import {
   getDashboardProjectHealthLabel,
   getDashboardQueueTitle,
   getDashboardSnapshotTitle,
+  getHeadSaOutputReviewItems,
   getMilestoneProjectHref,
+  getOutputDocumentsHref,
   getSalesDashboardItems,
+  getSaOutputRevisionItems,
   hasAdditionalDashboardItems,
   isDashboardAction,
   sortDashboardItems,
@@ -125,6 +128,20 @@ if (getApprovalProjectHref("project-1", "DEADLINE") !== "/projects/project-1") {
 
 if (getMilestoneProjectHref("project-1", "milestone-1") !== "/projects/project-1#project-milestone-milestone-1") {
   throw new Error("Assigned milestones should open the matching Project Detail milestone");
+}
+
+if (getOutputDocumentsHref("project-1") !== "/projects/project-1#output-documents") {
+  throw new Error("Output document dashboard links should target the existing Project Detail anchor");
+}
+
+const headSaOutputItems = getHeadSaOutputReviewItems([{ projectId: "project-output", projectName: "Output Review", count: 2 }]);
+if (headSaOutputItems.length !== 1 || headSaOutputItems[0].href !== "/projects/project-output#output-documents" || headSaOutputItems[0].label !== "Output documents awaiting review") {
+  throw new Error("Head SA should receive one project-grouped output review task");
+}
+
+const saOutputItems = getSaOutputRevisionItems([{ projectId: "project-output", projectName: "Output Revision", count: 1 }]);
+if (saOutputItems.length !== 1 || saOutputItems[0].priority >= 10 || saOutputItems[0].href !== "/projects/project-output#output-documents") {
+  throw new Error("Assigned SA output revisions should be a high-priority direct task");
 }
 
 if (getDraftProjectActionCopy("SALES") !== "Continue project planning") {

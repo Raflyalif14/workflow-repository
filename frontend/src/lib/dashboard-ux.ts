@@ -1,4 +1,5 @@
 import { formatActivityAction } from "@/lib/activity-timeline";
+import type { DashboardOutputDocuments } from "@/types/dashboard";
 import type { Project } from "@/types/project";
 
 export type DashboardRole = "SALES" | "HEAD_SA" | "SA" | "SUPER_ADMIN" | string | undefined;
@@ -36,6 +37,8 @@ export type DashboardProjectHealth = {
   currentDeadline?: string | null;
   picName?: string | null;
   estimatedRevenue?: number | null;
+  outputApprovedCount?: number;
+  outputSelectedCount?: number;
 };
 
 export type DashboardDistributionItem = {
@@ -188,6 +191,37 @@ export const getApprovalProjectHref = (
 
 export const getMilestoneProjectHref = (projectId: string, milestoneId: string): string =>
   `/projects/${projectId}#project-milestone-${milestoneId}`;
+
+export const getOutputDocumentsHref = (projectId: string): string =>
+  `/projects/${projectId}#output-documents`;
+
+export const getHeadSaOutputReviewItems = (
+  queue: DashboardOutputDocuments["reviewQueue"]
+): DashboardWorkItem[] => queue.map((item) => ({
+  id: `output-review-${item.projectId}`,
+  priority: 25,
+  group: "action",
+  label: "Output documents awaiting review",
+  title: item.projectName,
+  description: `${item.count} output document${item.count === 1 ? " is" : "s are"} awaiting review.`,
+  state: "Pending review",
+  href: getOutputDocumentsHref(item.projectId),
+  actionLabel: "Review outputs",
+}));
+
+export const getSaOutputRevisionItems = (
+  queue: DashboardOutputDocuments["revisionQueue"]
+): DashboardWorkItem[] => queue.map((item) => ({
+  id: `output-revision-${item.projectId}`,
+  priority: 9,
+  group: "action",
+  label: "Output documents need revision",
+  title: item.projectName,
+  description: `${item.count} output document${item.count === 1 ? " requires" : "s require"} revision.`,
+  state: "Revision required",
+  href: getOutputDocumentsHref(item.projectId),
+  actionLabel: "Revise outputs",
+}));
 
 export const getDraftProjectActionCopy = (currentRole?: string | null): string =>
   currentRole === "SALES" ? "Continue project planning" : "Review project status";

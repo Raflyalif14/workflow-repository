@@ -53,10 +53,17 @@ export interface RecentActivity {
   } | null;
 }
 
+export interface DashboardOutputDocuments {
+  reviewQueue: Array<{ projectId: string; projectName: string; count: number }>;
+  revisionQueue: Array<{ projectId: string; projectName: string; count: number }>;
+  salesProgress: Array<{ projectId: string; approvedCount: number; selectedCount: number }>;
+}
+
 export interface DashboardData {
   summary: DashboardSummary;
   scenarioDistribution: ScenarioDistribution[];
   statusDistribution: StatusDistribution[];
   projectProgress: ProjectProgress[];
   recentActivity: RecentActivity[];
+  outputDocuments: DashboardOutputDocuments;
 }

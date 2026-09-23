@@ -166,6 +166,19 @@ export const isCurrentOutputVersion = (
   currentVersionId: string | null | undefined
 ): boolean => Boolean(currentVersionId) && expectedVersionId === currentVersionId;
 
+export const formatOutputDocumentNames = (
+  documentKeys: string[],
+  definitions: ScenarioDocumentDefinition[],
+  limit = 3
+): string => {
+  const names = documentKeys
+    .map((key) => definitions.find((definition) => definition.key === key)?.name)
+    .filter((name): name is string => Boolean(name));
+  const shown = names.slice(0, limit);
+  const remainder = names.length - shown.length;
+  return remainder > 0 ? `${shown.join(', ')} and ${remainder} more` : shown.join(', ');
+};
+
 export class OutputDocumentError extends Error {
   constructor(message: string, readonly statusCode = 400) {
     super(message);
@@ -495,6 +508,7 @@ export class OutputDocumentService {
 
     const scenarioName = (project.scenario as any)?.name || project.scenario_id;
     const scenarioKey = resolveScenarioKey(scenarioName);
+    const definitions = getScenarioDocuments(scenarioKey);
     const selectedKeys = new Set([...(project.selected_document_keys || []), ...getMandatoryDocumentKeys(scenarioKey)]);
     const results: BatchItemResult[] = [];
 
@@ -541,6 +555,7 @@ export class OutputDocumentService {
     const submittedKeys = results.filter((result) => result.success).map((result) => result.documentKey);
 
     if (submittedKeys.length > 0) {
+      const submittedNames = formatOutputDocumentNames(submittedKeys, definitions);
       await logWorkflowActivityBestEffort(
         actor,
         projectId,
@@ -559,9 +574,9 @@ export class OutputDocumentService {
           userId: user.id,
           type: 'OUTPUT_DOCUMENTS_SUBMITTED',
           title: 'Output Documents Submitted',
-          message: `${submittedKeys.length} output document(s) for project '${project.name}' are ready for review.`,
+          message: `${submittedNames} for project '${project.name}' ${submittedKeys.length === 1 ? 'is' : 'are'} ready for review.`,
           projectId: project.id,
-          actionUrl: `/projects/${project.id}`,
+          actionUrl: `/projects/${project.id}#output-documents`,
         })));
       });
     }
@@ -579,6 +594,8 @@ export class OutputDocumentService {
     }
 
     const project = await this.getProject(projectId, actor);
+    const scenarioName = (project.scenario as any)?.name || project.scenario_id;
+    const definitions = getScenarioDocuments(resolveScenarioKey(scenarioName));
 
     const isApproval = input.decision === 'APPROVE';
     const newStatus: OutputDocumentStatus = isApproval ? 'APPROVED' : 'REVISION_REQUIRED';
@@ -624,6 +641,7 @@ export class OutputDocumentService {
 
     const actionText = isApproval ? 'approved' : 'requested revision for';
     if (reviewedKeys.length > 0) {
+      const reviewedNames = formatOutputDocumentNames(reviewedKeys, definitions);
       await logWorkflowActivityBestEffort(
         actor,
         projectId,
@@ -640,8 +658,8 @@ export class OutputDocumentService {
         const notifType = isApproval ? 'OUTPUT_DOCUMENTS_APPROVED' : 'OUTPUT_DOCUMENTS_REVISION_REQUIRED';
         const notifTitle = isApproval ? 'Output Documents Approved' : 'Output Documents Revision Required';
         const notifMessage = isApproval
-          ? `Dokumen output proyek '${project.name}' telah disetujui oleh ${actor.fullName}.`
-          : `Dokumen output proyek '${project.name}' memerlukan revisi dari ${actor.fullName}.${input.feedback ? ` Catatan: ${input.feedback}` : ''}`;
+          ? `${reviewedNames} for project '${project.name}' ${reviewedKeys.length === 1 ? 'was' : 'were'} approved by ${actor.fullName}.`
+          : `${reviewedNames} for project '${project.name}' ${reviewedKeys.length === 1 ? 'requires' : 'require'} revision from ${actor.fullName}.${input.feedback ? ` Note: ${input.feedback}` : ''}`;
 
         await Promise.all(Array.from(recipients).map((userId) => notificationService.createNotification({
           userId,
@@ -649,7 +667,7 @@ export class OutputDocumentService {
           title: notifTitle,
           message: notifMessage,
           projectId: project.id,
-          actionUrl: `/projects/${project.id}`,
+          actionUrl: `/projects/${project.id}#output-documents`,
         })));
       });
 
