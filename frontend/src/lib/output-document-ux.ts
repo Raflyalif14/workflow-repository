@@ -22,6 +22,10 @@ export function getOutputDocumentContextMessage({
   canReview,
   hasAssignedPic,
 }: OutputDocumentPresentationInput): string | null {
+  if (role === "SA" && status === "DRAFT" && canUpload) {
+    return "Ready to submit for Head SA review.";
+  }
+
   if (canUpload || canReview) return null;
 
   if (role === "HEAD_SA") {
@@ -46,5 +50,51 @@ export function getOutputDocumentContextMessage({
 
 export function getOutputDocumentsHeaderDescription(role?: string): string {
   if (role === "HEAD_SA") return "Review submitted outputs and monitor agreed project deliverables.";
+  if (role === "SA") return "Upload project outputs and submit drafts for Head SA review.";
   return "Upload, submit, and review each agreed output independently.";
+}
+
+type OutputDocumentSubmissionInput = {
+  key: string;
+  status: string;
+  currentVersionId?: string | null;
+};
+
+export function getOutputDocumentSubmitAction({
+  role,
+  status,
+  currentVersionId,
+  canUpload,
+}: Pick<OutputDocumentSubmissionInput, "status" | "currentVersionId"> & { role?: string; canUpload: boolean }): string | null {
+  return role === "SA" && canUpload && status === "DRAFT" && Boolean(currentVersionId) ? "Submit for review" : null;
+}
+
+export function getSubmittableOutputDocuments<T extends OutputDocumentSubmissionInput>(
+  documents: readonly T[],
+  canUpload: boolean,
+  role?: string
+): T[] {
+  return documents.filter((document) => Boolean(getOutputDocumentSubmitAction({ ...document, canUpload, role })));
+}
+
+export function getOutputDocumentSubmissionSelectionLabel(documentName: string): string {
+  return `Select ${documentName} for submission`;
+}
+
+export type SubmissionOperation =
+  | { kind: "single"; documentKey: string }
+  | { kind: "batch" }
+  | null;
+
+export function getSingleSubmissionOperationState(operation: SubmissionOperation, documentKey: string) {
+  const isLoading = operation?.kind === "single" && operation.documentKey === documentKey;
+  return {
+    isLoading,
+    isDisabled: operation !== null,
+    ariaBusy: isLoading,
+  };
+}
+
+export function isBatchSubmissionOperation(operation: SubmissionOperation): boolean {
+  return operation?.kind === "batch";
 }

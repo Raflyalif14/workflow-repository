@@ -19,7 +19,17 @@ import {
   useUploadOutputDocument,
 } from "@/hooks/use-output-documents";
 import { authorizedFetch } from "@/lib/api-client";
-import { getActiveOutputDocuments, getOutputDocumentContextMessage, getOutputDocumentsHeaderDescription } from "@/lib/output-document-ux";
+import {
+  getActiveOutputDocuments,
+  getOutputDocumentContextMessage,
+  getOutputDocumentsHeaderDescription,
+  getOutputDocumentSubmissionSelectionLabel,
+  getOutputDocumentSubmitAction,
+  getSubmittableOutputDocuments,
+  getSingleSubmissionOperationState,
+  isBatchSubmissionOperation,
+  type SubmissionOperation,
+} from "@/lib/output-document-ux";
 import { useRetryProjectCompletion } from "@/hooks/use-projects";
 import type { Project, ProjectOutputDocumentItem } from "@/types/project";
 
@@ -75,7 +85,7 @@ function BatchResultNotice({ results }: { results: OutputDocumentBatchResult[] }
   );
 }
 
-function OutputDocumentRow({ projectId, document, canUpload, canReview, canReadHistory, hasAssignedPic, role, submitChecked, approveChecked, onToggleSubmit, onToggleApprove, onRevision, onHistory }: {
+function OutputDocumentRow({ projectId, document, canUpload, canReview, canReadHistory, hasAssignedPic, role, submissionSelectionMode, submissionOperation, submitChecked, approveChecked, onSubmit, onToggleSubmit, onToggleApprove, onRevision, onHistory }: {
   projectId: string;
   document: ProjectOutputDocumentItem;
   canUpload: boolean;
@@ -83,8 +93,11 @@ function OutputDocumentRow({ projectId, document, canUpload, canReview, canReadH
   canReadHistory: boolean;
   hasAssignedPic: boolean;
   role?: string;
+  submissionSelectionMode: boolean;
+  submissionOperation: SubmissionOperation;
   submitChecked: boolean;
   approveChecked: boolean;
+  onSubmit: () => void;
   onToggleSubmit: () => void;
   onToggleApprove: () => void;
   onRevision: () => void;
@@ -96,8 +109,15 @@ function OutputDocumentRow({ projectId, document, canUpload, canReview, canReadH
   const [dragging, setDragging] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const uploadable = canUpload && ["TO_DO", "DRAFT", "REVISION_REQUIRED"].includes(document.status);
-  const submittable = canUpload && Boolean(document.fileName) && ["DRAFT", "REVISION_REQUIRED"].includes(document.status);
+  const submitAction = getOutputDocumentSubmitAction({
+    role,
+    status: document.status,
+    currentVersionId: document.currentVersionId,
+    canUpload,
+  });
+  const submittable = Boolean(submitAction);
   const reviewable = canReview && document.status === "IN_REVIEW";
+  const submissionState = getSingleSubmissionOperationState(submissionOperation, document.key);
   const contextMessage = getOutputDocumentContextMessage({
     role,
     status: document.status,
@@ -142,7 +162,7 @@ function OutputDocumentRow({ projectId, document, canUpload, canReview, canReadH
     <div className="grid min-w-0 gap-3 p-3 sm:p-4 lg:grid-cols-[minmax(0,1fr)_minmax(240px,0.7fr)_auto] lg:items-center">
       <div className="min-w-0 space-y-2">
         <div className="flex min-w-0 flex-wrap items-center gap-2">
-          {submittable && <input type="checkbox" checked={submitChecked} onChange={onToggleSubmit} aria-label={`Select ${document.name} for submission`} className="h-4 w-4 accent-primary" />}
+          {submittable && submissionSelectionMode && <input type="checkbox" checked={submitChecked} onChange={onToggleSubmit} aria-label={getOutputDocumentSubmissionSelectionLabel(document.name)} className="h-4 w-4 accent-primary" />}
           {reviewable && <input type="checkbox" checked={approveChecked} onChange={onToggleApprove} aria-label={`Select ${document.name} for approval`} className="h-4 w-4 accent-primary" />}
           <p className="min-w-0 text-sm font-semibold text-foreground">{document.name}</p>
           <Badge variant="secondary" className="text-[10px]">{document.isRequired ? "Required" : "Optional"}</Badge>
@@ -166,21 +186,21 @@ function OutputDocumentRow({ projectId, document, canUpload, canReview, canReadH
         {error && <p className="text-xs text-destructive">{error}</p>}
       </div>
 
-      <div className="min-w-0">
+      <div className="min-w-0 space-y-2">
         {uploadable ? (
           <div onDragOver={(event) => { event.preventDefault(); setDragging(true); }} onDragLeave={() => setDragging(false)} onDrop={handleDrop} className={`flex min-h-16 min-w-0 items-center justify-between gap-3 rounded-md border border-dashed p-3 ${dragging ? "border-primary bg-primary/10" : "border-border/70 bg-muted/10"}`}>
-            <div className="min-w-0"><p className="text-xs font-medium text-foreground">Drop file here</p><p className="text-[11px] text-muted-foreground">or choose one file, max 50 MB</p></div>
+            <div className="min-w-0"><p className="text-xs font-medium text-foreground">{document.fileName ? "Drop a replacement file here" : "Drop file here"}</p><p className="text-[11px] text-muted-foreground">or choose one file, max 50 MB</p></div>
             <input ref={inputRef} type="file" className="hidden" disabled={upload.isPending} onChange={(event) => void uploadFile(event.target.files?.[0])} />
             <Button type="button" size="sm" variant="outline" className="shrink-0 gap-1.5" disabled={upload.isPending} onClick={() => inputRef.current?.click()}>
               {upload.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <UploadCloud className="h-3.5 w-3.5" />}{document.fileName ? "Replace" : "Choose"}
             </Button>
           </div>
-        ) : (
-          contextMessage && <p className="text-xs text-muted-foreground">{contextMessage}</p>
-        )}
+        ) : null}
+        {contextMessage && <p className="text-xs text-muted-foreground">{contextMessage}</p>}
       </div>
 
       <div className="flex flex-wrap items-center gap-2 lg:justify-end">
+        {submittable && <Button type="button" size="sm" className="gap-1.5" aria-busy={submissionState.ariaBusy || undefined} disabled={submissionState.isDisabled} onClick={onSubmit}>{submissionState.isLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}{submissionState.isLoading ? "Submitting..." : submitAction}</Button>}
         {document.fileName && <Button type="button" size="sm" variant="outline" className="gap-1.5" disabled={download.isPending} onClick={() => void handleDownload()}><Download className="h-3.5 w-3.5" /> Download</Button>}
         {canReadHistory && Boolean(document.versionCount) && <Button type="button" size="sm" variant="ghost" className="gap-1.5" onClick={onHistory}><History className="h-3.5 w-3.5" /> History ({document.versionCount})</Button>}
         {reviewable && <Button type="button" size="sm" variant="outline" className="border-destructive/30 text-destructive" onClick={onRevision}>Request revision</Button>}
@@ -235,6 +255,8 @@ export function OutputDocumentsSection({ project }: OutputDocumentsSectionProps)
   const updateChecklist = useUpdateOutputChecklist(project.id);
   const retryCompletion = useRetryProjectCompletion(project.id);
   const [submitSelection, setSubmitSelection] = useState<string[]>([]);
+  const [submissionSelectionMode, setSubmissionSelectionMode] = useState(false);
+  const [submissionOperation, setSubmissionOperation] = useState<SubmissionOperation>(null);
   const [approveSelection, setApproveSelection] = useState<string[]>([]);
   const [batchResults, setBatchResults] = useState<OutputDocumentBatchResult[]>([]);
   const [revisionTarget, setRevisionTarget] = useState<ProjectOutputDocumentItem | null>(null);
@@ -258,6 +280,10 @@ export function OutputDocumentsSection({ project }: OutputDocumentsSectionProps)
   const isSalesOwner = user?.role === "SALES" && project.sales_id === user.id;
   const isScopeLocked = outputQuery.data?.isScopeLocked ?? project.status !== "DRAFT";
   const approvedCount = activeDocuments.filter((document) => document.status === "APPROVED").length;
+  const submittableDocuments = useMemo(
+    () => getSubmittableOutputDocuments(activeDocuments, canUpload, user?.role),
+    [activeDocuments, canUpload, user?.role]
+  );
 
   const groups = useMemo(() => ([
     { key: "PRA_TENDER" as const, title: "Pra-Tender", documents: activeDocuments.filter((document) => document.group === "PRA_TENDER") },
@@ -272,15 +298,32 @@ export function OutputDocumentsSection({ project }: OutputDocumentsSectionProps)
     return { document_key: key, expected_version_id: document.currentVersionId };
   });
 
-  const submitSelected = async () => {
+  const submissionItems = (keys: string[]) => {
+    const submittableKeys = new Set(submittableDocuments.map((document) => document.key));
+    if (keys.some((key) => !submittableKeys.has(key))) {
+      throw new Error("A selected draft is no longer ready for submission. Refresh and try again.");
+    }
+    return batchItems(keys);
+  };
+
+  const submitDocuments = async (keys: string[], operation: Exclude<SubmissionOperation, null>) => {
+    setSubmissionOperation(operation);
     try {
-      const response = await submit.mutateAsync({ items: batchItems(submitSelection) });
+      const response = await submit.mutateAsync({ items: submissionItems(keys) });
       setBatchResults(response.results);
-      setSubmitSelection(response.results.filter((result) => !result.success).map((result) => result.documentKey));
+      const failedKeys = response.results.filter((result) => !result.success).map((result) => result.documentKey);
+      setSubmitSelection(failedKeys);
+      setSubmissionSelectionMode(failedKeys.length > 0);
     } catch (error) {
-      setBatchResults(submitSelection.map((documentKey) => ({ documentKey, success: false, message: error instanceof Error ? error.message : "Submission failed." })));
+      setBatchResults(keys.map((documentKey) => ({ documentKey, success: false, message: error instanceof Error ? error.message : "Submission failed." })));
+      setSubmitSelection(keys);
+      setSubmissionSelectionMode(true);
+    } finally {
+      setSubmissionOperation(null);
     }
   };
+
+  const submitSelected = async () => submitDocuments(submitSelection, { kind: "batch" });
 
   const approveSelected = async () => {
     try {
@@ -363,6 +406,7 @@ export function OutputDocumentsSection({ project }: OutputDocumentsSectionProps)
           </div>
           <div className="flex flex-wrap gap-2">
             {isSalesOwner && !isScopeLocked && <Button type="button" size="sm" variant="outline" onClick={openChecklist}>Edit optional outputs</Button>}
+            {canUpload && submittableDocuments.length >= 2 && !submissionSelectionMode && <Button type="button" size="sm" variant="outline" onClick={() => setSubmissionSelectionMode(true)}>Select multiple</Button>}
             {approvedCount > 0 && <Button type="button" size="sm" variant="outline" disabled={downloadingAll} onClick={() => void downloadAllApproved()}>{downloadingAll ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Download className="mr-1.5 h-3.5 w-3.5" />}Download all approved ({approvedCount})</Button>}
             {outputQuery.data?.canRetryCompletion && <Button type="button" size="sm" disabled={retryCompletion.isPending} onClick={() => void retryProjectCompletion()}>{retryCompletion.isPending ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <RotateCcw className="mr-1.5 h-3.5 w-3.5" />}Retry completion</Button>}
           </div>
@@ -371,7 +415,7 @@ export function OutputDocumentsSection({ project }: OutputDocumentsSectionProps)
           {(["TO_DO", "DRAFT", "IN_REVIEW", "REVISION_REQUIRED", "APPROVED"] as const).map((status) => <div key={status} className="rounded-md border border-border/50 px-3 py-2"><p className="text-lg font-semibold">{activeDocuments.filter((document) => document.status === status).length}</p><p className="text-[11px] text-muted-foreground">{status.replaceAll("_", " ").toLowerCase()}</p></div>)}
           <div className="rounded-md border border-border/50 px-3 py-2"><p className="text-lg font-semibold">{activeDocuments.length}</p><p className="text-[11px] text-muted-foreground">total</p></div>
         </div>
-        {submitSelection.length > 0 && canUpload && <div className="flex flex-col gap-2 rounded-md border border-primary/30 bg-primary/5 p-3 sm:flex-row sm:items-center sm:justify-between"><p className="text-sm">{submitSelection.length} document(s) selected and ready.</p><Button type="button" size="sm" disabled={submit.isPending} onClick={() => void submitSelected()}><Send className="mr-1.5 h-3.5 w-3.5" />{submit.isPending ? "Submitting..." : "Submit selected"}</Button></div>}
+        {submissionSelectionMode && canUpload && <div className="flex flex-col gap-3 rounded-md border border-primary/30 bg-primary/5 p-3 sm:flex-row sm:items-center sm:justify-between"><p className="text-sm">{submitSelection.length} draft{submitSelection.length === 1 ? "" : "s"} selected for review.</p><div className="flex flex-wrap gap-2"><Button type="button" size="sm" variant="outline" disabled={submissionOperation !== null} onClick={() => setSubmitSelection(submittableDocuments.map((document) => document.key))}>Select all drafts</Button><Button type="button" size="sm" variant="outline" disabled={submissionOperation !== null || submitSelection.length === 0} onClick={() => setSubmitSelection([])}>Clear selection</Button><Button type="button" size="sm" variant="outline" disabled={submissionOperation !== null} onClick={() => { setSubmitSelection([]); setSubmissionSelectionMode(false); }}>Cancel selection</Button><Button type="button" size="sm" aria-busy={isBatchSubmissionOperation(submissionOperation) || undefined} disabled={submissionOperation !== null || submitSelection.length === 0} onClick={() => void submitSelected()}>{isBatchSubmissionOperation(submissionOperation) ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Send className="mr-1.5 h-3.5 w-3.5" />}{isBatchSubmissionOperation(submissionOperation) ? "Submitting..." : `Submit ${submitSelection.length} selected`}</Button></div></div>}
         {approveSelection.length > 0 && isHeadSa && <div className="flex flex-col gap-2 rounded-md border border-emerald-500/30 bg-emerald-500/5 p-3 sm:flex-row sm:items-center sm:justify-between"><p className="text-sm">{approveSelection.length} document(s) selected for approval.</p><Button type="button" size="sm" disabled={review.isPending} onClick={() => void approveSelected()}><CheckCircle2 className="mr-1.5 h-3.5 w-3.5" />{review.isPending ? "Approving..." : "Approve selected"}</Button></div>}
         <BatchResultNotice results={batchResults} />
         {completionRetryMessage && <p className="text-xs text-muted-foreground">{completionRetryMessage}</p>}
@@ -386,7 +430,7 @@ export function OutputDocumentsSection({ project }: OutputDocumentsSectionProps)
           <section key={group.key} className="min-w-0 space-y-2">
             <div className="flex items-center justify-between gap-3"><div><h3 className="text-sm font-semibold">{group.title}</h3><p className="text-xs text-muted-foreground">{group.documents.length} output(s)</p></div><p className="text-xs text-muted-foreground">{group.documents.filter((document) => document.status === "APPROVED").length} approved</p></div>
             <div className="min-w-0 divide-y divide-border/50 overflow-hidden rounded-md border border-border/60">
-              {group.documents.map((document) => <OutputDocumentRow key={document.key} projectId={project.id} document={document} canUpload={canUpload} canReview={isHeadSa} canReadHistory={canReadHistory} hasAssignedPic={Boolean(project.pic?.id)} role={user?.role} submitChecked={submitSelection.includes(document.key)} approveChecked={approveSelection.includes(document.key)} onToggleSubmit={() => setSubmitSelection((current) => current.includes(document.key) ? current.filter((key) => key !== document.key) : [...current, document.key])} onToggleApprove={() => setApproveSelection((current) => current.includes(document.key) ? current.filter((key) => key !== document.key) : [...current, document.key])} onRevision={() => { setRevisionTarget(document); setRevisionFeedback(""); }} onHistory={() => setHistoryDocument(document)} />)}
+              {group.documents.map((document) => <OutputDocumentRow key={document.key} projectId={project.id} document={document} canUpload={canUpload} canReview={isHeadSa} canReadHistory={canReadHistory} hasAssignedPic={Boolean(project.pic?.id)} role={user?.role} submissionSelectionMode={submissionSelectionMode} submissionOperation={submissionOperation} submitChecked={submitSelection.includes(document.key)} approveChecked={approveSelection.includes(document.key)} onSubmit={() => void submitDocuments([document.key], { kind: "single", documentKey: document.key })} onToggleSubmit={() => setSubmitSelection((current) => current.includes(document.key) ? current.filter((key) => key !== document.key) : [...current, document.key])} onToggleApprove={() => setApproveSelection((current) => current.includes(document.key) ? current.filter((key) => key !== document.key) : [...current, document.key])} onRevision={() => { setRevisionTarget(document); setRevisionFeedback(""); }} onHistory={() => setHistoryDocument(document)} />)}
             </div>
           </section>
         ))}
