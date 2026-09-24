@@ -658,6 +658,7 @@ export default function ProjectDetailPage() {
                   key={milestone.id}
                   project={project}
                   milestone={milestone}
+                  isFinalMilestone={!milestones.some((candidate) => candidate.step_order > milestone.step_order)}
                   isCurrentStage={currentStageMilestone?.id === milestone.id}
                   approvalState={approvalByMilestone.get(milestone.id)}
                 />
@@ -1195,11 +1196,13 @@ function ProjectPlanCard({
 function MilestoneRow({
   project,
   milestone,
+  isFinalMilestone,
   isCurrentStage,
   approvalState,
 }: {
   project: Project;
   milestone: ProjectMilestonePhase4;
+  isFinalMilestone: boolean;
   isCurrentStage: boolean;
   approvalState?: MilestoneApprovalState;
 }) {
@@ -1207,6 +1210,10 @@ function MilestoneRow({
   const [deadlineOpen, setDeadlineOpen] = useState(false);
   const [submitOpen, setSubmitOpen] = useState(false);
   const [salesDocumentUploadOpen, setSalesDocumentUploadOpen] = useState(false);
+  const [finalOutcomeOpen, setFinalOutcomeOpen] = useState(false);
+  const [finalOutcome, setFinalOutcome] = useState<"WON" | "LOST" | null>(null);
+  const [finalValue, setFinalValue] = useState("");
+  const [finalLossReason, setFinalLossReason] = useState("");
   const [review, setReview] = useState<null | { type: "DEADLINE" | "SUBMISSION"; decision: "APPROVE" | "REJECT" }>(null);
   const [submissionReviewOpen, setSubmissionReviewOpen] = useState(false);
   const [error, setError] = useState("");
@@ -1296,6 +1303,38 @@ function MilestoneRow({
 
   const complete = useCompleteMilestone(project.id, milestone.id);
   const startRevision = useStartMilestoneRevision(project.id, milestone.id);
+  const requiresFinalOutcome = canComplete && stageRole === "SALES" && isFinalMilestone;
+
+  const completeFinalSalesMilestone = async () => {
+    setError("");
+    setMessage("");
+    const value = Number(finalValue);
+    if (!finalOutcome) {
+      setError("Choose Won or Lost before completing this milestone.");
+      return;
+    }
+    if (finalOutcome === "WON" && (!finalValue.trim() || !Number.isFinite(value) || value <= 0)) {
+      setError("Final contract value must be greater than zero.");
+      return;
+    }
+    if (finalOutcome === "LOST" && !finalLossReason.trim()) {
+      setError("Loss reason is required.");
+      return;
+    }
+    try {
+      await complete.mutateAsync({
+        outcome: finalOutcome,
+        ...(finalOutcome === "WON" ? { final_contract_value: value } : { loss_reason: finalLossReason.trim() }),
+      });
+      setFinalOutcomeOpen(false);
+      setFinalOutcome(null);
+      setFinalValue("");
+      setFinalLossReason("");
+      setMessage("Milestone completed and project result recorded.");
+    } catch (completionError) {
+      setError(completionError instanceof Error ? completionError.message : "Unable to complete the milestone and record the result.");
+    }
+  };
 
   const perform = async (action: () => Promise<unknown>, success: string, fallback: string) => {
     setError("");
@@ -1375,7 +1414,9 @@ function MilestoneRow({
               size="sm"
               className="h-8 gap-1.5 text-xs"
               disabled={complete.isPending}
-              onClick={() => void perform(() => complete.mutateAsync(), "Stage marked complete.", "Failed to complete milestone.")}
+              onClick={() => requiresFinalOutcome
+                ? setFinalOutcomeOpen(true)
+                : void perform(() => complete.mutateAsync(), "Stage marked complete.", "Failed to complete milestone.")}
             >
               <CheckCircle2 className="h-3.5 w-3.5" />
               <span>{complete.isPending ? "Completing..." : "Mark Complete"}</span>
@@ -1516,6 +1557,46 @@ function MilestoneRow({
       {message && <p className="mt-3 text-xs text-emerald-400">{message}</p>}
 
       {/* Dialogs */}
+      <Dialog open={finalOutcomeOpen} onOpenChange={(open) => { if (!complete.isPending) setFinalOutcomeOpen(open); }}>
+        <DialogHeader>
+          <DialogTitle>Complete final Sales milestone</DialogTitle>
+          <DialogDescription>Record the tender result together with completion of {milestone.name}.</DialogDescription>
+        </DialogHeader>
+        <form className="space-y-4" onSubmit={(event) => { event.preventDefault(); void completeFinalSalesMilestone(); }}>
+          <div>
+            <label htmlFor={`outcome-${milestone.id}`} className="mb-1 block text-xs font-semibold text-muted-foreground">Project result</label>
+            <select
+              id={`outcome-${milestone.id}`}
+              className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+              value={finalOutcome || ""}
+              onChange={(event) => setFinalOutcome(event.target.value as "WON" | "LOST" | null)}
+              disabled={complete.isPending}
+              required
+            >
+              <option value="">Select a result</option>
+              <option value="WON">Won</option>
+              <option value="LOST">Lost</option>
+            </select>
+          </div>
+          {finalOutcome === "WON" && (
+            <div>
+              <label htmlFor={`contract-${milestone.id}`} className="mb-1 block text-xs font-semibold text-muted-foreground">Final Contract Value (IDR)</label>
+              <Input id={`contract-${milestone.id}`} type="number" min="0.01" step="0.01" value={finalValue} onChange={(event) => setFinalValue(event.target.value)} disabled={complete.isPending} required />
+            </div>
+          )}
+          {finalOutcome === "LOST" && (
+            <div>
+              <label htmlFor={`loss-${milestone.id}`} className="mb-1 block text-xs font-semibold text-muted-foreground">Loss reason</label>
+              <textarea id={`loss-${milestone.id}`} className="min-h-24 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" value={finalLossReason} onChange={(event) => setFinalLossReason(event.target.value)} maxLength={2000} disabled={complete.isPending} required />
+            </div>
+          )}
+          {error && <p className="text-xs text-destructive">{error}</p>}
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setFinalOutcomeOpen(false)} disabled={complete.isPending}>Cancel</Button>
+            <Button type="submit" disabled={complete.isPending || !finalOutcome}>{complete.isPending ? "Completing..." : "Complete and record result"}</Button>
+          </DialogFooter>
+        </form>
+      </Dialog>
       <DeadlineDialog open={deadlineOpen} onOpenChange={setDeadlineOpen} projectId={project.id} milestone={milestone} />
       <MilestoneSubmissionDialog
         open={submitOpen}

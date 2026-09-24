@@ -1,6 +1,6 @@
 import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "@/lib/api-client";
-import { approvalKeys, assignmentKeys, milestoneKeys, projectKeys } from "@/lib/query-keys";
+import { approvalKeys, assignmentKeys, dashboardKeys, milestoneKeys, projectKeys } from "@/lib/query-keys";
 import {
   MilestoneDeadlineApproval,
   MilestoneSubmissionApproval,
@@ -117,9 +117,25 @@ export function useCompleteMilestone(projectId: string, milestoneId: string) {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: () => apiClient(`/milestones/${milestoneId}/complete`, { method: "POST" }),
-    onSuccess: () => invalidateMilestoneWorkflow(queryClient, projectId, milestoneId),
-    onError: () => invalidateMilestoneWorkflow(queryClient, projectId, milestoneId),
+    mutationFn: (outcome?: { outcome: "WON" | "LOST"; final_contract_value?: number; loss_reason?: string }) =>
+      apiClient(`/milestones/${milestoneId}/complete`, {
+        method: "POST",
+        ...(outcome ? { body: JSON.stringify(outcome) } : {}),
+      }),
+    onSuccess: (_result, outcome) => {
+      invalidateMilestoneWorkflow(queryClient, projectId, milestoneId);
+      if (outcome) {
+        queryClient.invalidateQueries({ queryKey: dashboardKeys.overview() });
+        queryClient.invalidateQueries({ queryKey: ["output-documents", projectId] });
+      }
+    },
+    onError: (_error, outcome) => {
+      invalidateMilestoneWorkflow(queryClient, projectId, milestoneId);
+      if (outcome) {
+        queryClient.invalidateQueries({ queryKey: dashboardKeys.overview() });
+        queryClient.invalidateQueries({ queryKey: ["output-documents", projectId] });
+      }
+    },
   });
 }
 

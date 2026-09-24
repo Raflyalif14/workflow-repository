@@ -15,10 +15,15 @@ const getStatusCode = (message?: string) => {
 export class MilestoneController {
   static async complete(req: AuthenticatedRequest, res: Response): Promise<void> {
     try {
-      const result = await MilestoneService.completeStage(getRouteParam(req, 'milestoneId'), req.user!);
+      const result = await MilestoneService.completeStage(getRouteParam(req, 'milestoneId'), req.user!, req.body);
       sendSuccess(res, 'Milestone completed successfully', result);
     } catch (error: any) {
-      const status = error.message === 'Forbidden' || error.message?.startsWith('Only ') ? 403 : getStatusCode(error.message);
+      const status = error.message?.startsWith('Unable to complete the milestone and record the project result')
+        || error.message?.startsWith('Unable to verify project completion')
+        || error.message?.startsWith('Unable to verify milestone progression')
+        || error.message === 'Project scenario is not available for completion.'
+        ? 500
+        : error.message === 'Forbidden' || error.message?.startsWith('Only ') ? 403 : getStatusCode(error.message);
       sendError(res, error.message || 'Failed to complete milestone', null, status);
     }
   }

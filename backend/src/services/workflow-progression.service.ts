@@ -2,6 +2,8 @@ import { supabaseAdmin } from '../config/supabase';
 import { notifySalesMilestoneStarted } from './milestone-notification.service';
 import { NotificationService } from './notification.service';
 import { runNotificationBestEffort } from './notification-dispatch.service';
+import { getMandatoryDocumentKeys, resolveScenarioKey } from '../constants/scenarios';
+import { projectOutcomeSchema, ProjectOutcomeInput } from '../validators/project-management.validator';
 
 export type WorkflowActor = {
   userId: string;
@@ -16,6 +18,7 @@ type WorkflowProject = {
   pic_id: string | null;
   status: string;
   is_postponed: boolean | null;
+  scenario_id: string;
 };
 
 type WorkflowMilestone = {
@@ -127,7 +130,7 @@ function existingNextMilestoneResult(next: WorkflowMilestone) {
 async function getProject(projectId: string): Promise<WorkflowProject> {
   const { data, error } = await supabaseAdmin
     .from('projects')
-    .select('id,name,sales_id,pic_id,status,is_postponed')
+    .select('id,name,sales_id,pic_id,status,is_postponed,scenario_id')
     .eq('id', projectId)
     .single();
 
@@ -149,7 +152,7 @@ async function getProjectMilestones(projectId: string): Promise<WorkflowMileston
 async function getMilestoneWithProject(milestoneId: string) {
   const { data, error } = await supabaseAdmin
     .from('project_milestones')
-    .select(`${milestoneSelect},project:projects!project_milestones_project_id_fkey(id,name,sales_id,pic_id,status,is_postponed)`)
+    .select(`${milestoneSelect},project:projects!project_milestones_project_id_fkey(id,name,sales_id,pic_id,status,is_postponed,scenario_id)`)
     .eq('id', milestoneId)
     .single();
 
@@ -322,8 +325,74 @@ function assertCanCompleteOrReconcile(milestone: WorkflowMilestone, project: Wor
   }
 }
 
-export async function completeMilestoneStage(milestoneId: string, actor: WorkflowActor) {
+export async function completeMilestoneStage(milestoneId: string, actor: WorkflowActor, outcomeInput?: ProjectOutcomeInput) {
   let { milestone, project } = await getMilestoneWithProject(milestoneId);
+  let isFinalSalesMilestone = false;
+  if (stageRoleOf(milestone) === 'SALES') {
+    try {
+      isFinalSalesMilestone = !(await getProjectMilestones(project.id)).some((row) => row.step_order > milestone.step_order);
+    } catch {
+      console.error('[WorkflowProgression] Failed to identify the final Sales milestone.', { milestoneId, projectId: project.id });
+      throw new Error('Unable to verify milestone progression. Please try again.');
+    }
+  }
+  if (isFinalSalesMilestone) {
+    assertActorCanComplete(milestone, project, actor);
+    if (!(milestone.status === 'COMPLETED' && ['WON', 'LOST'].includes(project.status) && !project.is_postponed)) {
+      assertProjectIsActive(project);
+    }
+    if (milestone.status !== 'IN_PROGRESS' && milestone.status !== 'COMPLETED') {
+      throw new Error('Only IN_PROGRESS milestones can be completed.');
+    }
+    const parsed = projectOutcomeSchema.safeParse(outcomeInput);
+    if (!parsed.success) throw new Error(parsed.error.issues[0]?.message || 'A valid project result is required.');
+
+    const { data: scenario, error: scenarioError } = await supabaseAdmin
+      .from('scenarios').select('name').eq('id', project.scenario_id).single();
+    if (scenarioError || !scenario || !['Pra-Tender', 'On Submission Tender', 'Assessment', 'Existing TOR'].includes(scenario.name)) {
+      throw new Error('Project scenario is not available for completion.');
+    }
+    const mandatoryKeys = getMandatoryDocumentKeys(resolveScenarioKey(scenario.name));
+    const { data, error } = await supabaseAdmin.rpc('complete_final_sales_milestone_with_outcome', {
+      p_milestone_id: milestone.id,
+      p_sales_id: actor.userId,
+      p_outcome: parsed.data.outcome,
+      p_final_contract_value: parsed.data.outcome === 'WON' ? parsed.data.final_contract_value : null,
+      p_loss_reason: parsed.data.outcome === 'LOST' ? parsed.data.loss_reason : null,
+      p_required_output_keys: mandatoryKeys,
+    });
+    if (error) {
+      const safeMessages = new Set([
+        'Milestone not found.', 'Only the project owner can complete this milestone.',
+        'This is not the final milestone.', 'A valid project result is required.',
+        'Project result has already been recorded.', 'Project is not active.',
+        'Only IN_PROGRESS milestones can be completed.', 'Other milestones must be completed first.',
+        'Selected output documents must be approved first.',
+      ]);
+      if (safeMessages.has(error.message)) throw new Error(error.message);
+      console.error('[WorkflowProgression] Final Sales completion transaction failed.', {
+        milestoneId: milestone.id, projectId: project.id, code: error.code,
+      });
+      throw new Error('Unable to complete the milestone and record the project result. Please try again.');
+    }
+    const result = Array.isArray(data) ? data[0] : data;
+    if (!result) throw new Error('Unable to verify project completion. Please refresh and try again.');
+    if (result.changed) {
+      await logWorkflowActivityBestEffort(actor, project.id, 'MILESTONE_COMPLETED', `${actor.fullName} completed milestone '${milestone.name}'`);
+      await logWorkflowActivityBestEffort(actor, project.id, `PROJECT_${parsed.data.outcome}`, `${actor.fullName} marked project '${project.name}' as ${parsed.data.outcome}`);
+    }
+    return {
+      milestone_id: milestone.id,
+      name: result.milestone_name,
+      status: 'COMPLETED',
+      completed_at: result.completed_at,
+      next_milestone: null,
+      started: false,
+      project_completed: true,
+      blocked_reason: null,
+      project_status: result.project_status,
+    };
+  }
   assertCanCompleteOrReconcile(milestone, project, actor);
 
   if (milestone.status === 'IN_PROGRESS') {

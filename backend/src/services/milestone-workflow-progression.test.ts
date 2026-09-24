@@ -321,7 +321,8 @@ async function runProgressionRecoveryTests() {
 
   await withProgression(6, async (state) => {
     state.outputDocuments[0].status = 'IN_REVIEW';
-    const result = await completeMilestoneStage('milestone-6', sales);
+    state.milestones[5].status = 'COMPLETED';
+    const result = await advanceToNextMilestone('project-1', 'milestone-6', sales);
     strictAssert.equal(result.project_completed, false);
     strictAssert.equal(result.blocked_reason, 'OUTPUT_DOCUMENTS_PENDING');
     strictAssert.equal(state.project.status, 'ACTIVE');
@@ -331,40 +332,41 @@ async function runProgressionRecoveryTests() {
   for (const [label, count] of [['Assessment V2', 8], ['Existing TOR V2', 6], ['Assessment LEGACY', 13], ['Existing TOR LEGACY', 11]] as const) {
     await withProgression(count, async (state) => {
       if (label.includes('LEGACY')) state.milestones[0].status = 'APPROVED';
-      const result = await completeMilestoneStage(`milestone-${count}`, sales);
-      strictAssert.equal(result.status, 'COMPLETED');
-      strictAssert.ok(result.completed_at);
+      state.milestones[count - 1].status = 'COMPLETED';
+      state.milestones[count - 1].completed_at = reviewedAt;
+      const result = await advanceToNextMilestone('project-1', `milestone-${count}`, sales);
       strictAssert.equal(state.project.status, 'WAITING_RESULT');
       strictAssert.equal(result.project_completed, true);
       strictAssert.equal(result.next_milestone, null);
       strictAssert.equal(result.started, false);
-      strictAssert.equal(state.writes.length, 2);
-      strictAssert.deepEqual(state.logs.map((log) => log.action), ['MILESTONE_COMPLETED', 'PROJECT_WAITING_RESULT']);
+      strictAssert.equal(state.writes.length, 1);
+      strictAssert.deepEqual(state.logs.map((log) => log.action), ['PROJECT_WAITING_RESULT']);
       strictAssert.equal(state.notifications.length, 1);
       strictAssert.equal(state.notifications[0].type, 'PROJECT_WAITING_RESULT');
       strictAssert.equal(state.notifications[0].userId, sales.userId);
       const before = JSON.stringify(state);
-      const duplicate = await completeMilestoneStage(`milestone-${count}`, sales);
+      const duplicate = await advanceToNextMilestone('project-1', `milestone-${count}`, sales);
       strictAssert.equal(duplicate.project_completed, true);
-      strictAssert.equal(duplicate.completed_at, result.completed_at);
       strictAssert.equal(JSON.stringify(state), before);
-      console.log(`Recovery - ${label}: final SALES completion and duplicate are safe`);
+      console.log(`Recovery - ${label}: historical completion reconciliation and duplicate are safe`);
     });
   }
 
   await withProgression(8, async (state) => {
+    state.milestones[7].status = 'COMPLETED';
+    state.milestones[7].completed_at = reviewedAt;
     state.failProjectUpdate = true;
-    await strictAssert.rejects(() => completeMilestoneStage('milestone-8', sales), /simulated progression write failure/);
+    await strictAssert.rejects(() => advanceToNextMilestone('project-1', 'milestone-8', sales), /simulated progression write failure/);
     strictAssert.equal(state.milestones[7].status, 'COMPLETED');
     strictAssert.equal(state.project.status, 'ACTIVE');
     const completedAt = state.milestones[7].completed_at;
     state.failProjectUpdate = false;
-    const results = await Promise.all([completeMilestoneStage('milestone-8', sales), completeMilestoneStage('milestone-8', sales)]);
+    const results = await Promise.all([advanceToNextMilestone('project-1', 'milestone-8', sales), advanceToNextMilestone('project-1', 'milestone-8', sales)]);
     strictAssert(results.every((result) => result.project_completed && result.blocked_reason === null));
     strictAssert.equal(state.milestones[7].completed_at, completedAt);
     strictAssert.equal(state.writes.filter((row) => row.table === 'projects').length, 1);
     strictAssert.equal(state.logs.filter((row) => row.action === 'PROJECT_WAITING_RESULT').length, 1);
-    strictAssert.equal(state.logs.filter((row) => row.action === 'MILESTONE_COMPLETED').length, 1);
+    strictAssert.equal(state.logs.filter((row) => row.action === 'MILESTONE_COMPLETED').length, 0);
     console.log('Recovery - Failed project write is reconciled once by concurrent SALES retries');
   });
 
@@ -417,14 +419,15 @@ async function runProgressionRecoveryTests() {
   for (const action of ['MILESTONE_COMPLETED', 'PROJECT_WAITING_RESULT']) {
     for (const throws of [false, true]) {
       await withProgression(6, async (state) => {
+        state.milestones[5].status = 'COMPLETED';
         state.failLog = action;
         state.throwLog = throws;
-        strictAssert.equal((await completeMilestoneStage('milestone-6', sales)).project_completed, true);
+        strictAssert.equal((await advanceToNextMilestone('project-1', 'milestone-6', sales)).project_completed, true);
         strictAssert.equal(state.project.status, 'WAITING_RESULT');
-        strictAssert.equal(state.reportedErrors.length, 1);
+        strictAssert.equal(state.reportedErrors.length, action === 'PROJECT_WAITING_RESULT' ? 1 : 0);
         strictAssert(!JSON.stringify(state.reportedErrors).includes('private provider'));
-        strictAssert.equal((await completeMilestoneStage('milestone-6', sales)).project_completed, true);
-        strictAssert.equal(state.reportedErrors.length, 1);
+        strictAssert.equal((await advanceToNextMilestone('project-1', 'milestone-6', sales)).project_completed, true);
+        strictAssert.equal(state.reportedErrors.length, action === 'PROJECT_WAITING_RESULT' ? 1 : 0);
       });
     }
   }
@@ -439,11 +442,12 @@ async function runProgressionRecoveryTests() {
   console.log('Recovery - Returned/thrown activity errors are reported safely without failing durable transitions');
 
   await withProgression(6, async (state) => {
-    const results = await Promise.all([completeMilestoneStage('milestone-6', sales), completeMilestoneStage('milestone-6', sales)]);
+    state.milestones[5].status = 'COMPLETED';
+    const results = await Promise.all([advanceToNextMilestone('project-1', 'milestone-6', sales), advanceToNextMilestone('project-1', 'milestone-6', sales)]);
     strictAssert(results.every((result) => result.project_completed));
-    strictAssert.equal(state.writes.length, 2);
-    strictAssert.equal(state.logs.length, 2);
-    console.log('Recovery - Concurrent first-time completion performs one milestone and one project update');
+    strictAssert.equal(state.writes.length, 1);
+    strictAssert.equal(state.logs.length, 1);
+    console.log('Recovery - Concurrent historical reconciliation performs one project update');
   });
 
   for (const status of ['CREATED', 'SUBMITTED', 'REJECTED', 'APPROVED']) {
@@ -489,9 +493,10 @@ async function runProgressionRecoveryTests() {
   await withProgression(6, async (state) => {
     // Current active templates are all required. Preserve the existing all-persisted-rows rule,
     // including this hypothetical optional stage; this checkpoint does not introduce skipping.
+    state.milestones[5].status = 'COMPLETED';
     state.milestones[1].status = 'CREATED';
     state.milestones[1].workflow_stage.is_required = false;
-    const result = await completeMilestoneStage('milestone-6', sales);
+    const result = await advanceToNextMilestone('project-1', 'milestone-6', sales);
     strictAssert.equal(result.project_completed, false);
     strictAssert.equal(result.blocked_reason, 'REMAINING_MILESTONES');
     strictAssert.equal(state.project.status, 'ACTIVE');

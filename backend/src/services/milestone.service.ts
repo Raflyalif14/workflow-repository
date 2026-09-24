@@ -5,6 +5,7 @@ import {
   logWorkflowActivityBestEffort,
 } from './workflow-progression.service';
 import { notifyMilestoneSubmitted } from './milestone-notification.service';
+import { ProjectOutcomeInput } from '../validators/project-management.validator';
 
 type Actor = { userId: string; role: string; fullName: string };
 type MilestoneInput = {
@@ -221,8 +222,8 @@ export class MilestoneService {
     return data;
   }
 
-  static completeStage(milestoneId: string, actor: Actor) {
-    return completeMilestoneStage(milestoneId, actor);
+  static completeStage(milestoneId: string, actor: Actor, outcome?: ProjectOutcomeInput) {
+    return completeMilestoneStage(milestoneId, actor, outcome);
   }
 
   static async submitMilestone(milestoneId: string, actor: Actor, note?: string) {
