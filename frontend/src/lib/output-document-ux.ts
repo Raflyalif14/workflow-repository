@@ -98,3 +98,57 @@ export function getSingleSubmissionOperationState(operation: SubmissionOperation
 export function isBatchSubmissionOperation(operation: SubmissionOperation): boolean {
   return operation?.kind === "batch";
 }
+
+type OutputDocumentReviewInput = {
+  key: string;
+  status: string;
+  currentVersionId?: string | null;
+};
+
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export function getOutputDocumentApproveAction({
+  status,
+  currentVersionId,
+  canReview,
+}: Pick<OutputDocumentReviewInput, "status" | "currentVersionId"> & { canReview: boolean }): string | null {
+  return canReview && status === "IN_REVIEW" && Boolean(currentVersionId && UUID_PATTERN.test(currentVersionId))
+    ? "Approve"
+    : null;
+}
+
+export function getReviewableOutputDocuments<T extends OutputDocumentReviewInput>(
+  documents: readonly T[],
+  canReview: boolean
+): T[] {
+  return documents.filter((document) => Boolean(getOutputDocumentApproveAction({ ...document, canReview })));
+}
+
+export function getOutputDocumentApprovalSelectionLabel(documentName: string): string {
+  return `Select ${documentName} for approval`;
+}
+
+export function getOutputDocumentApprovalSelection<T extends { key: string }>(
+  reviewableDocuments: readonly T[],
+  selectAll: boolean
+): string[] {
+  return selectAll ? reviewableDocuments.map((document) => document.key) : [];
+}
+
+export type ReviewOperation =
+  | { kind: "single"; documentKey: string }
+  | { kind: "batch" }
+  | null;
+
+export function getSingleReviewOperationState(operation: ReviewOperation, documentKey: string) {
+  const isLoading = operation?.kind === "single" && operation.documentKey === documentKey;
+  return {
+    isLoading,
+    isDisabled: operation !== null,
+    ariaBusy: isLoading,
+  };
+}
+
+export function isBatchReviewOperation(operation: ReviewOperation): boolean {
+  return operation?.kind === "batch";
+}

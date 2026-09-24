@@ -1,10 +1,16 @@
 import {
   getActiveOutputDocuments,
+  getOutputDocumentApprovalSelection,
+  getOutputDocumentApprovalSelectionLabel,
+  getOutputDocumentApproveAction,
   getOutputDocumentContextMessage,
   getOutputDocumentSubmissionSelectionLabel,
   getOutputDocumentSubmitAction,
   getOutputDocumentsHeaderDescription,
   getSingleSubmissionOperationState,
+  getSingleReviewOperationState,
+  getReviewableOutputDocuments,
+  isBatchReviewOperation,
   isBatchSubmissionOperation,
   getSubmittableOutputDocuments,
 } from "./output-document-ux";
@@ -143,5 +149,65 @@ assert(isBatchSubmissionOperation({ kind: "batch" }), "A batch operation must be
 assert(!getSingleSubmissionOperationState({ kind: "batch" }, "draft-a").isLoading, "Batch submission must not make a single document row show loading.");
 const idleSubmissionState = getSingleSubmissionOperationState(null, "draft-a");
 assert(!idleSubmissionState.isLoading && !idleSubmissionState.isDisabled && !idleSubmissionState.ariaBusy, "A cleared operation must restore idle single-submit presentation after success or failure.");
+
+const validReviewVersionA = "11111111-1111-4111-8111-111111111111";
+const validReviewVersionB = "22222222-2222-4222-8222-222222222222";
+const reviewCandidates = [
+  { key: "review-a", status: "IN_REVIEW", currentVersionId: validReviewVersionA },
+  { key: "review-b", status: "IN_REVIEW", currentVersionId: validReviewVersionB },
+  { key: "invalid-version", status: "IN_REVIEW", currentVersionId: "not-a-uuid" },
+  { key: "draft-review", status: "DRAFT", currentVersionId: "33333333-3333-4333-8333-333333333333" },
+  { key: "approved-review", status: "APPROVED", currentVersionId: "44444444-4444-4444-8444-444444444444" },
+];
+const originalReviewCandidates = [...reviewCandidates];
+const reviewableDocuments = getReviewableOutputDocuments(reviewCandidates, true);
+assert(
+  getOutputDocumentApproveAction({ status: "IN_REVIEW", currentVersionId: validReviewVersionA, canReview: true }) === "Approve",
+  "A Head SA review with an IN_REVIEW document and valid version must expose single approval."
+);
+for (const status of ["TO_DO", "DRAFT", "REVISION_REQUIRED", "APPROVED"] as const) {
+  assert(
+    getOutputDocumentApproveAction({ status, currentVersionId: validReviewVersionA, canReview: true }) === null,
+    `${status} must not expose approval or batch selection.`
+  );
+}
+assert(
+  getOutputDocumentApproveAction({ status: "IN_REVIEW", currentVersionId: "not-a-uuid", canReview: true }) === null,
+  "IN_REVIEW documents without a valid version UUID must not be approvable."
+);
+assert(
+  getOutputDocumentApproveAction({ status: "IN_REVIEW", currentVersionId: validReviewVersionA, canReview: false }) === null,
+  "Actors without existing review eligibility must not receive approval actions."
+);
+assert(
+  reviewableDocuments.map((document) => document.key).join(",") === "review-a,review-b",
+  "Select all must be limited to eligible IN_REVIEW documents with valid versions."
+);
+assert(
+  getOutputDocumentApprovalSelection(reviewableDocuments, false).length === 0,
+  "Head SA batch mode must start with an empty selection."
+);
+assert(
+  getOutputDocumentApprovalSelection(reviewableDocuments, true).join(",") === "review-a,review-b",
+  "Select all reviews must select every eligible review and nothing else."
+);
+assert(
+  getOutputDocumentApprovalSelectionLabel("Assessment Report") === "Select Assessment Report for approval",
+  "Approval checkbox labels must include the document name."
+);
+assert(
+  reviewCandidates.every((document, index) => document === originalReviewCandidates[index]),
+  "Approval eligibility and selection helpers must not mutate their input."
+);
+
+const singleReviewA = { kind: "single", documentKey: "review-a" } as const;
+const singleReviewAState = getSingleReviewOperationState(singleReviewA, "review-a");
+const singleReviewBState = getSingleReviewOperationState(singleReviewA, "review-b");
+assert(singleReviewAState.isLoading && singleReviewAState.ariaBusy && singleReviewAState.isDisabled, "Only the clicked single Approve button must show approval loading.");
+assert(!singleReviewBState.isLoading && !singleReviewBState.ariaBusy && singleReviewBState.isDisabled, "Other Approve buttons may be disabled but must not show approval loading.");
+assert(isBatchReviewOperation({ kind: "batch" }), "Batch approval loading must be identifiable separately from single approval.");
+assert(!getSingleReviewOperationState({ kind: "batch" }, "review-a").isLoading, "Batch approval must not make a single Approve button show loading.");
+const idleReviewState = getSingleReviewOperationState(null, "review-a");
+assert(!idleReviewState.isLoading && !idleReviewState.isDisabled && !idleReviewState.ariaBusy, "A cleared review operation must restore idle approval presentation.");
 
 console.log("Output document active visibility: passed");

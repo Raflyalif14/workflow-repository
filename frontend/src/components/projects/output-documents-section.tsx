@@ -21,13 +21,20 @@ import {
 import { authorizedFetch } from "@/lib/api-client";
 import {
   getActiveOutputDocuments,
+  getOutputDocumentApprovalSelectionLabel,
+  getOutputDocumentApprovalSelection,
+  getOutputDocumentApproveAction,
   getOutputDocumentContextMessage,
   getOutputDocumentsHeaderDescription,
   getOutputDocumentSubmissionSelectionLabel,
   getOutputDocumentSubmitAction,
   getSubmittableOutputDocuments,
   getSingleSubmissionOperationState,
+  getSingleReviewOperationState,
+  getReviewableOutputDocuments,
+  isBatchReviewOperation,
   isBatchSubmissionOperation,
+  type ReviewOperation,
   type SubmissionOperation,
 } from "@/lib/output-document-ux";
 import { useRetryProjectCompletion } from "@/hooks/use-projects";
@@ -85,7 +92,7 @@ function BatchResultNotice({ results }: { results: OutputDocumentBatchResult[] }
   );
 }
 
-function OutputDocumentRow({ projectId, document, canUpload, canReview, canReadHistory, hasAssignedPic, role, submissionSelectionMode, submissionOperation, submitChecked, approveChecked, onSubmit, onToggleSubmit, onToggleApprove, onRevision, onHistory }: {
+function OutputDocumentRow({ projectId, document, canUpload, canReview, canReadHistory, hasAssignedPic, role, submissionSelectionMode, submissionOperation, approvalSelectionMode, reviewOperation, reviewPending, submitChecked, approveChecked, onSubmit, onApprove, onToggleSubmit, onToggleApprove, onRevision, onHistory }: {
   projectId: string;
   document: ProjectOutputDocumentItem;
   canUpload: boolean;
@@ -95,9 +102,13 @@ function OutputDocumentRow({ projectId, document, canUpload, canReview, canReadH
   role?: string;
   submissionSelectionMode: boolean;
   submissionOperation: SubmissionOperation;
+  approvalSelectionMode: boolean;
+  reviewOperation: ReviewOperation;
+  reviewPending: boolean;
   submitChecked: boolean;
   approveChecked: boolean;
   onSubmit: () => void;
+  onApprove: () => void;
   onToggleSubmit: () => void;
   onToggleApprove: () => void;
   onRevision: () => void;
@@ -116,8 +127,14 @@ function OutputDocumentRow({ projectId, document, canUpload, canReview, canReadH
     canUpload,
   });
   const submittable = Boolean(submitAction);
-  const reviewable = canReview && document.status === "IN_REVIEW";
+  const approveAction = getOutputDocumentApproveAction({
+    status: document.status,
+    currentVersionId: document.currentVersionId,
+    canReview,
+  });
+  const reviewable = Boolean(approveAction);
   const submissionState = getSingleSubmissionOperationState(submissionOperation, document.key);
+  const reviewState = getSingleReviewOperationState(reviewOperation, document.key);
   const contextMessage = getOutputDocumentContextMessage({
     role,
     status: document.status,
@@ -163,7 +180,7 @@ function OutputDocumentRow({ projectId, document, canUpload, canReview, canReadH
       <div className="min-w-0 space-y-2">
         <div className="flex min-w-0 flex-wrap items-center gap-2">
           {submittable && submissionSelectionMode && <input type="checkbox" checked={submitChecked} onChange={onToggleSubmit} aria-label={getOutputDocumentSubmissionSelectionLabel(document.name)} className="h-4 w-4 accent-primary" />}
-          {reviewable && <input type="checkbox" checked={approveChecked} onChange={onToggleApprove} aria-label={`Select ${document.name} for approval`} className="h-4 w-4 accent-primary" />}
+          {reviewable && approvalSelectionMode && <input type="checkbox" checked={approveChecked} onChange={onToggleApprove} aria-label={getOutputDocumentApprovalSelectionLabel(document.name)} className="h-4 w-4 accent-primary" />}
           <p className="min-w-0 text-sm font-semibold text-foreground">{document.name}</p>
           <Badge variant="secondary" className="text-[10px]">{document.isRequired ? "Required" : "Optional"}</Badge>
           <OutputStatusBadge status={document.status} />
@@ -203,7 +220,8 @@ function OutputDocumentRow({ projectId, document, canUpload, canReview, canReadH
         {submittable && <Button type="button" size="sm" className="gap-1.5" aria-busy={submissionState.ariaBusy || undefined} disabled={submissionState.isDisabled} onClick={onSubmit}>{submissionState.isLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}{submissionState.isLoading ? "Submitting..." : submitAction}</Button>}
         {document.fileName && <Button type="button" size="sm" variant="outline" className="gap-1.5" disabled={download.isPending} onClick={() => void handleDownload()}><Download className="h-3.5 w-3.5" /> Download</Button>}
         {canReadHistory && Boolean(document.versionCount) && <Button type="button" size="sm" variant="ghost" className="gap-1.5" onClick={onHistory}><History className="h-3.5 w-3.5" /> History ({document.versionCount})</Button>}
-        {reviewable && <Button type="button" size="sm" variant="outline" className="border-destructive/30 text-destructive" onClick={onRevision}>Request revision</Button>}
+        {reviewable && !approvalSelectionMode && <Button type="button" size="sm" className="gap-1.5" aria-busy={reviewState.ariaBusy || undefined} disabled={reviewPending || reviewState.isDisabled} onClick={onApprove}>{reviewState.isLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}{reviewState.isLoading ? "Approving..." : approveAction}</Button>}
+        {reviewable && <Button type="button" size="sm" variant="outline" className="border-destructive/30 text-destructive" disabled={reviewPending || reviewOperation !== null} onClick={onRevision}>Request revision</Button>}
       </div>
     </div>
   );
@@ -258,6 +276,8 @@ export function OutputDocumentsSection({ project }: OutputDocumentsSectionProps)
   const [submissionSelectionMode, setSubmissionSelectionMode] = useState(false);
   const [submissionOperation, setSubmissionOperation] = useState<SubmissionOperation>(null);
   const [approveSelection, setApproveSelection] = useState<string[]>([]);
+  const [approvalSelectionMode, setApprovalSelectionMode] = useState(false);
+  const [reviewOperation, setReviewOperation] = useState<ReviewOperation>(null);
   const [batchResults, setBatchResults] = useState<OutputDocumentBatchResult[]>([]);
   const [revisionTarget, setRevisionTarget] = useState<ProjectOutputDocumentItem | null>(null);
   const [revisionFeedback, setRevisionFeedback] = useState("");
@@ -284,6 +304,10 @@ export function OutputDocumentsSection({ project }: OutputDocumentsSectionProps)
     () => getSubmittableOutputDocuments(activeDocuments, canUpload, user?.role),
     [activeDocuments, canUpload, user?.role]
   );
+  const reviewableDocuments = useMemo(
+    () => getReviewableOutputDocuments(activeDocuments, isHeadSa),
+    [activeDocuments, isHeadSa]
+  );
 
   const groups = useMemo(() => ([
     { key: "PRA_TENDER" as const, title: "Pra-Tender", documents: activeDocuments.filter((document) => document.group === "PRA_TENDER") },
@@ -302,6 +326,14 @@ export function OutputDocumentsSection({ project }: OutputDocumentsSectionProps)
     const submittableKeys = new Set(submittableDocuments.map((document) => document.key));
     if (keys.some((key) => !submittableKeys.has(key))) {
       throw new Error("A selected draft is no longer ready for submission. Refresh and try again.");
+    }
+    return batchItems(keys);
+  };
+
+  const reviewItems = (keys: string[]) => {
+    const reviewableKeys = new Set(reviewableDocuments.map((document) => document.key));
+    if (keys.some((key) => !reviewableKeys.has(key))) {
+      throw new Error("A selected output is no longer ready for review. Refresh and try again.");
     }
     return batchItems(keys);
   };
@@ -325,18 +357,27 @@ export function OutputDocumentsSection({ project }: OutputDocumentsSectionProps)
 
   const submitSelected = async () => submitDocuments(submitSelection, { kind: "batch" });
 
-  const approveSelected = async () => {
+  const approveDocuments = async (keys: string[], operation: Exclude<ReviewOperation, null>) => {
+    setReviewOperation(operation);
     try {
-      const response = await review.mutateAsync({ decision: "APPROVE", items: batchItems(approveSelection) });
+      const response = await review.mutateAsync({ decision: "APPROVE", items: reviewItems(keys) });
       setBatchResults(response.results);
-      setApproveSelection(response.results.filter((result) => !result.success).map((result) => result.documentKey));
+      const failedKeys = response.results.filter((result) => !result.success).map((result) => result.documentKey);
+      setApproveSelection(operation.kind === "batch" ? failedKeys : []);
+      setApprovalSelectionMode(operation.kind === "batch" && failedKeys.length > 0);
       if (response.completionRetryRequired) {
         setCompletionRetryMessage("Documents were approved, but the project status still needs completion retry.");
       }
     } catch (error) {
-      setBatchResults(approveSelection.map((documentKey) => ({ documentKey, success: false, message: error instanceof Error ? error.message : "Approval failed." })));
+      setBatchResults(keys.map((documentKey) => ({ documentKey, success: false, message: error instanceof Error ? error.message : "Approval failed." })));
+      setApproveSelection(operation.kind === "batch" ? keys : []);
+      setApprovalSelectionMode(operation.kind === "batch");
+    } finally {
+      setReviewOperation(null);
     }
   };
+
+  const approveSelected = async () => approveDocuments(approveSelection, { kind: "batch" });
 
   const requestRevision = async (event: FormEvent) => {
     event.preventDefault();
@@ -407,6 +448,7 @@ export function OutputDocumentsSection({ project }: OutputDocumentsSectionProps)
           <div className="flex flex-wrap gap-2">
             {isSalesOwner && !isScopeLocked && <Button type="button" size="sm" variant="outline" onClick={openChecklist}>Edit optional outputs</Button>}
             {canUpload && submittableDocuments.length >= 2 && !submissionSelectionMode && <Button type="button" size="sm" variant="outline" onClick={() => setSubmissionSelectionMode(true)}>Select multiple</Button>}
+            {isHeadSa && reviewableDocuments.length >= 2 && !approvalSelectionMode && <Button type="button" size="sm" variant="outline" onClick={() => { setApproveSelection(getOutputDocumentApprovalSelection(reviewableDocuments, false)); setApprovalSelectionMode(true); }}>Select multiple</Button>}
             {approvedCount > 0 && <Button type="button" size="sm" variant="outline" disabled={downloadingAll} onClick={() => void downloadAllApproved()}>{downloadingAll ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Download className="mr-1.5 h-3.5 w-3.5" />}Download all approved ({approvedCount})</Button>}
             {outputQuery.data?.canRetryCompletion && <Button type="button" size="sm" disabled={retryCompletion.isPending} onClick={() => void retryProjectCompletion()}>{retryCompletion.isPending ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <RotateCcw className="mr-1.5 h-3.5 w-3.5" />}Retry completion</Button>}
           </div>
@@ -416,7 +458,7 @@ export function OutputDocumentsSection({ project }: OutputDocumentsSectionProps)
           <div className="rounded-md border border-border/50 px-3 py-2"><p className="text-lg font-semibold">{activeDocuments.length}</p><p className="text-[11px] text-muted-foreground">total</p></div>
         </div>
         {submissionSelectionMode && canUpload && <div className="flex flex-col gap-3 rounded-md border border-primary/30 bg-primary/5 p-3 sm:flex-row sm:items-center sm:justify-between"><p className="text-sm">{submitSelection.length} draft{submitSelection.length === 1 ? "" : "s"} selected for review.</p><div className="flex flex-wrap gap-2"><Button type="button" size="sm" variant="outline" disabled={submissionOperation !== null} onClick={() => setSubmitSelection(submittableDocuments.map((document) => document.key))}>Select all drafts</Button><Button type="button" size="sm" variant="outline" disabled={submissionOperation !== null || submitSelection.length === 0} onClick={() => setSubmitSelection([])}>Clear selection</Button><Button type="button" size="sm" variant="outline" disabled={submissionOperation !== null} onClick={() => { setSubmitSelection([]); setSubmissionSelectionMode(false); }}>Cancel selection</Button><Button type="button" size="sm" aria-busy={isBatchSubmissionOperation(submissionOperation) || undefined} disabled={submissionOperation !== null || submitSelection.length === 0} onClick={() => void submitSelected()}>{isBatchSubmissionOperation(submissionOperation) ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Send className="mr-1.5 h-3.5 w-3.5" />}{isBatchSubmissionOperation(submissionOperation) ? "Submitting..." : `Submit ${submitSelection.length} selected`}</Button></div></div>}
-        {approveSelection.length > 0 && isHeadSa && <div className="flex flex-col gap-2 rounded-md border border-emerald-500/30 bg-emerald-500/5 p-3 sm:flex-row sm:items-center sm:justify-between"><p className="text-sm">{approveSelection.length} document(s) selected for approval.</p><Button type="button" size="sm" disabled={review.isPending} onClick={() => void approveSelected()}><CheckCircle2 className="mr-1.5 h-3.5 w-3.5" />{review.isPending ? "Approving..." : "Approve selected"}</Button></div>}
+        {approvalSelectionMode && isHeadSa && <div className="flex flex-col gap-3 rounded-md border border-emerald-500/30 bg-emerald-500/5 p-3 sm:flex-row sm:items-center sm:justify-between"><p className="text-sm">{approveSelection.length} document{approveSelection.length === 1 ? "" : "s"} selected for approval.</p><div className="flex flex-wrap gap-2"><Button type="button" size="sm" variant="outline" disabled={review.isPending || reviewOperation !== null} onClick={() => setApproveSelection(getOutputDocumentApprovalSelection(reviewableDocuments, true))}>Select all reviews</Button><Button type="button" size="sm" variant="outline" disabled={review.isPending || reviewOperation !== null || approveSelection.length === 0} onClick={() => setApproveSelection(getOutputDocumentApprovalSelection(reviewableDocuments, false))}>Clear selection</Button><Button type="button" size="sm" variant="outline" disabled={review.isPending || reviewOperation !== null} onClick={() => { setApproveSelection(getOutputDocumentApprovalSelection(reviewableDocuments, false)); setApprovalSelectionMode(false); }}>Cancel selection</Button>{approveSelection.length > 0 && <Button type="button" size="sm" aria-busy={isBatchReviewOperation(reviewOperation) || undefined} disabled={review.isPending || reviewOperation !== null} onClick={() => void approveSelected()}>{isBatchReviewOperation(reviewOperation) ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" />}{isBatchReviewOperation(reviewOperation) ? "Approving..." : `Approve ${approveSelection.length} selected`}</Button>}</div></div>}
         <BatchResultNotice results={batchResults} />
         {completionRetryMessage && <p className="text-xs text-muted-foreground">{completionRetryMessage}</p>}
         {downloadError && <p className="text-xs text-destructive">{downloadError}</p>}
@@ -430,7 +472,7 @@ export function OutputDocumentsSection({ project }: OutputDocumentsSectionProps)
           <section key={group.key} className="min-w-0 space-y-2">
             <div className="flex items-center justify-between gap-3"><div><h3 className="text-sm font-semibold">{group.title}</h3><p className="text-xs text-muted-foreground">{group.documents.length} output(s)</p></div><p className="text-xs text-muted-foreground">{group.documents.filter((document) => document.status === "APPROVED").length} approved</p></div>
             <div className="min-w-0 divide-y divide-border/50 overflow-hidden rounded-md border border-border/60">
-              {group.documents.map((document) => <OutputDocumentRow key={document.key} projectId={project.id} document={document} canUpload={canUpload} canReview={isHeadSa} canReadHistory={canReadHistory} hasAssignedPic={Boolean(project.pic?.id)} role={user?.role} submissionSelectionMode={submissionSelectionMode} submissionOperation={submissionOperation} submitChecked={submitSelection.includes(document.key)} approveChecked={approveSelection.includes(document.key)} onSubmit={() => void submitDocuments([document.key], { kind: "single", documentKey: document.key })} onToggleSubmit={() => setSubmitSelection((current) => current.includes(document.key) ? current.filter((key) => key !== document.key) : [...current, document.key])} onToggleApprove={() => setApproveSelection((current) => current.includes(document.key) ? current.filter((key) => key !== document.key) : [...current, document.key])} onRevision={() => { setRevisionTarget(document); setRevisionFeedback(""); }} onHistory={() => setHistoryDocument(document)} />)}
+              {group.documents.map((document) => <OutputDocumentRow key={document.key} projectId={project.id} document={document} canUpload={canUpload} canReview={isHeadSa} canReadHistory={canReadHistory} hasAssignedPic={Boolean(project.pic?.id)} role={user?.role} submissionSelectionMode={submissionSelectionMode} submissionOperation={submissionOperation} approvalSelectionMode={approvalSelectionMode} reviewOperation={reviewOperation} reviewPending={review.isPending} submitChecked={submitSelection.includes(document.key)} approveChecked={approveSelection.includes(document.key)} onSubmit={() => void submitDocuments([document.key], { kind: "single", documentKey: document.key })} onApprove={() => void approveDocuments([document.key], { kind: "single", documentKey: document.key })} onToggleSubmit={() => setSubmitSelection((current) => current.includes(document.key) ? current.filter((key) => key !== document.key) : [...current, document.key])} onToggleApprove={() => setApproveSelection((current) => current.includes(document.key) ? current.filter((key) => key !== document.key) : [...current, document.key])} onRevision={() => { setRevisionTarget(document); setRevisionFeedback(""); }} onHistory={() => setHistoryDocument(document)} />)}
             </div>
           </section>
         ))}
