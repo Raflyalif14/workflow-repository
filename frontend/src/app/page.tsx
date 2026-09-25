@@ -247,30 +247,49 @@ type MetricVisual = {
   iconClassName: string;
 };
 
+const metricLabels: Record<string, string> = {
+  "Assigned architects": "SA bertugas",
+  "Active delivery": "Proyek aktif",
+  "Work submissions": "Pekerjaan diajukan",
+  "Unassigned projects": "Proyek tanpa PIC",
+  "Total estimated revenue": "Total estimasi pendapatan",
+  "Waiting result": "Menunggu hasil",
+  Won: "Menang",
+  Lost: "Kalah",
+  "In progress": "Sedang dikerjakan",
+  "Needs revision": "Perlu revisi",
+  "Upcoming deadlines": "Tenggat mendatang",
+  Overdue: "Terlambat",
+  "Active projects": "Proyek aktif",
+  "Overdue milestones": "Milestone terlambat",
+  "Pending reviews": "Menunggu peninjauan",
+  "Completed projects": "Proyek selesai",
+};
+
 const getMetricVisual = (label: string): MetricVisual => {
   const descriptions: Record<string, string> = {
-    "Plans to review": "Project plans awaiting a decision",
-    "Work submissions": "Submitted packages awaiting review",
-    "Deadline requests": "Timeline changes awaiting review",
-    "Unassigned projects": "Active projects without a PIC",
-    Planning: "Projects still being prepared",
-    "Waiting for review": "Items currently with a reviewer",
-    "Active projects": "Projects currently in delivery",
-    Postponed: "Projects temporarily paused",
-    "In progress": "Assigned milestones underway",
-    "Needs revision": "Submissions returned for revision",
-    Completed: "Assigned milestones completed",
-    "Overdue milestones": "Delivery stages past their due date",
-    "Pending reviews": "Decisions pending across the portfolio",
-    "Completed projects": "Projects with delivery completed",
-    "Total estimated revenue": "Estimated revenue across your projects",
-    "Waiting result": "Completed delivery awaiting a tender result",
-    Won: "Projects recorded as won",
-    Lost: "Projects recorded as lost",
-    "Assigned architects": "Solution Architects carrying active work",
-    "Active delivery": "Projects currently being delivered",
-    "Upcoming deadlines": "Assigned work due within seven days",
-    Overdue: "Assigned work past its due date",
+    "Plans to review": "Rencana proyek menunggu keputusan",
+    "Work submissions": "Pekerjaan diajukan untuk ditinjau",
+    "Deadline requests": "Perubahan tenggat menunggu peninjauan",
+    "Unassigned projects": "Proyek aktif tanpa PIC",
+    Planning: "Proyek masih dalam perencanaan",
+    "Waiting for review": "Item sedang ditinjau",
+    "Active projects": "Proyek sedang berjalan",
+    Postponed: "Proyek sedang ditunda",
+    "In progress": "Milestone yang ditugaskan sedang dikerjakan",
+    "Needs revision": "Pekerjaan dikembalikan untuk revisi",
+    Completed: "Milestone yang ditugaskan telah selesai",
+    "Overdue milestones": "Tahap melewati tenggat",
+    "Pending reviews": "Keputusan masih menunggu peninjauan",
+    "Completed projects": "Pekerjaan proyek selesai",
+    "Total estimated revenue": "Estimasi pendapatan semua proyek Anda",
+    "Waiting result": "Pekerjaan selesai, menunggu hasil tender",
+    Won: "Proyek tercatat menang",
+    Lost: "Proyek tercatat kalah",
+    "Assigned architects": "Solution Architect yang sedang bertugas",
+    "Active delivery": "Proyek sedang dikerjakan",
+    "Upcoming deadlines": "Tugas jatuh tempo dalam tujuh hari",
+    Overdue: "Tugas melewati tenggat",
   };
 
   if (/overdue|revision/i.test(label)) {
@@ -330,7 +349,7 @@ function MetricCard({ metric }: { metric: SummaryMetric }) {
     <div className="min-w-0 rounded-xl border border-border bg-card p-3 sm:p-5">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-xs font-medium leading-5 text-muted-foreground">{metric.label}</p>
+          <p className="text-xs font-medium leading-5 text-muted-foreground">{metricLabels[metric.label] || metric.label}</p>
           <p className="mt-1 text-2xl font-semibold text-foreground">
             {metric.label === "Total estimated revenue" ? formatRevenue(metric.value) : metric.value}
           </p>
@@ -510,8 +529,8 @@ function DeliveryHealthPanel({
           <BarChart3 className="h-4 w-4" />
         </span>
         <div>
-          <h2 id="delivery-health-heading" className="text-base font-semibold text-foreground">Delivery health</h2>
-          <p className="mt-1 text-sm text-muted-foreground">Project execution and review status</p>
+          <h2 id="delivery-health-heading" className="text-base font-semibold text-foreground">Kondisi pekerjaan</h2>
+          <p className="mt-1 text-sm text-muted-foreground">Status pengerjaan dan peninjauan proyek</p>
         </div>
       </div>
 
@@ -545,7 +564,7 @@ function DeliveryHealthPanel({
                         {statusData.map((entry) => <Cell key={entry.name} fill={entry.color} />)}
                       </Pie>
                       <Tooltip
-                        formatter={(value) => [Number(value), "Projects"]}
+                        formatter={(value) => [Number(value), "Proyek"]}
                         contentStyle={{
                           background: "hsl(var(--popover))",
                           border: "1px solid hsl(var(--border))",
@@ -558,7 +577,7 @@ function DeliveryHealthPanel({
                   </ResponsiveContainer>
                   <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
                     <span className="text-2xl font-semibold text-foreground">{statusTotal}</span>
-                    <span className="text-xs text-muted-foreground">projects</span>
+                    <span className="text-xs text-muted-foreground">proyek</span>
                   </div>
                 </div>
                 <div className="mt-2 flex flex-wrap justify-center gap-x-4 gap-y-2">
@@ -572,15 +591,15 @@ function DeliveryHealthPanel({
               </>
             ) : (
               <div className="py-10 text-center">
-                <p className="text-sm font-medium text-foreground">No project status data yet</p>
-                <p className="mt-1 text-xs leading-5 text-muted-foreground">Status distribution will appear when projects are available.</p>
+                <p className="text-sm font-medium text-foreground">Belum ada data status proyek</p>
+                <p className="mt-1 text-xs leading-5 text-muted-foreground">Sebaran status akan tampil saat proyek tersedia.</p>
               </div>
             )}
           </div>
 
           <div className="min-w-0">
             <p className="text-xs font-medium text-muted-foreground">
-              {showScenarioBreakdown ? "Projects by scenario" : "Project completion"}
+              {showScenarioBreakdown ? "Proyek per skenario" : "Penyelesaian proyek"}
             </p>
             <div className="mt-4 space-y-4">
               {showScenarioBreakdown ? (
@@ -620,7 +639,7 @@ function DeliveryHealthPanel({
                   </div>
                 ))
               ) : (
-                <p className="text-sm leading-6 text-muted-foreground">Project completion data is not available yet.</p>
+                <p className="text-sm leading-6 text-muted-foreground">Data penyelesaian proyek belum tersedia.</p>
               )}
             </div>
           </div>
@@ -644,8 +663,8 @@ function QuickInsightsPanel({
   return (
     <section aria-labelledby="quick-insights-heading" className="rounded-xl border border-border bg-card p-5 sm:p-6">
       <div>
-        <h2 id="quick-insights-heading" className="text-base font-semibold text-foreground">Quick insights</h2>
-        <p className="mt-1 text-sm text-muted-foreground">Things worth your attention</p>
+        <h2 id="quick-insights-heading" className="text-base font-semibold text-foreground">Perlu perhatian</h2>
+        <p className="mt-1 text-sm text-muted-foreground">Hal yang perlu Anda tindak lanjuti</p>
       </div>
 
       {loading && insights.length === 0 ? (
@@ -804,7 +823,7 @@ function SolutionArchitectWorkloadPanel({
 
 export default function DashboardPage() {
   const { user } = useAuth();
-  const [greeting, setGreeting] = useState("Hello");
+  const [greeting, setGreeting] = useState("Halo");
   const userRole = user?.role || "GUEST";
   const isHeadSa = userRole === "HEAD_SA";
   const isSa = userRole === "SA";
@@ -930,19 +949,19 @@ export default function DashboardPage() {
   });
   const projectDelivery = sortDashboardProjectHealth(healthSource, userRole).slice(0, 8);
   const projectDeliveryTitle = userRole === "SALES"
-    ? "Revenue pipeline"
+    ? "Peluang pendapatan"
     : userRole === "HEAD_SA"
-    ? "Project delivery"
+    ? "Pelaksanaan proyek"
     : userRole === "SA"
-    ? "Assigned deadlines"
-    : "Project delivery";
+    ? "Tenggat tugas Anda"
+    : "Pelaksanaan proyek";
   const projectDeliveryDescription = userRole === "SALES"
-    ? "Revenue, delivery stage, and assigned PIC for your projects"
+    ? "Pendapatan, tahap pekerjaan, dan PIC pada proyek Anda"
     : userRole === "HEAD_SA"
-    ? "Current projects, assigned PICs, and delivery status"
+    ? "Proyek berjalan, PIC, dan status pekerjaan"
     : userRole === "SA"
-    ? "Current stages and deadlines for projects assigned to you"
-    : "Current progress across active and planning projects";
+    ? "Tahap dan tenggat pada proyek yang Anda tangani"
+    : "Perkembangan proyek aktif dan dalam perencanaan";
   const projectProgressIds = new Set(projectProgress.map((project) => project.id));
   const isProjectDeliveryLoading = dashboardQuery.isLoading && projectsQuery.isLoading;
   const hasProjectDeliveryError = dashboardQuery.isError && projectsQuery.isError;
@@ -966,7 +985,7 @@ export default function DashboardPage() {
           <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">{roleContent.description}</p>
           {nextTask && (
             <p className="mt-3 break-words text-sm text-muted-foreground">
-              <span className="font-medium text-foreground">Next:</span> {nextTask.title}
+              <span className="font-medium text-foreground">Berikutnya:</span> {nextTask.title}
             </p>
           )}
         </div>
@@ -983,7 +1002,7 @@ export default function DashboardPage() {
           </Link>
         ) : (
           <Link href="/projects" className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline">
-            View projects
+            Lihat proyek
             <ArrowRight className="h-4 w-4" />
           </Link>
         )}
@@ -993,14 +1012,14 @@ export default function DashboardPage() {
         <div className="flex flex-col gap-3 rounded-lg border border-[hsl(var(--warning)/0.3)] bg-[hsl(var(--warning)/0.08)] p-4 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-start gap-3">
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-[hsl(var(--warning))]" />
-            <p>Part of this page didn&apos;t load. The available data is still shown below.</p>
+            <p>Sebagian data gagal dimuat. Data yang tersedia tetap ditampilkan.</p>
           </div>
           <button
             type="button"
             onClick={retryVisibleQueries}
             className="text-left text-sm font-medium text-foreground underline underline-offset-4 hover:text-primary sm:text-right"
           >
-            Try again
+            Coba lagi
           </button>
         </div>
       )}
@@ -1026,10 +1045,10 @@ export default function DashboardPage() {
 
       {userRole === "SALES" && !dashboardQuery.isLoading && !dashboardQuery.isError && salesResults && (
         <section aria-label="Sales project results" className="grid gap-4 border-y border-border py-4 text-sm sm:grid-cols-2 lg:grid-cols-4">
-          <div><p className="text-muted-foreground">Waiting result</p><p className="font-semibold">{salesResults.waitingResult.count} projects</p><p className="text-xs text-muted-foreground">Estimated {formatRevenue(salesResults.waitingResult.estimatedRevenue)}</p></div>
-          <div><p className="text-muted-foreground">Won</p><p className="font-semibold">{salesResults.won.count} projects</p><p className="text-xs text-muted-foreground">Estimated {formatRevenue(salesResults.won.estimatedRevenue)}</p></div>
-          <div><p className="text-muted-foreground">Lost</p><p className="font-semibold">{salesResults.lost.count} projects</p><p className="text-xs text-muted-foreground">Estimated {formatRevenue(salesResults.lost.estimatedRevenue)}</p></div>
-          <div><p className="text-muted-foreground">Final contract value</p><p className="font-semibold">{formatRevenue(salesResults.finalContractValueTotal)}</p><p className="text-xs text-muted-foreground">Won projects only</p></div>
+          <div><p className="text-muted-foreground">Menunggu hasil</p><p className="font-semibold">{salesResults.waitingResult.count} proyek</p><p className="text-xs text-muted-foreground">Estimasi {formatRevenue(salesResults.waitingResult.estimatedRevenue)}</p></div>
+          <div><p className="text-muted-foreground">Menang</p><p className="font-semibold">{salesResults.won.count} proyek</p><p className="text-xs text-muted-foreground">Estimasi {formatRevenue(salesResults.won.estimatedRevenue)}</p></div>
+          <div><p className="text-muted-foreground">Kalah</p><p className="font-semibold">{salesResults.lost.count} proyek</p><p className="text-xs text-muted-foreground">Estimasi {formatRevenue(salesResults.lost.estimatedRevenue)}</p></div>
+          <div><p className="text-muted-foreground">Nilai kontrak final</p><p className="font-semibold">{formatRevenue(salesResults.finalContractValueTotal)}</p><p className="text-xs text-muted-foreground">Hanya proyek menang</p></div>
         </section>
       )}
 
@@ -1065,7 +1084,7 @@ export default function DashboardPage() {
           </div>
           {projectDelivery.length > 0 && (
             <Link href="/projects" className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline">
-              View all projects
+              Lihat semua proyek
               <ArrowRight className="h-4 w-4" />
             </Link>
           )}
@@ -1073,19 +1092,19 @@ export default function DashboardPage() {
 
         {userRole === "SALES" ? (
           <div className="hidden grid-cols-[minmax(180px,1.3fr)_minmax(130px,1fr)_minmax(160px,1fr)_minmax(140px,0.9fr)_110px_auto] gap-4 border-b border-border bg-muted/40 px-5 py-3 text-xs font-medium text-muted-foreground lg:grid">
-            <span>Project</span><span>Revenue</span><span>Stage</span><span>PIC</span><span>Status</span><span>Action</span>
+            <span>Proyek</span><span>Pendapatan</span><span>Tahap</span><span>PIC</span><span>Status</span><span>Aksi</span>
           </div>
         ) : userRole === "HEAD_SA" ? (
           <div className="hidden grid-cols-[minmax(180px,1.3fr)_minmax(140px,1fr)_minmax(180px,1.1fr)_110px_minmax(150px,1fr)_auto] gap-4 border-b border-border bg-muted/40 px-5 py-3 text-xs font-medium text-muted-foreground lg:grid">
-            <span>Project</span><span>Solution Architect</span><span>Current work</span><span>Status</span><span>Progress</span><span>Action</span>
+            <span>Proyek</span><span>Solution Architect</span><span>Tugas saat ini</span><span>Status</span><span>Progres</span><span>Aksi</span>
           </div>
         ) : userRole === "SA" ? (
           <div className="hidden grid-cols-[minmax(180px,1.3fr)_minmax(140px,1fr)_minmax(180px,1.1fr)_minmax(140px,0.9fr)_110px_auto] gap-4 border-b border-border bg-muted/40 px-5 py-3 text-xs font-medium text-muted-foreground lg:grid">
-            <span>Project</span><span>Customer</span><span>Current work</span><span>Deadline</span><span>Status</span><span>Action</span>
+            <span>Proyek</span><span>Pelanggan</span><span>Tugas saat ini</span><span>Tenggat</span><span>Status</span><span>Aksi</span>
           </div>
         ) : (
           <div className="hidden grid-cols-[minmax(170px,1.4fr)_minmax(110px,0.9fr)_110px_minmax(145px,1fr)_minmax(135px,1fr)_minmax(110px,0.9fr)_auto] gap-4 border-b border-border bg-muted/40 px-5 py-3 text-xs font-medium text-muted-foreground lg:grid">
-            <span>Project</span><span>Customer</span><span>Status</span><span>Progress</span><span>Deadline / Risk</span><span>Owner</span><span>Action</span>
+            <span>Proyek</span><span>Pelanggan</span><span>Status</span><span>Progres</span><span>Tenggat / Risiko</span><span>Pemilik</span><span>Aksi</span>
           </div>
         )}
 
@@ -1106,21 +1125,21 @@ export default function DashboardPage() {
           </div>
         ) : hasProjectDeliveryError ? (
           <div className="px-5 py-8 text-sm text-muted-foreground">
-            Couldn&apos;t load project delivery. Try again from the notice above.
+            Data proyek gagal dimuat. Coba lagi melalui pemberitahuan di atas.
           </div>
         ) : (
           <div className="flex flex-col items-start gap-3 px-5 py-8">
-            <p className="text-sm font-medium text-foreground">No project delivery data yet</p>
-            <p className="text-sm text-muted-foreground">Projects available to your role will appear here.</p>
-            <Link href="/projects" className="text-sm font-medium text-primary hover:underline">View projects</Link>
+            <p className="text-sm font-medium text-foreground">Belum ada data proyek</p>
+            <p className="text-sm text-muted-foreground">Proyek yang dapat Anda akses akan tampil di sini.</p>
+            <Link href="/projects" className="text-sm font-medium text-primary hover:underline">Lihat proyek</Link>
           </div>
         )}
       </section>
 
       <section aria-labelledby="recent-activity-heading" className="overflow-hidden rounded-xl border border-border bg-card">
         <div className="border-b border-border px-5 py-5">
-          <h2 id="recent-activity-heading" className="text-base font-semibold text-foreground">Recent activity</h2>
-          <p className="mt-1 text-sm text-muted-foreground">Latest changes across your accessible projects</p>
+          <h2 id="recent-activity-heading" className="text-base font-semibold text-foreground">Aktivitas terbaru</h2>
+          <p className="mt-1 text-sm text-muted-foreground">Perubahan terbaru pada proyek yang dapat Anda akses</p>
         </div>
 
         {dashboardQuery.isLoading && recentActivity.length === 0 ? (

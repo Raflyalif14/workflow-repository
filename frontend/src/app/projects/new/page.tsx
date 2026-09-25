@@ -63,8 +63,8 @@ function getProjectValidationError({
   photos: File[];
   documents: File[];
 }): string | null {
-  if (!name.trim()) return "Project name is required.";
-  if (!customer.trim()) return "Customer is required.";
+  if (!name.trim()) return "Nama proyek wajib diisi.";
+  if (!customer.trim()) return "Pelanggan wajib diisi.";
   if (!scenarioId) return "Please select an active scenario.";
   if (!estimatedRevenue.trim()) return "Estimated revenue is required.";
   const revenueValue = Number(estimatedRevenue);
@@ -83,8 +83,7 @@ function getScenarioDisplayName(scenarioName: string): string {
   return SCENARIO_DEFINITIONS[key].label;
 }
 
-function getScenarioContext(name?: string, description?: string | null): string {
-  if (description?.trim()) return description;
+function getScenarioContext(name?: string): string {
   const key = resolveScenarioKey(name);
   return SCENARIO_DEFINITIONS[key].description;
 }
@@ -258,7 +257,7 @@ export default function NewProjectPage() {
       setFileSelectionError(null);
       router.push(`/projects/${project.id}`);
     } catch (error) {
-      setSubmitError(error instanceof Error ? error.message : "Failed to create project.");
+      setSubmitError(error instanceof Error ? error.message : "Proyek gagal dibuat.");
     }
   };
 
@@ -266,10 +265,10 @@ export default function NewProjectPage() {
     <div className="mx-auto w-full max-w-[1280px] px-4 py-7 sm:px-6 lg:px-8 lg:py-9">
       <header className="mb-7 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div className="min-w-0">
-          <p className="text-xs font-semibold uppercase text-primary">Sales workspace</p>
-          <h1 className="mt-2 text-2xl font-semibold text-foreground sm:text-3xl">Create project</h1>
+          <p className="text-xs font-semibold uppercase text-primary">Ruang kerja Sales</p>
+          <h1 className="mt-2 text-2xl font-semibold text-foreground sm:text-3xl">Buat proyek</h1>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
-            Add the customer details and Project Intake evidence needed to begin planning.
+            Isi data pelanggan dan lampirkan bukti awal untuk memulai perencanaan proyek.
           </p>
         </div>
         <Button
@@ -280,21 +279,21 @@ export default function NewProjectPage() {
           disabled={create.isPending}
         >
           <ArrowLeft className="h-4 w-4" />
-          Back to projects
+          Kembali ke proyek
         </Button>
       </header>
 
       <form onSubmit={submit} className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
         <div className="overflow-hidden rounded-lg border border-border bg-card">
           <section className="border-b border-border px-5 py-6 sm:px-7">
-            <SectionHeading number="01" title="Project information">
-              Identify the engagement and customer.
+            <SectionHeading number="01" title="Informasi proyek">
+              Tentukan nama proyek dan pelanggan.
             </SectionHeading>
 
             <div className="grid gap-5 sm:grid-cols-2">
               <div>
                 <label className="mb-2 block text-sm font-medium" htmlFor="project-name">
-                  Project name <span className="text-destructive" aria-hidden="true">*</span>
+                  Nama proyek <span className="text-destructive" aria-hidden="true">*</span>
                 </label>
                 <Input
                   id="project-name"
@@ -303,19 +302,19 @@ export default function NewProjectPage() {
                     setName(event.target.value);
                     clearError();
                   }}
-                  placeholder="e.g. Customer service modernization"
+                  placeholder="Contoh: Modernisasi layanan pelanggan"
                   disabled={create.isPending}
                   aria-invalid={submitAttempted && !name.trim()}
                   aria-describedby={submitAttempted && !name.trim() ? "project-name-error" : undefined}
                 />
                 {submitAttempted && !name.trim() && (
-                  <p id="project-name-error" className="mt-1.5 text-xs text-destructive">Project name is required.</p>
+                  <p id="project-name-error" className="mt-1.5 text-xs text-destructive">Nama proyek wajib diisi.</p>
                 )}
               </div>
 
               <div>
                 <label className="mb-2 block text-sm font-medium" htmlFor="project-customer">
-                  Customer <span className="text-destructive" aria-hidden="true">*</span>
+                  Pelanggan <span className="text-destructive" aria-hidden="true">*</span>
                 </label>
                 <Input
                   id="project-customer"
@@ -324,19 +323,19 @@ export default function NewProjectPage() {
                     setCustomer(event.target.value);
                     clearError();
                   }}
-                  placeholder="e.g. PT Nusantara"
+                  placeholder="Contoh: PT Nusantara"
                   disabled={create.isPending}
                   aria-invalid={submitAttempted && !customer.trim()}
                   aria-describedby={submitAttempted && !customer.trim() ? "project-customer-error" : undefined}
                 />
                 {submitAttempted && !customer.trim() && (
-                  <p id="project-customer-error" className="mt-1.5 text-xs text-destructive">Customer is required.</p>
+                  <p id="project-customer-error" className="mt-1.5 text-xs text-destructive">Pelanggan wajib diisi.</p>
                 )}
               </div>
 
               <div className="sm:col-span-2">
                 <label className="mb-2 block text-sm font-medium" htmlFor="project-estimated-revenue">
-                  Estimated Revenue <span className="text-destructive" aria-hidden="true">*</span>
+                  Estimasi pendapatan <span className="text-destructive" aria-hidden="true">*</span>
                 </label>
                 <Input
                   id="project-estimated-revenue"
@@ -353,21 +352,21 @@ export default function NewProjectPage() {
                   disabled={create.isPending}
                   aria-invalid={submitAttempted && (!estimatedRevenue.trim() || !Number.isFinite(Number(estimatedRevenue)) || Number(estimatedRevenue) < 0)}
                 />
-                <p className="mt-1.5 text-xs text-muted-foreground">Enter the estimated project revenue in IDR.</p>
+                <p className="mt-1.5 text-xs text-muted-foreground">Masukkan estimasi pendapatan proyek dalam rupiah.</p>
                 {submitAttempted && (!estimatedRevenue.trim() || !Number.isFinite(Number(estimatedRevenue)) || Number(estimatedRevenue) < 0) && (
-                  <p className="mt-1.5 text-xs text-destructive">Estimated revenue is required and must be a valid non-negative amount.</p>
+                  <p className="mt-1.5 text-xs text-destructive">Estimasi pendapatan wajib diisi dengan angka nol atau lebih.</p>
                 )}
               </div>
             </div>
           </section>
 
           <section className="border-b border-border px-5 py-6 sm:px-7">
-            <SectionHeading number="02" title="Workflow scenario">
-              Choose the workflow that matches the customer context.
+            <SectionHeading number="02" title="Skenario proyek">
+              Pilih skenario yang sesuai dengan kebutuhan pelanggan.
             </SectionHeading>
 
             <label className="mb-2 block text-sm font-medium" htmlFor="project-scenario">
-              Scenario <span className="text-destructive" aria-hidden="true">*</span>
+              Skenario <span className="text-destructive" aria-hidden="true">*</span>
             </label>
             <select
               id="project-scenario"
@@ -382,7 +381,7 @@ export default function NewProjectPage() {
               aria-invalid={submitAttempted && !scenarioId}
               aria-describedby="project-scenario-context"
             >
-              <option value="">{isLoading ? "Loading scenarios..." : "Select scenario"}</option>
+              <option value="">{isLoading ? "Memuat skenario..." : "Pilih skenario"}</option>
               {scenarios.map((scenario) => (
                 <option key={scenario.id} value={scenario.id}>
                   {getScenarioDisplayName(scenario.name)}
@@ -391,11 +390,11 @@ export default function NewProjectPage() {
             </select>
             <p id="project-scenario-context" className="mt-2 text-xs leading-5 text-muted-foreground">
               {selectedScenario
-                ? getScenarioContext(selectedScenario.name, selectedScenario.description)
+                ? getScenarioContext(selectedScenario.name)
                 : "Pilih Pra-Tender atau On Submission Tender sesuai konteks penugasan."}
             </p>
             {submitAttempted && !scenarioId && (
-              <p className="mt-1.5 text-xs text-destructive">Please select an active scenario.</p>
+              <p className="mt-1.5 text-xs text-destructive">Pilih skenario yang aktif.</p>
             )}
 
             {/* Output Document Checklist Panel */}
@@ -405,7 +404,7 @@ export default function NewProjectPage() {
                   <div>
                     <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
                       <FileCheck className="h-4 w-4 text-primary" />
-                      Output Document Checklist
+                      Daftar output dokumen
                     </h3>
                     <p className="text-xs text-muted-foreground mt-0.5">
                       Dokumen Wajib otomatis terpilih. Centang dokumen Opsional yang dibutuhkan untuk proyek ini.
@@ -470,17 +469,17 @@ export default function NewProjectPage() {
           </section>
 
           <section className="border-b border-border px-5 py-6 sm:px-7">
-            <SectionHeading number="03" title="Project Intake">
-              Provide the meeting record and visual evidence needed for planning and review.
+            <SectionHeading number="03" title="Bukti awal proyek">
+              Lampirkan notulen dan foto untuk perencanaan serta peninjauan.
             </SectionHeading>
 
             <div className="grid gap-6 xl:grid-cols-2">
               <div className="min-w-0">
                 <div className="mb-3">
                   <label className="text-sm font-medium" htmlFor="project-mom">
-                    Meeting record / MoM PDF <span className="text-destructive" aria-hidden="true">*</span>
+                    Notulen rapat (MoM) PDF <span className="text-destructive" aria-hidden="true">*</span>
                   </label>
-                  <p className="mt-1 text-xs leading-5 text-muted-foreground">Exactly one PDF file, up to 50 MB.</p>
+                  <p className="mt-1 text-xs leading-5 text-muted-foreground">Tepat satu berkas PDF, maksimal 50 MB.</p>
                 </div>
                 <Input
                   ref={momInputRef}
@@ -515,17 +514,17 @@ export default function NewProjectPage() {
                     />
                   </div>
                 ) : submitAttempted ? (
-                  <p className="mt-1.5 text-xs text-destructive">A MoM PDF is required.</p>
+                  <p className="mt-1.5 text-xs text-destructive">PDF MoM wajib dilampirkan.</p>
                 ) : null}
               </div>
 
               <div className="min-w-0">
                 <div className="mb-3">
                   <label className="text-sm font-medium" htmlFor="project-photos">
-                    Image evidence <span className="text-destructive" aria-hidden="true">*</span>
+                    Foto proyek <span className="text-destructive" aria-hidden="true">*</span>
                   </label>
                   <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                    JPG, JPEG, or PNG. Add 1-{MAX_PROJECT_PHOTOS} images, up to 50 MB each.
+                    JPG, JPEG, atau PNG. Lampirkan 1-{MAX_PROJECT_PHOTOS} foto, maksimal 50 MB per foto.
                   </p>
                 </div>
                 <Input
@@ -557,7 +556,7 @@ export default function NewProjectPage() {
                     ))}
                   </div>
                 ) : submitAttempted ? (
-                  <p className="mt-1.5 text-xs text-destructive">At least one image is required.</p>
+                  <p className="mt-1.5 text-xs text-destructive">Minimal satu foto wajib dilampirkan.</p>
                 ) : null}
               </div>
             </div>
@@ -571,13 +570,13 @@ export default function NewProjectPage() {
           </section>
 
           <section className="px-5 py-6 sm:px-7">
-            <SectionHeading number="04" title="Supporting documents" muted>
-              Optional files that provide additional context for Project Intake.
+            <SectionHeading number="04" title="Dokumen pendukung" muted>
+              Berkas tambahan untuk melengkapi bukti awal proyek.
             </SectionHeading>
 
-            <label className="mb-2 block text-sm font-medium" htmlFor="project-documents">Additional files</label>
+            <label className="mb-2 block text-sm font-medium" htmlFor="project-documents">Berkas tambahan</label>
             <p className="mb-3 text-xs leading-5 text-muted-foreground">
-              Add up to {MAX_DOCUMENT_FILES} supported files, up to 50 MB each. These remain part of Project Intake.
+              Tambahkan maksimal {MAX_DOCUMENT_FILES} berkas yang didukung, masing-masing maksimal 50 MB. Berkas ini tetap menjadi bukti awal proyek.
             </p>
             <Input
               id="project-documents"
@@ -624,30 +623,30 @@ export default function NewProjectPage() {
                 onClick={() => router.push("/projects")}
                 disabled={create.isPending}
               >
-                Cancel
+                Batal
               </Button>
               <Button type="submit" className="w-full sm:w-auto" disabled={create.isPending || Boolean(fileSelectionError)}>
-                {create.isPending ? "Creating..." : "Create project"}
+                {create.isPending ? "Membuat proyek..." : "Buat proyek"}
               </Button>
             </div>
           </div>
         </div>
 
         <aside className="rounded-lg border border-border bg-card px-5 py-5 lg:sticky lg:top-24">
-          <h2 className="text-base font-semibold text-foreground">Before you create</h2>
+          <h2 className="text-base font-semibold text-foreground">Sebelum membuat proyek</h2>
           <div className="mt-5 space-y-5">
             <ChecklistItem
-              label="Project details"
-              detail={projectDetailsComplete ? "Name, customer, and scenario are ready." : "Add a name, customer, and scenario."}
+              label="Data proyek"
+              detail={projectDetailsComplete ? "Nama, pelanggan, dan skenario sudah siap." : "Isi nama, pelanggan, dan skenario."}
               complete={projectDetailsComplete}
             />
             <ChecklistItem
               label="MoM PDF"
-              detail={mom ? mom.name : "Attach the required meeting record."}
+              detail={mom ? mom.name : "Lampirkan notulen rapat wajib."}
               complete={Boolean(mom)}
             />
             <ChecklistItem
-              label="Output Documents Checklist"
+              label="Daftar output dokumen"
               detail={
                 scenarioId
                   ? `${allSelectedDocumentKeys.length} dokumen dipilih (${mandatoryKeys.length} wajib, ${selectedOptionalKeys.length} opsional)`
@@ -656,22 +655,22 @@ export default function NewProjectPage() {
               complete={Boolean(scenarioId && allSelectedDocumentKeys.length > 0)}
             />
             <ChecklistItem
-              label="Image evidence"
-              detail={photos.length ? `${photos.length} image${photos.length === 1 ? "" : "s"} attached.` : "Attach at least one JPG or PNG image."}
+              label="Foto proyek"
+              detail={photos.length ? `${photos.length} foto dilampirkan.` : "Lampirkan minimal satu foto JPG atau PNG."}
               complete={photos.length > 0}
             />
             <ChecklistItem
-              label="Supporting files"
-              detail={documents.length ? `${documents.length} optional file${documents.length === 1 ? "" : "s"} attached.` : "No supporting files added."}
+              label="Berkas pendukung"
+              detail={documents.length ? `${documents.length} berkas tambahan dilampirkan.` : "Belum ada berkas tambahan."}
               complete={documents.length > 0}
               optional
             />
           </div>
 
           <div className="mt-6 border-t border-border pt-5">
-            <h3 className="text-sm font-semibold text-foreground">What happens next</h3>
+            <h3 className="text-sm font-semibold text-foreground">Langkah berikutnya</h3>
             <p className="mt-2 text-sm leading-6 text-muted-foreground">
-              The project will enter planning so you can configure its timeline before review.
+              Proyek masuk tahap perencanaan. Atur linimasa sebelum mengirim rencana untuk ditinjau.
             </p>
           </div>
         </aside>

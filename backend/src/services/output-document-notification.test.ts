@@ -177,6 +177,13 @@ async function main(): Promise<void> {
   assert(migration.includes('for update skip locked'));
   assert(migration.includes('on conflict (notification_id, channel) do nothing'));
   console.log('Test 6 - Migration defines transactional enqueue and idempotent delivery: passed');
+
+  const diagnostics = readFileSync(join(__dirname, '../../supabase/phase16-output-notification-outbox-diagnostics.sql'), 'utf8');
+  assert(diagnostics.includes('last_error_category = case SQLSTATE'), 'Retry failures must receive a bounded category');
+  assert(diagnostics.includes('last_attempt_at = now()') && diagnostics.includes('attempt_count = attempt_count + 1'), 'Retry failures must retain time and attempt count');
+  assert(diagnostics.includes('for update skip locked') && diagnostics.includes('on conflict (notification_id, channel) do nothing'), 'Idempotent delivery mechanics must remain');
+  assert(!/last_error\s*=\s*SQLERRM|last_error\s*=\s*SQLSTATE/i.test(diagnostics), 'Provider details must not be stored in last_error');
+  console.log('Test 7 - Outbox diagnostics capture category, attempt time, and count without provider text: passed');
 }
 
 void main().catch((error) => {

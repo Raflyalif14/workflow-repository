@@ -37,12 +37,12 @@ import type { Project } from "@/types/project";
 import type { DashboardSaWorkload } from "@/types/dashboard";
 
 const roleCases: Array<[string | undefined, string]> = [
-  ["SALES", "Sales workspace"],
-  ["HEAD_SA", "Review workspace"],
-  ["SA", "Delivery workspace"],
-  ["SUPER_ADMIN", "Operations overview"],
-  ["UNKNOWN", "Workspace"],
-  [undefined, "Workspace"],
+  ["SALES", "Ruang kerja Sales"],
+  ["HEAD_SA", "Ruang kerja Head SA"],
+  ["SA", "Ruang kerja SA"],
+  ["SUPER_ADMIN", "Ikhtisar operasional"],
+  ["UNKNOWN", "Ruang kerja"],
+  [undefined, "Ruang kerja"],
 ];
 
 for (const [role, expectedTitle] of roleCases) {
@@ -52,13 +52,13 @@ for (const [role, expectedTitle] of roleCases) {
 }
 
 const greetingCases: Array<[number, string]> = [
-  [0, "Good morning"],
-  [11, "Good morning"],
-  [12, "Good afternoon"],
-  [17, "Good afternoon"],
-  [18, "Good evening"],
-  [23, "Good evening"],
-  [-1, "Hello"],
+  [0, "Selamat pagi"],
+  [11, "Selamat pagi"],
+  [12, "Selamat siang"],
+  [17, "Selamat siang"],
+  [18, "Selamat malam"],
+  [23, "Selamat malam"],
+  [-1, "Halo"],
 ];
 
 for (const [hour, expectedGreeting] of greetingCases) {

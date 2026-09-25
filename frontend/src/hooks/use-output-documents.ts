@@ -10,6 +10,7 @@ export interface OutputDocumentsResponse {
   canRetryCompletion: boolean;
   missingMandatoryCount: number;
   missingMandatoryNames: string[];
+  unapprovedCount: number;
   documents: ProjectOutputDocumentItem[];
 }
 

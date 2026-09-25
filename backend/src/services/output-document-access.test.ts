@@ -168,6 +168,7 @@ async function main(): Promise<void> {
       const internal = response.documents.find((item) => item.key === nonFinalKey);
       assert(internal?.fileName === 'internal-draft.pdf', 'Test 1: Head SA and assigned PIC retain non-final metadata');
       assert(internal?.currentVersionId === 'version-internal', 'Test 1: Head SA and assigned PIC retain the version token required for CAS');
+      assert(response.missingMandatoryNames.length > 0, 'Test 1: authorized reviewers retain missing output names');
     }
     console.log('Test 1 - Head SA and assigned PIC can view current non-final output evidence: passed');
   });
@@ -177,6 +178,8 @@ async function main(): Promise<void> {
       const response = await OutputDocumentService.list(projectId, actor);
       assert(response.documents.every((item) => item.status === 'APPROVED'), 'Test 2: non-final output rows must not be returned to Sales or SUPER_ADMIN');
       assert(response.documents.length === 1 && response.documents[0].key === approvedKey, 'Test 2: approved output remains available through project access');
+      assert.deepEqual(response.missingMandatoryNames, [], 'Test 2: non-final output names must not leak through readiness metadata');
+      assert.equal(response.unapprovedCount, 3, 'Test 2: only aggregate readiness is visible');
     }
     console.log('Test 2 - Sales owner and SUPER_ADMIN receive approved outputs only: passed');
   });

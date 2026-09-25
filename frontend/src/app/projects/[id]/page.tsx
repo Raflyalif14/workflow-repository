@@ -37,6 +37,7 @@ import { ProjectDeletionDangerZone } from "@/components/projects/project-deletio
 import { ProjectTimelineEditor } from "@/components/projects/project-timeline-editor";
 import { SalesMilestoneDocumentUploadDialog } from "@/components/projects/sales-milestone-document-upload-dialog";
 import { OutputDocumentsSection } from "@/components/projects/output-documents-section";
+import { useOutputDocuments } from "@/hooks/use-output-documents";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -111,7 +112,7 @@ import {
 
 function formatIdr(value: number | null | undefined): string {
   return value === null || value === undefined
-    ? "Not available"
+    ? "Belum tersedia"
     : new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(value);
 }
 
@@ -121,6 +122,7 @@ export default function ProjectDetailPage() {
   const { user } = useAuth();
   const { data: project, isLoading: projectLoading, isError } = useProject(id);
   const { data: milestones = [], isLoading: milestonesLoading } = useProjectMilestones(id);
+  const outputReadiness = useOutputDocuments(id);
   const { data: progress } = useProjectProgress(id);
   const { data: planApproval } = useProjectPlanApproval(id);
   const approvalQueries = useMilestoneApprovalStates(milestones, Boolean(milestones.length));
@@ -162,10 +164,10 @@ export default function ProjectDetailPage() {
     return (
       <div className="container py-16 text-center space-y-3">
         <AlertTriangle className="h-10 w-10 text-destructive mx-auto" />
-        <h2 className="text-lg font-bold text-foreground">Project Not Found</h2>
-        <p className="text-xs text-muted-foreground">The requested project does not exist or you do not have permission.</p>
+        <h2 className="text-lg font-bold text-foreground">Proyek tidak ditemukan</h2>
+        <p className="text-xs text-muted-foreground">Proyek tidak tersedia atau Anda tidak memiliki akses.</p>
         <Button variant="outline" size="sm" onClick={() => router.push("/projects")}>
-          Back to Projects
+          Kembali ke proyek
         </Button>
       </div>
     );
@@ -178,6 +180,12 @@ export default function ProjectDetailPage() {
   const isPostponed = project.status === "POSTPONED" || project.is_postponed;
   const isCompleted = ["COMPLETED", "WAITING_RESULT", "WON", "LOST"].includes(project.status);
   const isWaitingResult = project.status === "WAITING_RESULT";
+  const unfinishedMilestones = milestones.filter((milestone) => !isMilestoneCompleted(milestone));
+  const unapprovedOutputCount = outputReadiness.data?.unapprovedCount ?? 0;
+  const canSeeOutputNames = isHeadSa || ((user?.role === "SA" || user?.role === "HEAD_SA") && project.pic?.id === user?.id);
+  const pendingOutputNames = canSeeOutputNames
+    ? outputReadiness.data?.documents.filter((item) => (item.isRequired || item.isSelected) && item.status !== "APPROVED").map((item) => item.name) || []
+    : [];
   const isHeadSaPlanReviewWorkspace =
     isHeadSa && isDraft && planApproval?.status === "PENDING";
 
@@ -293,7 +301,7 @@ export default function ProjectDetailPage() {
       {/* Back Button */}
       <Button variant="ghost" size="sm" className="-ml-2 h-8 gap-1.5 text-muted-foreground hover:text-foreground" onClick={() => router.push("/projects")}>
         <ArrowLeft className="h-4 w-4" />
-        <span>Back to Projects</span>
+        <span>Kembali ke proyek</span>
       </Button>
 
       {/* Header */}
@@ -304,14 +312,14 @@ export default function ProjectDetailPage() {
           </div>
           <h1 className="text-2xl font-semibold text-foreground sm:text-3xl">{project.name}</h1>
           <p className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-sm text-muted-foreground">
-            Customer: <strong className="text-foreground">{project.customer}</strong> • Scenario:{" "}
-            <strong className="text-foreground">{project.scenario?.name || "No scenario"}</strong>
+            Pelanggan: <strong className="text-foreground">{project.customer}</strong> • Skenario:{" "}
+            <strong className="text-foreground">{project.scenario?.name || "Belum ada skenario"}</strong>
           </p>
           <p className="text-sm text-muted-foreground">
-            Sales owner: <strong className="text-foreground">{project.sales?.full_name || project.sales?.fullName || "Unassigned"}</strong>
+            Sales pemilik: <strong className="text-foreground">{project.sales?.full_name || project.sales?.fullName || "Belum ditetapkan"}</strong>
           </p>
           <p className="text-sm text-muted-foreground">
-            Estimated revenue: <strong className="text-foreground">{formatIdr(project.estimated_revenue)}</strong>
+            Estimasi pendapatan: <strong className="text-foreground">{formatIdr(project.estimated_revenue)}</strong>
           </p>
         </div>
 
@@ -319,7 +327,7 @@ export default function ProjectDetailPage() {
           {isActive && isSalesOwner && (
             <Button size="sm" variant="outline" className="h-9 gap-1.5 rounded-lg" onClick={() => setPostponeOpen(true)}>
               <PauseCircle className="h-4 w-4 text-amber-400" />
-              <span>Postpone Project</span>
+              <span>Tunda proyek</span>
             </Button>
           )}
         </div>
@@ -347,22 +355,41 @@ export default function ProjectDetailPage() {
         isResuming={resumeProject.isPending}
       />
 
+      {(isActive || isPostponed) && (
+        <section aria-label="Hal yang masih tertunda" className="rounded-lg border border-border/60 bg-card/70 p-4 text-sm sm:p-5">
+          <h2 className="font-semibold text-foreground">Hal yang masih tertunda</h2>
+          {milestonesLoading || outputReadiness.isLoading ? (
+            <p className="mt-2 text-muted-foreground">Memeriksa progres proyek...</p>
+          ) : outputReadiness.isError ? (
+            <p className="mt-2 text-muted-foreground">Status output belum dapat dimuat. Coba muat ulang halaman.</p>
+          ) : (
+            <div className="mt-2 space-y-1 text-muted-foreground">
+              {unfinishedMilestones.length > 0 && <p>{unfinishedMilestones.length} milestone belum selesai. Lanjutkan tugas pada tahap aktif.</p>}
+              {unapprovedOutputCount > 0 && <p>{unapprovedOutputCount} output yang disepakati belum disetujui. {canSeeOutputNames ? "Selesaikan unggah, pengajuan, atau peninjauan output berikutnya." : "Tunggu penyelesaian dan peninjauan oleh tim SA."}</p>}
+              {pendingOutputNames.length > 0 && <p className="break-words">Output yang perlu ditindaklanjuti: {pendingOutputNames.join(", ")}.</p>}
+              {unfinishedMilestones.length === 0 && unapprovedOutputCount === 0 && <p>Semua milestone dan output telah selesai. Jika status proyek belum berubah, gunakan Coba lagi penyelesaian pada bagian Output dokumen.</p>}
+              {isPostponed && <p>Proyek sedang ditunda. Sales perlu melanjutkan proyek sebelum pekerjaan dapat diteruskan.</p>}
+            </div>
+          )}
+        </section>
+      )}
+
       {/* ─── Postponed Banner ─── */}
       {isPostponed && (
         <div className="space-y-3 rounded-lg border border-amber-500/30 bg-amber-500/10 p-4 sm:p-5">
           <div className="flex items-center gap-2 text-sm font-semibold tracking-tight text-amber-400">
             <PauseCircle className="h-5 w-5 shrink-0" />
-            <span>Project Postponed</span>
+            <span>Proyek ditunda</span>
           </div>
           <p className="text-xs text-muted-foreground leading-relaxed">
             {project.postpone_reason
-              ? `Reason: "${project.postpone_reason}"`
-              : "This project has been placed on hold by the Sales owner."}
-            {" "}Workflow actions and milestone submissions are temporarily disabled while the project is postponed.
+              ? `Alasan: "${project.postpone_reason}"`
+              : "Proyek ini ditunda oleh Sales pemilik."}
+            {" "}Aksi pekerjaan dan pengajuan milestone tidak tersedia sementara proyek ditunda.
           </p>
           {project.postponed_at && (
             <p className="text-[11px] font-mono text-muted-foreground">
-              Postponed on: {formatDateTime(project.postponed_at)}
+              Ditunda pada: {formatDateTime(project.postponed_at)}
             </p>
           )}
         </div>
@@ -374,10 +401,10 @@ export default function ProjectDetailPage() {
           <div className="space-y-1">
             <div className="flex items-center gap-2 text-sm font-semibold text-amber-300">
               <Clock3 className="h-5 w-5 shrink-0" />
-              <span>Delivery complete - waiting for tender result</span>
+              <span>Pekerjaan selesai - menunggu hasil tender</span>
             </div>
             <p className="text-xs leading-5 text-muted-foreground">
-              All milestones are complete. The Sales owner must record whether the project was won or lost.
+              Semua milestone selesai. Sales pemilik perlu mencatat apakah proyek menang atau kalah.
             </p>
           </div>
           {isSalesOwner && (
@@ -392,7 +419,7 @@ export default function ProjectDetailPage() {
                   setOutcomeDecision("WON");
                 }}
               >
-                Mark Won
+                Catat menang
               </Button>
               <Button
                 type="button"
@@ -405,7 +432,7 @@ export default function ProjectDetailPage() {
                   setOutcomeDecision("LOST");
                 }}
               >
-                Mark Lost
+                Catat kalah
               </Button>
             </div>
           )}
@@ -419,11 +446,11 @@ export default function ProjectDetailPage() {
         }}
       >
         <DialogHeader>
-          <DialogTitle>{outcomeDecision === "WON" ? "Record won project" : "Record lost project"}</DialogTitle>
+          <DialogTitle>{outcomeDecision === "WON" ? "Catat proyek menang" : "Catat proyek kalah"}</DialogTitle>
           <DialogDescription>
             {outcomeDecision === "WON"
-              ? "Provide the final contract value before recording this result."
-              : "Provide the reason this project was lost before recording this result."}
+              ? "Isi nilai kontrak final sebelum mencatat hasil."
+              : "Isi alasan kekalahan sebelum mencatat hasil."}
           </DialogDescription>
         </DialogHeader>
         <form
@@ -436,7 +463,7 @@ export default function ProjectDetailPage() {
           {outcomeDecision === "WON" ? (
             <div>
               <label htmlFor="final-contract-value" className="mb-1 block text-xs font-semibold text-muted-foreground">
-                Final Contract Value (IDR)
+                Nilai kontrak final (IDR)
               </label>
               <Input
                 id="final-contract-value"
@@ -453,7 +480,7 @@ export default function ProjectDetailPage() {
           ) : (
             <div>
               <label htmlFor="loss-reason" className="mb-1 block text-xs font-semibold text-muted-foreground">
-                Loss Reason
+                Alasan kekalahan
               </label>
               <textarea
                 id="loss-reason"
@@ -468,10 +495,10 @@ export default function ProjectDetailPage() {
           )}
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => setOutcomeDecision(null)} disabled={setProjectOutcome.isPending}>
-              Cancel
+              Batal
             </Button>
             <Button type="submit" disabled={setProjectOutcome.isPending}>
-              {setProjectOutcome.isPending ? "Saving..." : outcomeDecision === "WON" ? "Record Won" : "Record Lost"}
+              {setProjectOutcome.isPending ? "Menyimpan..." : outcomeDecision === "WON" ? "Catat menang" : "Catat kalah"}
             </Button>
           </DialogFooter>
         </form>
@@ -482,16 +509,16 @@ export default function ProjectDetailPage() {
           <div className="space-y-1">
             <div className={`flex items-center gap-2 text-sm font-semibold tracking-tight ${project.status === "LOST" ? "text-destructive" : "text-emerald-400"}`}>
               <CheckCircle2 className="h-5 w-5 shrink-0" />
-              <span>{project.status === "COMPLETED" ? "Project completed" : `Project ${project.status}`} - 100%</span>
+              <span>{project.status === "COMPLETED" ? "Proyek selesai" : project.status === "WON" ? "Proyek menang" : "Proyek kalah"} - 100%</span>
             </div>
             <p className="text-xs text-muted-foreground">
-              All workflow milestones have been fulfilled and the delivery result has been recorded.
+              Semua milestone telah selesai dan hasil proyek telah dicatat.
             </p>
             {project.status === "WON" && (
-              <p className="text-xs text-muted-foreground">Final contract value: <strong className="text-foreground">{formatIdr(project.final_contract_value)}</strong></p>
+              <p className="text-xs text-muted-foreground">Nilai kontrak final: <strong className="text-foreground">{formatIdr(project.final_contract_value)}</strong></p>
             )}
             {project.status === "LOST" && project.loss_reason && (
-              <p className="text-xs text-muted-foreground">Loss reason: <strong className="text-foreground">{project.loss_reason}</strong></p>
+              <p className="text-xs text-muted-foreground">Alasan kekalahan: <strong className="text-foreground">{project.loss_reason}</strong></p>
             )}
           </div>
           <Badge variant="success" className="self-start px-3 py-1 text-xs sm:self-auto">
@@ -517,10 +544,10 @@ export default function ProjectDetailPage() {
         >
           <div className="max-w-2xl space-y-1 border-b border-border/60 pb-4">
             <h2 id="project-plan-review-heading" className="text-xl font-semibold text-foreground">
-              Review project plan
+              Tinjau rencana proyek
             </h2>
             <p className="text-sm leading-6 text-muted-foreground">
-              Review the intake evidence and proposed schedule before making a decision.
+              Tinjau bukti awal dan linimasa yang diajukan sebelum memutuskan.
             </p>
           </div>
 
@@ -557,7 +584,7 @@ export default function ProjectDetailPage() {
           <div id="project-timeline" tabIndex={-1} className="scroll-mt-20 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/60 focus:ring-offset-2 focus:ring-offset-background">
             {isSalesOwner && planApproval?.status === "REJECTED" && planApproval.review_note && (
               <div className="mb-4 border-l-2 border-destructive pl-3 text-sm text-muted-foreground">
-                <p className="font-medium text-foreground">Plan feedback</p>
+                <p className="font-medium text-foreground">Masukan rencana</p>
                 <p className="mt-1 leading-6">{planApproval.review_note}</p>
               </div>
             )}
@@ -612,10 +639,10 @@ export default function ProjectDetailPage() {
         <section className="border-b border-border/60 pb-4" aria-labelledby="delivery-progress-heading">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div className="space-y-1">
-              <h2 id="delivery-progress-heading" className="text-base font-semibold text-foreground">Delivery progress</h2>
-              <p className="text-sm text-muted-foreground">{progress?.completed || 0} of {progress?.total || milestones.length} stages completed</p>
+              <h2 id="delivery-progress-heading" className="text-base font-semibold text-foreground">Progres pekerjaan</h2>
+              <p className="text-sm text-muted-foreground">{progress?.completed || 0} dari {progress?.total || milestones.length} tahap selesai</p>
             </div>
-            <span className="text-sm font-medium text-primary">{progress?.percentage || 0}% complete</span>
+            <span className="text-sm font-medium text-primary">{progress?.percentage || 0}% selesai</span>
           </div>
           <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-secondary/80">
             <div
@@ -637,13 +664,13 @@ export default function ProjectDetailPage() {
           <CardHeader className="pb-3">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div className="space-y-1">
-                <CardTitle className="text-base font-semibold tracking-tight">Workflow stages</CardTitle>
+                <CardTitle className="text-base font-semibold tracking-tight">Tahap pekerjaan</CardTitle>
                 <CardDescription className="text-xs">
-                  Completed stages recede while the current work remains available here.
+                  Tahap selesai tetap tercatat; pekerjaan aktif dapat dilihat di sini.
                 </CardDescription>
               </div>
               <Badge variant="outline" className="self-start text-xs sm:self-auto">
-                {milestones.length} Stages
+                {milestones.length} tahap
               </Badge>
             </div>
           </CardHeader>

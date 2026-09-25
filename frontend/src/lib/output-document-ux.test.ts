@@ -52,29 +52,29 @@ const headSaMessage = (status: string, hasAssignedPic = true) => getOutputDocume
   hasAssignedPic,
 });
 
-assert(headSaMessage("TO_DO") === "Waiting for the assigned SA to upload this output.", "Head SA TO_DO copy must name the pending SA upload.");
-assert(headSaMessage("DRAFT") === "Waiting for the assigned SA to submit this output for review.", "Head SA DRAFT copy must name the pending submission.");
-assert(headSaMessage("REVISION_REQUIRED") === "Waiting for the assigned SA to upload and submit a revision.", "Head SA revision copy must name the pending revision.");
-assert(headSaMessage("APPROVED") === "Review completed.", "Head SA approved copy must confirm review completion.");
-assert(headSaMessage("TO_DO", false) === "Waiting for a Solution Architect assignment.", "Head SA copy must not imply an assigned SA when no PIC exists.");
+assert(headSaMessage("TO_DO") === "Menunggu SA yang ditugaskan mengunggah output ini.", "Head SA TO_DO copy must name the pending SA upload.");
+assert(headSaMessage("DRAFT") === "Menunggu SA yang ditugaskan mengajukan output ini.", "Head SA DRAFT copy must name the pending submission.");
+assert(headSaMessage("REVISION_REQUIRED") === "Menunggu SA yang ditugaskan mengunggah dan mengajukan revisi.", "Head SA revision copy must name the pending revision.");
+assert(headSaMessage("APPROVED") === "Peninjauan selesai.", "Head SA approved copy must confirm review completion.");
+assert(headSaMessage("TO_DO", false) === "Menunggu penetapan Solution Architect.", "Head SA copy must not imply an assigned SA when no PIC exists.");
 assert(
   getOutputDocumentContextMessage({ role: "HEAD_SA", status: "IN_REVIEW", canUpload: false, canReview: true, hasAssignedPic: true }) === null,
   "Head SA review actions must not be replaced by waiting copy."
 );
 assert(
-  getOutputDocumentContextMessage({ role: "SA", status: "IN_REVIEW", canUpload: false, canReview: false, hasAssignedPic: true }) === "Waiting for Head SA review.",
+  getOutputDocumentContextMessage({ role: "SA", status: "IN_REVIEW", canUpload: false, canReview: false, hasAssignedPic: true }) === "Menunggu peninjauan Head SA.",
   "Assigned SA IN_REVIEW copy must identify Head SA as the reviewer."
 );
 assert(
-  getOutputDocumentContextMessage({ role: "SA", status: "APPROVED", canUpload: false, canReview: false, hasAssignedPic: true }) === "Approved and available as a project deliverable.",
+  getOutputDocumentContextMessage({ role: "SA", status: "APPROVED", canUpload: false, canReview: false, hasAssignedPic: true }) === "Disetujui dan tersedia sebagai hasil proyek.",
   "Assigned SA approved copy must confirm the project deliverable."
 );
 assert(
-  getOutputDocumentContextMessage({ role: "SALES", status: "APPROVED", canUpload: false, canReview: false, hasAssignedPic: true }) === "Approved deliverable.",
+  getOutputDocumentContextMessage({ role: "SALES", status: "APPROVED", canUpload: false, canReview: false, hasAssignedPic: true }) === "Hasil proyek disetujui.",
   "Sales approved copy must remain limited to the final deliverable."
 );
 assert(
-  getOutputDocumentContextMessage({ role: "SUPER_ADMIN", status: "APPROVED", canUpload: false, canReview: false, hasAssignedPic: true }) === "Approved deliverable.",
+  getOutputDocumentContextMessage({ role: "SUPER_ADMIN", status: "APPROVED", canUpload: false, canReview: false, hasAssignedPic: true }) === "Hasil proyek disetujui.",
   "Super Admin approved copy must remain limited to the final deliverable."
 );
 assert(
@@ -82,7 +82,7 @@ assert(
   "Available actions must not be replaced by waiting copy."
 );
 assert(
-  getOutputDocumentContextMessage({ role: "SA", status: "DRAFT", canUpload: true, canReview: false, hasAssignedPic: true }) === "Ready to submit for Head SA review.",
+  getOutputDocumentContextMessage({ role: "SA", status: "DRAFT", canUpload: true, canReview: false, hasAssignedPic: true }) === "Siap diajukan untuk ditinjau Head SA.",
   "Eligible SA drafts must explain the next review action."
 );
 const presentationInput = { role: "HEAD_SA", status: "TO_DO", canUpload: false, canReview: false, hasAssignedPic: true };
@@ -93,17 +93,17 @@ assert(
   "Output document presentation helpers must not mutate their input."
 );
 assert(
-  getOutputDocumentsHeaderDescription("HEAD_SA") === "Review submitted outputs and monitor agreed project deliverables.",
+  getOutputDocumentsHeaderDescription("HEAD_SA") === "Tinjau output yang diajukan dan pantau hasil proyek yang disepakati.",
   "Head SA must receive the review-oriented output header copy."
 );
 assert(
-  getOutputDocumentsHeaderDescription("SA") === "Upload project outputs and submit drafts for Head SA review.",
+  getOutputDocumentsHeaderDescription("SA") === "Unggah output proyek dan ajukan draf untuk ditinjau Head SA.",
   "SA must receive the draft-submission-oriented output header copy."
 );
 
 const eligibleDraft = { key: "draft", status: "DRAFT", currentVersionId: "version-draft" };
 assert(
-  getOutputDocumentSubmitAction({ status: eligibleDraft.status, currentVersionId: eligibleDraft.currentVersionId, role: "SA", canUpload: true }) === "Submit for review",
+  getOutputDocumentSubmitAction({ status: eligibleDraft.status, currentVersionId: eligibleDraft.currentVersionId, role: "SA", canUpload: true }) === "Ajukan untuk ditinjau",
   "Eligible SA drafts must expose a direct submit action without selection mode."
 );
 for (const status of ["TO_DO", "IN_REVIEW", "REVISION_REQUIRED", "APPROVED"] as const) {
@@ -136,7 +136,7 @@ assert(
   "Batch eligibility must not mutate input documents."
 );
 assert(
-  getOutputDocumentSubmissionSelectionLabel("Technical Proposal") === "Select Technical Proposal for submission",
+  getOutputDocumentSubmissionSelectionLabel("Technical Proposal") === "Pilih Technical Proposal untuk diajukan",
   "Submission selection labels must include the document name."
 );
 
@@ -162,7 +162,7 @@ const reviewCandidates = [
 const originalReviewCandidates = [...reviewCandidates];
 const reviewableDocuments = getReviewableOutputDocuments(reviewCandidates, true);
 assert(
-  getOutputDocumentApproveAction({ status: "IN_REVIEW", currentVersionId: validReviewVersionA, canReview: true }) === "Approve",
+  getOutputDocumentApproveAction({ status: "IN_REVIEW", currentVersionId: validReviewVersionA, canReview: true }) === "Setujui",
   "A Head SA review with an IN_REVIEW document and valid version must expose single approval."
 );
 for (const status of ["TO_DO", "DRAFT", "REVISION_REQUIRED", "APPROVED"] as const) {
@@ -192,7 +192,7 @@ assert(
   "Select all reviews must select every eligible review and nothing else."
 );
 assert(
-  getOutputDocumentApprovalSelectionLabel("Assessment Report") === "Select Assessment Report for approval",
+  getOutputDocumentApprovalSelectionLabel("Assessment Report") === "Pilih Assessment Report untuk disetujui",
   "Approval checkbox labels must include the document name."
 );
 assert(

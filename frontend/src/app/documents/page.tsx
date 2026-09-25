@@ -25,40 +25,40 @@ import { DocumentCategory, DocumentItem, DocumentStatus } from "@/types/document
 
 const rolePageCopy: Record<string, { eyebrow: string; title: string; description: string }> = {
   SALES: {
-    eyebrow: "Project records",
-    title: "Project documents",
-    description: "Find approved project files and customer delivery records.",
+    eyebrow: "Arsip proyek",
+    title: "Dokumen proyek",
+    description: "Temukan berkas proyek yang sudah disetujui.",
   },
   HEAD_SA: {
-    eyebrow: "Delivery records",
-    title: "Review documents",
-    description: "Browse official deliverables, versions, and project discussions.",
+    eyebrow: "Arsip pekerjaan",
+    title: "Dokumen proyek",
+    description: "Telusuri dokumen resmi, versinya, dan diskusi proyek.",
   },
   SA: {
-    eyebrow: "Delivery workspace",
-    title: "Delivery documents",
-    description: "Access the official files available across your assigned work.",
+    eyebrow: "Ruang kerja SA",
+    title: "Dokumen proyek",
+    description: "Akses berkas resmi dari proyek yang Anda tangani.",
   },
   SUPER_ADMIN: {
-    eyebrow: "Repository oversight",
-    title: "Document repository",
-    description: "Inspect official project documents and their complete version history.",
+    eyebrow: "Arsip dokumen",
+    title: "Repositori dokumen",
+    description: "Telusuri dokumen resmi proyek dan riwayat versinya.",
   },
 };
 
 function getStatusBadge(status: DocumentStatus) {
   switch (status) {
     case "APPROVED":
-      return <Badge variant="success">Approved</Badge>;
+      return <Badge variant="success">Disetujui</Badge>;
     case "SUBMITTED":
     case "UNDER_REVIEW":
-      return <Badge variant="warning">Submitted</Badge>;
+      return <Badge variant="warning">Diajukan</Badge>;
     case "REJECTED":
-      return <Badge variant="destructive">Rejected</Badge>;
+      return <Badge variant="destructive">Ditolak</Badge>;
     case "SUPERSEDED":
-      return <Badge variant="outline">Superseded</Badge>;
+      return <Badge variant="outline">Versi lama</Badge>;
     default:
-      return <Badge variant="outline">Draft</Badge>;
+      return <Badge variant="outline">Draf</Badge>;
   }
 }
 
@@ -93,11 +93,11 @@ export default function DocumentsPage() {
   const documentDownload = useDocumentDownloadUrl();
   const snapshot = useMemo(
     () => [
-      { label: "Visible documents", value: documents.length },
-      { label: "Approved", value: documents.filter((item) => item.status === "APPROVED").length },
-      { label: "Milestone linked", value: documents.filter((item) => Boolean(item.milestoneId)).length },
+      { label: "Dokumen tersedia", value: documents.length },
+      { label: "Disetujui", value: documents.filter((item) => item.status === "APPROVED").length },
+      { label: "Terkait milestone", value: documents.filter((item) => Boolean(item.milestoneId)).length },
       {
-        label: "Document versions",
+        label: "Versi dokumen",
         value: documents.reduce(
           (total, item) => total + (item._count?.versions ?? item.versions?.length ?? 0),
           0
@@ -119,7 +119,7 @@ export default function DocumentsPage() {
       link.click();
     } catch (error) {
       setDownloadError(
-        error instanceof Error ? error.message : "Failed to download document."
+        error instanceof Error ? error.message : "Gagal mengunduh dokumen."
       );
     }
   };
@@ -138,8 +138,8 @@ export default function DocumentsPage() {
         <p className="mt-1 max-w-2xl text-sm text-muted-foreground">{pageCopy.description}</p>
       </header>
 
-      <div role="tablist" aria-label="Document collections" className="flex gap-2 border-b border-border/60 pb-2">
-        <Button role="tab" aria-selected={activeTab === "OFFICIAL"} variant={activeTab === "OFFICIAL" ? "secondary" : "ghost"} onClick={() => setActiveTab("OFFICIAL")}>Official documents</Button>
+      <div role="tablist" aria-label="Koleksi dokumen" className="flex gap-2 border-b border-border/60 pb-2">
+        <Button role="tab" aria-selected={activeTab === "OFFICIAL"} variant={activeTab === "OFFICIAL" ? "secondary" : "ghost"} onClick={() => setActiveTab("OFFICIAL")}>Dokumen resmi</Button>
         <Button role="tab" aria-selected={activeTab === "OUTPUT"} variant={activeTab === "OUTPUT" ? "secondary" : "ghost"} onClick={() => setActiveTab("OUTPUT")}>Output dokumen</Button>
       </div>
 
@@ -147,7 +147,7 @@ export default function DocumentsPage() {
       <>
 
       <section
-        aria-label="Document snapshot"
+        aria-label="Ringkasan dokumen"
         className="grid grid-cols-2 overflow-hidden rounded-lg border border-border/60 bg-card lg:grid-cols-4"
       >
         {snapshot.map((item, index) => (
@@ -168,9 +168,9 @@ export default function DocumentsPage() {
       <section className="overflow-hidden rounded-lg border border-border/60 bg-card">
         <div className="space-y-4 border-b border-border/60 p-4 sm:p-5">
           <div>
-            <h2 className="text-base font-semibold text-foreground">Official documents</h2>
+            <h2 className="text-base font-semibold text-foreground">Dokumen resmi</h2>
             <p className="text-xs text-muted-foreground">
-              Repository files remain separate from Project Intake and pending submissions.
+              Dokumen resmi terpisah dari bukti awal proyek dan pengajuan yang belum disetujui.
             </p>
           </div>
           <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_220px_180px_auto]">
@@ -178,22 +178,22 @@ export default function DocumentsPage() {
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 type="text"
-                placeholder="Search document title"
-                aria-label="Search documents"
+                placeholder="Cari judul dokumen"
+                aria-label="Cari dokumen"
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
                 className="pl-9"
               />
             </div>
             <select
-              aria-label="Filter documents by category"
+              aria-label="Saring dokumen berdasarkan kategori"
               value={categoryFilter}
               onChange={(event) =>
                 setCategoryFilter(event.target.value as DocumentCategory | "ALL")
               }
               className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
             >
-              <option value="ALL">All categories</option>
+              <option value="ALL">Semua kategori</option>
               <option value="PROPOSAL">Proposal</option>
               <option value="ARCHITECTURE_DESIGN">Architecture Design</option>
               <option value="SIZING_SHEET">Sizing Sheet</option>
@@ -204,18 +204,18 @@ export default function DocumentsPage() {
               <option value="OTHER">Other</option>
             </select>
             <select
-              aria-label="Filter documents by status"
+              aria-label="Saring dokumen berdasarkan status"
               value={statusFilter}
               onChange={(event) =>
                 setStatusFilter(event.target.value as DocumentStatus | "ALL")
               }
               className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
             >
-              <option value="ALL">All statuses</option>
-              <option value="APPROVED">Approved</option>
-              <option value="SUBMITTED">Submitted</option>
-              <option value="REJECTED">Rejected</option>
-              <option value="DRAFT">Draft</option>
+              <option value="ALL">Semua status</option>
+              <option value="APPROVED">Disetujui</option>
+              <option value="SUBMITTED">Diajukan</option>
+              <option value="REJECTED">Ditolak</option>
+              <option value="DRAFT">Draf</option>
             </select>
             <Button
               variant="ghost"
@@ -225,7 +225,7 @@ export default function DocumentsPage() {
               onClick={resetFilters}
             >
               <X className="h-3.5 w-3.5" />
-              Reset
+              Atur ulang
             </Button>
           </div>
           {downloadError && (
@@ -237,7 +237,7 @@ export default function DocumentsPage() {
                 className="h-7 self-start px-2 sm:self-auto"
                 onClick={() => setDownloadError("")}
               >
-                Dismiss
+                Tutup
               </Button>
             </div>
           )}
@@ -245,10 +245,10 @@ export default function DocumentsPage() {
 
         {!isLoading && !isError && documents.length > 0 && (
           <div className="hidden grid-cols-[minmax(240px,1.7fr)_minmax(180px,1fr)_minmax(230px,1.3fr)_auto] gap-4 border-b border-border/60 px-5 py-2.5 text-[11px] font-semibold uppercase text-muted-foreground lg:grid">
-            <span>Document</span>
-            <span>Project</span>
-            <span>Latest version</span>
-            <span className="text-right">Actions</span>
+            <span>Dokumen</span>
+            <span>Proyek</span>
+            <span>Versi terbaru</span>
+            <span className="text-right">Aksi</span>
           </div>
         )}
 
@@ -260,17 +260,17 @@ export default function DocumentsPage() {
           </div>
         ) : isError ? (
           <div className="px-5 py-14 text-center">
-            <p className="font-medium text-destructive">Unable to load documents.</p>
-            <p className="mt-1 text-xs text-muted-foreground">Refresh the page and try again.</p>
+            <p className="font-medium text-destructive">Dokumen gagal dimuat.</p>
+            <p className="mt-1 text-xs text-muted-foreground">Muat ulang halaman lalu coba lagi.</p>
           </div>
         ) : documents.length === 0 ? (
           <div className="px-5 py-14 text-center">
             <FolderArchive className="mx-auto h-8 w-8 text-muted-foreground" />
-            <p className="mt-3 font-medium text-foreground">No documents found</p>
+            <p className="mt-3 font-medium text-foreground">Dokumen tidak ditemukan</p>
             <p className="mt-1 text-xs text-muted-foreground">
               {hasFilters
-                ? "Adjust the current filters to broaden the results."
-                : "Official documents will appear after a governed workflow publishes them."}
+                ? "Ubah filter untuk memperluas hasil."
+                : "Dokumen resmi akan muncul setelah disetujui melalui alur kerja."}
             </p>
           </div>
         ) : (
@@ -340,7 +340,7 @@ function OutputDocumentsTab() {
       link.rel = "noopener noreferrer";
       link.click();
     } catch (error) {
-      setDownloadError(error instanceof Error ? error.message : "Failed to download output document.");
+      setDownloadError(error instanceof Error ? error.message : "Output dokumen gagal diunduh.");
     }
   };
 
@@ -349,35 +349,35 @@ function OutputDocumentsTab() {
       <div className="space-y-4 border-b border-border/60 p-4 sm:p-5">
         <div>
           <h2 className="text-base font-semibold text-foreground">Output dokumen</h2>
-          <p className="text-xs text-muted-foreground">Project outputs remain separate from official repository documents.</p>
+          <p className="text-xs text-muted-foreground">Output proyek tetap terpisah dari dokumen resmi dalam repositori.</p>
         </div>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_220px_180px]">
           <div className="relative min-w-0">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input aria-label="Search output or project" placeholder="Search output or project" value={search} onChange={(event) => setSearch(event.target.value)} className="pl-9" />
+            <Input aria-label="Cari output atau proyek" placeholder="Cari output atau proyek" value={search} onChange={(event) => setSearch(event.target.value)} className="pl-9" />
           </div>
-          <select aria-label="Filter output group" value={group} onChange={(event) => setGroup(event.target.value as typeof group)} className="h-10 min-w-0 rounded-md border border-border bg-background px-3 text-sm text-foreground">
-            <option value="ALL">All groups</option>
+          <select aria-label="Saring kelompok output" value={group} onChange={(event) => setGroup(event.target.value as typeof group)} className="h-10 min-w-0 rounded-md border border-border bg-background px-3 text-sm text-foreground">
+            <option value="ALL">Semua kelompok</option>
             <option value="PRA_TENDER">Pra-Tender</option>
             <option value="ON_SUBMISSION_TENDER">On Submission Tender</option>
           </select>
-          <select aria-label="Filter output status" value={status} onChange={(event) => setStatus(event.target.value as typeof status)} className="h-10 min-w-0 rounded-md border border-border bg-background px-3 text-sm text-foreground">
-            <option value="ALL">All statuses</option>
-            <option value="DRAFT">Draft</option>
-            <option value="IN_REVIEW">In review</option>
-            <option value="REVISION_REQUIRED">Revision required</option>
-            <option value="APPROVED">Approved</option>
+          <select aria-label="Saring status output" value={status} onChange={(event) => setStatus(event.target.value as typeof status)} className="h-10 min-w-0 rounded-md border border-border bg-background px-3 text-sm text-foreground">
+            <option value="ALL">Semua status</option>
+            <option value="DRAFT">Draf</option>
+            <option value="IN_REVIEW">Dalam peninjauan</option>
+            <option value="REVISION_REQUIRED">Perlu revisi</option>
+            <option value="APPROVED">Disetujui</option>
           </select>
         </div>
-        {!isLoading && !isError && <p className="text-xs text-muted-foreground">{visible.length} shown of {outputs.length} accessible output files</p>}
+        {!isLoading && !isError && <p className="text-xs text-muted-foreground">{visible.length} dari {outputs.length} berkas output tersedia</p>}
         {downloadError && <p role="alert" className="text-xs text-destructive">{downloadError}</p>}
       </div>
       {isLoading ? (
-        <div className="space-y-3 p-5" aria-label="Loading output documents"><div className="h-16 animate-pulse rounded bg-muted/30" /><div className="h-16 animate-pulse rounded bg-muted/30" /></div>
+        <div className="space-y-3 p-5" aria-label="Memuat output dokumen"><div className="h-16 animate-pulse rounded bg-muted/30" /><div className="h-16 animate-pulse rounded bg-muted/30" /></div>
       ) : isError ? (
-        <p className="p-8 text-center text-sm text-destructive">Unable to load output documents. Refresh and try again.</p>
+        <p className="p-8 text-center text-sm text-destructive">Output dokumen gagal dimuat. Muat ulang halaman lalu coba lagi.</p>
       ) : visible.length === 0 ? (
-        <p className="p-8 text-center text-sm text-muted-foreground">No output files match this view.</p>
+        <p className="p-8 text-center text-sm text-muted-foreground">Tidak ada berkas output yang cocok.</p>
       ) : (
         <div>
           {visible.map((item) => (
@@ -389,7 +389,7 @@ function OutputDocumentsTab() {
               <p className="min-w-0 break-words text-xs text-muted-foreground">{item.group === "PRA_TENDER" ? "Pra-Tender" : "On Submission Tender"}</p>
               <div className="min-w-0">
                 <p className="break-words text-sm text-foreground">{item.projectName}</p>
-                <Badge variant={item.status === "APPROVED" ? "success" : item.status === "REVISION_REQUIRED" ? "destructive" : "warning"}>{formatHumanReadableLabel(item.status)}</Badge>
+                <Badge variant={item.status === "APPROVED" ? "success" : item.status === "REVISION_REQUIRED" ? "destructive" : "warning"}>{{ DRAFT: "Draf", IN_REVIEW: "Dalam peninjauan", REVISION_REQUIRED: "Perlu revisi", APPROVED: "Disetujui", TO_DO: "Belum dikerjakan", NOT_REQUIRED: "Tidak diperlukan" }[item.status]}</Badge>
               </div>
               <div className="flex flex-wrap gap-2 lg:justify-end">
                 <Link href={`/projects/${item.projectId}#output-documents`}><Button size="sm" variant="outline" className="gap-1.5"><ArrowRight className="h-3.5 w-3.5" />Buka proyek</Button></Link>
@@ -422,7 +422,7 @@ function DocumentRow({
     <div className="grid gap-4 border-t border-border/60 px-4 py-4 first:border-t-0 sm:px-5 lg:grid-cols-[minmax(240px,1.7fr)_minmax(180px,1fr)_minmax(230px,1.3fr)_auto] lg:items-center">
       <div className="min-w-0">
         <div className="flex flex-wrap items-center gap-2">
-          <Badge variant="outline">Official document</Badge>
+          <Badge variant="outline">Dokumen resmi</Badge>
           <Badge variant="secondary">{getCategoryLabel(document.category)}</Badge>
           {getStatusBadge(document.status)}
         </div>
@@ -437,13 +437,13 @@ function DocumentRow({
         </h3>
         {document.milestone && (
           <p className="mt-1 truncate text-xs text-muted-foreground">
-            Stage {document.milestone.orderIndex}: {document.milestone.name}
+            Tahap {document.milestone.orderIndex}: {document.milestone.name}
           </p>
         )}
       </div>
 
       <div className="flex min-w-0 items-center justify-between gap-3 lg:block">
-        <span className="text-[11px] font-medium text-muted-foreground lg:hidden">Project</span>
+        <span className="text-[11px] font-medium text-muted-foreground lg:hidden">Proyek</span>
         {document.project ? (
           <Link
             href={`/projects/${document.project.id}`}
@@ -457,7 +457,7 @@ function DocumentRow({
             </p>
           </Link>
         ) : (
-          <p className="text-sm text-muted-foreground">Project unavailable</p>
+          <p className="text-sm text-muted-foreground">Proyek tidak tersedia</p>
         )}
       </div>
 
@@ -473,7 +473,7 @@ function DocumentRow({
             </div>
             <p className="mt-1 truncate text-xs text-muted-foreground">
               {(latestVersion.fileSize / 1024 / 1024).toFixed(2)} MB |{" "}
-              {latestVersion.uploadedBy?.fullName || "Unknown uploader"} |{" "}
+              {latestVersion.uploadedBy?.fullName || "Pengunggah tidak diketahui"} |{" "}
               {new Date(latestVersion.createdAt).toLocaleDateString("id-ID", {
                 dateStyle: "medium",
               })}
@@ -485,7 +485,7 @@ function DocumentRow({
             )}
           </>
         ) : (
-          <p className="text-sm text-muted-foreground">No version available</p>
+          <p className="text-sm text-muted-foreground">Belum ada versi</p>
         )}
       </div>
 
@@ -499,20 +499,20 @@ function DocumentRow({
             disabled={downloadPending}
           >
             <Download className="h-3.5 w-3.5" />
-            Download
+            Unduh
           </Button>
         )}
         <Button size="sm" variant="ghost" className="gap-1.5" onClick={onOpenDetails}>
           <MessageSquare className="h-3.5 w-3.5" />
-          {document._count?.comments || 0} comments
+          {document._count?.comments || 0} komentar
         </Button>
         <Button size="sm" variant="outline" className="gap-1.5" onClick={onUploadVersion}>
           <FileUp className="h-3.5 w-3.5" />
-          New version
+          Versi baru
         </Button>
         {document.project && (
           <Link href={`/projects/${document.project.id}`}>
-            <Button size="icon" variant="ghost" title="Open project">
+            <Button size="icon" variant="ghost" title="Buka proyek">
               <ArrowRight className="h-4 w-4" />
             </Button>
           </Link>

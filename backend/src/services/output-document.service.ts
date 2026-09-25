@@ -460,7 +460,8 @@ export class OutputDocumentService {
       isScopeLocked,
       canSubmit: canReadNonFinal && canSubmit,
       missingMandatoryCount: missingMandatoryKeys.length,
-      missingMandatoryNames: missingMandatoryKeys,
+      missingMandatoryNames: canReadNonFinal ? missingMandatoryKeys : [],
+      unapprovedCount: selectedItems.filter((item) => item.status !== 'APPROVED').length,
       canRetryCompletion,
       documents: visibleItems,
     };

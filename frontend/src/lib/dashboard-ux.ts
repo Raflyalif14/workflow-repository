@@ -56,42 +56,42 @@ export const getDashboardRoleContent = (role: DashboardRole) => {
   switch (role) {
     case "SALES":
       return {
-        eyebrow: "SALES WORKSPACE",
-        title: "Sales workspace",
-        description: "Keep planning clear and customer delivery moving.",
+        eyebrow: "RUANG KERJA SALES",
+        title: "Ruang kerja Sales",
+        description: "Pantau rencana, pendapatan, dan perkembangan proyek pelanggan.",
       };
     case "HEAD_SA":
       return {
-        eyebrow: "REVIEW WORKSPACE",
-        title: "Review workspace",
-        description: "Focus on the decisions that keep project delivery moving.",
+        eyebrow: "RUANG KERJA PENINJAUAN",
+        title: "Ruang kerja Head SA",
+        description: "Tinjau keputusan yang dibutuhkan agar pekerjaan terus berjalan.",
       };
     case "SA":
       return {
-        eyebrow: "DELIVERY WORKSPACE",
-        title: "Delivery workspace",
-        description: "Continue assigned work and respond to review feedback.",
+        eyebrow: "RUANG KERJA SA",
+        title: "Ruang kerja SA",
+        description: "Lanjutkan tugas dan tindak lanjuti masukan peninjauan.",
       };
     case "SUPER_ADMIN":
       return {
-        eyebrow: "OPERATIONS OVERVIEW",
-        title: "Operations overview",
-        description: "Monitor portfolio delivery and operational exceptions.",
+        eyebrow: "IKHTISAR OPERASIONAL",
+        title: "Ikhtisar operasional",
+        description: "Pantau perkembangan proyek dan kendala operasional.",
       };
     default:
       return {
-        eyebrow: "WORKSPACE",
-        title: "Workspace",
-        description: "View the work and projects available to your account.",
+        eyebrow: "RUANG KERJA",
+        title: "Ruang kerja",
+        description: "Lihat tugas dan proyek yang dapat Anda akses.",
       };
   }
 };
 
 export const getDashboardGreeting = (hour: number): string => {
-  if (!Number.isFinite(hour) || hour < 0 || hour > 23) return "Hello";
-  if (hour < 12) return "Good morning";
-  if (hour < 18) return "Good afternoon";
-  return "Good evening";
+  if (!Number.isFinite(hour) || hour < 0 || hour > 23) return "Halo";
+  if (hour < 12) return "Selamat pagi";
+  if (hour < 18) return "Selamat siang";
+  return "Selamat malam";
 };
 
 export const getDashboardGreetingSubject = (

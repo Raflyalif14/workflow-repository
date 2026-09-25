@@ -23,35 +23,35 @@ export function getOutputDocumentContextMessage({
   hasAssignedPic,
 }: OutputDocumentPresentationInput): string | null {
   if (role === "SA" && status === "DRAFT" && canUpload) {
-    return "Ready to submit for Head SA review.";
+    return "Siap diajukan untuk ditinjau Head SA.";
   }
 
   if (canUpload || canReview) return null;
 
   if (role === "HEAD_SA") {
-    if (!hasAssignedPic) return "Waiting for a Solution Architect assignment.";
-    if (status === "TO_DO") return "Waiting for the assigned SA to upload this output.";
-    if (status === "DRAFT") return "Waiting for the assigned SA to submit this output for review.";
-    if (status === "REVISION_REQUIRED") return "Waiting for the assigned SA to upload and submit a revision.";
-    if (status === "APPROVED") return "Review completed.";
+    if (!hasAssignedPic) return "Menunggu penetapan Solution Architect.";
+    if (status === "TO_DO") return "Menunggu SA yang ditugaskan mengunggah output ini.";
+    if (status === "DRAFT") return "Menunggu SA yang ditugaskan mengajukan output ini.";
+    if (status === "REVISION_REQUIRED") return "Menunggu SA yang ditugaskan mengunggah dan mengajukan revisi.";
+    if (status === "APPROVED") return "Peninjauan selesai.";
   }
 
   if (role === "SA") {
-    if (status === "IN_REVIEW") return "Waiting for Head SA review.";
-    if (status === "APPROVED") return "Approved and available as a project deliverable.";
+    if (status === "IN_REVIEW") return "Menunggu peninjauan Head SA.";
+    if (status === "APPROVED") return "Disetujui dan tersedia sebagai hasil proyek.";
   }
 
   if ((role === "SALES" || role === "SUPER_ADMIN") && status === "APPROVED") {
-    return "Approved deliverable.";
+    return "Hasil proyek disetujui.";
   }
 
   return null;
 }
 
 export function getOutputDocumentsHeaderDescription(role?: string): string {
-  if (role === "HEAD_SA") return "Review submitted outputs and monitor agreed project deliverables.";
-  if (role === "SA") return "Upload project outputs and submit drafts for Head SA review.";
-  return "Upload, submit, and review each agreed output independently.";
+  if (role === "HEAD_SA") return "Tinjau output yang diajukan dan pantau hasil proyek yang disepakati.";
+  if (role === "SA") return "Unggah output proyek dan ajukan draf untuk ditinjau Head SA.";
+  return "Pantau setiap output proyek yang telah disepakati.";
 }
 
 type OutputDocumentSubmissionInput = {
@@ -66,7 +66,7 @@ export function getOutputDocumentSubmitAction({
   currentVersionId,
   canUpload,
 }: Pick<OutputDocumentSubmissionInput, "status" | "currentVersionId"> & { role?: string; canUpload: boolean }): string | null {
-  return role === "SA" && canUpload && status === "DRAFT" && Boolean(currentVersionId) ? "Submit for review" : null;
+  return role === "SA" && canUpload && status === "DRAFT" && Boolean(currentVersionId) ? "Ajukan untuk ditinjau" : null;
 }
 
 export function getSubmittableOutputDocuments<T extends OutputDocumentSubmissionInput>(
@@ -78,7 +78,7 @@ export function getSubmittableOutputDocuments<T extends OutputDocumentSubmission
 }
 
 export function getOutputDocumentSubmissionSelectionLabel(documentName: string): string {
-  return `Select ${documentName} for submission`;
+  return `Pilih ${documentName} untuk diajukan`;
 }
 
 export type SubmissionOperation =
@@ -113,7 +113,7 @@ export function getOutputDocumentApproveAction({
   canReview,
 }: Pick<OutputDocumentReviewInput, "status" | "currentVersionId"> & { canReview: boolean }): string | null {
   return canReview && status === "IN_REVIEW" && Boolean(currentVersionId && UUID_PATTERN.test(currentVersionId))
-    ? "Approve"
+    ? "Setujui"
     : null;
 }
 
@@ -125,7 +125,7 @@ export function getReviewableOutputDocuments<T extends OutputDocumentReviewInput
 }
 
 export function getOutputDocumentApprovalSelectionLabel(documentName: string): string {
-  return `Select ${documentName} for approval`;
+  return `Pilih ${documentName} untuk disetujui`;
 }
 
 export function getOutputDocumentApprovalSelection<T extends { key: string }>(
