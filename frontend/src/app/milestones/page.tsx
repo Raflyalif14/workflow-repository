@@ -21,6 +21,7 @@ import { useApprovals } from "@/hooks/use-approvals";
 import { useStartMilestoneRevision, useSubmissionPackageHistory } from "@/hooks/use-milestone-workflow";
 import { AssignedMilestone, useMyAssignedMilestones } from "@/hooks/use-projects";
 import { formatMilestoneStatusLabel } from "@/lib/workflow-ux-helpers";
+import { getAssignedMilestonesNeedingAction, isAssignedProjectActive, isAssignedProjectPaused } from "@/lib/assigned-milestone-ux";
 import { formatMilestoneDate, isInitialSubmissionBeforeEffectiveStart } from "@/lib/dates";
 import { ApprovalItem } from "@/types/approval";
 
@@ -113,7 +114,7 @@ export default function MilestonesPage() {
 
   const [activeTab, setActiveTab] = useState<QueueTab>("ACTION");
   const needsAction = useMemo(
-    () => milestones.filter((item) => item.status === "IN_PROGRESS" || item.status === "REJECTED"),
+    () => getAssignedMilestonesNeedingAction(milestones),
     [milestones]
   );
   const underReview = useMemo(
@@ -437,6 +438,8 @@ function AssignedMilestoneRow({
   const projectId = milestone.project?.id || milestone.project_id;
   const isAssignedPic =
     (user?.role === "SA" || user?.role === "HEAD_SA") && milestone.pic_id === user?.id;
+  const projectIsActive = isAssignedProjectActive(milestone);
+  const projectIsPaused = isAssignedProjectPaused(milestone);
   const submissionHistory = useSubmissionPackageHistory(
     milestone.id,
     isAssignedPic && milestone.status === "IN_PROGRESS"
@@ -471,6 +474,7 @@ function AssignedMilestoneRow({
             <div className="flex flex-wrap items-center gap-2">
               <p className="font-semibold text-foreground">{milestone.name}</p>
               {getMilestoneStatusBadge(milestone.status)}
+              {projectIsPaused && <Badge variant="outline">Project paused</Badge>}
             </div>
             <p className="mt-1 text-xs text-muted-foreground">
               {milestone.project?.name || "Project"} | {milestone.project?.customer || "Customer unavailable"}
@@ -487,7 +491,7 @@ function AssignedMilestoneRow({
         </div>
 
         <div className="flex shrink-0 flex-wrap gap-2 sm:pl-11 lg:pl-0">
-          {isAssignedPic && milestone.status === "IN_PROGRESS" && (
+          {projectIsActive && isAssignedPic && milestone.status === "IN_PROGRESS" && (
             isBeforeStartDate ? (
               <Badge variant="outline" className="gap-1.5 py-1 text-xs text-muted-foreground font-normal border-border/70">
                 <Clock3 className="h-3.5 w-3.5 text-muted-foreground" />
@@ -500,13 +504,13 @@ function AssignedMilestoneRow({
               </Button>
             )
           )}
-          {isHeadSa && milestone.status === "SUBMITTED" && (
+          {projectIsActive && isHeadSa && milestone.status === "SUBMITTED" && (
             <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setReviewOpen(true)}>
               <ShieldCheck className="h-3.5 w-3.5" />
               Review submission
             </Button>
           )}
-          {isAssignedPic && milestone.status === "REJECTED" && (
+          {projectIsActive && isAssignedPic && milestone.status === "REJECTED" && (
             <Button
               size="sm"
               variant="outline"

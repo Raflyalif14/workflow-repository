@@ -19,6 +19,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useDocumentDownloadUrl, useDocuments } from "@/hooks/use-documents";
+import { OutputRepositoryItem, useOutputRepository, useOutputRepositoryDownload } from "@/hooks/use-output-documents";
 import { formatHumanReadableLabel } from "@/lib/workflow-ux-helpers";
 import { DocumentCategory, DocumentItem, DocumentStatus } from "@/types/document";
 
@@ -76,6 +77,7 @@ export default function DocumentsPage() {
   const { user } = useAuth();
   const pageCopy = rolePageCopy[user?.role || ""] || rolePageCopy.SUPER_ADMIN;
   const [search, setSearch] = useState("");
+  const [activeTab, setActiveTab] = useState<"OFFICIAL" | "OUTPUT">("OFFICIAL");
   const [categoryFilter, setCategoryFilter] = useState<DocumentCategory | "ALL">("ALL");
   const [statusFilter, setStatusFilter] = useState<DocumentStatus | "ALL">("ALL");
   const [selectedDocForVersion, setSelectedDocForVersion] = useState<DocumentItem | null>(null);
@@ -135,6 +137,14 @@ export default function DocumentsPage() {
         <h1 className="mt-1 text-2xl font-semibold text-foreground sm:text-3xl">{pageCopy.title}</h1>
         <p className="mt-1 max-w-2xl text-sm text-muted-foreground">{pageCopy.description}</p>
       </header>
+
+      <div role="tablist" aria-label="Document collections" className="flex gap-2 border-b border-border/60 pb-2">
+        <Button role="tab" aria-selected={activeTab === "OFFICIAL"} variant={activeTab === "OFFICIAL" ? "secondary" : "ghost"} onClick={() => setActiveTab("OFFICIAL")}>Official documents</Button>
+        <Button role="tab" aria-selected={activeTab === "OUTPUT"} variant={activeTab === "OUTPUT" ? "secondary" : "ghost"} onClick={() => setActiveTab("OUTPUT")}>Output dokumen</Button>
+      </div>
+
+      {activeTab === "OFFICIAL" ? (
+      <>
 
       <section
         aria-label="Document snapshot"
@@ -300,7 +310,96 @@ export default function DocumentsPage() {
           setIsUploadVersionOpen(true);
         }}
       />
+      </>
+      ) : <OutputDocumentsTab />}
     </div>
+  );
+}
+
+function OutputDocumentsTab() {
+  const { data: outputs = [], isLoading, isError } = useOutputRepository();
+  const download = useOutputRepositoryDownload();
+  const [search, setSearch] = useState("");
+  const [group, setGroup] = useState<"ALL" | OutputRepositoryItem["group"]>("ALL");
+  const [status, setStatus] = useState<"ALL" | OutputRepositoryItem["status"]>("ALL");
+  const [downloadError, setDownloadError] = useState("");
+  const visible = useMemo(() => outputs.filter((item) => {
+    const query = search.trim().toLocaleLowerCase();
+    return (group === "ALL" || item.group === group)
+      && (status === "ALL" || item.status === status)
+      && (!query || `${item.name} ${item.projectName}`.toLocaleLowerCase().includes(query));
+  }), [outputs, search, group, status]);
+
+  const handleDownload = async (item: OutputRepositoryItem) => {
+    setDownloadError("");
+    try {
+      const { url } = await download.mutateAsync({ projectId: item.projectId, documentKey: item.documentKey });
+      const link = window.document.createElement("a");
+      link.href = url;
+      link.target = "_blank";
+      link.rel = "noopener noreferrer";
+      link.click();
+    } catch (error) {
+      setDownloadError(error instanceof Error ? error.message : "Failed to download output document.");
+    }
+  };
+
+  return (
+    <section className="overflow-hidden rounded-lg border border-border/60 bg-card">
+      <div className="space-y-4 border-b border-border/60 p-4 sm:p-5">
+        <div>
+          <h2 className="text-base font-semibold text-foreground">Output dokumen</h2>
+          <p className="text-xs text-muted-foreground">Project outputs remain separate from official repository documents.</p>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_220px_180px]">
+          <div className="relative min-w-0">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input aria-label="Search output or project" placeholder="Search output or project" value={search} onChange={(event) => setSearch(event.target.value)} className="pl-9" />
+          </div>
+          <select aria-label="Filter output group" value={group} onChange={(event) => setGroup(event.target.value as typeof group)} className="h-10 min-w-0 rounded-md border border-border bg-background px-3 text-sm text-foreground">
+            <option value="ALL">All groups</option>
+            <option value="PRA_TENDER">Pra-Tender</option>
+            <option value="ON_SUBMISSION_TENDER">On Submission Tender</option>
+          </select>
+          <select aria-label="Filter output status" value={status} onChange={(event) => setStatus(event.target.value as typeof status)} className="h-10 min-w-0 rounded-md border border-border bg-background px-3 text-sm text-foreground">
+            <option value="ALL">All statuses</option>
+            <option value="DRAFT">Draft</option>
+            <option value="IN_REVIEW">In review</option>
+            <option value="REVISION_REQUIRED">Revision required</option>
+            <option value="APPROVED">Approved</option>
+          </select>
+        </div>
+        {!isLoading && !isError && <p className="text-xs text-muted-foreground">{visible.length} shown of {outputs.length} accessible output files</p>}
+        {downloadError && <p role="alert" className="text-xs text-destructive">{downloadError}</p>}
+      </div>
+      {isLoading ? (
+        <div className="space-y-3 p-5" aria-label="Loading output documents"><div className="h-16 animate-pulse rounded bg-muted/30" /><div className="h-16 animate-pulse rounded bg-muted/30" /></div>
+      ) : isError ? (
+        <p className="p-8 text-center text-sm text-destructive">Unable to load output documents. Refresh and try again.</p>
+      ) : visible.length === 0 ? (
+        <p className="p-8 text-center text-sm text-muted-foreground">No output files match this view.</p>
+      ) : (
+        <div>
+          {visible.map((item) => (
+            <div key={`${item.projectId}-${item.documentKey}`} className="grid gap-3 border-t border-border/60 p-4 first:border-t-0 sm:p-5 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)_minmax(0,1fr)_auto] lg:items-center">
+              <div className="min-w-0">
+                <p className="break-words text-sm font-semibold text-foreground">{item.name}</p>
+                <p className="mt-1 break-all text-xs text-muted-foreground">{item.fileName} | v{item.versionNumber}</p>
+              </div>
+              <p className="min-w-0 break-words text-xs text-muted-foreground">{item.group === "PRA_TENDER" ? "Pra-Tender" : "On Submission Tender"}</p>
+              <div className="min-w-0">
+                <p className="break-words text-sm text-foreground">{item.projectName}</p>
+                <Badge variant={item.status === "APPROVED" ? "success" : item.status === "REVISION_REQUIRED" ? "destructive" : "warning"}>{formatHumanReadableLabel(item.status)}</Badge>
+              </div>
+              <div className="flex flex-wrap gap-2 lg:justify-end">
+                <Link href={`/projects/${item.projectId}#output-documents`}><Button size="sm" variant="outline" className="gap-1.5"><ArrowRight className="h-3.5 w-3.5" />Buka proyek</Button></Link>
+                <Button size="sm" variant="ghost" className="gap-1.5" disabled={download.isPending && download.variables?.projectId === item.projectId && download.variables?.documentKey === item.documentKey} onClick={() => void handleDownload(item)}><Download className="h-3.5 w-3.5" />Download</Button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </section>
   );
 }
 

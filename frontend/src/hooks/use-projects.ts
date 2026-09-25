@@ -188,7 +188,10 @@ export function usePostponeProject() {
         method: "POST",
         body: JSON.stringify({ reason }),
       }),
-    onSuccess: (_, variables) => invalidateProjectRuntime(queryClient, variables.projectId),
+    onSuccess: (_, variables) => {
+      invalidateProjectRuntime(queryClient, variables.projectId);
+      queryClient.invalidateQueries({ queryKey: assignmentKeys.myAssignedMilestones() });
+    },
   });
 }
 
@@ -197,7 +200,10 @@ export function useResumeProject() {
 
   return useMutation({
     mutationFn: (projectId: string) => apiClient<Project>(`/projects/${projectId}/resume`, { method: "POST" }),
-    onSuccess: (_, projectId) => invalidateProjectRuntime(queryClient, projectId),
+    onSuccess: (_, projectId) => {
+      invalidateProjectRuntime(queryClient, projectId);
+      queryClient.invalidateQueries({ queryKey: assignmentKeys.myAssignedMilestones() });
+    },
   });
 }
 

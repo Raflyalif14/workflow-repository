@@ -15,9 +15,39 @@ export interface OutputDocumentsResponse {
 
 export const outputDocumentKeys = {
   all: ["output-documents"] as const,
+  repository: () => [...outputDocumentKeys.all, "repository"] as const,
   project: (projectId: string) => [...outputDocumentKeys.all, projectId] as const,
   versions: (projectId: string, documentKey: string) => [...outputDocumentKeys.project(projectId), documentKey, "versions"] as const,
 };
+
+export interface OutputRepositoryItem {
+  projectId: string;
+  projectName: string;
+  customer: string;
+  documentKey: string;
+  name: string;
+  group: "PRA_TENDER" | "ON_SUBMISSION_TENDER";
+  status: ProjectOutputDocumentItem["status"];
+  fileName: string;
+  versionNumber: number;
+}
+
+export function useOutputRepository(enabled = true) {
+  return useQuery<OutputRepositoryItem[]>({
+    queryKey: outputDocumentKeys.repository(),
+    queryFn: () => apiClient<OutputRepositoryItem[]>("/documents/outputs"),
+    enabled,
+  });
+}
+
+export function useOutputRepositoryDownload() {
+  return useMutation({
+    mutationFn: ({ projectId, documentKey }: { projectId: string; documentKey: string }) =>
+      apiClient<{ fileName: string; url: string; expiresInSeconds: number }>(
+        `/projects/${projectId}/output-documents/${documentKey}/download`
+      ),
+  });
+}
 
 export interface OutputDocumentBatchItem {
   document_key: string;

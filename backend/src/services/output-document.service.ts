@@ -1,5 +1,5 @@
 import { supabaseAdmin } from '../config/supabase';
-import { canAccessProject } from './project-access.service';
+import { canAccessProject, getAccessibleProjectIds } from './project-access.service';
 import {
   buildOutputDocumentStoragePath,
   DocumentStorageService,
@@ -216,6 +216,64 @@ type BatchItemResult = {
 };
 
 export class OutputDocumentService {
+  static async listAccessibleFiles(actor: Actor) {
+    const accessibleIds = await getAccessibleProjectIds(actor);
+    if (accessibleIds?.length === 0) return [];
+
+    const rows: any[] = [];
+    const pageSize = 250;
+    for (let offset = 0; ; offset += pageSize) {
+      let query = supabaseAdmin
+        .from('project_output_documents')
+        .select('project_id,document_key,title,is_required,is_selected,status,file_name,storage_path,current_version_id,updated_at')
+        .or('is_required.eq.true,is_selected.eq.true')
+        .not('storage_path', 'is', null)
+        .not('current_version_id', 'is', null)
+        .order('updated_at', { ascending: false })
+        .range(offset, offset + pageSize - 1);
+      if (accessibleIds) query = query.in('project_id', accessibleIds);
+      if (actor.role === 'SALES' || actor.role === 'SUPER_ADMIN') query = query.eq('status', 'APPROVED');
+      const { data, error } = await query;
+      if (error) throw new OutputDocumentError('Unable to list output documents.', 500);
+      rows.push(...(data || []));
+      if (!data || data.length < pageSize) break;
+    }
+    if (!rows?.length) return [];
+
+    const projectIds = [...new Set(rows.map((row) => row.project_id))];
+    const versionIds = [...new Set(rows.map((row) => row.current_version_id).filter(Boolean))];
+    const [projectsResult, versionsResult] = await Promise.all([
+      supabaseAdmin.from('projects').select('id,name,customer,sales_id,pic_id').in('id', projectIds),
+      supabaseAdmin.from('project_output_document_versions').select('id,version_number').in('id', versionIds),
+    ]);
+    if (projectsResult.error || versionsResult.error) {
+      throw new OutputDocumentError('Unable to list output documents.', 500);
+    }
+    const projects = new Map((projectsResult.data || []).map((project) => [project.id, project]));
+    const versions = new Map((versionsResult.data || []).map((version) => [version.id, version.version_number]));
+    const definitions = new Map(getScenarioDocuments('Pra-Tender').map((definition) => [definition.key, definition]));
+
+    return rows.flatMap((row) => {
+      const project = projects.get(row.project_id);
+      const definition = definitions.get(row.document_key);
+      const versionNumber = versions.get(row.current_version_id);
+      if (!project || !canAccessProject(project, actor) || !definition || !versionNumber
+        || !(row.is_required || row.is_selected) || !row.file_name || !row.storage_path
+        || (row.status !== 'APPROVED' && !canReadNonFinalOutput(project as OutputProject, actor))) return [];
+      return [{
+        projectId: project.id,
+        projectName: project.name,
+        customer: project.customer,
+        documentKey: row.document_key,
+        name: row.title,
+        group: definition.group,
+        status: row.status,
+        fileName: row.file_name,
+        versionNumber,
+      }];
+    });
+  }
+
   private static async getProject(projectId: string, actor: Actor) {
     const { data: project, error } = await supabaseAdmin
       .from('projects')

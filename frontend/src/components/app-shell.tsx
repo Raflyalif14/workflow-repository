@@ -26,6 +26,7 @@ import { NotificationBell } from "@/components/notifications/notification-bell";
 import { SYSTEM_SETTINGS_ALLOWED_ROLES } from "@/lib/settings-access";
 import { GlobalSearchDialog } from "@/components/global-search-dialog";
 import { formatActorRoleLabel } from "@/lib/workflow-ux-helpers";
+import { countAssignedMilestonesNeedingAction } from "@/lib/assigned-milestone-ux";
 
 // ─── Sidebar Context ───
 interface SidebarContextType {
@@ -109,7 +110,7 @@ export function Sidebar() {
 
   const assignedActionableMilestonesCount =
     isAssignedMilestoneRole
-      ? assignedMilestones.filter((m) => m.status === "IN_PROGRESS" || m.status === "REJECTED").length
+      ? countAssignedMilestonesNeedingAction(assignedMilestones)
       : 0;
 
   const getBadgeCount = (href: string) => {

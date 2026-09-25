@@ -30,6 +30,9 @@ const run = async (res: Response, action: () => Promise<unknown>, message: strin
 };
 
 export class OutputDocumentController {
+  static listAccessibleFiles = (req: AuthenticatedRequest, res: Response) =>
+    run(res, () => OutputDocumentService.listAccessibleFiles(actor(req)), 'Output documents retrieved successfully');
+
   static list = (req: AuthenticatedRequest, res: Response) =>
     run(
       res,
