@@ -20,11 +20,9 @@ import {
   isMilestoneCompletedLike,
   logWorkflowActivityBestEffort,
 } from './workflow-progression.service';
-import { NotificationService } from './notification.service';
-import { runNotificationBestEffort } from './notification-dispatch.service';
+import { OutputNotificationOutboxWorker } from './output-notification-outbox.worker';
 import zlib from 'zlib';
 
-const notificationService = NotificationService;
 
 function makeCrc32Table(): Uint32Array {
   const table = new Uint32Array(256);
@@ -566,7 +564,6 @@ export class OutputDocumentService {
 
     const scenarioName = (project.scenario as any)?.name || project.scenario_id;
     const scenarioKey = resolveScenarioKey(scenarioName);
-    const definitions = getScenarioDocuments(scenarioKey);
     const selectedKeys = new Set([...(project.selected_document_keys || []), ...getMandatoryDocumentKeys(scenarioKey)]);
     const results: BatchItemResult[] = [];
 
@@ -613,7 +610,6 @@ export class OutputDocumentService {
     const submittedKeys = results.filter((result) => result.success).map((result) => result.documentKey);
 
     if (submittedKeys.length > 0) {
-      const submittedNames = formatOutputDocumentNames(submittedKeys, definitions);
       await logWorkflowActivityBestEffort(
         actor,
         projectId,
@@ -621,22 +617,7 @@ export class OutputDocumentService {
         `${actor.fullName} submitted ${submittedKeys.length} Output Document(s) for review.${input.note ? ` Note: ${input.note}` : ''}`
       );
 
-      await runNotificationBestEffort('submit output documents notification', async () => {
-        const { data: headSaUsers } = await supabaseAdmin
-          .from('users')
-          .select('id')
-          .eq('role', 'HEAD_SA')
-          .eq('is_active', true);
-
-        await Promise.all((headSaUsers || []).map((user) => notificationService.createNotification({
-          userId: user.id,
-          type: 'OUTPUT_DOCUMENTS_SUBMITTED',
-          title: 'Output Documents Submitted',
-          message: `${submittedNames} for project '${project.name}' ${submittedKeys.length === 1 ? 'is' : 'are'} ready for review.`,
-          projectId: project.id,
-          actionUrl: `/projects/${project.id}#output-documents`,
-        })));
-      });
+      await OutputNotificationOutboxWorker.runOnceBestEffort();
     }
 
     return { success: results.every((result) => result.success), results };
@@ -652,8 +633,6 @@ export class OutputDocumentService {
     }
 
     const project = await this.getProject(projectId, actor);
-    const scenarioName = (project.scenario as any)?.name || project.scenario_id;
-    const definitions = getScenarioDocuments(resolveScenarioKey(scenarioName));
 
     const isApproval = input.decision === 'APPROVE';
     const newStatus: OutputDocumentStatus = isApproval ? 'APPROVED' : 'REVISION_REQUIRED';
@@ -699,7 +678,6 @@ export class OutputDocumentService {
 
     const actionText = isApproval ? 'approved' : 'requested revision for';
     if (reviewedKeys.length > 0) {
-      const reviewedNames = formatOutputDocumentNames(reviewedKeys, definitions);
       await logWorkflowActivityBestEffort(
         actor,
         projectId,
@@ -707,27 +685,7 @@ export class OutputDocumentService {
         `${actor.fullName} ${actionText} ${reviewedKeys.length} output document(s).${input.feedback ? ` Feedback: ${input.feedback}` : ''}`
       );
 
-      await runNotificationBestEffort('review output documents notification', async () => {
-        const recipients = new Set<string>();
-        if (project.pic_id) recipients.add(project.pic_id);
-        if (isApproval && project.sales_id) recipients.add(project.sales_id);
-        recipients.delete(actor.userId);
-
-        const notifType = isApproval ? 'OUTPUT_DOCUMENTS_APPROVED' : 'OUTPUT_DOCUMENTS_REVISION_REQUIRED';
-        const notifTitle = isApproval ? 'Output Documents Approved' : 'Output Documents Revision Required';
-        const notifMessage = isApproval
-          ? `${reviewedNames} for project '${project.name}' ${reviewedKeys.length === 1 ? 'was' : 'were'} approved by ${actor.fullName}.`
-          : `${reviewedNames} for project '${project.name}' ${reviewedKeys.length === 1 ? 'requires' : 'require'} revision from ${actor.fullName}.${input.feedback ? ` Note: ${input.feedback}` : ''}`;
-
-        await Promise.all(Array.from(recipients).map((userId) => notificationService.createNotification({
-          userId,
-          type: notifType,
-          title: notifTitle,
-          message: notifMessage,
-          projectId: project.id,
-          actionUrl: `/projects/${project.id}#output-documents`,
-        })));
-      });
+      await OutputNotificationOutboxWorker.runOnceBestEffort();
 
       if (isApproval) {
         const { data: milestones, error: milestoneError } = await supabaseAdmin

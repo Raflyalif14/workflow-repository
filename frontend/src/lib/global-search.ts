@@ -1,5 +1,5 @@
 export type GlobalSearchResult = {
-  type: "PROJECT" | "DOCUMENT" | "MILESTONE";
+  type: "PROJECT" | "DOCUMENT" | "MILESTONE" | "OUTPUT_DOCUMENT";
   id: string;
   projectId: string;
   title: string;
@@ -11,6 +11,7 @@ export type GlobalSearchResponse = {
   projects: GlobalSearchResult[];
   documents: GlobalSearchResult[];
   milestones: GlobalSearchResult[];
+  outputDocuments: GlobalSearchResult[];
 };
 
 export const isGlobalSearchEligible = (query: string) => query.trim().length >= 2;
@@ -19,6 +20,7 @@ export const flattenGlobalSearchResults = (results?: GlobalSearchResponse): Glob
   ...(results?.projects || []),
   ...(results?.documents || []),
   ...(results?.milestones || []),
+  ...(results?.outputDocuments || []),
 ];
 
 export const moveGlobalSearchSelection = (current: number, direction: -1 | 1, total: number): number => {
@@ -27,5 +29,5 @@ export const moveGlobalSearchSelection = (current: number, direction: -1 | 1, to
   return Math.min(total - 1, Math.max(0, current + direction));
 };
 
-export const globalSearchResultHref = (result: Pick<GlobalSearchResult, "projectId">) =>
-  `/projects/${result.projectId}`;
+export const globalSearchResultHref = (result: Pick<GlobalSearchResult, "projectId" | "type">) =>
+  `/projects/${result.projectId}${result.type === "OUTPUT_DOCUMENT" ? "#output-documents" : ""}`;

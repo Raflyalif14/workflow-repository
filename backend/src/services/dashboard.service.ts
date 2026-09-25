@@ -20,6 +20,7 @@ export type DashboardProjectRow = {
   created_at?: string | null;
   updated_at?: string | null;
   estimated_revenue?: number | string | null;
+  final_contract_value?: number | string | null;
 };
 
 export type DashboardMilestoneRow = {
@@ -74,6 +75,14 @@ export type DashboardOutputDocuments = {
   reviewQueue: Array<{ projectId: string; projectName: string; count: number }>;
   revisionQueue: Array<{ projectId: string; projectName: string; count: number }>;
   salesProgress: Array<{ projectId: string; approvedCount: number; selectedCount: number }>;
+};
+
+export type DashboardSalesResults = {
+  totalEstimatedRevenue: number;
+  finalContractValueTotal: number;
+  waitingResult: { count: number; estimatedRevenue: number };
+  won: { count: number; estimatedRevenue: number };
+  lost: { count: number; estimatedRevenue: number };
 };
 
 export type DashboardSaUserRow = {
@@ -396,6 +405,26 @@ export function buildDashboardOverviewFromRows(
         };
       }).filter((item) => item.selectedCount > 0)
     : [];
+  const amount = (value: number | string | null | undefined) => {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
+  };
+  const salesResults: DashboardSalesResults | null = actor.role === 'SALES'
+    ? {
+        totalEstimatedRevenue: projects.reduce((total, project) => total + amount(project.estimated_revenue), 0),
+        finalContractValueTotal: projects.filter((project) => project.status === 'WON')
+          .reduce((total, project) => total + amount(project.final_contract_value), 0),
+        ...Object.fromEntries(([
+          ['waitingResult', 'WAITING_RESULT'], ['won', 'WON'], ['lost', 'LOST'],
+        ] as const).map(([key, status]) => {
+          const matching = projects.filter((project) => project.status === status);
+          return [key, {
+            count: matching.length,
+            estimatedRevenue: matching.reduce((total, project) => total + amount(project.estimated_revenue), 0),
+          }];
+        })) as Pick<DashboardSalesResults, 'waitingResult' | 'won' | 'lost'>,
+      }
+    : null;
   const saWorkload = actor.role === 'HEAD_SA'
     ? buildSaWorkload(rows, projects, milestones, today)
     : [];
@@ -432,6 +461,7 @@ export function buildDashboardOverviewFromRows(
       salesProgress,
     } satisfies DashboardOutputDocuments,
     saWorkload,
+    salesResults,
   };
 }
 
@@ -444,7 +474,7 @@ export function toSafeDashboardError(error: unknown, context: string) {
 async function getScopedProjects(actor: DashboardActor) {
   let query = supabaseAdmin
     .from('projects')
-    .select('id,name,customer,scenario_id,sales_id,pic_id,status,is_postponed,estimated_revenue,created_at,updated_at')
+    .select('id,name,customer,scenario_id,sales_id,pic_id,status,is_postponed,estimated_revenue,final_contract_value,created_at,updated_at')
     .order('updated_at', { ascending: false });
 
   if (actor.role === 'SALES') query = query.eq('sales_id', actor.userId);

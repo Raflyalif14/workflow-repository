@@ -208,3 +208,22 @@ assert(saThreeWorkload?.activeProjectCount === 0 && saThreeWorkload.activeMilest
 assert(idleSaWorkload?.activeProjectCount === 0 && idleSaWorkload.activeMilestoneCount === 0 && idleSaWorkload.nearestDeadline === null, 'Test 16: active SAs without work must remain visible with zero values');
 assert(buildDashboardOverviewFromRows(workloadRows, sales, today).saWorkload.length === 0 && buildDashboardOverviewFromRows(workloadRows, sa, today).saWorkload.length === 0 && buildDashboardOverviewFromRows(workloadRows, superAdmin, today).saWorkload.length === 0, 'Test 16: non-HEAD_SA roles must not receive cross-SA workload');
 console.log('Test 16 - Head SA SA-workload is role-scoped, actionable, and safely aggregated: passed');
+
+const resultRows: DashboardSourceRows = {
+  ...rows,
+  projects: [
+    ...rows.projects,
+    { id: 'waiting-sales', name: 'Waiting', customer: null, scenario_id: null, sales_id: 'sales-1', pic_id: null, status: 'WAITING_RESULT', estimated_revenue: '125000.50' },
+    { id: 'won-sales', name: 'Won', customer: null, scenario_id: null, sales_id: 'sales-1', pic_id: null, status: 'WON', estimated_revenue: '200000', final_contract_value: '180000.25' },
+    { id: 'lost-sales', name: 'Lost', customer: null, scenario_id: null, sales_id: 'sales-1', pic_id: null, status: 'LOST', estimated_revenue: '90000' },
+    { id: 'won-other', name: 'Other Sales Won', customer: null, scenario_id: null, sales_id: 'sales-2', pic_id: null, status: 'WON', estimated_revenue: '999999', final_contract_value: '999999' },
+  ],
+};
+const salesResults = buildDashboardOverviewFromRows(resultRows, sales, today).salesResults;
+assert(salesResults?.waitingResult.count === 1 && salesResults.waitingResult.estimatedRevenue === 125000.5, 'Waiting result must use owned estimated revenue');
+assert(salesResults?.won.count === 1 && salesResults.won.estimatedRevenue === 200000 && salesResults.finalContractValueTotal === 180000.25, 'Won final value must not be replaced by estimate');
+assert(salesResults?.lost.count === 1 && salesResults.lost.estimatedRevenue === 90000, 'Lost estimate stays separate from final value');
+assert(salesResults?.totalEstimatedRevenue === 415000.5, 'Totals must exclude other Sales projects');
+assert(buildDashboardOverviewFromRows(resultRows, sa, today).salesResults === null, 'SA must not receive Sales financial results');
+assert(buildDashboardOverviewFromRows(resultRows, superAdmin, today).salesResults === null, 'Other roles must not receive Sales financial results');
+console.log('Test 17 - Sales outcomes and values are owner-scoped and separate estimated from final: passed');

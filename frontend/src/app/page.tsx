@@ -856,7 +856,13 @@ export default function DashboardPage() {
   const quickInsights = getDashboardInsights(roleItems, nextTask?.id, 5);
   const remainingItemCount = Math.max(0, roleItems.length - (nextTask ? 1 : 0));
   const viewAllHref = getViewAllHref(userRole);
-  const calculatedMetrics = getRoleSummary({
+  const salesResults = userRole === "SALES" ? dashboardQuery.data?.salesResults : null;
+  const calculatedMetrics = salesResults ? [
+    { label: "Total estimated revenue", value: salesResults.totalEstimatedRevenue },
+    { label: "Waiting result", value: salesResults.waitingResult.count },
+    { label: "Won", value: salesResults.won.count },
+    { label: "Lost", value: salesResults.lost.count },
+  ] : getRoleSummary({
     role: userRole,
     projects,
     approvals,
@@ -869,7 +875,7 @@ export default function DashboardPage() {
     value: metricValues.get(label) || 0,
   }));
   const isRoleDataLoading =
-    (userRole === "SALES" && projectsQuery.isLoading) ||
+    (userRole === "SALES" && (projectsQuery.isLoading || dashboardQuery.isLoading)) ||
     (isHeadSa && (approvalsQuery.isLoading || projectsQuery.isLoading)) ||
     (isSa && assignedMilestonesQuery.isLoading) ||
     (userRole === "SUPER_ADMIN" && dashboardQuery.isLoading);
@@ -1017,6 +1023,15 @@ export default function DashboardPage() {
           </dl>
         )}
       </section>
+
+      {userRole === "SALES" && !dashboardQuery.isLoading && !dashboardQuery.isError && salesResults && (
+        <section aria-label="Sales project results" className="grid gap-4 border-y border-border py-4 text-sm sm:grid-cols-2 lg:grid-cols-4">
+          <div><p className="text-muted-foreground">Waiting result</p><p className="font-semibold">{salesResults.waitingResult.count} projects</p><p className="text-xs text-muted-foreground">Estimated {formatRevenue(salesResults.waitingResult.estimatedRevenue)}</p></div>
+          <div><p className="text-muted-foreground">Won</p><p className="font-semibold">{salesResults.won.count} projects</p><p className="text-xs text-muted-foreground">Estimated {formatRevenue(salesResults.won.estimatedRevenue)}</p></div>
+          <div><p className="text-muted-foreground">Lost</p><p className="font-semibold">{salesResults.lost.count} projects</p><p className="text-xs text-muted-foreground">Estimated {formatRevenue(salesResults.lost.estimatedRevenue)}</p></div>
+          <div><p className="text-muted-foreground">Final contract value</p><p className="font-semibold">{formatRevenue(salesResults.finalContractValueTotal)}</p><p className="text-xs text-muted-foreground">Won projects only</p></div>
+        </section>
+      )}
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px] lg:items-start">
         <DeliveryHealthPanel

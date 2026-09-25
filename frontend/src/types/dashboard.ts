@@ -78,4 +78,11 @@ export interface DashboardData {
   recentActivity: RecentActivity[];
   outputDocuments: DashboardOutputDocuments;
   saWorkload: DashboardSaWorkload[];
+  salesResults: {
+    totalEstimatedRevenue: number;
+    finalContractValueTotal: number;
+    waitingResult: { count: number; estimatedRevenue: number };
+    won: { count: number; estimatedRevenue: number };
+    lost: { count: number; estimatedRevenue: number };
+  } | null;
 }

@@ -1,7 +1,9 @@
 import { strict as assert } from 'assert';
+import { readFileSync } from 'fs';
+import { join } from 'path';
 import { supabaseAdmin } from '../config/supabase';
-import { NotificationService } from './notification.service';
 import { OutputDocumentService } from './output-document.service';
+import { OutputNotificationOutboxWorker } from './output-notification-outbox.worker';
 
 const projectId = 'project-notification';
 const actors = {
@@ -12,7 +14,7 @@ const actors = {
 
 type OutputRow = Record<string, any>;
 type Notification = Record<string, unknown>;
-type State = { outputs: OutputRow[]; notifications: Notification[]; failedDocumentIds: Set<string> };
+type State = { outputs: OutputRow[]; notifications: Notification[]; pending: Notification[]; failedDocumentIds: Set<string>; failDelivery: boolean };
 
 const makeState = (status: 'DRAFT' | 'IN_REVIEW'): State => ({
   outputs: [
@@ -20,7 +22,9 @@ const makeState = (status: 'DRAFT' | 'IN_REVIEW'): State => ({
     { id: 'output-fail', project_id: projectId, document_key: 'timeline_proyek', status, file_name: 'timeline.pdf', current_version_id: 'version-fail' },
   ],
   notifications: [],
+  pending: [],
   failedDocumentIds: new Set(['output-fail']),
+  failDelivery: false,
 });
 
 class QueryMock {
@@ -73,24 +77,36 @@ async function withState<T>(status: 'DRAFT' | 'IN_REVIEW', action: (state: State
   const state = makeState(status);
   const originalFrom = supabaseAdmin.from;
   const originalRpc = supabaseAdmin.rpc;
-  const originalCreate = NotificationService.createNotification;
   try {
     (supabaseAdmin as any).from = (table: string) => new QueryMock(state, table);
-    (supabaseAdmin as any).rpc = async (_name: string, input: Record<string, unknown>) => {
+    (supabaseAdmin as any).rpc = async (name: string, input: Record<string, unknown>) => {
+      if (name === 'deliver_pending_output_notifications') {
+        if (state.failDelivery) return { data: state.pending.map(() => ({ failed: true })), error: null };
+        for (const notification of state.pending.splice(0)) state.notifications.push(notification);
+        return { data: [], error: null };
+      }
       const row = state.outputs.find((item) => item.id === input.p_output_document_id);
       if (!row || state.failedDocumentIds.has(row.id)) return { data: null, error: { code: '40001' } };
-      row.status = input.p_action === 'SUBMIT' ? 'IN_REVIEW' : input.p_action === 'APPROVE' ? 'APPROVED' : 'REVISION_REQUIRED';
+      const action = input.p_action;
+      if ((action === 'SUBMIT' && row.status !== 'DRAFT') || (action !== 'SUBMIT' && row.status !== 'IN_REVIEW')) {
+        return { data: null, error: { code: '40001' } };
+      }
+      row.status = action === 'SUBMIT' ? 'IN_REVIEW' : action === 'APPROVE' ? 'APPROVED' : 'REVISION_REQUIRED';
+      const recipients = action === 'SUBMIT' ? [actors.headSa.userId]
+        : action === 'APPROVE' ? [actors.pic.userId, actors.sales.userId] : [actors.pic.userId];
+      for (const userId of recipients) {
+        state.pending.push({
+          userId,
+          actionUrl: `/projects/${projectId}#output-documents`,
+          message: row.document_key === 'proposal_teknis' ? 'Proposal Teknis' : 'Timeline Proyek',
+        });
+      }
       return { data: null, error: null };
-    };
-    (NotificationService as any).createNotification = async (input: Notification) => {
-      state.notifications.push(input);
-      return { id: `notification-${state.notifications.length}` };
     };
     return await action(state);
   } finally {
     (supabaseAdmin as any).from = originalFrom;
     (supabaseAdmin as any).rpc = originalRpc;
-    (NotificationService as any).createNotification = originalCreate;
   }
 }
 
@@ -140,6 +156,27 @@ async function main(): Promise<void> {
     assert(String(state.notifications[0].message).includes('Proposal Teknis'), 'Revision request names the revised output');
     console.log('Test 4 - Revision requests notify the assigned PIC only: passed');
   });
+
+  await withState('DRAFT', async (state) => {
+    state.failDelivery = true;
+    const result = await OutputDocumentService.submitOutputDocuments(projectId, { items: [batch[0]] }, actors.pic);
+    assert.equal(result.success, true, 'Notification failure must not falsify a durable output transition');
+    assert.equal(state.notifications.length, 0);
+    assert.equal(state.pending.length, 1, 'Failed delivery must remain pending');
+    state.failDelivery = false;
+    await OutputNotificationOutboxWorker.runOnceBestEffort();
+    await OutputNotificationOutboxWorker.runOnceBestEffort();
+    assert.equal(state.notifications.length, 1, 'Retry and duplicate retry must deliver exactly once');
+    assert.equal(state.pending.length, 0);
+    console.log('Test 5 - Durable pending notification retries once without duplicate delivery: passed');
+  });
+
+  const migration = readFileSync(join(__dirname, '../../supabase/phase15-output-notification-outbox.sql'), 'utf8');
+  assert(migration.includes('after update of status on public.project_output_documents'));
+  assert(migration.includes('unique (output_document_id, version_id, event_status, recipient_user_id)'));
+  assert(migration.includes('for update skip locked'));
+  assert(migration.includes('on conflict (notification_id, channel) do nothing'));
+  console.log('Test 6 - Migration defines transactional enqueue and idempotent delivery: passed');
 }
 
 void main().catch((error) => {

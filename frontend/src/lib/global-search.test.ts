@@ -10,10 +10,11 @@ const results = {
   projects: [{ type: "PROJECT" as const, id: "project-1", projectId: "project-1", title: "Alpha", subtitle: "Acme" }],
   documents: [{ type: "DOCUMENT" as const, id: "document-1", projectId: "project-1", title: "Evidence", subtitle: "OTHER" }],
   milestones: [{ type: "MILESTONE" as const, id: "milestone-1", projectId: "project-1", title: "Assessment", subtitle: "Step 1", status: "ACTIVE" }],
+  outputDocuments: [{ type: "OUTPUT_DOCUMENT" as const, id: "project-1:proposal_teknis", projectId: "project-1", title: "Proposal Teknis", subtitle: "Alpha | On Submission Tender", status: "IN_REVIEW" }],
 };
 
 const flattened = flattenGlobalSearchResults(results);
-assert.deepEqual(flattened.map((result) => result.type), ["PROJECT", "DOCUMENT", "MILESTONE"], "Test 1: result groups flatten in rendered order");
+assert.deepEqual(flattened.map((result) => result.type), ["PROJECT", "DOCUMENT", "MILESTONE", "OUTPUT_DOCUMENT"], "Test 1: result groups flatten in rendered order");
 console.log("Test 1 - Global search result ordering: passed");
 
 assert.equal(moveGlobalSearchSelection(-1, 1, 3), 0, "Test 2: down from no selection selects first result");
@@ -26,4 +27,5 @@ console.log("Test 2 - Keyboard selection bounds: passed");
 assert(!isGlobalSearchEligible(" a "), "Test 3: one character is not eligible");
 assert(isGlobalSearchEligible(" ab "), "Test 3: trimmed two-character query is eligible");
 assert.equal(globalSearchResultHref(flattened[1]), "/projects/project-1", "Test 4: every result maps to its project route");
+assert.equal(globalSearchResultHref(flattened[3]), "/projects/project-1#output-documents", "Test 4: output results open the output section");
 console.log("Test 3 - Query eligibility and route mapping: passed");

@@ -14,6 +14,7 @@ import {
 } from "@/lib/global-search";
 import {
   formatMilestoneStatusLabel,
+  formatHumanReadableLabel,
   formatProjectStatusLabel,
 } from "@/lib/workflow-ux-helpers";
 
@@ -22,10 +23,11 @@ type GlobalSearchDialogProps = {
   onOpenChange: (open: boolean) => void;
 };
 
-const resultGroups: Array<{ key: "projects" | "documents" | "milestones"; label: string; icon: typeof FolderKanban }> = [
+const resultGroups: Array<{ key: "projects" | "documents" | "milestones" | "outputDocuments"; label: string; icon: typeof FolderKanban }> = [
   { key: "projects", label: "Projects", icon: FolderKanban },
   { key: "documents", label: "Documents", icon: FileText },
   { key: "milestones", label: "Milestones", icon: Milestone },
+  { key: "outputDocuments", label: "Output dokumen", icon: FileText },
 ];
 
 export function GlobalSearchDialog({ open, onOpenChange }: GlobalSearchDialogProps) {
@@ -96,8 +98,8 @@ export function GlobalSearchDialog({ open, onOpenChange }: GlobalSearchDialogPro
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Search projects, documents, milestones..."
-            aria-label="Search projects, documents, and milestones"
+            placeholder="Search projects, documents, milestones, outputs..."
+            aria-label="Search projects, documents, milestones, and outputs"
             className="h-11 bg-background"
           />
         </div>
@@ -140,7 +142,9 @@ export function GlobalSearchDialog({ open, onOpenChange }: GlobalSearchDialogPro
                           <span className="shrink-0 text-[10px] font-semibold text-muted-foreground">
                             {result.type === "PROJECT"
                               ? formatProjectStatusLabel(result.status)
-                              : formatMilestoneStatusLabel(result.status)}
+                              : result.type === "OUTPUT_DOCUMENT"
+                                ? formatHumanReadableLabel(result.status)
+                                : formatMilestoneStatusLabel(result.status)}
                           </span>
                         )}
                       </button>

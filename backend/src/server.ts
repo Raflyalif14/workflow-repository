@@ -2,6 +2,7 @@ import { Server } from 'http';
 import app from './app';
 import { ENV } from './config/env';
 import { TelegramRetryWorker } from './services/telegram-retry-worker.service';
+import { OutputNotificationOutboxWorker } from './services/output-notification-outbox.worker';
 
 let server: Server | null = null;
 let isShuttingDown = false;
@@ -11,6 +12,7 @@ const shutdown = (exitCode: number): void => {
 
   isShuttingDown = true;
   TelegramRetryWorker.stop();
+  OutputNotificationOutboxWorker.stop();
 
   if (!server) {
     process.exit(exitCode);
@@ -35,6 +37,7 @@ const startServer = async () => {
       console.log(`Workflow Backend running on port ${port} in [${ENV.NODE_ENV}] mode`);
       console.log(`📡 Healthcheck: http://localhost:${port}/api/health`);
       TelegramRetryWorker.start();
+      OutputNotificationOutboxWorker.start();
     });
   } catch (error) {
     console.error('❌ Failed to start server:', error);

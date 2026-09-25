@@ -1,14 +1,15 @@
 import { supabaseAdmin } from '../config/supabase';
 import { GlobalSearchQuery } from '../validators/search.validator';
 import { applyProjectAccessScope, getAccessibleProjectIds, ProjectAccessActor } from './project-access.service';
+import { OutputDocumentService } from './output-document.service';
 
-type Actor = ProjectAccessActor & { fullName?: string };
+type Actor = ProjectAccessActor & { fullName: string };
 type ProjectSearchRow = { id: string; name: string; customer: string; status: string };
 type DocumentSearchRow = { id: string; project_id: string; title: string; category: string };
 type MilestoneSearchRow = { id: string; project_id: string; name: string; step_order: number; status: string };
 
 export type GlobalSearchResult = {
-  type: 'PROJECT' | 'DOCUMENT' | 'MILESTONE';
+  type: 'PROJECT' | 'DOCUMENT' | 'MILESTONE' | 'OUTPUT_DOCUMENT';
   id: string;
   projectId: string;
   title: string;
@@ -20,6 +21,7 @@ export type GlobalSearchResponse = {
   projects: GlobalSearchResult[];
   documents: GlobalSearchResult[];
   milestones: GlobalSearchResult[];
+  outputDocuments: GlobalSearchResult[];
 };
 
 export class GlobalSearchError extends Error {
@@ -40,7 +42,7 @@ export class GlobalSearchService {
     const pattern = `%${escapeFilterValue(term)}%`;
     const accessibleProjectIds = await getAccessibleProjectIds(actor);
     if (accessibleProjectIds && !accessibleProjectIds.length) {
-      return { projects: [], documents: [], milestones: [] };
+      return { projects: [], documents: [], milestones: [], outputDocuments: [] };
     }
 
     let projectRequest: any = supabaseAdmin
@@ -80,6 +82,14 @@ export class GlobalSearchService {
     if (documentsResult.error) throw new GlobalSearchError('Failed to search documents.');
     if (milestonesResult.error) throw new GlobalSearchError('Failed to search milestones.');
 
+    let accessibleOutputs: Awaited<ReturnType<typeof OutputDocumentService.listAccessibleFiles>>;
+    try {
+      accessibleOutputs = await OutputDocumentService.listAccessibleFiles(actor);
+    } catch {
+      throw new GlobalSearchError('Failed to search output documents.');
+    }
+    const searchText = term.toLocaleLowerCase();
+
     return {
       projects: ((projectsResult.data || []) as ProjectSearchRow[]).map((project) => ({
         type: 'PROJECT',
@@ -104,6 +114,18 @@ export class GlobalSearchService {
         subtitle: `Step ${milestone.step_order}`,
         status: milestone.status,
       })),
+      outputDocuments: accessibleOutputs
+        .filter((output) => output.name.toLocaleLowerCase().includes(searchText)
+          || output.projectName.toLocaleLowerCase().includes(searchText))
+        .slice(0, RESULT_LIMIT)
+        .map((output) => ({
+          type: 'OUTPUT_DOCUMENT',
+          id: `${output.projectId}:${output.documentKey}`,
+          projectId: output.projectId,
+          title: output.name,
+          subtitle: `${output.projectName} | ${output.group === 'PRA_TENDER' ? 'Pra-Tender' : 'On Submission Tender'}`,
+          status: output.status,
+        })),
     };
   }
 }
