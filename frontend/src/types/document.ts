@@ -63,6 +63,7 @@ export interface DocumentItem {
   title: string;
   category: DocumentCategory;
   status: DocumentStatus;
+  canUploadVersion: boolean;
   createdAt: string;
   updatedAt: string;
   project?: {

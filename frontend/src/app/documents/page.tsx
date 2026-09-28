@@ -303,7 +303,7 @@ export default function DocumentsPage() {
           if (!open) setSelectedDocForDetail(null);
         }}
         document={selectedDocForDetail}
-        canUploadVersion
+        canUploadVersion={Boolean(selectedDocForDetail?.canUploadVersion)}
         onUploadVersion={(document) => {
           setSelectedDocForVersion(document);
           setSelectedDocForDetail(null);
@@ -506,10 +506,12 @@ function DocumentRow({
           <MessageSquare className="h-3.5 w-3.5" />
           {document._count?.comments || 0} komentar
         </Button>
-        <Button size="sm" variant="outline" className="gap-1.5" onClick={onUploadVersion}>
-          <FileUp className="h-3.5 w-3.5" />
-          Versi baru
-        </Button>
+        {document.canUploadVersion && (
+          <Button size="sm" variant="outline" className="gap-1.5" onClick={onUploadVersion}>
+            <FileUp className="h-3.5 w-3.5" />
+            Versi baru
+          </Button>
+        )}
         {document.project && (
           <Link href={`/projects/${document.project.id}`}>
             <Button size="icon" variant="ghost" title="Buka proyek">

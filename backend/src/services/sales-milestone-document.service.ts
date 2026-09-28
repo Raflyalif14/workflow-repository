@@ -8,9 +8,10 @@ import {
   MAX_MILESTONE_SUBMISSION_FILES,
 } from '../utils/storage.util';
 
-type Actor = { userId: string; role: string; fullName: string };
+export type SalesMilestoneDocumentActor = { userId: string; role: string; fullName: string };
+type Actor = SalesMilestoneDocumentActor;
 
-type SalesMilestoneDocumentContext = {
+export type SalesMilestoneDocumentContext = {
   id: string;
   project_id: string;
   name: string;
@@ -49,6 +50,28 @@ export class SalesMilestoneDocumentError extends Error {
   }
 }
 
+export function assertSalesMilestoneDocumentUploadAllowed(
+  context: SalesMilestoneDocumentContext,
+  actor: SalesMilestoneDocumentActor
+): void {
+  if (actor.role !== 'SALES') {
+    throw new SalesMilestoneDocumentError('Forbidden', 403);
+  }
+  if (!context.project) throw new SalesMilestoneDocumentError('Project not found', 404);
+  if (context.project.sales_id !== actor.userId) {
+    throw new SalesMilestoneDocumentError('Forbidden', 403);
+  }
+  if (context.project.status !== 'ACTIVE' || context.project.is_postponed === true) {
+    throw new SalesMilestoneDocumentError('Milestone documents can only be uploaded while the project is active.', 409);
+  }
+  if (context.workflow_stage?.default_role !== 'SALES') {
+    throw new SalesMilestoneDocumentError('Documents can only be uploaded to SALES milestones.', 409);
+  }
+  if (context.status !== 'IN_PROGRESS') {
+    throw new SalesMilestoneDocumentError('Documents can only be uploaded while the SALES milestone is IN_PROGRESS.', 409);
+  }
+}
+
 function toSafeUploadError(error: unknown): SalesMilestoneDocumentError {
   if (error instanceof SalesMilestoneDocumentError) return error;
   return new SalesMilestoneDocumentError('Failed to upload milestone documents.', 500);
@@ -76,25 +99,6 @@ export class SalesMilestoneDocumentService {
       workflow_stage: asRelatedOne(row.workflow_stage),
       project: asRelatedOne(row.project),
     };
-  }
-
-  private static assertUploadAuthorized(context: SalesMilestoneDocumentContext, actor: Actor): void {
-    if (!['SALES', 'SUPER_ADMIN'].includes(actor.role)) {
-      throw new SalesMilestoneDocumentError('Forbidden', 403);
-    }
-    if (!context.project) throw new SalesMilestoneDocumentError('Project not found', 404);
-    if (actor.role === 'SALES' && context.project.sales_id !== actor.userId) {
-      throw new SalesMilestoneDocumentError('Forbidden', 403);
-    }
-    if (context.workflow_stage?.default_role !== 'SALES') {
-      throw new SalesMilestoneDocumentError('Documents can only be uploaded to SALES milestones.', 409);
-    }
-    if (context.project.status === 'POSTPONED' || context.project.is_postponed) {
-      throw new SalesMilestoneDocumentError('Project is postponed.', 409);
-    }
-    if (['COMPLETED', 'CANCELLED'].includes(context.project.status)) {
-      throw new SalesMilestoneDocumentError('Project is no longer available for milestone document uploads.', 409);
-    }
   }
 
   private static assertFilesValid(files: Express.Multer.File[]): void {
@@ -201,7 +205,7 @@ export class SalesMilestoneDocumentService {
 
   static async upload(milestoneId: string, actor: Actor, files: Express.Multer.File[]) {
     const context = await this.getContext(milestoneId);
-    this.assertUploadAuthorized(context, actor);
+    assertSalesMilestoneDocumentUploadAllowed(context, actor);
     this.assertFilesValid(files);
 
     const operation: UploadOperation = {

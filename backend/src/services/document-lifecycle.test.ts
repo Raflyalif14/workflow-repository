@@ -8,6 +8,7 @@ import {
   buildDocumentReviewRollback,
   buildNewVersionLifecyclePlan,
   canAccessDocumentProject,
+  canUploadOfficialDocumentVersion,
   DocumentService,
   DocumentServiceError,
   toSafeDocumentServiceError,
@@ -43,7 +44,7 @@ const expectAsyncDocumentError = async (
   }
 };
 
-const project = { sales_id: 'sales-owner', pic_id: 'sa-owner' };
+const project = { sales_id: 'sales-owner', pic_id: 'sa-owner', status: 'ACTIVE', is_postponed: false };
 const actors = {
   superAdmin: { userId: 'admin-1', role: 'SUPER_ADMIN', fullName: 'Admin' },
   headSa: { userId: 'headsa-1', role: 'HEAD_SA', fullName: 'Head SA' },
@@ -60,6 +61,37 @@ assert(canAccessDocumentProject(project, actors.assignedSa), 'Test 1: assigned S
 assert(!canAccessDocumentProject(project, actors.salesOther), 'Test 1: unrelated SALES must not access documents');
 assert(!canAccessDocumentProject(project, actors.otherSa), 'Test 1: unrelated SA must not access documents');
 console.log('Test 1 - Document project access remains role-aware: passed');
+
+const officialDocuments = {
+  salesMilestone: { category: 'OTHER' },
+  supportingInput: { category: 'OTHER' },
+  milestoneSubmission: { category: 'OTHER' },
+  categorizedLegacy: { category: 'PROPOSAL' },
+};
+const initialVersions = {
+  salesMilestone: { uploaded_by: actors.salesOwner.userId, changelog: 'Initial SALES milestone document upload.' },
+  supportingInput: { uploaded_by: actors.salesOwner.userId, changelog: 'Promoted from supporting input.' },
+  milestoneSubmission: { uploaded_by: actors.assignedSa.userId, changelog: 'Promoted from approved milestone submission.' },
+  categorizedLegacy: { uploaded_by: actors.salesOwner.userId, changelog: 'Initial upload.' },
+};
+
+assert(canUploadOfficialDocumentVersion(officialDocuments.salesMilestone, project, initialVersions.salesMilestone, actors.salesOwner), 'Test 1b: SALES owner may version a SALES milestone document');
+assert(!canUploadOfficialDocumentVersion(officialDocuments.salesMilestone, project, initialVersions.salesMilestone, actors.salesOther), 'Test 1b: unrelated SALES may not version a SALES milestone document');
+assert(!canUploadOfficialDocumentVersion(officialDocuments.salesMilestone, project, initialVersions.salesMilestone, actors.superAdmin), 'Test 1b: broad read access must not grant SUPER_ADMIN write access');
+assert(canUploadOfficialDocumentVersion(officialDocuments.supportingInput, project, initialVersions.supportingInput, actors.salesOwner), 'Test 1b: SALES owner may version its promoted supporting input');
+assert(canUploadOfficialDocumentVersion(officialDocuments.milestoneSubmission, project, initialVersions.milestoneSubmission, actors.assignedSa), 'Test 1b: assigned SA may version a promoted milestone submission');
+assert(!canUploadOfficialDocumentVersion(officialDocuments.milestoneSubmission, project, initialVersions.milestoneSubmission, actors.otherSa), 'Test 1b: unrelated SA may not version a promoted milestone submission');
+assert(!canUploadOfficialDocumentVersion(officialDocuments.milestoneSubmission, project, initialVersions.milestoneSubmission, actors.headSa), 'Test 1b: HEAD_SA read access alone must not grant write access');
+assert(canUploadOfficialDocumentVersion(officialDocuments.categorizedLegacy, project, initialVersions.categorizedLegacy, actors.salesOwner), 'Test 1b: legacy categorized document remains writable by its original uploader');
+assert(!canUploadOfficialDocumentVersion(officialDocuments.categorizedLegacy, project, initialVersions.categorizedLegacy, actors.superAdmin), 'Test 1b: legacy categorized document is not writable solely through global read access');
+assert(!canUploadOfficialDocumentVersion(officialDocuments.categorizedLegacy, project, { ...initialVersions.categorizedLegacy, uploaded_by: actors.superAdmin.userId }, actors.superAdmin), 'Test 1b: SUPER_ADMIN remains denied even when recorded as the legacy uploader');
+assert(!canUploadOfficialDocumentVersion(officialDocuments.categorizedLegacy, { ...project, sales_id: actors.salesOther.userId }, initialVersions.categorizedLegacy, actors.salesOwner), 'Test 1b: a former SALES uploader must retain current project access');
+assert(!canUploadOfficialDocumentVersion(officialDocuments.categorizedLegacy, project, { ...initialVersions.categorizedLegacy, uploaded_by: 'former-user' }, { userId: 'former-user', role: 'FORMER_SALES', fullName: 'Former user' }), 'Test 1b: legacy fallback must enforce the current role allowlist');
+for (const status of ['WAITING_RESULT', 'WON', 'LOST', 'COMPLETED', 'CANCELLED']) {
+  assert(!canUploadOfficialDocumentVersion(officialDocuments.salesMilestone, { ...project, status }, initialVersions.salesMilestone, actors.salesOwner), `Test 1b: ${status} project must reject official version uploads`);
+}
+assert(!canUploadOfficialDocumentVersion(officialDocuments.salesMilestone, { ...project, is_postponed: true }, initialVersions.salesMilestone, actors.salesOwner), 'Test 1b: postponed ACTIVE project must reject official version uploads');
+console.log('Test 1b - Official version upload capability is origin-aware, actor-specific, and ACTIVE-only: passed');
 
 const previousVersions = [
   { id: 'version-latest', version_number: 3, status: 'SUBMITTED' as const, is_latest: true },
@@ -629,6 +661,89 @@ async function verifySalesDocumentReadFinality(): Promise<void> {
   }
 }
 
+async function verifyVersionUploadRejectionBeforeMutation(): Promise<void> {
+  const service = DocumentService as any;
+  const originalFrom = supabaseAdmin.from;
+  const originals = {
+    getRawDocument: service.getRawDocument,
+    assertDocumentAccess: service.assertDocumentAccess,
+    uploadDocumentFile: service.uploadDocumentFile,
+  };
+  let currentProject = { id: 'project-1', ...project };
+  let storageUploads = 0;
+  let metadataWrites = 0;
+  let initialVersion = {
+    id: 'version-1',
+    document_id: 'document-1',
+    version_number: 1,
+    status: 'APPROVED',
+    is_latest: true,
+    uploaded_by: actors.salesOwner.userId,
+    changelog: 'Initial SALES milestone document upload.',
+  };
+  const file = { originalname: 'version-2.pdf', size: 10, mimetype: 'application/pdf' } as Express.Multer.File;
+
+  try {
+    service.getRawDocument = async () => ({
+      id: 'document-1',
+      project_id: 'project-1',
+      title: 'Sales Milestone Document',
+      category: 'OTHER',
+      status: 'APPROVED',
+      updated_at: '2026-09-01T00:00:00.000Z',
+    });
+    service.assertDocumentAccess = async () => currentProject;
+    service.uploadDocumentFile = async () => {
+      storageUploads += 1;
+    };
+    (supabaseAdmin as any).from = (table: string) => {
+      if (table !== 'document_versions') throw new Error(`Unexpected table before policy decision: ${table}`);
+      const readQuery: any = {
+        eq: () => readQuery,
+        order: async () => ({ data: [initialVersion], error: null }),
+      };
+      return {
+        select: () => readQuery,
+        insert: () => {
+          metadataWrites += 1;
+          throw new Error('Metadata write must not be reached');
+        },
+        update: () => {
+          metadataWrites += 1;
+          throw new Error('Metadata write must not be reached');
+        },
+      };
+    };
+
+    currentProject = { id: 'project-1', ...project, is_postponed: true };
+    await expectAsyncDocumentError(
+      () => DocumentService.uploadNewVersion('document-1', { changelog: 'Blocked while postponed.' }, file, actors.salesOwner),
+      'Document versions can only be uploaded while the project is active.',
+      409
+    );
+
+    currentProject = { id: 'project-1', ...project };
+    initialVersion = {
+      ...initialVersion,
+      uploaded_by: actors.superAdmin.userId,
+      changelog: 'Initial upload.',
+    };
+    await expectAsyncDocumentError(
+      () => DocumentService.uploadNewVersion('document-1', { changelog: 'Blocked for SUPER_ADMIN legacy uploader.' }, file, actors.superAdmin),
+      'Forbidden',
+      403
+    );
+
+    assert(storageUploads === 0, 'Test 12d: rejected version uploads must not touch storage');
+    assert(metadataWrites === 0, 'Test 12d: rejected version uploads must not mutate metadata');
+  } finally {
+    (supabaseAdmin as any).from = originalFrom;
+    service.getRawDocument = originals.getRawDocument;
+    service.assertDocumentAccess = originals.assertDocumentAccess;
+    service.uploadDocumentFile = originals.uploadDocumentFile;
+  }
+}
+
 async function verifyVersionDemotionCompareAndSet(): Promise<void> {
   const service = DocumentService as any;
   const originalFrom = supabaseAdmin.from;
@@ -645,6 +760,8 @@ async function verifyVersionDemotionCompareAndSet(): Promise<void> {
     version_number: 1,
     status: 'SUBMITTED',
     is_latest: true,
+    uploaded_by: actors.salesOwner.userId,
+    changelog: 'Initial SALES milestone document upload.',
   };
 
   try {
@@ -652,10 +769,11 @@ async function verifyVersionDemotionCompareAndSet(): Promise<void> {
       id: 'document-1',
       project_id: 'project-1',
       title: 'Concurrent Review Document',
+      category: 'OTHER',
       status: 'SUBMITTED',
       updated_at: '2026-09-02T00:00:00.000Z',
     });
-    service.assertDocumentAccess = async () => ({ id: 'project-1' });
+    service.assertDocumentAccess = async () => ({ id: 'project-1', ...project });
     service.uploadDocumentFile = async () => undefined;
     service.removeUploadedFile = async () => undefined;
     (supabaseAdmin as any).from = (table: string) => {
@@ -761,6 +879,9 @@ async function run(): Promise<void> {
 
   await verifySalesDocumentReadFinality();
   console.log('Test 12c - SALES sees approved official documents only while internal non-final document access stays role-scoped: passed');
+
+  await verifyVersionUploadRejectionBeforeMutation();
+  console.log('Test 12d - Rejected official version uploads stop before storage and metadata mutation: passed');
 
   await verifyVersionDemotionCompareAndSet();
   console.log('Test 12 - Concurrent document review cannot be overwritten during previous-version demotion: passed');

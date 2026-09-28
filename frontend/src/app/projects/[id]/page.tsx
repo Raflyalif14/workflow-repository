@@ -38,6 +38,7 @@ import { ProjectTimelineEditor } from "@/components/projects/project-timeline-ed
 import { SalesMilestoneDocumentUploadDialog } from "@/components/projects/sales-milestone-document-upload-dialog";
 import { OutputDocumentsSection } from "@/components/projects/output-documents-section";
 import { useOutputDocuments } from "@/hooks/use-output-documents";
+import { canUploadSalesMilestoneDocuments } from "@/lib/sales-milestone-document-ux";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -1310,8 +1311,15 @@ function MilestoneRow({
     ) &&
     !isCompleted &&
     !hasPendingDeadline;
-  const canUploadSalesMilestoneDocuments =
-    stageRole === "SALES" && (isSalesOwner || user?.role === "SUPER_ADMIN");
+  const canUploadSalesDocuments = canUploadSalesMilestoneDocuments(
+    user,
+    {
+      salesId: project.sales_id,
+      status: project.status,
+      isPostponed: project.is_postponed,
+    },
+    { status: milestoneStatus, stageRole }
+  );
   const contributionProject = {
     salesId: project.sales_id,
     status: project.status,
@@ -1425,7 +1433,7 @@ function MilestoneRow({
             </Button>
           )}
           {hasPendingDeadline && <Badge variant="warning">Deadline change pending review</Badge>}
-          {canUploadSalesMilestoneDocuments && (
+          {canUploadSalesDocuments && (
             <Button
               size="sm"
               variant="outline"

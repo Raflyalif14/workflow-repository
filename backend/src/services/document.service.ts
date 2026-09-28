@@ -20,6 +20,8 @@ type ProjectRow = {
   customer: string | null;
   sales_id: string;
   pic_id: string | null;
+  status: string;
+  is_postponed: boolean | null;
 };
 
 type MilestoneRow = {
@@ -85,6 +87,13 @@ export type DocumentVersionLifecycleState = Pick<DocumentVersionRow, 'id' | 'ver
 export type DocumentApprovalLifecycleState = Pick<DocumentApprovalRow, 'id' | 'document_version_id' | 'status'>;
 type VersionState = DocumentVersionLifecycleState;
 
+export type DocumentVersionUploadOrigin =
+  | 'SALES_MILESTONE'
+  | 'SALES_SUPPORTING_INPUT'
+  | 'MILESTONE_SUBMISSION'
+  | 'CATEGORIZED_LEGACY'
+  | 'LEGACY_OR_OTHER';
+
 const documentFields = 'id,project_id,milestone_id,title,category,status,created_at,updated_at';
 const versionFields = 'id,document_id,version_number,file_name,storage_path,file_size,mime_type,changelog,status,is_latest,uploaded_by,created_at';
 const approvalFields = 'id,document_version_id,status,action_role,feedback,reviewed_by,reviewed_at,created_at';
@@ -135,6 +144,56 @@ export function canAccessDocumentProject(
   actor: DocumentActor
 ): boolean {
   return canAccessProject(project, actor);
+}
+
+export function getDocumentVersionUploadOrigin(
+  document: Pick<DocumentRow, 'category'>,
+  initialVersion?: Pick<DocumentVersionRow, 'changelog'> | null
+): DocumentVersionUploadOrigin {
+  if (initialVersion?.changelog === 'Initial SALES milestone document upload.') return 'SALES_MILESTONE';
+  if (initialVersion?.changelog === 'Promoted from supporting input.') return 'SALES_SUPPORTING_INPUT';
+  if (initialVersion?.changelog === 'Promoted from approved milestone submission.') return 'MILESTONE_SUBMISSION';
+  if (document.category !== 'OTHER') return 'CATEGORIZED_LEGACY';
+  return 'LEGACY_OR_OTHER';
+}
+
+export function canUploadOfficialDocumentVersion(
+  document: Pick<DocumentRow, 'category'>,
+  project: Pick<ProjectRow, 'sales_id' | 'pic_id' | 'status' | 'is_postponed'>,
+  initialVersion: Pick<DocumentVersionRow, 'uploaded_by' | 'changelog'> | null | undefined,
+  actor: DocumentActor
+): boolean {
+  if (project.status !== 'ACTIVE' || project.is_postponed === true || !initialVersion) return false;
+  if (actor.role === 'SUPER_ADMIN') return false;
+  if (!['SALES', 'SA', 'HEAD_SA'].includes(actor.role)) return false;
+  if (!canAccessDocumentProject(project, actor)) return false;
+
+  const origin = getDocumentVersionUploadOrigin(document, initialVersion);
+  if (origin === 'SALES_MILESTONE' || origin === 'SALES_SUPPORTING_INPUT') {
+    return actor.role === 'SALES' && project.sales_id === actor.userId;
+  }
+  if (origin === 'MILESTONE_SUBMISSION') {
+    return ['SA', 'HEAD_SA'].includes(actor.role) && project.pic_id === actor.userId;
+  }
+
+  // Historical repository rows have no explicit provenance field. Preserve the
+  // original uploader's mutation ownership instead of deriving write access
+  // from the broader project read scope.
+  return initialVersion.uploaded_by === actor.userId;
+}
+
+export function assertOfficialDocumentVersionUploadAllowed(
+  document: Pick<DocumentRow, 'category'>,
+  project: Pick<ProjectRow, 'sales_id' | 'pic_id' | 'status' | 'is_postponed'>,
+  initialVersion: Pick<DocumentVersionRow, 'uploaded_by' | 'changelog'> | null | undefined,
+  actor: DocumentActor
+): void {
+  if (project.status !== 'ACTIVE' || project.is_postponed === true) {
+    throw new DocumentServiceError('Document versions can only be uploaded while the project is active.', 409);
+  }
+  if (!canUploadOfficialDocumentVersion(document, project, initialVersion, actor)) {
+    throw new DocumentServiceError('Forbidden', 403);
+  }
 }
 
 export function buildNewVersionLifecyclePlan(
@@ -191,7 +250,7 @@ export class DocumentService {
   private static async getProject(projectId: string): Promise<ProjectRow> {
     const { data, error } = await supabaseAdmin
       .from('projects')
-      .select('id,name,customer,sales_id,pic_id')
+      .select('id,name,customer,sales_id,pic_id,status,is_postponed')
       .eq('id', projectId)
       .maybeSingle();
 
@@ -308,7 +367,7 @@ export class DocumentService {
     };
   }
 
-  private static async hydrateDocuments(documents: DocumentRow[], includeComments: boolean) {
+  private static async hydrateDocuments(documents: DocumentRow[], includeComments: boolean, actor: Actor) {
     if (!documents.length) return [];
 
     const documentIds = documents.map((document) => document.id);
@@ -316,7 +375,7 @@ export class DocumentService {
     const milestoneIds = [...new Set(documents.map((document) => document.milestone_id).filter((id): id is string => Boolean(id)))];
 
     const [projectResult, milestoneResult, versionResult, commentResult] = await Promise.all([
-      supabaseAdmin.from('projects').select('id,name,customer,sales_id,pic_id').in('id', projectIds),
+      supabaseAdmin.from('projects').select('id,name,customer,sales_id,pic_id,status,is_postponed').in('id', projectIds),
       milestoneIds.length
         ? supabaseAdmin.from('project_milestones').select('id,project_id,name,step_order').in('id', milestoneIds)
         : Promise.resolve({ data: [], error: null }),
@@ -362,6 +421,8 @@ export class DocumentService {
       const documentVersions = versions
         .filter((version) => version.document_id === document.id)
         .sort((left, right) => right.version_number - left.version_number);
+      const initialVersion = documentVersions[documentVersions.length - 1];
+      const project = projects.get(document.project_id);
       const documentComments = comments.filter((comment) => comment.document_id === document.id);
 
       return {
@@ -373,8 +434,11 @@ export class DocumentService {
         status: asDocumentStatus(document.status),
         createdAt: document.created_at,
         updatedAt: document.updated_at,
-        project: toProject(projects.get(document.project_id)),
+        project: toProject(project),
         milestone: document.milestone_id ? toMilestone(milestones.get(document.milestone_id)) : null,
+        canUploadVersion: Boolean(
+          project && canUploadOfficialDocumentVersion(document, project, initialVersion, actor)
+        ),
         versions: documentVersions.map((version) =>
           this.mapVersion(
             version,
@@ -456,13 +520,13 @@ export class DocumentService {
 
     const { data, error } = await request;
     if (error) throw new DocumentServiceError('Failed to retrieve document data.', 500);
-    return this.hydrateDocuments((data || []) as DocumentRow[], false);
+    return this.hydrateDocuments((data || []) as DocumentRow[], false, actor);
   }
 
   static async getDocumentById(documentId: string, actor: Actor) {
     const document = await this.getRawDocument(documentId);
     await this.assertDocumentReadAccess(document, actor);
-    const [hydrated] = await this.hydrateDocuments([document], true);
+    const [hydrated] = await this.hydrateDocuments([document], true, actor);
     return hydrated;
   }
 
@@ -476,12 +540,14 @@ export class DocumentService {
     const project = await this.assertDocumentAccess(document, actor);
     const { data: versionsData, error: versionsError } = await supabaseAdmin
       .from('document_versions')
-      .select('id,version_number,status,is_latest')
+      .select('id,version_number,status,is_latest,uploaded_by,changelog')
       .eq('document_id', documentId)
       .order('version_number', { ascending: false });
 
     if (versionsError) throw new DocumentServiceError('Failed to retrieve document data.', 500);
-    const versions = (versionsData || []) as VersionState[];
+    const versions = (versionsData || []) as DocumentVersionRow[];
+    const initialVersion = [...versions].sort((left, right) => left.version_number - right.version_number)[0];
+    assertOfficialDocumentVersionUploadAllowed(document, project, initialVersion, actor);
     const latestVersions = versions.filter((version) => version.is_latest);
     const { data: approvalData, error: approvalLookupError } = latestVersions.length
       ? await supabaseAdmin
@@ -625,7 +691,15 @@ export class DocumentService {
       throw toSafeDocumentServiceError(error, 'Failed to upload document version.');
     }
 
-    return this.getDocumentById(documentId, actor);
+    // Return an operation receipt instead of re-reading the now-SUBMITTED
+    // document. SALES uploaders intentionally cannot read non-final repository
+    // content, so a post-commit read would turn a successful upload into a 404.
+    return {
+      documentId,
+      versionId,
+      versionNumber: nextVersionNumber,
+      status: 'SUBMITTED' as const,
+    };
   }
 
   static async reviewVersion(versionId: string, input: ReviewVersionInput, actor: Actor) {

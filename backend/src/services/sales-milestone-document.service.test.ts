@@ -12,6 +12,7 @@ const assert = (condition: boolean, message: string): void => {
 
 type Scenario = {
   stageRole?: string;
+  milestoneStatus?: string;
   projectStatus?: string;
   projectPostponed?: boolean;
   documentInsertFailsAt?: number;
@@ -64,7 +65,7 @@ const makeState = (scenario: Scenario = {}): State => ({
     id: 'milestone-1',
     project_id: 'project-1',
     name: 'Sales Discovery',
-    status: 'IN_PROGRESS',
+    status: scenario.milestoneStatus || 'IN_PROGRESS',
     workflow_stage: { default_role: scenario.stageRole || 'SALES' },
   },
   documents: [],
@@ -249,13 +250,47 @@ async function run(): Promise<void> {
     console.log('Test 5 - Non-SALES milestone is rejected: passed');
   });
 
+  for (const projectStatus of ['WAITING_RESULT', 'WON', 'LOST', 'COMPLETED', 'CANCELLED']) {
+    await withScenario({ projectStatus }, async (state) => {
+      await expectError(
+        () => SalesMilestoneDocumentService.upload('milestone-1', salesOwner, [makeFile('brief.pdf')]),
+        'Milestone documents can only be uploaded while the project is active.',
+        409
+      );
+      assert(state.documents.length === 0 && state.versions.length === 0 && state.uploadedPaths.length === 0, `Project ${projectStatus}: rejection must occur before storage or metadata writes`);
+    });
+  }
+  console.log('Test 6 - Final and result-phase projects are rejected before storage or metadata writes: passed');
+
+  await withScenario({ projectStatus: 'ACTIVE', projectPostponed: true }, async (state) => {
+    await expectError(
+      () => SalesMilestoneDocumentService.upload('milestone-1', salesOwner, [makeFile('brief.pdf')]),
+      'Milestone documents can only be uploaded while the project is active.',
+      409
+    );
+    assert(state.documents.length === 0 && state.versions.length === 0 && state.uploadedPaths.length === 0, 'Postponed ACTIVE project must be rejected before storage or metadata writes');
+  });
+  console.log('Test 7 - Postponed project is rejected before storage or metadata writes: passed');
+
+  for (const milestoneStatus of ['CREATED', 'SUBMITTED', 'REJECTED', 'APPROVED', 'COMPLETED']) {
+    await withScenario({ milestoneStatus }, async (state) => {
+      await expectError(
+        () => SalesMilestoneDocumentService.upload('milestone-1', salesOwner, [makeFile('brief.pdf')]),
+        'Documents can only be uploaded while the SALES milestone is IN_PROGRESS.',
+        409
+      );
+      assert(state.documents.length === 0 && state.versions.length === 0 && state.uploadedPaths.length === 0, `Milestone ${milestoneStatus}: rejection must occur before storage or metadata writes`);
+    });
+  }
+  console.log('Test 8 - Non-active SALES milestones are rejected before storage or metadata writes: passed');
+
   await withScenario({}, async (state) => {
     await expectError(() => SalesMilestoneDocumentService.upload('milestone-1', salesOwner, []), 'At least one file is required for milestone document upload.', 400);
     await expectError(() => SalesMilestoneDocumentService.upload('milestone-1', salesOwner, [makeFile('invalid.exe')]), 'File format not supported. Allowed formats: PDF, DOCX, XLSX, PPTX, Images, ZIP.', 400);
     await expectError(() => SalesMilestoneDocumentService.upload('milestone-1', salesOwner, [{ ...makeFile('large.pdf'), size: MAX_DOCUMENT_FILE_SIZE_BYTES + 1 }]), 'Each file must be 50 MB or smaller.', 400);
     await expectError(() => SalesMilestoneDocumentService.upload('milestone-1', salesOwner, Array.from({ length: 11 }, () => makeFile('too-many.pdf'))), 'A maximum of 10 files may be uploaded at once.', 400);
     assert(state.documents.length === 0 && state.uploadedPaths.length === 0, 'Test 6: invalid file requests must be rejected before upload');
-    console.log('Test 6 - Missing, invalid, oversized, and excessive files are rejected: passed');
+    console.log('Test 9 - Missing, invalid, oversized, and excessive files are rejected: passed');
   });
 
   await withScenario({ versionInsertFailsAt: 2 }, async (state) => {
@@ -263,16 +298,20 @@ async function run(): Promise<void> {
     await expectError(() => SalesMilestoneDocumentService.upload('milestone-1', salesOwner, [makeFile('first.pdf'), makeFile('second.pdf')]), 'Failed to upload milestone documents.', 500);
     assert(state.cleanupPaths.length === 2 && state.documents.length === 0 && state.versions.length === 0, 'Test 7: partial metadata failure must remove request-owned storage and documents');
     assert(state.milestone.status === statusBefore, 'Test 7: rollback must not mutate milestone status');
-    console.log('Test 7 - Partial failure compensates storage and official document rows: passed');
+    console.log('Test 10 - Partial failure compensates storage and official document rows: passed');
   });
 
   await withScenario({}, async (state) => {
-    await SalesMilestoneDocumentService.upload('milestone-1', superAdmin, [makeFile('admin-upload.pdf')]);
-    const beforeListingTables = [...state.tablesTouched];
-    assert(!beforeListingTables.includes('document_version_approvals') && !beforeListingTables.includes('milestone_submission_packages'), 'Test 8: SUPER_ADMIN upload must not create review/package records');
+    await expectError(() => SalesMilestoneDocumentService.upload('milestone-1', superAdmin, [makeFile('admin-upload.pdf')]), 'Forbidden', 403);
+    assert(state.documents.length === 0 && state.versions.length === 0 && state.uploadedPaths.length === 0, 'Test 11: SUPER_ADMIN must be rejected before storage or metadata writes');
+    console.log('Test 11 - SUPER_ADMIN cannot replace the required SALES-owner upload actor: passed');
+  });
+
+  await withScenario({}, async (state) => {
+    await SalesMilestoneDocumentService.upload('milestone-1', salesOwner, [makeFile('listed.pdf')]);
     const listed = await DocumentService.listDocuments({ projectId: 'project-1' }, salesOwner);
-    assert(listed.length === 1 && listed[0].id === state.documents[0].id && listed[0].milestoneId === 'milestone-1', 'Test 8: existing project-scoped document listing exposes the created official document');
-    console.log('Test 8 - SUPER_ADMIN uses existing global project access and project-scoped documents list the upload: passed');
+    assert(listed.length === 1 && listed[0].id === state.documents[0].id && listed[0].milestoneId === 'milestone-1', 'Test 12: existing project-scoped document listing exposes the created official document');
+    console.log('Test 12 - Authorized upload remains visible through the existing document repository: passed');
   });
 }
 
