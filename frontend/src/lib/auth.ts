@@ -1,4 +1,5 @@
 import { User, UserRole } from "@/types/user";
+import { translate } from "@/i18n";
 
 const ACCESS_TOKEN_KEY = "workflow.accessToken";
 const REFRESH_TOKEN_KEY = "workflow.refreshToken";
@@ -19,6 +20,7 @@ type RawUser = Partial<User> & {
   must_change_password?: unknown;
   created_at?: unknown;
   updated_at?: unknown;
+  preferred_language?: unknown;
 };
 
 const readString = (value: unknown, fallback = "") =>
@@ -89,6 +91,8 @@ export function normalizeAuthUser(input: unknown): User {
       raw.mustChangePassword ?? raw.must_change_password,
       false
     ),
+    preferredLanguage:
+      (raw.preferredLanguage ?? raw.preferred_language) === "id" ? "id" : "en",
     phoneNumber: raw.phoneNumber,
     avatarUrl: raw.avatarUrl,
     createdAt: readString(raw.createdAt || raw.created_at),
@@ -98,16 +102,16 @@ export function normalizeAuthUser(input: unknown): User {
 }
 
 export function validatePasswordPolicy(password: string) {
-  if (!password) return "Password wajib diisi.";
+  if (!password) return translate("auth.passwordRequired");
   if (password !== password.trim()) {
-    return "Password tidak boleh memiliki spasi di awal atau akhir.";
+    return translate("auth.passwordWhitespace");
   }
-  if (password.length < 12) return "Password minimal 12 karakter.";
-  if (!/[A-Z]/.test(password)) return "Password harus memiliki huruf besar.";
-  if (!/[a-z]/.test(password)) return "Password harus memiliki huruf kecil.";
-  if (!/\d/.test(password)) return "Password harus memiliki angka.";
+  if (password.length < 12) return translate("auth.passwordLength");
+  if (!/[A-Z]/.test(password)) return translate("auth.passwordUppercase");
+  if (!/[a-z]/.test(password)) return translate("auth.passwordLowercase");
+  if (!/\d/.test(password)) return translate("auth.passwordNumber");
   if (!/[^A-Za-z0-9]/.test(password)) {
-    return "Password harus memiliki karakter spesial.";
+    return translate("auth.passwordSpecial");
   }
   return null;
 }

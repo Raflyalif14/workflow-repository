@@ -506,21 +506,28 @@ export class DocumentService {
     }
     if (accessibleProjectIds && !accessibleProjectIds.length) return [];
 
-    let request: any = supabaseAdmin
-      .from('documents')
-      .select(documentFields)
-      .order('updated_at', { ascending: false });
-
-    if (accessibleProjectIds) request = request.in('project_id', accessibleProjectIds);
-    if (query.milestoneId) request = request.eq('milestone_id', query.milestoneId);
-    if (query.category) request = request.eq('category', query.category);
-    if (query.status) request = request.eq('status', query.status);
-    if (actor.role === 'SALES') request = request.eq('status', 'APPROVED');
-    if (query.search?.trim()) request = request.ilike('title', `%${query.search.trim()}%`);
-
-    const { data, error } = await request;
-    if (error) throw new DocumentServiceError('Failed to retrieve document data.', 500);
-    return this.hydrateDocuments((data || []) as DocumentRow[], false, actor);
+    const pageSize = 100;
+    const scopes = accessibleProjectIds
+      ? Array.from({ length: Math.ceil(accessibleProjectIds.length / pageSize) }, (_, index) => accessibleProjectIds.slice(index * pageSize, (index + 1) * pageSize))
+      : [null];
+    const results: Awaited<ReturnType<typeof DocumentService.hydrateDocuments>> = [];
+    for (const scope of scopes) {
+      for (let offset = 0; ; offset += pageSize) {
+        let request: any = supabaseAdmin.from('documents').select(documentFields)
+          .order('updated_at', { ascending: false }).order('id', { ascending: true });
+        if (scope) request = request.in('project_id', scope);
+        if (query.milestoneId) request = request.eq('milestone_id', query.milestoneId);
+        if (query.category) request = request.eq('category', query.category);
+        if (query.status) request = request.eq('status', query.status);
+        if (actor.role === 'SALES') request = request.eq('status', 'APPROVED');
+        if (query.search?.trim()) request = request.ilike('title', `%${query.search.trim()}%`);
+        const { data, error } = await request.range(offset, offset + pageSize - 1);
+        if (error) throw new DocumentServiceError('Failed to retrieve document data.', 500);
+        results.push(...await this.hydrateDocuments((data || []) as DocumentRow[], false, actor));
+        if (!data || data.length < pageSize) break;
+      }
+    }
+    return results;
   }
 
   static async getDocumentById(documentId: string, actor: Actor) {

@@ -1,5 +1,7 @@
 "use client";
 
+import { translate as translateI18n } from "@/i18n";
+
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { AlertTriangle, Trash2 } from "lucide-react";
@@ -51,30 +53,30 @@ export function ProjectDeletionDangerZone({ project }: { project: Project }) {
         <CardHeader className="pb-3">
           <div className="flex items-start gap-3">
             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-destructive/30 bg-destructive/10 text-destructive"><AlertTriangle className="h-4 w-4" /></span>
-            <div className="space-y-1"><CardTitle className="text-base font-semibold tracking-tight">Danger Zone</CardTitle><CardDescription className="text-xs">Deleting this project permanently removes its workflow data, documents, approvals, and related records.</CardDescription></div>
+            <div className="space-y-1"><CardTitle className="text-base font-semibold tracking-tight">{translateI18n("copy.dangerZone")}</CardTitle><CardDescription className="text-xs">{translateI18n("copy.deleteDescription")}</CardDescription></div>
           </div>
         </CardHeader>
-        <CardContent><Button variant="destructive" className="gap-2" onClick={() => setOpen(true)}><Trash2 className="h-4 w-4" />Delete Project</Button></CardContent>
+        <CardContent><Button variant="destructive" className="gap-2" onClick={() => setOpen(true)}><Trash2 className="h-4 w-4" />{translateI18n("copy.deleteProject")}</Button></CardContent>
       </Card>
 
       <Dialog open={open} onOpenChange={close}>
-        <DialogHeader><DialogTitle>Delete Project Permanently</DialogTitle><DialogDescription>{project.name}</DialogDescription></DialogHeader>
+        <DialogHeader><DialogTitle>{translateI18n("copy.deletePermanently")}</DialogTitle><DialogDescription>{project.name}</DialogDescription></DialogHeader>
         <div className="space-y-4 text-sm">
-          <p className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-destructive">This action is permanent. It removes the project and all project-owned workflow records.</p>
-          {preview.isLoading ? <p className="text-xs text-muted-foreground">Loading deletion preview...</p> : preview.isError ? <p className="text-xs text-destructive">Unable to load the deletion preview.</p> : preview.data && (
+          <p className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-destructive">{translateI18n("copy.permanentAction")}</p>
+          {preview.isLoading ? <p className="text-xs text-muted-foreground">{translateI18n("copy.loadingDeletion")}</p> : preview.isError ? <p className="text-xs text-destructive">{translateI18n("copy.deletionPreviewError")}</p> : preview.data && (
             <div className="grid grid-cols-2 gap-2 rounded-lg border border-border/60 bg-muted/15 p-3 text-xs text-muted-foreground">
-              <span>Milestones: <strong className="text-foreground">{preview.data.milestone_count}</strong></span><span>Documents: <strong className="text-foreground">{preview.data.document_count}</strong></span>
-              <span>Versions: <strong className="text-foreground">{preview.data.document_version_count}</strong></span><span>Submission files: <strong className="text-foreground">{preview.data.submission_attachment_count}</strong></span>
-              <span>Project Intake files: <strong className="text-foreground">{preview.data.project_intake_attachment_count}</strong></span>
-              <span>Supporting inputs: <strong className="text-foreground">{preview.data.milestone_contribution_count}</strong></span><span>Supporting files: <strong className="text-foreground">{preview.data.milestone_contribution_attachment_count}</strong></span>
-              <span>Approvals: <strong className="text-foreground">{Object.values(preview.data.approvals).reduce((total, count) => total + count, 0)}</strong></span><span>Assignments: <strong className="text-foreground">{preview.data.assignment_count}</strong></span>
-              <span>Notifications: <strong className="text-foreground">{preview.data.notification_count}</strong></span><span>Storage objects: <strong className="text-foreground">{preview.data.storage_object_count}</strong></span>
+              <span>{translateI18n("copy.milestonesCount")} <strong className="text-foreground">{preview.data.milestone_count}</strong></span><span>{translateI18n("copy.documentsCount")} <strong className="text-foreground">{preview.data.document_count}</strong></span>
+              <span>{translateI18n("copy.versionsCount")} <strong className="text-foreground">{preview.data.document_version_count}</strong></span><span>{translateI18n("documents.output")} <strong className="text-foreground">{preview.data.project_output_document_version_count}</strong></span>
+              <span>{translateI18n("copy.intakeFiles")} <strong className="text-foreground">{preview.data.project_intake_attachment_count}</strong></span>
+              <span>{translateI18n("copy.supportingInputs")} <strong className="text-foreground">{preview.data.milestone_contribution_count}</strong></span><span>{translateI18n("copy.supportingFiles")} <strong className="text-foreground">{preview.data.milestone_contribution_attachment_count}</strong></span>
+              <span>{translateI18n("copy.approvalsCount")} <strong className="text-foreground">{Object.values(preview.data.approvals).reduce((total, count) => total + count, 0)}</strong></span><span>{translateI18n("copy.assignmentsCount")} <strong className="text-foreground">{preview.data.assignment_count}</strong></span>
+              <span>{translateI18n("copy.notificationsCount")} <strong className="text-foreground">{preview.data.notification_count}</strong></span><span>{translateI18n("copy.storageObjects")} <strong className="text-foreground">{preview.data.storage_object_count}</strong></span>
             </div>
           )}
-          <div><label htmlFor="delete-project-confirmation" className="mb-1 block text-xs font-semibold">Type <strong>{project.name}</strong> to confirm</label><Input id="delete-project-confirmation" value={confirmation} onChange={(event) => setConfirmation(event.target.value)} disabled={deletion.isPending} /></div>
+          <div><label htmlFor="delete-project-confirmation" className="mb-1 block text-xs font-semibold">{translateI18n("copy.type")} <strong>{project.name}</strong> to confirm</label><Input id="delete-project-confirmation" value={confirmation} onChange={(event) => setConfirmation(event.target.value)} disabled={deletion.isPending} /></div>
           {error && <p className="text-xs text-destructive">{error}</p>}{cleanupWarning && <p className="text-xs text-amber-500">{cleanupWarning}</p>}
         </div>
-        <DialogFooter><Button variant="outline" onClick={() => close(false)} disabled={deletion.isPending}>Cancel</Button><Button variant="destructive" onClick={() => void submit()} disabled={!canDelete}>{deletion.isPending ? "Deleting..." : "Delete Project"}</Button></DialogFooter>
+        <DialogFooter><Button variant="outline" onClick={() => close(false)} disabled={deletion.isPending}>{translateI18n("common.cancel")}</Button><Button variant="destructive" onClick={() => void submit()} disabled={!canDelete}>{deletion.isPending ? "Deleting..." : "Delete Project"}</Button></DialogFooter>
       </Dialog>
     </>
   );

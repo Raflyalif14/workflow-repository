@@ -18,8 +18,8 @@ type State = { outputs: OutputRow[]; notifications: Notification[]; pending: Not
 
 const makeState = (status: 'DRAFT' | 'IN_REVIEW'): State => ({
   outputs: [
-    { id: 'output-success', project_id: projectId, document_key: 'proposal_teknis', status, file_name: 'proposal.pdf', current_version_id: 'version-success' },
-    { id: 'output-fail', project_id: projectId, document_key: 'timeline_proyek', status, file_name: 'timeline.pdf', current_version_id: 'version-fail' },
+    { id: 'output-success', project_id: projectId, milestone_id: 'milestone-output', document_key: 'proposal_teknis', status, file_name: 'proposal.pdf', current_version_id: 'version-success' },
+    { id: 'output-fail', project_id: projectId, milestone_id: 'milestone-output', document_key: 'timeline_proyek', status, file_name: 'timeline.pdf', current_version_id: 'version-fail' },
   ],
   notifications: [],
   pending: [],
@@ -34,6 +34,7 @@ class QueryMock {
 
   select(): this { return this; }
   eq(column: string, value: unknown): this { this.filters.push({ column, value }); return this; }
+  in(): this { return this; }
   order(): this { return this; }
   insert(): this { return this; }
   maybeSingle(): Promise<{ data: unknown; error: null }> { return Promise.resolve(this.execute(true)); }
@@ -66,6 +67,9 @@ class QueryMock {
       );
       return { data: single ? (rows[0] || null) : rows, error: null };
     }
+    if (this.table === 'project_milestones') {
+      return { data: single ? { id: 'milestone-output', project_id: projectId, pic_id: actors.pic.userId, status: 'IN_PROGRESS', start_date: null } : [], error: null };
+    }
     if (this.table === 'users') {
       return { data: this.value('role') === 'HEAD_SA' ? [{ id: actors.headSa.userId }] : [], error: null };
     }
@@ -97,7 +101,7 @@ async function withState<T>(status: 'DRAFT' | 'IN_REVIEW', action: (state: State
       for (const userId of recipients) {
         state.pending.push({
           userId,
-          actionUrl: `/projects/${projectId}#output-documents`,
+          actionUrl: `/projects/${projectId}#milestone-outputs-milestone-output`,
           message: row.document_key === 'proposal_teknis' ? 'Proposal Teknis' : 'Timeline Proyek',
         });
       }
@@ -122,7 +126,7 @@ async function main(): Promise<void> {
     assert.equal(state.notifications.length, 1, 'Only successful output submission sends one HEAD_SA notification');
     const notification = state.notifications[0];
     assert.equal(notification.userId, actors.headSa.userId, 'Submit notifications go only to HEAD_SA');
-    assert.equal(notification.actionUrl, `/projects/${projectId}#output-documents`, 'Submit notifications deep-link to Output Documents');
+    assert.equal(notification.actionUrl, `/projects/${projectId}#milestone-outputs-milestone-output`, 'Submit notifications deep-link to the output milestone');
     assert(String(notification.message).includes('Proposal Teknis') && !String(notification.message).includes('Timeline Proyek'), 'Partial submit notifications name successful outputs only');
     await OutputDocumentService.submitOutputDocuments(projectId, { items: batch }, actors.pic);
     assert.equal(state.notifications.length, 1, 'Retrying an already transitioned or failed batch must not duplicate notifications');
@@ -142,7 +146,7 @@ async function main(): Promise<void> {
     assert.equal(state.notifications.length, 2, 'Successful approval notifies PIC and Sales owner only');
     const recipients = state.notifications.map((notification) => notification.userId).sort();
     assert.deepEqual(recipients, [actors.pic.userId, actors.sales.userId].sort(), 'Approval recipients are PIC and Sales owner');
-    assert(state.notifications.every((notification) => notification.actionUrl === `/projects/${projectId}#output-documents`), 'Approval notifications deep-link to Output Documents');
+    assert(state.notifications.every((notification) => notification.actionUrl === `/projects/${projectId}#milestone-outputs-milestone-output`), 'Approval notifications deep-link to the output milestone');
     assert(state.notifications.every((notification) => String(notification.message).includes('Proposal Teknis') && !String(notification.message).includes('Timeline Proyek')), 'Approval names successful output only');
     await OutputDocumentService.reviewOutputDocument(projectId, { decision: 'APPROVE', items: batch }, actors.headSa);
     assert.equal(state.notifications.length, 2, 'Duplicate approval transition does not notify again');

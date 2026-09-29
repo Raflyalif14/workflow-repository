@@ -1,5 +1,7 @@
 "use client";
 
+import { translate as translateI18n, getIntlLocale } from "@/i18n";
+
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Bell, CheckCheck, CircleAlert, LoaderCircle, Settings } from "lucide-react";
@@ -22,7 +24,7 @@ const formatCreatedAt = (value: string): string => {
   if (elapsedSeconds < 86_400) return `${Math.floor(elapsedSeconds / 3_600)}h ago`;
   if (elapsedSeconds < 604_800) return `${Math.floor(elapsedSeconds / 86_400)}d ago`;
 
-  return new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric" }).format(createdAt);
+  return new Intl.DateTimeFormat(getIntlLocale(), { month: "short", day: "numeric" }).format(createdAt);
 };
 
 const isInternalActionUrl = (actionUrl: string | null): actionUrl is string =>
@@ -129,13 +131,13 @@ export function NotificationBell({ enabled }: { enabled: boolean }) {
       {isOpen && (
         <div
           role="dialog"
-          aria-label="Notifications"
+          aria-label={translateI18n("notifications.title")}
           className="absolute right-0 top-[calc(100%+0.5rem)] z-50 w-[min(24rem,calc(100vw-2rem))] overflow-hidden rounded-xl border border-border/60 bg-card/95 shadow-xl shadow-black/10 backdrop-blur-xl"
         >
           <div className="flex items-center justify-between border-b border-border/60 px-4 py-3">
             <div>
-              <h2 className="text-sm font-semibold text-foreground">Notifications</h2>
-              <p className="text-[11px] text-muted-foreground">Latest workspace updates</p>
+              <h2 className="text-sm font-semibold text-foreground">{translateI18n("notifications.title")}</h2>
+              <p className="text-[11px] text-muted-foreground">{translateI18n("copy.latestUpdates")}</p>
             </div>
             {hasUnread && (
               <button
@@ -170,12 +172,12 @@ export function NotificationBell({ enabled }: { enabled: boolean }) {
             ) : isError ? (
               <div className="flex min-h-32 flex-col items-center justify-center gap-2 px-5 text-center text-xs text-muted-foreground">
                 <CircleAlert className="h-5 w-5 text-destructive" aria-hidden="true" />
-                <p>Unable to load notifications right now.</p>
+                <p>{translateI18n("notifications.loadError")}</p>
               </div>
             ) : notifications.length === 0 ? (
               <div className="flex min-h-32 flex-col items-center justify-center gap-2 px-5 text-center text-xs text-muted-foreground">
                 <Bell className="h-5 w-5" aria-hidden="true" />
-                <p>No notifications yet</p>
+                <p>{translateI18n("notifications.empty")}</p>
               </div>
             ) : (
               <ul className="space-y-1">
@@ -215,7 +217,7 @@ export function NotificationBell({ enabled }: { enabled: boolean }) {
               className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs font-semibold text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
             >
               <Settings className="h-3.5 w-3.5" aria-hidden="true" />
-              Notification Settings
+              {translateI18n("notifications.settings")}
             </button>
           </div>
         </div>

@@ -1,5 +1,7 @@
 "use client";
 
+import { translate as translateI18n } from "@/i18n";
+
 import React, { useState } from "react";
 import {
   Dialog,
@@ -84,7 +86,7 @@ export function AssignPicDialog({
       <DialogHeader>
         <div className="flex items-center gap-2 text-primary mb-1">
           <UserCheck className="h-5 w-5" />
-          <DialogTitle>Assign / Reassign Solution Architect</DialogTitle>
+          <DialogTitle>{translateI18n("copy.assignSa")}</DialogTitle>
         </div>
         <DialogDescription>
           Assign a dedicated Solution Architect for project <span className="font-semibold text-foreground">{projectName}</span>
@@ -97,7 +99,7 @@ export function AssignPicDialog({
         {headSa && (
           <div className="flex items-center justify-between rounded-lg border border-primary/20 bg-primary/5 p-3">
             <div className="text-xs">
-              <span className="font-semibold text-foreground">Head SA Quick Action</span>
+              <span className="font-semibold text-foreground">{translateI18n("copy.headQuickAction")}</span>
               <p className="text-muted-foreground">Assign this project/deliverable to yourself ({displayName(headSa)})</p>
             </div>
             <Button
@@ -108,7 +110,7 @@ export function AssignPicDialog({
               onClick={handleAssignToMyself}
             >
               <Sparkles className="h-3.5 w-3.5" />
-              <span>Assign to Myself</span>
+              <span>{translateI18n("copy.assignSelf")}</span>
             </Button>
           </div>
         )}
@@ -125,7 +127,7 @@ export function AssignPicDialog({
             disabled={isLoadingSAs || assignMutation.isPending}
             required
           >
-            <option value="">-- Choose Solution Architect --</option>
+            <option value="">{translateI18n("copy.chooseSa")}</option>
             {architects.map((sa) => (
               <option key={sa.id} value={sa.id}>
                 {displayName(sa)} ({sa.role}) - {sa._count?.assignedMilestones || 0} Active Tasks
@@ -170,7 +172,7 @@ export function AssignPicDialog({
             onClick={() => onOpenChange(false)}
             disabled={assignMutation.isPending}
           >
-            Cancel
+            {translateI18n("common.cancel")}
           </Button>
           <Button type="submit" disabled={assignMutation.isPending}>
             {assignMutation.isPending ? "Assigning..." : "Confirm Assignment"}

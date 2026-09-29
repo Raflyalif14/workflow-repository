@@ -1,6 +1,8 @@
 import { z } from 'zod';
 
 export const userRoleEnum = z.enum(['SUPER_ADMIN', 'SALES', 'HEAD_SA', 'SA']);
+export const preferredLanguageEnum = z.enum(['en', 'id']);
+export const updateLanguagePreferenceSchema = z.object({ language: preferredLanguageEnum });
 export const loginSchema = z.object({ email: z.string().email('Invalid email format'), password: z.string().min(1, 'Password is required') });
 export const registerSchema = z.object({
   full_name: z.string().trim().min(2, 'Full name is required'),
@@ -22,3 +24,5 @@ export type ChangeInitialPasswordInput = z.infer<typeof changeInitialPasswordSch
 export type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>;
 export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;
 export type UserRole = z.infer<typeof userRoleEnum>;
+export type PreferredLanguage = z.infer<typeof preferredLanguageEnum>;
+export type UpdateLanguagePreferenceInput = z.infer<typeof updateLanguagePreferenceSchema>;

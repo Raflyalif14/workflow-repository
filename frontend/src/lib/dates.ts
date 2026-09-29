@@ -1,3 +1,4 @@
+import { getIntlLocale } from "@/i18n";
 export const BUSINESS_TIMEZONE = "Asia/Jakarta";
 
 export function getLocalDateOnlyKey(date: Date = new Date(), timeZone = BUSINESS_TIMEZONE): string {
@@ -40,7 +41,7 @@ export function formatMilestoneDate(value?: string | null): string {
   const dateKey = toDateOnlyKey(value);
   const [year, month, day] = dateKey.split("-").map(Number);
   const date = new Date(Date.UTC(year, month - 1, day));
-  return date.toLocaleDateString("id-ID", {
+  return date.toLocaleDateString(getIntlLocale(), {
     dateStyle: "medium",
     timeZone: "UTC",
   });

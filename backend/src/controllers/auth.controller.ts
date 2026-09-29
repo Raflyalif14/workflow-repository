@@ -60,4 +60,14 @@ export class AuthController {
     try { sendSuccess(res, 'Profile retrieved successfully', await AuthService.getProfile(req.user!.userId)); }
     catch (error: any) { sendError(res, error.message || 'Failed to retrieve profile', null, 404); }
   }
+
+  static async getLanguagePreference(req: AuthenticatedRequest, res: Response): Promise<void> {
+    try { sendSuccess(res, 'Language preference retrieved successfully', await AuthService.getLanguagePreference(req.user!.userId)); }
+    catch { sendError(res, 'Failed to retrieve language preference', null, 500); }
+  }
+
+  static async updateLanguagePreference(req: AuthenticatedRequest, res: Response): Promise<void> {
+    try { sendSuccess(res, 'Language preference updated successfully', await AuthService.updateLanguagePreference(req.user!.userId, req.body)); }
+    catch { sendError(res, 'Failed to update language preference', null, 500); }
+  }
 }

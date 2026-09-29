@@ -1,6 +1,5 @@
 import {
   MilestoneDeadlineApproval,
-  MilestoneSubmissionApproval,
   ProjectMilestonePhase4,
 } from "@/types/project";
 
@@ -61,21 +60,6 @@ export function hasEffectiveDeadline(
   milestone: Pick<ProjectMilestonePhase4, "start_date" | "duration_working_days" | "due_date">
 ) {
   return Boolean(milestone.start_date && milestone.duration_working_days && milestone.due_date);
-}
-
-export function getLatestSubmissionApproval(history: MilestoneSubmissionApproval[] = []) {
-  return history[0] || null;
-}
-
-export function canReadSubmissionPackageHistory(
-  actor: { id?: string; role?: string } | null | undefined,
-  milestone: Pick<ProjectMilestonePhase4, "pic_id">,
-  projectSalesId?: string | null
-) {
-  if (!actor) return false;
-  if (actor.role === "SUPER_ADMIN" || actor.role === "HEAD_SA") return true;
-  if (actor.role === "SALES" && projectSalesId && actor.id === projectSalesId) return true;
-  return actor.role === "SA" && milestone.pic_id === actor.id;
 }
 
 function approvalMatchesEffectiveDeadline(

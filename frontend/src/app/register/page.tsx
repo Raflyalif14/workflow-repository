@@ -1,5 +1,7 @@
 "use client";
 
+import { translate as translateI18n } from "@/i18n";
+
 import React, { FormEvent, useState } from "react";
 import Link from "next/link";
 import { AlertCircle, ArrowRight, CheckCircle2, Mail, UserPlus } from "lucide-react";
@@ -43,7 +45,7 @@ export default function RegisterPage() {
           <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-primary text-primary-foreground">
             <UserPlus className="h-5 w-5" />
           </div>
-          <CardTitle className="text-xl">Register Account</CardTitle>
+          <CardTitle className="text-xl">{translateI18n("copy.registerAccount")}</CardTitle>
           <p className="text-sm text-muted-foreground">
             Create an internal workflow account.
           </p>
@@ -83,7 +85,7 @@ export default function RegisterPage() {
 
               <div className="space-y-2">
                 <label htmlFor="email" className="text-xs font-medium text-muted-foreground">
-                  Email
+                  {translateI18n("auth.email")}
                 </label>
                 <div className="relative">
                   <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />

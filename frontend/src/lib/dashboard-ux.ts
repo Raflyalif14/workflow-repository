@@ -1,3 +1,4 @@
+import { getIntlLocale, translate } from "@/i18n";
 import { formatActivityAction } from "@/lib/activity-timeline";
 import type { DashboardOutputDocuments, DashboardSaWorkload } from "@/types/dashboard";
 import type { Project } from "@/types/project";
@@ -56,42 +57,42 @@ export const getDashboardRoleContent = (role: DashboardRole) => {
   switch (role) {
     case "SALES":
       return {
-        eyebrow: "RUANG KERJA SALES",
-        title: "Ruang kerja Sales",
-        description: "Pantau rencana, pendapatan, dan perkembangan proyek pelanggan.",
+        eyebrow: translate("dashboardCopy.salesEyebrow"),
+        title: translate("dashboardCopy.salesTitle"),
+        description: translate("dashboardCopy.salesDescription"),
       };
     case "HEAD_SA":
       return {
-        eyebrow: "RUANG KERJA PENINJAUAN",
-        title: "Ruang kerja Head SA",
-        description: "Tinjau keputusan yang dibutuhkan agar pekerjaan terus berjalan.",
+        eyebrow: translate("dashboardCopy.headEyebrow"),
+        title: translate("dashboardCopy.headTitle"),
+        description: translate("dashboardCopy.headDescription"),
       };
     case "SA":
       return {
-        eyebrow: "RUANG KERJA SA",
-        title: "Ruang kerja SA",
-        description: "Lanjutkan tugas dan tindak lanjuti masukan peninjauan.",
+        eyebrow: translate("dashboardCopy.saEyebrow"),
+        title: translate("dashboardCopy.saTitle"),
+        description: translate("dashboardCopy.saDescription"),
       };
     case "SUPER_ADMIN":
       return {
-        eyebrow: "IKHTISAR OPERASIONAL",
-        title: "Ikhtisar operasional",
-        description: "Pantau perkembangan proyek dan kendala operasional.",
+        eyebrow: translate("dashboardCopy.adminEyebrow"),
+        title: translate("dashboardCopy.adminTitle"),
+        description: translate("dashboardCopy.adminDescription"),
       };
     default:
       return {
-        eyebrow: "RUANG KERJA",
-        title: "Ruang kerja",
-        description: "Lihat tugas dan proyek yang dapat Anda akses.",
+        eyebrow: translate("dashboardCopy.defaultEyebrow"),
+        title: translate("dashboardCopy.defaultTitle"),
+        description: translate("dashboardCopy.defaultDescription"),
       };
   }
 };
 
 export const getDashboardGreeting = (hour: number): string => {
-  if (!Number.isFinite(hour) || hour < 0 || hour > 23) return "Halo";
-  if (hour < 12) return "Selamat pagi";
-  if (hour < 18) return "Selamat siang";
-  return "Selamat malam";
+  if (!Number.isFinite(hour) || hour < 0 || hour > 23) return translate("dashboardCopy.hello");
+  if (hour < 12) return translate("dashboardCopy.morning");
+  if (hour < 18) return translate("dashboardCopy.afternoon");
+  return translate("dashboardCopy.evening");
 };
 
 export const getDashboardGreetingSubject = (
@@ -136,7 +137,7 @@ export const getDashboardGreetingSubject = (
 export const getDashboardKpiLabels = (role: DashboardRole): string[] => {
   switch (role) {
     case "HEAD_SA":
-      return ["Assigned architects", "Active delivery", "Work submissions", "Unassigned projects"];
+      return ["Assigned architects", "Active delivery", "Outputs awaiting review", "Unassigned projects"];
     case "SALES":
       return ["Total estimated revenue", "Waiting result", "Won", "Lost"];
     case "SA":
@@ -152,23 +153,22 @@ export const formatDashboardLabel = (value?: string | null): string => {
   if (!value) return "Unknown";
 
   const labels: Record<string, string> = {
-    DRAFT: "Planning",
+    DRAFT: translate("dashboardWork.planning"),
     ACTIVE: "Active",
-    POSTPONED: "Postponed",
+    POSTPONED: translate("dashboardWork.postponed"),
     COMPLETED: "Completed",
     CANCELLED: "Cancelled",
-    WAITING_RESULT: "Waiting result",
+    WAITING_RESULT: translate("dashboardWork.waitingResult"),
     WON: "Won",
     LOST: "Lost",
     CREATED: "Not started",
-    IN_PROGRESS: "In progress",
-    SUBMITTED: "Under review",
-    REJECTED: "Revision required",
+    IN_PROGRESS: translate("dashboardWork.inProgress"),
+    SUBMITTED: translate("dashboardWork.underReview"),
+    REJECTED: translate("dashboardWork.revisionRequired"),
     APPROVED: "Approved",
     PENDING: "Pending review",
     PROJECT_PLAN: "Project plan",
     DEADLINE: "Deadline change",
-    SUBMISSION: "Work submission",
   };
 
   return labels[value] || value
@@ -192,35 +192,35 @@ export const getApprovalProjectHref = (
 export const getMilestoneProjectHref = (projectId: string, milestoneId: string): string =>
   `/projects/${projectId}#project-milestone-${milestoneId}`;
 
-export const getOutputDocumentsHref = (projectId: string): string =>
-  `/projects/${projectId}#output-documents`;
+export const getOutputDocumentsHref = (projectId: string, milestoneId?: string): string =>
+  `/projects/${projectId}${milestoneId ? `#milestone-outputs-${milestoneId}` : ""}`;
 
 export const getHeadSaOutputReviewItems = (
   queue: DashboardOutputDocuments["reviewQueue"]
 ): DashboardWorkItem[] => queue.map((item) => ({
-  id: `output-review-${item.projectId}`,
+  id: `output-review-${item.milestoneId}`,
   priority: 25,
   group: "action",
-  label: "Output documents awaiting review",
+  label: translate("dashboardWork.outputAwaiting"),
   title: item.projectName,
-  description: `${item.count} output document${item.count === 1 ? " is" : "s are"} awaiting review.`,
+  description: item.count === 1 ? translate("dashboardWork.outputAwaitingOne") : translate("dashboardWork.outputAwaitingCount", { count: item.count }),
   state: "Pending review",
-  href: getOutputDocumentsHref(item.projectId),
-  actionLabel: "Review outputs",
+  href: getOutputDocumentsHref(item.projectId, item.milestoneId),
+  actionLabel: translate("dashboardWork.reviewOutputs"),
 }));
 
 export const getSaOutputRevisionItems = (
   queue: DashboardOutputDocuments["revisionQueue"]
 ): DashboardWorkItem[] => queue.map((item) => ({
-  id: `output-revision-${item.projectId}`,
+  id: `output-revision-${item.milestoneId}`,
   priority: 9,
   group: "action",
-  label: "Output documents need revision",
+  label: translate("dashboardWork.outputRevision"),
   title: item.projectName,
-  description: `${item.count} output document${item.count === 1 ? " requires" : "s require"} revision.`,
-  state: "Revision required",
-  href: getOutputDocumentsHref(item.projectId),
-  actionLabel: "Revise outputs",
+  description: item.count === 1 ? translate("dashboardWork.outputRevisionOne") : translate("dashboardWork.outputRevisionCount", { count: item.count }),
+  state: translate("dashboardWork.revisionRequired"),
+  href: getOutputDocumentsHref(item.projectId, item.milestoneId),
+  actionLabel: translate("dashboardWork.reviseOutputs"),
 }));
 
 export type SaDashboardMilestone = {
@@ -263,24 +263,24 @@ export const getSaDashboardItems = (
     if (milestone.pic_id !== userId) continue;
 
     const projectId = milestone.project?.id || milestone.project_id;
-    const projectName = milestone.project?.name || "Assigned project";
+    const projectName = milestone.project?.name || translate("dashboardWork.assignedProject");
     const projectMeta = milestone.project?.customer
-      ? `Customer: ${milestone.project.customer}`
-      : `Stage ${milestone.step_order}`;
+      ? translate("dashboardWork.customer", { name: milestone.project.customer })
+      : translate("dashboardWork.stage", { number: milestone.step_order });
     const href = getMilestoneProjectHref(projectId, milestone.id);
     const title = `${projectName} - ${milestone.name}`;
 
     if (isPausedSaMilestone(milestone)) {
-      if (["IN_PROGRESS", "REJECTED", "SUBMITTED"].includes(milestone.status)) {
+      if (milestone.status === "IN_PROGRESS") {
         items.push({
           id: `sa-paused-${milestone.id}`,
           priority: 50,
           group: "waiting",
-          label: "Project paused",
+          label: translate("dashboardWork.projectPaused"),
           title,
-          description: "Work is paused until Sales resumes the project.",
+          description: translate("dashboardWork.workPaused"),
           meta: projectMeta,
-          state: "Paused",
+          state: translate("dashboardWork.paused"),
           href,
         });
       }
@@ -289,51 +289,22 @@ export const getSaDashboardItems = (
 
     if (!isActionableSaMilestone(milestone)) continue;
 
-    if (milestone.status === "REJECTED") {
-      items.push({
-        id: `revise-${milestone.id}`,
-        priority: 10,
-        group: "action",
-        label: "Revision required",
-        title,
-        description: "Review the feedback, update the work, and submit a new package.",
-        meta: projectMeta,
-        state: "Revision required",
-        href,
-        actionLabel: "Revise submission",
-      });
-      continue;
-    }
-
     if (milestone.status === "IN_PROGRESS") {
       items.push({
         id: `continue-${milestone.id}`,
         priority: 30,
         group: "action",
-        label: "Active delivery work",
+        label: translate("dashboardWork.activeDelivery"),
         title,
-        description: "Continue the assigned milestone and submit work when it is ready.",
+        description: translate("dashboardWork.continueDelivery"),
         meta: projectMeta,
-        state: "In progress",
+        state: translate("dashboardWork.inProgress"),
         href,
-        actionLabel: "Continue work",
+        actionLabel: translate("dashboardWork.continueWork"),
       });
       continue;
     }
 
-    if (milestone.status === "SUBMITTED") {
-      items.push({
-        id: `sa-waiting-${milestone.id}`,
-        priority: 20,
-        group: "waiting",
-        label: "Submission under review",
-        title,
-        description: "Head SA is reviewing the submitted work.",
-        meta: projectMeta,
-        state: "Under review",
-        href,
-      });
-    }
   }
 
   return items;
@@ -347,14 +318,14 @@ export const getSaDashboardMetrics = (
   today.setHours(0, 0, 0, 0);
   const activeMilestones = milestones.filter(isActionableSaMilestone);
   const actionable = activeMilestones.filter((milestone) =>
-    ["IN_PROGRESS", "REJECTED", "SUBMITTED"].includes(milestone.status)
+    milestone.status === "IN_PROGRESS"
   );
   const deadlineDistance = (value?: string | null) =>
     value ? Math.ceil((new Date(`${value}T00:00:00`).getTime() - today.getTime()) / 86400000) : null;
 
   return {
     inProgress: activeMilestones.filter((milestone) => milestone.status === "IN_PROGRESS").length,
-    needsRevision: activeMilestones.filter((milestone) => milestone.status === "REJECTED").length,
+    needsRevision: 0,
     upcomingDeadlines: actionable.filter((milestone) => {
       const distance = deadlineDistance(milestone.due_date);
       return distance !== null && distance >= 0 && distance <= 7;
@@ -367,7 +338,7 @@ export const getSaDashboardMetrics = (
 };
 
 export const getDraftProjectActionCopy = (currentRole?: string | null): string =>
-  currentRole === "SALES" ? "Continue project planning" : "Review project status";
+  currentRole === "SALES" ? translate("dashboardWork.continuePlanning") : translate("dashboardWork.reviewStatus");
 
 export const getSalesDashboardItems = (projects: Project[], userId?: string): DashboardWorkItem[] => {
   const items = new Map<string, DashboardWorkItem>();
@@ -375,7 +346,7 @@ export const getSalesDashboardItems = (projects: Project[], userId?: string): Da
   for (const project of projects) {
     const isOwner = !project.sales_id || project.sales_id === userId;
     const projectHref = `/projects/${project.id}`;
-    const projectMeta = project.customer ? `Customer: ${project.customer}` : undefined;
+    const projectMeta = project.customer ? translate("dashboardWork.customer", { name: project.customer }) : undefined;
     const milestone = project.currentMilestone;
 
     if (project.sales_id === userId && project.status === "WAITING_RESULT") {
@@ -384,13 +355,13 @@ export const getSalesDashboardItems = (projects: Project[], userId?: string): Da
         id,
         priority: 5,
         group: "action",
-        label: "Tender result",
+        label: translate("dashboardWork.tenderResult"),
         title: project.name,
-        description: "Delivery is complete. Record whether the project was won or lost.",
+        description: translate("dashboardWork.recordResultHelp"),
         meta: projectMeta,
-        state: "Waiting result",
+        state: translate("dashboardWork.waitingResult"),
         href: projectHref,
-        actionLabel: "Record result",
+        actionLabel: translate("dashboardWork.recordResult"),
       });
       continue;
     }
@@ -407,13 +378,13 @@ export const getSalesDashboardItems = (projects: Project[], userId?: string): Da
         id,
         priority: 30,
         group: "action",
-        label: "Sales milestone",
+        label: translate("dashboardWork.salesMilestone"),
         title: `${project.name} - ${milestone.name}`,
-        description: "Continue the active Sales stage for this project.",
+        description: translate("dashboardWork.continueSales"),
         meta: projectMeta,
-        state: "In progress",
+        state: translate("dashboardWork.inProgress"),
         href: getMilestoneProjectHref(project.id, milestone.id),
-        actionLabel: "Open milestone",
+        actionLabel: translate("dashboardWork.openMilestone"),
       });
       continue;
     }
@@ -424,11 +395,11 @@ export const getSalesDashboardItems = (projects: Project[], userId?: string): Da
         id,
         priority: 40,
         group: "action",
-        label: "Project planning",
+        label: translate("dashboardWork.projectPlanning"),
         title: project.name,
-        description: "Continue preparing the project plan before it is submitted for review.",
+        description: translate("dashboardWork.continuePlan"),
         meta: projectMeta,
-        state: "Planning",
+        state: translate("dashboardWork.planning"),
         href: projectHref,
         actionLabel: getDraftProjectActionCopy(project.currentRole),
       });
@@ -441,11 +412,11 @@ export const getSalesDashboardItems = (projects: Project[], userId?: string): Da
         id,
         priority: 20,
         group: "waiting",
-        label: "Plan under review",
+        label: translate("dashboardWork.planReview"),
         title: project.name,
-        description: "Head SA is reviewing the submitted project plan.",
+        description: translate("dashboardWork.headPlanReview"),
         meta: projectMeta,
-        state: "Under review",
+        state: translate("dashboardWork.underReview"),
         href: projectHref,
       });
       continue;
@@ -457,11 +428,11 @@ export const getSalesDashboardItems = (projects: Project[], userId?: string): Da
         id,
         priority: 50,
         group: "informational",
-        label: "Project postponed",
+        label: translate("dashboardWork.projectPostponed"),
         title: project.name,
-        description: "Delivery is paused for this project.",
+        description: translate("dashboardWork.deliveryPaused"),
         meta: projectMeta,
-        state: "Postponed",
+        state: translate("dashboardWork.postponed"),
         href: projectHref,
       });
     }
@@ -517,7 +488,7 @@ export const formatDashboardDate = (value?: string | null): string | null => {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return null;
 
-  return date.toLocaleDateString("id-ID", { dateStyle: "medium" });
+  return date.toLocaleDateString(getIntlLocale(), { dateStyle: "medium" });
 };
 
 export const formatDashboardTimestamp = (value?: string | null): string | null => {
@@ -526,7 +497,7 @@ export const formatDashboardTimestamp = (value?: string | null): string | null =
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return null;
 
-  return date.toLocaleString("id-ID", {
+  return date.toLocaleString(getIntlLocale(), {
     dateStyle: "medium",
     timeStyle: "short",
   });
@@ -548,7 +519,7 @@ export const formatDashboardDeadline = (value?: string | null): string | null =>
   const timestamp = getSafeDateOnlyTimestamp(value);
   if (timestamp === null) return null;
 
-  return new Date(timestamp).toLocaleDateString("id-ID", {
+  return new Date(timestamp).toLocaleDateString(getIntlLocale(), {
     dateStyle: "medium",
     timeZone: "UTC",
   });
@@ -588,7 +559,7 @@ export const buildDashboardDistribution = (
 
 const getDashboardInsightTone = (item: DashboardWorkItem): DashboardInsight["tone"] => {
   if (item.group === "waiting") return "waiting";
-  if (/revision|overdue|exception|postponed/i.test(`${item.label} ${item.state || ""}`)) return "risk";
+  if (/revision|revise|overdue|exception|postponed|sales-resume/i.test(item.id)) return "risk";
   if (item.group === "action") return "action";
   return "informational";
 };

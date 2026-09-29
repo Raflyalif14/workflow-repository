@@ -1,5 +1,7 @@
 "use client";
 
+import { translate as translateI18n, getIntlLocale, type TranslationKey } from "@/i18n";
+
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import {
@@ -60,7 +62,7 @@ type SummaryMetric = {
 };
 
 const formatRevenue = (value: number): string =>
-  new Intl.NumberFormat("id-ID", {
+  new Intl.NumberFormat(getIntlLocale(), {
     style: "currency",
     currency: "IDR",
     maximumFractionDigits: 0,
@@ -70,24 +72,17 @@ const getApprovalPresentation = (item: ApprovalItem) => {
   switch (item.category) {
     case "PROJECT_PLAN":
       return {
-        label: "Project plan review",
-        actionLabel: "Review plan",
+        label: translateI18n("dashboardPage.planReview"),
+        actionLabel: translateI18n("dashboardPage.reviewPlan"),
         priority: 20,
-        description: "A project plan is ready for your decision.",
-      };
-    case "SUBMISSION":
-      return {
-        label: "Work submission review",
-        actionLabel: "Review submission",
-        priority: 30,
-        description: "Submitted work is ready for your review.",
+        description: translateI18n("dashboardPage.planDecision"),
       };
     default:
       return {
-        label: "Deadline change review",
-        actionLabel: "Review deadline change",
+        label: translateI18n("dashboardPage.deadlineReview"),
+        actionLabel: translateI18n("dashboardPage.reviewDeadline"),
         priority: 35,
-        description: "A deadline change is waiting for your decision.",
+        description: translateI18n("dashboardPage.deadlineDecision"),
       };
   }
 };
@@ -97,7 +92,7 @@ const getHeadSaItems = (approvals: ApprovalItem[], projects: Project[]): Dashboa
     const presentation = getApprovalPresentation(approval);
     const milestoneSuffix = approval.milestoneName ? ` - ${approval.milestoneName}` : "";
     const requestedAt = formatDashboardDate(approval.requestedAt || approval.submittedAt);
-    const meta = [approval.submittedBy ? `Requested by ${approval.submittedBy}` : undefined, requestedAt].filter(Boolean).join(" - ");
+    const meta = [approval.submittedBy ? translateI18n("dashboardPage.requestedBy", { name: approval.submittedBy }) : undefined, requestedAt].filter(Boolean).join(" - ");
 
     return {
       id: `approval-${approval.id}`,
@@ -119,10 +114,10 @@ const getHeadSaItems = (approvals: ApprovalItem[], projects: Project[]): Dashboa
         id: `head-sa-waiting-${project.id}`,
         priority: 40,
         group: "waiting",
-        label: "Plan in preparation",
+        label: translateI18n("dashboardPage.planPreparing"),
         title: project.name,
-        description: "Sales is preparing the project plan for review.",
-        meta: project.customer ? `Customer: ${project.customer}` : undefined,
+        description: translateI18n("dashboardPage.salesPreparing"),
+        meta: project.customer ? translateI18n("dashboardWork.customer", { name: project.customer }) : undefined,
         state: "Planning",
         href: `/projects/${project.id}`,
       });
@@ -135,13 +130,13 @@ const getHeadSaItems = (approvals: ApprovalItem[], projects: Project[]): Dashboa
       id: `assign-pic-${project.id}`,
       priority: 36,
       group: "action",
-      label: "PIC assignment",
+      label: translateI18n("dashboardPage.picAssignment"),
       title: project.name,
-      description: "The project is ready for a Solution Architect assignment.",
-      meta: project.customer ? `Customer: ${project.customer}` : undefined,
-      state: "Needs assignment",
+      description: translateI18n("dashboardPage.picReady"),
+      meta: project.customer ? translateI18n("dashboardWork.customer", { name: project.customer }) : undefined,
+      state: translateI18n("dashboardPage.needsAssignment"),
       href: `/projects/${project.id}#project-pic-assignment`,
-      actionLabel: "Assign PIC",
+      actionLabel: translateI18n("dashboardPage.assignPic"),
     });
   }
 
@@ -156,13 +151,13 @@ const getSuperAdminItems = (summary: DashboardSummary, projectProgress: ProjectP
       id: `overdue-${project.id}`,
       priority: 10,
       group: "action",
-      label: "Delivery exception",
+      label: translateI18n("dashboardPage.deliveryException"),
       title: project.name,
-      description: `${project.overdueMilestones} milestone${project.overdueMilestones === 1 ? " is" : "s are"} overdue.`,
-      meta: project.clientName ? `Customer: ${project.clientName}` : undefined,
-      state: "Needs attention",
+      description: project.overdueMilestones === 1 ? translateI18n("dashboardPage.overdueOne") : translateI18n("dashboardPage.overdueCount", { count: project.overdueMilestones }),
+      meta: project.clientName ? translateI18n("dashboardWork.customer", { name: project.clientName }) : undefined,
+      state: translateI18n("dashboardPage.needsAttention"),
       href: `/projects/${project.id}`,
-      actionLabel: "Review project",
+      actionLabel: translateI18n("dashboardPage.reviewProject"),
     });
   }
 
@@ -171,12 +166,12 @@ const getSuperAdminItems = (summary: DashboardSummary, projectProgress: ProjectP
       id: "approval-pipeline",
       priority: 20,
       group: "action",
-      label: "Approval pipeline",
-      title: `${summary.waitingApproval} item${summary.waitingApproval === 1 ? "" : "s"} awaiting review`,
-      description: "Open the Approval Center to monitor decisions waiting in the workflow.",
+      label: translateI18n("dashboardPage.approvalPipeline"),
+      title: summary.waitingApproval === 1 ? translateI18n("dashboardPage.oneReview") : translateI18n("dashboardPage.itemsReview", { count: summary.waitingApproval }),
+      description: translateI18n("dashboardPage.approvalHelp"),
       state: "Pending review",
       href: "/approvals",
-      actionLabel: "Open approvals",
+      actionLabel: translateI18n("dashboardPage.openApprovals"),
     });
   }
 
@@ -189,12 +184,14 @@ const getRoleSummary = ({
   approvals,
   milestones,
   summary,
+  outputReviewCount,
 }: {
   role: string;
   projects: Project[];
   approvals: ApprovalItem[];
   milestones: AssignedMilestone[];
   summary: DashboardSummary;
+  outputReviewCount?: number;
 }): SummaryMetric[] => {
   if (role === "SALES") {
     return [
@@ -212,7 +209,7 @@ const getRoleSummary = ({
     return [
       { label: "Assigned architects", value: assignedArchitectIds.size },
       { label: "Active delivery", value: projects.filter((project) => project.status === "ACTIVE").length },
-      { label: "Work submissions", value: approvals.filter((item) => item.category === "SUBMISSION").length },
+      { label: "Outputs awaiting review", value: outputReviewCount || 0 },
       { label: "Unassigned projects", value: projects.filter((project) => project.status === "ACTIVE" && !project.pic && project.currentRole === "HEAD_SA").length },
     ];
   }
@@ -247,95 +244,95 @@ type MetricVisual = {
   iconClassName: string;
 };
 
-const metricLabels: Record<string, string> = {
-  "Assigned architects": "SA bertugas",
-  "Active delivery": "Proyek aktif",
-  "Work submissions": "Pekerjaan diajukan",
-  "Unassigned projects": "Proyek tanpa PIC",
-  "Total estimated revenue": "Total estimasi pendapatan",
-  "Waiting result": "Menunggu hasil",
-  Won: "Menang",
-  Lost: "Kalah",
-  "In progress": "Sedang dikerjakan",
-  "Needs revision": "Perlu revisi",
-  "Upcoming deadlines": "Tenggat mendatang",
-  Overdue: "Terlambat",
-  "Active projects": "Proyek aktif",
-  "Overdue milestones": "Milestone terlambat",
-  "Pending reviews": "Menunggu peninjauan",
-  "Completed projects": "Proyek selesai",
+const metricLabels: Record<string, TranslationKey> = {
+  "Assigned architects": "dashboardMetric.assignedArchitects",
+  "Active delivery": "dashboardMetric.activeDelivery",
+  "Outputs awaiting review": "dashboardMetric.workSubmissions",
+  "Unassigned projects": "dashboardMetric.unassignedProjects",
+  "Total estimated revenue": "dashboardMetric.estimatedRevenue",
+  "Waiting result": "dashboardMetric.waitingResult",
+  Won: "dashboardMetric.won",
+  Lost: "dashboardMetric.lost",
+  "In progress": "dashboardMetric.inProgress",
+  "Needs revision": "dashboardMetric.needsRevision",
+  "Upcoming deadlines": "dashboardMetric.upcomingDeadlines",
+  Overdue: "dashboardMetric.overdue",
+  "Active projects": "dashboardMetric.activeProjects",
+  "Overdue milestones": "dashboardMetric.overdueMilestones",
+  "Pending reviews": "dashboardMetric.pendingReviews",
+  "Completed projects": "dashboardMetric.completedProjects",
 };
 
 const getMetricVisual = (label: string): MetricVisual => {
   const descriptions: Record<string, string> = {
-    "Plans to review": "Rencana proyek menunggu keputusan",
-    "Work submissions": "Pekerjaan diajukan untuk ditinjau",
-    "Deadline requests": "Perubahan tenggat menunggu peninjauan",
-    "Unassigned projects": "Proyek aktif tanpa PIC",
-    Planning: "Proyek masih dalam perencanaan",
-    "Waiting for review": "Item sedang ditinjau",
-    "Active projects": "Proyek sedang berjalan",
-    Postponed: "Proyek sedang ditunda",
-    "In progress": "Milestone yang ditugaskan sedang dikerjakan",
-    "Needs revision": "Pekerjaan dikembalikan untuk revisi",
-    Completed: "Milestone yang ditugaskan telah selesai",
-    "Overdue milestones": "Tahap melewati tenggat",
-    "Pending reviews": "Keputusan masih menunggu peninjauan",
-    "Completed projects": "Pekerjaan proyek selesai",
-    "Total estimated revenue": "Estimasi pendapatan semua proyek Anda",
-    "Waiting result": "Pekerjaan selesai, menunggu hasil tender",
-    Won: "Proyek tercatat menang",
-    Lost: "Proyek tercatat kalah",
-    "Assigned architects": "Solution Architect yang sedang bertugas",
-    "Active delivery": "Proyek sedang dikerjakan",
-    "Upcoming deadlines": "Tugas jatuh tempo dalam tujuh hari",
-    Overdue: "Tugas melewati tenggat",
+    "Plans to review": translateI18n("dashboardMetricDescription.plansToReview"),
+    "Outputs awaiting review": translateI18n("dashboardMetricDescription.workSubmissions"),
+    "Deadline requests": translateI18n("dashboardMetricDescription.deadlineRequests"),
+    "Unassigned projects": translateI18n("dashboardMetricDescription.unassignedProjects"),
+    Planning: translateI18n("dashboardMetricDescription.planning"),
+    "Waiting for review": translateI18n("dashboardMetricDescription.waitingForReview"),
+    "Active projects": translateI18n("dashboardMetricDescription.activeProjects"),
+    Postponed: translateI18n("dashboardMetricDescription.postponed"),
+    "In progress": translateI18n("dashboardMetricDescription.inProgress"),
+    "Needs revision": translateI18n("dashboardMetricDescription.needsRevision"),
+    Completed: translateI18n("dashboardMetricDescription.completed"),
+    "Overdue milestones": translateI18n("dashboardMetricDescription.overdueMilestones"),
+    "Pending reviews": translateI18n("dashboardMetricDescription.pendingReviews"),
+    "Completed projects": translateI18n("dashboardMetricDescription.completedProjects"),
+    "Total estimated revenue": translateI18n("dashboardMetricDescription.estimatedRevenue"),
+    "Waiting result": translateI18n("dashboardMetricDescription.waitingResult"),
+    Won: translateI18n("dashboardMetricDescription.won"),
+    Lost: translateI18n("dashboardMetricDescription.lost"),
+    "Assigned architects": translateI18n("dashboardMetricDescription.assignedArchitects"),
+    "Active delivery": translateI18n("dashboardMetricDescription.activeDelivery"),
+    "Upcoming deadlines": translateI18n("dashboardMetricDescription.upcomingDeadlines"),
+    Overdue: translateI18n("dashboardMetricDescription.overdue"),
   };
 
   if (/overdue|revision/i.test(label)) {
     return {
-      description: descriptions[label] || "Items needing attention",
+      description: descriptions[label] || translateI18n("dashboardMetricDescription.attention"),
       icon: RotateCcw,
       iconClassName: "bg-destructive/10 text-destructive",
     };
   }
   if (/unassigned/i.test(label)) {
     return {
-      description: descriptions[label] || "Projects waiting for assignment",
+      description: descriptions[label] || translateI18n("dashboardMetricDescription.assignment"),
       icon: UserRound,
       iconClassName: "bg-[hsl(var(--warning)/0.12)] text-[hsl(var(--warning))]",
     };
   }
   if (/postponed/i.test(label)) {
     return {
-      description: descriptions[label] || "Projects temporarily paused",
+      description: descriptions[label] || translateI18n("dashboardMetricDescription.paused"),
       icon: PauseCircle,
       iconClassName: "bg-[hsl(var(--warning)/0.12)] text-[hsl(var(--warning))]",
     };
   }
   if (/deadline|waiting/i.test(label)) {
     return {
-      description: descriptions[label] || "Items waiting in the workflow",
+      description: descriptions[label] || translateI18n("dashboardMetricDescription.waiting"),
       icon: CalendarClock,
       iconClassName: "bg-[hsl(var(--warning)/0.12)] text-[hsl(var(--warning))]",
     };
   }
   if (/completed/i.test(label)) {
     return {
-      description: descriptions[label] || "Completed workflow items",
+      description: descriptions[label] || translateI18n("dashboardMetricDescription.completedItems"),
       icon: CheckCircle2,
       iconClassName: "bg-[hsl(var(--success)/0.12)] text-[hsl(var(--success))]",
     };
   }
   if (/active|progress/i.test(label)) {
     return {
-      description: descriptions[label] || "Work currently underway",
+      description: descriptions[label] || translateI18n("dashboardMetricDescription.underway"),
       icon: FolderKanban,
       iconClassName: "bg-primary/10 text-primary",
     };
   }
   return {
-    description: descriptions[label] || "Available in your workspace",
+    description: descriptions[label] || translateI18n("dashboardMetricDescription.available"),
     icon: ClipboardCheck,
     iconClassName: "bg-primary/10 text-primary",
   };
@@ -349,7 +346,7 @@ function MetricCard({ metric }: { metric: SummaryMetric }) {
     <div className="min-w-0 rounded-xl border border-border bg-card p-3 sm:p-5">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-xs font-medium leading-5 text-muted-foreground">{metricLabels[metric.label] || metric.label}</p>
+          <p className="text-xs font-medium leading-5 text-muted-foreground">{metricLabels[metric.label] ? translateI18n(metricLabels[metric.label]) : metric.label}</p>
           <p className="mt-1 text-2xl font-semibold text-foreground">
             {metric.label === "Total estimated revenue" ? formatRevenue(metric.value) : metric.value}
           </p>
@@ -388,22 +385,22 @@ function ProjectDeliveryRow({
   const healthLabel = getDashboardProjectHealthLabel(project, role);
   const hasProgress = project.percentage !== null;
   const deadlineLabel = project.overdueMilestones > 0
-    ? String(project.overdueMilestones) + " overdue"
+    ? translateI18n("dashboardPage.overdueShort", { count: project.overdueMilestones })
     : targetDate
-    ? "Due " + targetDate
-    : "Not available";
+    ? translateI18n("dashboardPage.due", { date: targetDate })
+    : translateI18n("common.notAvailable");
   const riskDetail = project.overdueMilestones > 0
-    ? "Needs attention"
+    ? translateI18n("dashboardPage.needsAttention")
     : hasOverdueData && healthLabel !== formatDashboardLabel(project.status)
     ? healthLabel
     : null;
-  const ownerLabel = project.ownerName || (project.ownerKnown ? "Unassigned" : "Not available");
+  const ownerLabel = project.ownerName || (project.ownerKnown ? translateI18n("ui.unassigned") : translateI18n("common.notAvailable"));
   const openProject = (
     <Link
       href={"/projects/" + project.id}
       className="inline-flex min-h-10 items-center justify-center gap-1 rounded-md border border-border px-3 text-sm font-medium text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring lg:min-h-0 lg:border-0 lg:px-0 lg:text-primary lg:hover:bg-transparent lg:hover:underline"
     >
-      Open
+      {translateI18n("common.open")}
       <ChevronRight className="h-4 w-4" />
     </Link>
   );
@@ -411,11 +408,11 @@ function ProjectDeliveryRow({
   if (role === "SALES") {
     return (
       <div className="grid gap-4 px-4 py-4 lg:grid-cols-[minmax(180px,1.3fr)_minmax(130px,1fr)_minmax(160px,1fr)_minmax(140px,0.9fr)_110px_auto] lg:items-center lg:px-5">
-        <div className="min-w-0"><p className="break-words text-sm font-semibold text-foreground">{project.name}</p>{project.outputSelectedCount !== undefined && <p className="mt-1 text-xs text-muted-foreground">{project.outputApprovedCount || 0} of {project.outputSelectedCount} outputs approved</p>}</div>
-        <div><p className="text-xs text-muted-foreground lg:hidden">Estimated revenue</p><p className="mt-1 text-sm text-foreground lg:mt-0">{project.estimatedRevenue === null || project.estimatedRevenue === undefined ? "Not available" : formatRevenue(project.estimatedRevenue)}</p></div>
-        <div><p className="text-xs text-muted-foreground lg:hidden">Stage</p><p className="mt-1 break-words text-sm text-foreground lg:mt-0">{project.currentStage || "Not available"}</p></div>
-        <div><p className="text-xs text-muted-foreground lg:hidden">PIC</p><p className="mt-1 break-words text-sm text-foreground lg:mt-0">{project.picName || "Unassigned"}</p></div>
-        <div><p className="text-xs text-muted-foreground lg:hidden">Status</p><span className={["mt-1 inline-flex rounded-full border px-2 py-1 text-xs font-medium lg:mt-0", getProjectStatusClassName(project.status)].join(" ")}>{formatDashboardLabel(project.status)}</span></div>
+        <div className="min-w-0"><p className="break-words text-sm font-semibold text-foreground">{project.name}</p>{project.outputSelectedCount !== undefined && <p className="mt-1 text-xs text-muted-foreground">{translateI18n("dashboardPage.outputApproved", { approved: project.outputApprovedCount || 0, total: project.outputSelectedCount })}</p>}</div>
+        <div><p className="text-xs text-muted-foreground lg:hidden">{translateI18n("copy.estimatedRevenue")}</p><p className="mt-1 text-sm text-foreground lg:mt-0">{project.estimatedRevenue === null || project.estimatedRevenue === undefined ? translateI18n("common.notAvailable") : formatRevenue(project.estimatedRevenue)}</p></div>
+        <div><p className="text-xs text-muted-foreground lg:hidden">{translateI18n("copy.stage")}</p><p className="mt-1 break-words text-sm text-foreground lg:mt-0">{project.currentStage || translateI18n("common.notAvailable")}</p></div>
+        <div><p className="text-xs text-muted-foreground lg:hidden">PIC</p><p className="mt-1 break-words text-sm text-foreground lg:mt-0">{project.picName || translateI18n("ui.unassigned")}</p></div>
+        <div><p className="text-xs text-muted-foreground lg:hidden">{translateI18n("common.status")}</p><span className={["mt-1 inline-flex rounded-full border px-2 py-1 text-xs font-medium lg:mt-0", getProjectStatusClassName(project.status)].join(" ")}>{formatDashboardLabel(project.status)}</span></div>
         {openProject}
       </div>
     );
@@ -425,10 +422,10 @@ function ProjectDeliveryRow({
     return (
       <div className="grid gap-4 px-4 py-4 lg:grid-cols-[minmax(180px,1.3fr)_minmax(140px,1fr)_minmax(180px,1.1fr)_110px_minmax(150px,1fr)_auto] lg:items-center lg:px-5">
         <p className="break-words text-sm font-semibold text-foreground">{project.name}</p>
-        <div><p className="text-xs text-muted-foreground lg:hidden">Solution Architect</p><p className="mt-1 break-words text-sm text-foreground lg:mt-0">{project.picName || "Unassigned"}</p></div>
-        <div><p className="text-xs text-muted-foreground lg:hidden">Current work</p><p className="mt-1 break-words text-sm text-foreground lg:mt-0">{project.currentStage || "Not available"}</p></div>
-        <div><p className="text-xs text-muted-foreground lg:hidden">Status</p><span className={["mt-1 inline-flex rounded-full border px-2 py-1 text-xs font-medium lg:mt-0", getProjectStatusClassName(project.status)].join(" ")}>{formatDashboardLabel(project.status)}</span></div>
-        <div><p className="text-xs text-muted-foreground lg:hidden">Progress</p><p className="mt-1 text-sm text-foreground lg:mt-0">{hasProgress ? `${project.percentage}%` : "Unknown"}</p><p className="mt-1 text-xs text-muted-foreground">{project.totalMilestones > 0 ? `${project.completedMilestones} of ${project.totalMilestones} stages` : "Stage data unavailable"}</p></div>
+        <div><p className="text-xs text-muted-foreground lg:hidden">{translateI18n("role.SA")}</p><p className="mt-1 break-words text-sm text-foreground lg:mt-0">{project.picName || translateI18n("ui.unassigned")}</p></div>
+        <div><p className="text-xs text-muted-foreground lg:hidden">{translateI18n("copy.currentWork")}</p><p className="mt-1 break-words text-sm text-foreground lg:mt-0">{project.currentStage || translateI18n("common.notAvailable")}</p></div>
+        <div><p className="text-xs text-muted-foreground lg:hidden">{translateI18n("common.status")}</p><span className={["mt-1 inline-flex rounded-full border px-2 py-1 text-xs font-medium lg:mt-0", getProjectStatusClassName(project.status)].join(" ")}>{formatDashboardLabel(project.status)}</span></div>
+        <div><p className="text-xs text-muted-foreground lg:hidden">{translateI18n("copy.progress")}</p><p className="mt-1 text-sm text-foreground lg:mt-0">{hasProgress ? `${project.percentage}%` : translateI18n("dashboardPage.unknown")}</p><p className="mt-1 text-xs text-muted-foreground">{project.totalMilestones > 0 ? translateI18n("dashboardPage.stages", { done: project.completedMilestones, total: project.totalMilestones }) : translateI18n("dashboardPage.stageUnavailable")}</p></div>
         {openProject}
       </div>
     );
@@ -438,10 +435,10 @@ function ProjectDeliveryRow({
     return (
       <div className="grid gap-4 px-4 py-4 lg:grid-cols-[minmax(180px,1.3fr)_minmax(140px,1fr)_minmax(180px,1.1fr)_minmax(140px,0.9fr)_110px_auto] lg:items-center lg:px-5">
         <p className="break-words text-sm font-semibold text-foreground">{project.name}</p>
-        <div><p className="text-xs text-muted-foreground lg:hidden">Customer</p><p className="mt-1 break-words text-sm text-foreground lg:mt-0">{project.clientName || "Not available"}</p></div>
-        <div><p className="text-xs text-muted-foreground lg:hidden">Current work</p><p className="mt-1 break-words text-sm text-foreground lg:mt-0">{project.currentStage || "Not available"}</p></div>
-        <div><p className="text-xs text-muted-foreground lg:hidden">Deadline</p><p className={["mt-1 text-sm lg:mt-0", project.overdueMilestones > 0 ? "text-destructive" : "text-foreground"].join(" ")}>{deadlineLabel}</p></div>
-        <div><p className="text-xs text-muted-foreground lg:hidden">Status</p><span className={["mt-1 inline-flex rounded-full border px-2 py-1 text-xs font-medium lg:mt-0", getProjectStatusClassName(project.status)].join(" ")}>{formatDashboardLabel(project.status)}</span></div>
+        <div><p className="text-xs text-muted-foreground lg:hidden">{translateI18n("project.customer")}</p><p className="mt-1 break-words text-sm text-foreground lg:mt-0">{project.clientName || translateI18n("common.notAvailable")}</p></div>
+        <div><p className="text-xs text-muted-foreground lg:hidden">{translateI18n("copy.currentWork")}</p><p className="mt-1 break-words text-sm text-foreground lg:mt-0">{project.currentStage || translateI18n("common.notAvailable")}</p></div>
+        <div><p className="text-xs text-muted-foreground lg:hidden">{translateI18n("copy.deadline")}</p><p className={["mt-1 text-sm lg:mt-0", project.overdueMilestones > 0 ? "text-destructive" : "text-foreground"].join(" ")}>{deadlineLabel}</p></div>
+        <div><p className="text-xs text-muted-foreground lg:hidden">{translateI18n("common.status")}</p><span className={["mt-1 inline-flex rounded-full border px-2 py-1 text-xs font-medium lg:mt-0", getProjectStatusClassName(project.status)].join(" ")}>{formatDashboardLabel(project.status)}</span></div>
         {openProject}
       </div>
     );
@@ -453,19 +450,19 @@ function ProjectDeliveryRow({
         <p className="break-words text-sm font-semibold text-foreground">{project.name}</p>
       </div>
       <div className="min-w-0">
-        <p className="text-xs text-muted-foreground lg:hidden">Customer</p>
-        <p className="mt-1 break-words text-sm text-foreground lg:mt-0">{project.clientName || "Not available"}</p>
+        <p className="text-xs text-muted-foreground lg:hidden">{translateI18n("project.customer")}</p>
+        <p className="mt-1 break-words text-sm text-foreground lg:mt-0">{project.clientName || translateI18n("common.notAvailable")}</p>
       </div>
       <div>
-        <p className="text-xs text-muted-foreground lg:hidden">Status</p>
+        <p className="text-xs text-muted-foreground lg:hidden">{translateI18n("common.status")}</p>
         <span className={["mt-1 inline-flex rounded-full border px-2 py-1 text-xs font-medium lg:mt-0", getProjectStatusClassName(project.status)].join(" ")}>
           {formatDashboardLabel(project.status)}
         </span>
       </div>
       <div>
         <div className="flex items-center justify-between gap-2 text-xs">
-          <span className="text-muted-foreground lg:hidden">Progress</span>
-          <span className="text-foreground">{hasProgress ? String(project.percentage) + "%" : "Unknown"}</span>
+          <span className="text-muted-foreground lg:hidden">{translateI18n("copy.progress")}</span>
+          <span className="text-foreground">{hasProgress ? String(project.percentage) + "%" : translateI18n("dashboardPage.unknown")}</span>
         </div>
         <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted">
           {hasProgress && (
@@ -477,19 +474,19 @@ function ProjectDeliveryRow({
         </div>
         <p className="mt-1 text-xs text-muted-foreground">
           {project.totalMilestones > 0
-            ? String(project.completedMilestones) + " of " + String(project.totalMilestones) + " stages"
-            : "Stage data unavailable"}
+            ? translateI18n("dashboardPage.stages", { done: project.completedMilestones, total: project.totalMilestones })
+            : translateI18n("dashboardPage.stageUnavailable")}
         </p>
       </div>
       <div>
-        <p className="text-xs text-muted-foreground lg:hidden">Deadline / Risk</p>
+        <p className="text-xs text-muted-foreground lg:hidden">{translateI18n("copy.deadlineRisk")}</p>
         <p className={["mt-1 text-sm lg:mt-0", project.overdueMilestones > 0 ? "text-destructive" : "text-foreground"].join(" ")}>
           {deadlineLabel}
         </p>
         {riskDetail && <p className="mt-0.5 text-xs text-muted-foreground">{riskDetail}</p>}
       </div>
       <div className="min-w-0">
-        <p className="text-xs text-muted-foreground lg:hidden">Owner</p>
+        <p className="text-xs text-muted-foreground lg:hidden">{translateI18n("project.owner")}</p>
         <p className="mt-1 break-words text-sm text-foreground lg:mt-0">{ownerLabel}</p>
       </div>
       {openProject}
@@ -529,13 +526,13 @@ function DeliveryHealthPanel({
           <BarChart3 className="h-4 w-4" />
         </span>
         <div>
-          <h2 id="delivery-health-heading" className="text-base font-semibold text-foreground">Kondisi pekerjaan</h2>
-          <p className="mt-1 text-sm text-muted-foreground">Status pengerjaan dan peninjauan proyek</p>
+          <h2 id="delivery-health-heading" className="text-base font-semibold text-foreground">{translateI18n("copy.workCondition")}</h2>
+          <p className="mt-1 text-sm text-muted-foreground">{translateI18n("copy.projectReviewStatus")}</p>
         </div>
       </div>
 
       {loading && statusData.length === 0 ? (
-        <div className="mt-6 grid gap-6 sm:grid-cols-2" aria-label="Loading delivery health">
+        <div className="mt-6 grid gap-6 sm:grid-cols-2" aria-label={translateI18n("dashboardPage.loadingHealth")}>
           <div className="mx-auto h-48 w-48 animate-pulse rounded-full bg-muted" />
           <div className="space-y-4">
             {[0, 1, 2, 3].map((item) => <div key={item} className="h-9 animate-pulse rounded bg-muted" />)}
@@ -564,7 +561,7 @@ function DeliveryHealthPanel({
                         {statusData.map((entry) => <Cell key={entry.name} fill={entry.color} />)}
                       </Pie>
                       <Tooltip
-                        formatter={(value) => [Number(value), "Proyek"]}
+                        formatter={(value) => [Number(value), translateI18n("dashboardPage.chartProjects")]}
                         contentStyle={{
                           background: "hsl(var(--popover))",
                           border: "1px solid hsl(var(--border))",
@@ -577,7 +574,7 @@ function DeliveryHealthPanel({
                   </ResponsiveContainer>
                   <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
                     <span className="text-2xl font-semibold text-foreground">{statusTotal}</span>
-                    <span className="text-xs text-muted-foreground">proyek</span>
+                    <span className="text-xs text-muted-foreground">{translateI18n("ui.projectUnit")}</span>
                   </div>
                 </div>
                 <div className="mt-2 flex flex-wrap justify-center gap-x-4 gap-y-2">
@@ -591,15 +588,15 @@ function DeliveryHealthPanel({
               </>
             ) : (
               <div className="py-10 text-center">
-                <p className="text-sm font-medium text-foreground">Belum ada data status proyek</p>
-                <p className="mt-1 text-xs leading-5 text-muted-foreground">Sebaran status akan tampil saat proyek tersedia.</p>
+                <p className="text-sm font-medium text-foreground">{translateI18n("copy.noStatusData")}</p>
+                <p className="mt-1 text-xs leading-5 text-muted-foreground">{translateI18n("copy.distributionEmpty")}</p>
               </div>
             )}
           </div>
 
           <div className="min-w-0">
             <p className="text-xs font-medium text-muted-foreground">
-              {showScenarioBreakdown ? "Proyek per skenario" : "Penyelesaian proyek"}
+              {showScenarioBreakdown ? translateI18n("dashboardPage.byScenario") : translateI18n("dashboardPage.projectCompletion")}
             </p>
             <div className="mt-4 space-y-4">
               {showScenarioBreakdown ? (
@@ -639,7 +636,7 @@ function DeliveryHealthPanel({
                   </div>
                 ))
               ) : (
-                <p className="text-sm leading-6 text-muted-foreground">Data penyelesaian proyek belum tersedia.</p>
+                <p className="text-sm leading-6 text-muted-foreground">{translateI18n("copy.completionUnavailable")}</p>
               )}
             </div>
           </div>
@@ -663,12 +660,12 @@ function QuickInsightsPanel({
   return (
     <section aria-labelledby="quick-insights-heading" className="rounded-xl border border-border bg-card p-5 sm:p-6">
       <div>
-        <h2 id="quick-insights-heading" className="text-base font-semibold text-foreground">Perlu perhatian</h2>
-        <p className="mt-1 text-sm text-muted-foreground">Hal yang perlu Anda tindak lanjuti</p>
+        <h2 id="quick-insights-heading" className="text-base font-semibold text-foreground">{translateI18n("copy.needsAttention")}</h2>
+        <p className="mt-1 text-sm text-muted-foreground">{translateI18n("copy.actionItems")}</p>
       </div>
 
       {loading && insights.length === 0 ? (
-        <div className="mt-5 space-y-4" aria-label="Loading quick insights">
+        <div className="mt-5 space-y-4" aria-label={translateI18n("dashboardPage.loadingInsights")}>
           {[0, 1, 2, 3].map((item) => <div key={item} className="h-16 animate-pulse rounded bg-muted" />)}
         </div>
       ) : insights.length > 0 ? (
@@ -715,15 +712,15 @@ function QuickInsightsPanel({
         <div className="mt-5 flex items-start gap-3 py-4">
           <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-[hsl(var(--success))]" />
           <div>
-            <p className="text-sm font-medium text-foreground">No additional items need attention</p>
-            <p className="mt-1 text-xs leading-5 text-muted-foreground">Your visible workflow queue is clear.</p>
+            <p className="text-sm font-medium text-foreground">{translateI18n("copy.noAttention")}</p>
+            <p className="mt-1 text-xs leading-5 text-muted-foreground">{translateI18n("copy.queueClear")}</p>
           </div>
         </div>
       )}
 
       {hasMore && (
         <Link href={viewAllHref} className="mt-5 inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline">
-          View full queue
+          {translateI18n("dashboardPage.fullQueue")}
           <ArrowRight className="h-4 w-4" />
         </Link>
       )}
@@ -751,32 +748,32 @@ function SolutionArchitectWorkloadPanel({
   return (
     <section aria-labelledby="sa-workload-heading" className="overflow-hidden rounded-xl border border-border bg-card">
       <div className="border-b border-border px-5 py-5">
-        <h2 id="sa-workload-heading" className="text-base font-semibold text-foreground">Solution Architect workload</h2>
-        <p className="mt-1 text-sm text-muted-foreground">Work distribution, deadlines, and review status across the SA team.</p>
+        <h2 id="sa-workload-heading" className="text-base font-semibold text-foreground">{translateI18n("copy.saWorkload")}</h2>
+        <p className="mt-1 text-sm text-muted-foreground">{translateI18n("copy.workloadDescription")}</p>
       </div>
 
       {loading && workload.length === 0 ? (
-        <div className="space-y-3 p-5" aria-label="Loading Solution Architect workload">
+        <div className="space-y-3 p-5" aria-label={translateI18n("dashboardPage.loadingWorkload")}>
           {[0, 1, 2].map((item) => <div key={item} className="h-16 animate-pulse rounded bg-muted" />)}
         </div>
       ) : hasError && workload.length === 0 ? (
-        <div className="px-5 py-8 text-sm text-muted-foreground">Solution Architect workload couldn&apos;t be loaded.</div>
+        <div className="px-5 py-8 text-sm text-muted-foreground">{translateI18n("ui.workloadLoadFailed")}</div>
       ) : workload.length === 0 ? (
-        <div className="px-5 py-8 text-sm text-muted-foreground">No active Solution Architects are available.</div>
+        <div className="px-5 py-8 text-sm text-muted-foreground">{translateI18n("copy.noActiveSa")}</div>
       ) : (
         <>
-          {everyoneIdle && <p className="border-b border-border bg-muted/30 px-5 py-3 text-sm text-muted-foreground">All Solution Architects currently have no active work.</p>}
+          {everyoneIdle && <p className="border-b border-border bg-muted/30 px-5 py-3 text-sm text-muted-foreground">{translateI18n("copy.noSaWork")}</p>}
           <div className="hidden overflow-x-auto lg:block">
             <table className="w-full min-w-[860px] text-sm">
               <thead className="bg-muted/40 text-left text-xs font-medium text-muted-foreground">
                 <tr>
-                  <th className="px-5 py-3 font-medium">Solution Architect</th>
-                  <th className="px-3 py-3 text-center font-medium">Active projects</th>
-                  <th className="px-3 py-3 text-center font-medium">Active work</th>
-                  <th className="px-3 py-3 font-medium">Nearest deadline</th>
-                  <th className="px-3 py-3 text-center font-medium">Revision</th>
-                  <th className="px-3 py-3 text-center font-medium">Waiting review</th>
-                  <th className="px-5 py-3 text-center font-medium">Overdue</th>
+                  <th className="px-5 py-3 font-medium">{translateI18n("role.SA")}</th>
+                  <th className="px-3 py-3 text-center font-medium">{translateI18n("copy.activeProjects")}</th>
+                  <th className="px-3 py-3 text-center font-medium">{translateI18n("copy.activeWork")}</th>
+                  <th className="px-3 py-3 font-medium">{translateI18n("copy.nearestDeadline")}</th>
+                  <th className="px-3 py-3 text-center font-medium">{translateI18n("copy.revision")}</th>
+                  <th className="px-3 py-3 text-center font-medium">{translateI18n("copy.waitingReview")}</th>
+                  <th className="px-5 py-3 text-center font-medium">{translateI18n("copy.overdue")}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
@@ -786,8 +783,8 @@ function SolutionArchitectWorkloadPanel({
                     <tr key={item.saId}>
                       <td className="px-5 py-4 font-medium text-foreground">{item.saName}</td>
                       <td className="px-3 py-4 text-center text-foreground">{item.activeProjectCount}</td>
-                      <td className="px-3 py-4 text-center text-foreground">{item.activeMilestoneCount || <span className="text-muted-foreground">No active work</span>}</td>
-                      <td className="px-3 py-4 text-muted-foreground">{deadline || "No deadline"}</td>
+                      <td className="px-3 py-4 text-center text-foreground">{item.activeMilestoneCount || <span className="text-muted-foreground">{translateI18n("copy.noActiveWork")}</span>}</td>
+                      <td className="px-3 py-4 text-muted-foreground">{deadline || translateI18n("dashboardPage.noDeadline")}</td>
                       <td className="px-3 py-4 text-center"><span className={item.revisionCount > 0 ? "font-medium text-[hsl(var(--warning))]" : "text-muted-foreground"}>{item.revisionCount}</span></td>
                       <td className="px-3 py-4 text-center text-muted-foreground">{item.waitingReviewCount}</td>
                       <td className="px-5 py-4 text-center"><span className={item.overdueCount > 0 ? "font-semibold text-destructive" : "text-muted-foreground"}>{item.overdueCount}</span></td>
@@ -804,12 +801,12 @@ function SolutionArchitectWorkloadPanel({
                 <div key={item.saId} className="space-y-3 px-5 py-4">
                   <p className="font-medium text-foreground">{item.saName}</p>
                   <dl className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
-                    <div><dt className="text-xs text-muted-foreground">Active projects</dt><dd className="mt-1 text-foreground">{item.activeProjectCount}</dd></div>
-                    <div><dt className="text-xs text-muted-foreground">Active work</dt><dd className="mt-1 text-foreground">{item.activeMilestoneCount || "No active work"}</dd></div>
-                    <div><dt className="text-xs text-muted-foreground">Nearest deadline</dt><dd className="mt-1 text-foreground">{deadline || "No deadline"}</dd></div>
-                    <div><dt className="text-xs text-muted-foreground">Waiting review</dt><dd className="mt-1 text-foreground">{item.waitingReviewCount}</dd></div>
-                    <div><dt className="text-xs text-muted-foreground">Revision</dt><dd className={item.revisionCount > 0 ? "mt-1 font-medium text-[hsl(var(--warning))]" : "mt-1 text-foreground"}>{item.revisionCount}</dd></div>
-                    <div><dt className="text-xs text-muted-foreground">Overdue</dt><dd className={item.overdueCount > 0 ? "mt-1 font-semibold text-destructive" : "mt-1 text-foreground"}>{item.overdueCount}</dd></div>
+                    <div><dt className="text-xs text-muted-foreground">{translateI18n("copy.activeProjects")}</dt><dd className="mt-1 text-foreground">{item.activeProjectCount}</dd></div>
+                    <div><dt className="text-xs text-muted-foreground">{translateI18n("copy.activeWork")}</dt><dd className="mt-1 text-foreground">{item.activeMilestoneCount || translateI18n("dashboardPage.noActiveWork")}</dd></div>
+                    <div><dt className="text-xs text-muted-foreground">{translateI18n("copy.nearestDeadline")}</dt><dd className="mt-1 text-foreground">{deadline || translateI18n("dashboardPage.noDeadline")}</dd></div>
+                    <div><dt className="text-xs text-muted-foreground">{translateI18n("copy.waitingReview")}</dt><dd className="mt-1 text-foreground">{item.waitingReviewCount}</dd></div>
+                    <div><dt className="text-xs text-muted-foreground">{translateI18n("copy.revision")}</dt><dd className={item.revisionCount > 0 ? "mt-1 font-medium text-[hsl(var(--warning))]" : "mt-1 text-foreground"}>{item.revisionCount}</dd></div>
+                    <div><dt className="text-xs text-muted-foreground">{translateI18n("copy.overdue")}</dt><dd className={item.overdueCount > 0 ? "mt-1 font-semibold text-destructive" : "mt-1 text-foreground"}>{item.overdueCount}</dd></div>
                   </dl>
                 </div>
               );
@@ -823,7 +820,7 @@ function SolutionArchitectWorkloadPanel({
 
 export default function DashboardPage() {
   const { user } = useAuth();
-  const [greeting, setGreeting] = useState("Halo");
+  const [greeting, setGreeting] = useState(() => translateI18n("dashboardCopy.hello"));
   const userRole = user?.role || "GUEST";
   const isHeadSa = userRole === "HEAD_SA";
   const isSa = userRole === "SA";
@@ -887,6 +884,7 @@ export default function DashboardPage() {
     approvals,
     milestones: assignedMilestones,
     summary: summaryForMetrics,
+    outputReviewCount: outputDocuments.reviewQueue.reduce((total, item) => total + item.count, 0),
   });
   const metricValues = new Map(calculatedMetrics.map((metric) => [metric.label, metric.value]));
   const metrics = getDashboardKpiLabels(userRole).map((label) => ({
@@ -949,19 +947,19 @@ export default function DashboardPage() {
   });
   const projectDelivery = sortDashboardProjectHealth(healthSource, userRole).slice(0, 8);
   const projectDeliveryTitle = userRole === "SALES"
-    ? "Peluang pendapatan"
+    ? translateI18n("dashboardPage.revenueOpportunity")
     : userRole === "HEAD_SA"
-    ? "Pelaksanaan proyek"
+    ? translateI18n("dashboardPage.projectDelivery")
     : userRole === "SA"
-    ? "Tenggat tugas Anda"
-    : "Pelaksanaan proyek";
+    ? translateI18n("dashboardPage.yourDeadlines")
+    : translateI18n("dashboardPage.projectDelivery");
   const projectDeliveryDescription = userRole === "SALES"
-    ? "Pendapatan, tahap pekerjaan, dan PIC pada proyek Anda"
+    ? translateI18n("dashboardPage.salesDeliveryDescription")
     : userRole === "HEAD_SA"
-    ? "Proyek berjalan, PIC, dan status pekerjaan"
+    ? translateI18n("dashboardPage.headDeliveryDescription")
     : userRole === "SA"
-    ? "Tahap dan tenggat pada proyek yang Anda tangani"
-    : "Perkembangan proyek aktif dan dalam perencanaan";
+    ? translateI18n("dashboardPage.saDeliveryDescription")
+    : translateI18n("dashboardPage.adminDeliveryDescription");
   const projectProgressIds = new Set(projectProgress.map((project) => project.id));
   const isProjectDeliveryLoading = dashboardQuery.isLoading && projectsQuery.isLoading;
   const hasProjectDeliveryError = dashboardQuery.isError && projectsQuery.isError;
@@ -985,13 +983,13 @@ export default function DashboardPage() {
           <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">{roleContent.description}</p>
           {nextTask && (
             <p className="mt-3 break-words text-sm text-muted-foreground">
-              <span className="font-medium text-foreground">Berikutnya:</span> {nextTask.title}
+              <span className="font-medium text-foreground">{translateI18n("copy.nextLabel")}</span> {nextTask.title}
             </p>
           )}
         </div>
 
         {isRoleDataLoading && !nextTask ? (
-          <div className="h-10 w-full animate-pulse rounded-md bg-muted sm:w-36" aria-label="Loading next task" />
+          <div className="h-10 w-full animate-pulse rounded-md bg-muted sm:w-36" aria-label={translateI18n("dashboardPage.loadingNext")} />
         ) : nextTask ? (
           <Link
             href={nextTask.href || viewAllHref}
@@ -1002,7 +1000,7 @@ export default function DashboardPage() {
           </Link>
         ) : (
           <Link href="/projects" className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline">
-            Lihat proyek
+            {translateI18n("copy.viewProject")}
             <ArrowRight className="h-4 w-4" />
           </Link>
         )}
@@ -1012,21 +1010,21 @@ export default function DashboardPage() {
         <div className="flex flex-col gap-3 rounded-lg border border-[hsl(var(--warning)/0.3)] bg-[hsl(var(--warning)/0.08)] p-4 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-start gap-3">
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-[hsl(var(--warning))]" />
-            <p>Sebagian data gagal dimuat. Data yang tersedia tetap ditampilkan.</p>
+            <p>{translateI18n("copy.partialLoad")}</p>
           </div>
           <button
             type="button"
             onClick={retryVisibleQueries}
             className="text-left text-sm font-medium text-foreground underline underline-offset-4 hover:text-primary sm:text-right"
           >
-            Coba lagi
+            {translateI18n("common.retry")}
           </button>
         </div>
       )}
 
       <section aria-label={getDashboardSnapshotTitle(userRole)}>
         {isRoleDataLoading ? (
-          <div className="grid grid-cols-2 gap-3 xl:grid-cols-4" aria-label="Loading role metrics">
+          <div className="grid grid-cols-2 gap-3 xl:grid-cols-4" aria-label={translateI18n("dashboardPage.loadingMetrics")}>
             {[0, 1, 2, 3].map((item) => (
               <div key={item} className="h-24 animate-pulse rounded-xl border border-border bg-muted sm:h-32" />
             ))}
@@ -1044,11 +1042,11 @@ export default function DashboardPage() {
       </section>
 
       {userRole === "SALES" && !dashboardQuery.isLoading && !dashboardQuery.isError && salesResults && (
-        <section aria-label="Sales project results" className="grid gap-4 border-y border-border py-4 text-sm sm:grid-cols-2 lg:grid-cols-4">
-          <div><p className="text-muted-foreground">Menunggu hasil</p><p className="font-semibold">{salesResults.waitingResult.count} proyek</p><p className="text-xs text-muted-foreground">Estimasi {formatRevenue(salesResults.waitingResult.estimatedRevenue)}</p></div>
-          <div><p className="text-muted-foreground">Menang</p><p className="font-semibold">{salesResults.won.count} proyek</p><p className="text-xs text-muted-foreground">Estimasi {formatRevenue(salesResults.won.estimatedRevenue)}</p></div>
-          <div><p className="text-muted-foreground">Kalah</p><p className="font-semibold">{salesResults.lost.count} proyek</p><p className="text-xs text-muted-foreground">Estimasi {formatRevenue(salesResults.lost.estimatedRevenue)}</p></div>
-          <div><p className="text-muted-foreground">Nilai kontrak final</p><p className="font-semibold">{formatRevenue(salesResults.finalContractValueTotal)}</p><p className="text-xs text-muted-foreground">Hanya proyek menang</p></div>
+        <section aria-label={translateI18n("dashboardPage.salesResults")} className="grid gap-4 border-y border-border py-4 text-sm sm:grid-cols-2 lg:grid-cols-4">
+          <div><p className="text-muted-foreground">{translateI18n("projectStatus.WAITING_RESULT")}</p><p className="font-semibold">{translateI18n("dashboardPage.projectCount", { count: salesResults.waitingResult.count })}</p><p className="text-xs text-muted-foreground">{translateI18n("dashboardPage.estimate", { value: formatRevenue(salesResults.waitingResult.estimatedRevenue) })}</p></div>
+          <div><p className="text-muted-foreground">{translateI18n("projectStatus.WON")}</p><p className="font-semibold">{translateI18n("dashboardPage.projectCount", { count: salesResults.won.count })}</p><p className="text-xs text-muted-foreground">{translateI18n("dashboardPage.estimate", { value: formatRevenue(salesResults.won.estimatedRevenue) })}</p></div>
+          <div><p className="text-muted-foreground">{translateI18n("projectStatus.LOST")}</p><p className="font-semibold">{translateI18n("dashboardPage.projectCount", { count: salesResults.lost.count })}</p><p className="text-xs text-muted-foreground">{translateI18n("dashboardPage.estimate", { value: formatRevenue(salesResults.lost.estimatedRevenue) })}</p></div>
+          <div><p className="text-muted-foreground">{translateI18n("copy.finalContract")}</p><p className="font-semibold">{formatRevenue(salesResults.finalContractValueTotal)}</p><p className="text-xs text-muted-foreground">{translateI18n("copy.wonOnly")}</p></div>
         </section>
       )}
 
@@ -1084,7 +1082,7 @@ export default function DashboardPage() {
           </div>
           {projectDelivery.length > 0 && (
             <Link href="/projects" className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline">
-              Lihat semua proyek
+              {translateI18n("dashboardPage.viewAllProjects")}
               <ArrowRight className="h-4 w-4" />
             </Link>
           )}
@@ -1092,24 +1090,24 @@ export default function DashboardPage() {
 
         {userRole === "SALES" ? (
           <div className="hidden grid-cols-[minmax(180px,1.3fr)_minmax(130px,1fr)_minmax(160px,1fr)_minmax(140px,0.9fr)_110px_auto] gap-4 border-b border-border bg-muted/40 px-5 py-3 text-xs font-medium text-muted-foreground lg:grid">
-            <span>Proyek</span><span>Pendapatan</span><span>Tahap</span><span>PIC</span><span>Status</span><span>Aksi</span>
+            <span>{translateI18n("nav.projects")}</span><span>{translateI18n("project.revenue")}</span><span>{translateI18n("copy.stage")}</span><span>PIC</span><span>{translateI18n("common.status")}</span><span>{translateI18n("common.actions")}</span>
           </div>
         ) : userRole === "HEAD_SA" ? (
           <div className="hidden grid-cols-[minmax(180px,1.3fr)_minmax(140px,1fr)_minmax(180px,1.1fr)_110px_minmax(150px,1fr)_auto] gap-4 border-b border-border bg-muted/40 px-5 py-3 text-xs font-medium text-muted-foreground lg:grid">
-            <span>Proyek</span><span>Solution Architect</span><span>Tugas saat ini</span><span>Status</span><span>Progres</span><span>Aksi</span>
+            <span>{translateI18n("nav.projects")}</span><span>{translateI18n("role.SA")}</span><span>{translateI18n("copy.currentTasks")}</span><span>{translateI18n("common.status")}</span><span>{translateI18n("copy.progress")}</span><span>{translateI18n("common.actions")}</span>
           </div>
         ) : userRole === "SA" ? (
           <div className="hidden grid-cols-[minmax(180px,1.3fr)_minmax(140px,1fr)_minmax(180px,1.1fr)_minmax(140px,0.9fr)_110px_auto] gap-4 border-b border-border bg-muted/40 px-5 py-3 text-xs font-medium text-muted-foreground lg:grid">
-            <span>Proyek</span><span>Pelanggan</span><span>Tugas saat ini</span><span>Tenggat</span><span>Status</span><span>Aksi</span>
+            <span>{translateI18n("nav.projects")}</span><span>{translateI18n("project.customer")}</span><span>{translateI18n("copy.currentTasks")}</span><span>{translateI18n("copy.deadline")}</span><span>{translateI18n("common.status")}</span><span>{translateI18n("common.actions")}</span>
           </div>
         ) : (
           <div className="hidden grid-cols-[minmax(170px,1.4fr)_minmax(110px,0.9fr)_110px_minmax(145px,1fr)_minmax(135px,1fr)_minmax(110px,0.9fr)_auto] gap-4 border-b border-border bg-muted/40 px-5 py-3 text-xs font-medium text-muted-foreground lg:grid">
-            <span>Proyek</span><span>Pelanggan</span><span>Status</span><span>Progres</span><span>Tenggat / Risiko</span><span>Pemilik</span><span>Aksi</span>
+            <span>{translateI18n("nav.projects")}</span><span>{translateI18n("project.customer")}</span><span>{translateI18n("common.status")}</span><span>{translateI18n("copy.progress")}</span><span>{translateI18n("copy.deadlineRisk")}</span><span>{translateI18n("project.owner")}</span><span>{translateI18n("common.actions")}</span>
           </div>
         )}
 
         {isProjectDeliveryLoading && projectDelivery.length === 0 ? (
-          <div className="space-y-3 p-5" aria-label="Loading project delivery">
+          <div className="space-y-3 p-5" aria-label={translateI18n("dashboardPage.loadingProjects")}>
             {[0, 1, 2, 3].map((item) => <div key={item} className="h-16 animate-pulse rounded bg-muted" />)}
           </div>
         ) : projectDelivery.length > 0 ? (
@@ -1125,25 +1123,25 @@ export default function DashboardPage() {
           </div>
         ) : hasProjectDeliveryError ? (
           <div className="px-5 py-8 text-sm text-muted-foreground">
-            Data proyek gagal dimuat. Coba lagi melalui pemberitahuan di atas.
+            {translateI18n("dashboardPage.projectsFailed")}
           </div>
         ) : (
           <div className="flex flex-col items-start gap-3 px-5 py-8">
-            <p className="text-sm font-medium text-foreground">Belum ada data proyek</p>
-            <p className="text-sm text-muted-foreground">Proyek yang dapat Anda akses akan tampil di sini.</p>
-            <Link href="/projects" className="text-sm font-medium text-primary hover:underline">Lihat proyek</Link>
+            <p className="text-sm font-medium text-foreground">{translateI18n("copy.noProjectData")}</p>
+            <p className="text-sm text-muted-foreground">{translateI18n("copy.accessibleProjects")}</p>
+            <Link href="/projects" className="text-sm font-medium text-primary hover:underline">{translateI18n("copy.viewProject")}</Link>
           </div>
         )}
       </section>
 
       <section aria-labelledby="recent-activity-heading" className="overflow-hidden rounded-xl border border-border bg-card">
         <div className="border-b border-border px-5 py-5">
-          <h2 id="recent-activity-heading" className="text-base font-semibold text-foreground">Aktivitas terbaru</h2>
-          <p className="mt-1 text-sm text-muted-foreground">Perubahan terbaru pada proyek yang dapat Anda akses</p>
+          <h2 id="recent-activity-heading" className="text-base font-semibold text-foreground">{translateI18n("copy.recentActivity")}</h2>
+          <p className="mt-1 text-sm text-muted-foreground">{translateI18n("copy.accessibleChanges")}</p>
         </div>
 
         {dashboardQuery.isLoading && recentActivity.length === 0 ? (
-          <div className="space-y-3 p-5" aria-label="Loading recent activity">
+          <div className="space-y-3 p-5" aria-label={translateI18n("dashboardPage.loadingActivity")}>
             {[0, 1, 2, 3].map((item) => <div key={item} className="h-14 animate-pulse rounded bg-muted" />)}
           </div>
         ) : recentActivity.length > 0 ? (
@@ -1181,9 +1179,9 @@ export default function DashboardPage() {
             })}
           </div>
         ) : dashboardQuery.isError ? (
-          <div className="px-5 py-8 text-sm text-muted-foreground">Recent activity couldn&apos;t be loaded.</div>
+          <div className="px-5 py-8 text-sm text-muted-foreground">{translateI18n("ui.activityLoadFailed")}</div>
         ) : (
-          <div className="px-5 py-8 text-sm text-muted-foreground">No recent activity is available for your projects yet.</div>
+          <div className="px-5 py-8 text-sm text-muted-foreground">{translateI18n("copy.noRecentActivity")}</div>
         )}
       </section>
     </div>

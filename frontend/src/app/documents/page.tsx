@@ -1,5 +1,7 @@
 "use client";
 
+import { translate as translateI18n, getIntlLocale, translateOutputStatus, type TranslationKey } from "@/i18n";
+
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import {
@@ -20,45 +22,46 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useDocumentDownloadUrl, useDocuments } from "@/hooks/use-documents";
 import { OutputRepositoryItem, useOutputRepository, useOutputRepositoryDownload } from "@/hooks/use-output-documents";
+import { buildRepositoryItems, filterRepositoryItems, paginateRepositoryItems } from "@/lib/document-repository";
 import { formatHumanReadableLabel } from "@/lib/workflow-ux-helpers";
 import { DocumentCategory, DocumentItem, DocumentStatus } from "@/types/document";
 
-const rolePageCopy: Record<string, { eyebrow: string; title: string; description: string }> = {
+const rolePageCopy: Record<string, { eyebrow: TranslationKey; title: TranslationKey; description: TranslationKey }> = {
   SALES: {
-    eyebrow: "Arsip proyek",
-    title: "Dokumen proyek",
-    description: "Temukan berkas proyek yang sudah disetujui.",
+    eyebrow: "documentPage.projectArchive",
+    title: "documentPage.projectDocuments",
+    description: "documentPage.salesDescription",
   },
   HEAD_SA: {
-    eyebrow: "Arsip pekerjaan",
-    title: "Dokumen proyek",
-    description: "Telusuri dokumen resmi, versinya, dan diskusi proyek.",
+    eyebrow: "documentPage.workArchive",
+    title: "documentPage.projectDocuments",
+    description: "documentPage.headDescription",
   },
   SA: {
-    eyebrow: "Ruang kerja SA",
-    title: "Dokumen proyek",
-    description: "Akses berkas resmi dari proyek yang Anda tangani.",
+    eyebrow: "documentPage.saWorkspace",
+    title: "documentPage.projectDocuments",
+    description: "documentPage.saDescription",
   },
   SUPER_ADMIN: {
-    eyebrow: "Arsip dokumen",
-    title: "Repositori dokumen",
-    description: "Telusuri dokumen resmi proyek dan riwayat versinya.",
+    eyebrow: "documentPage.documentArchive",
+    title: "documentPage.repository",
+    description: "documentPage.adminDescription",
   },
 };
 
 function getStatusBadge(status: DocumentStatus) {
   switch (status) {
     case "APPROVED":
-      return <Badge variant="success">Disetujui</Badge>;
+      return <Badge variant="success">{translateI18n("approvalStatus.APPROVED")}</Badge>;
     case "SUBMITTED":
     case "UNDER_REVIEW":
-      return <Badge variant="warning">Diajukan</Badge>;
+      return <Badge variant="warning">{translateI18n("documentStatus.SUBMITTED")}</Badge>;
     case "REJECTED":
-      return <Badge variant="destructive">Ditolak</Badge>;
+      return <Badge variant="destructive">{translateI18n("approvalStatus.REJECTED")}</Badge>;
     case "SUPERSEDED":
-      return <Badge variant="outline">Versi lama</Badge>;
+      return <Badge variant="outline">{translateI18n("documentStatus.SUPERSEDED")}</Badge>;
     default:
-      return <Badge variant="outline">Draf</Badge>;
+      return <Badge variant="outline">{translateI18n("documentStatus.DRAFT")}</Badge>;
   }
 }
 
@@ -77,34 +80,34 @@ export default function DocumentsPage() {
   const { user } = useAuth();
   const pageCopy = rolePageCopy[user?.role || ""] || rolePageCopy.SUPER_ADMIN;
   const [search, setSearch] = useState("");
-  const [activeTab, setActiveTab] = useState<"OFFICIAL" | "OUTPUT">("OFFICIAL");
-  const [categoryFilter, setCategoryFilter] = useState<DocumentCategory | "ALL">("ALL");
+  const [activeTab, setActiveTab] = useState<"REPOSITORY" | "WORKING">("REPOSITORY");
+  const [categoryFilter, setCategoryFilter] = useState<DocumentCategory | "OUTPUT" | "ALL">("ALL");
   const [statusFilter, setStatusFilter] = useState<DocumentStatus | "ALL">("ALL");
+  const [page, setPage] = useState(1);
   const [selectedDocForVersion, setSelectedDocForVersion] = useState<DocumentItem | null>(null);
   const [isUploadVersionOpen, setIsUploadVersionOpen] = useState(false);
   const [selectedDocForDetail, setSelectedDocForDetail] = useState<DocumentItem | null>(null);
   const [downloadError, setDownloadError] = useState("");
 
-  const { data: documents = [], isLoading, isError } = useDocuments({
-    search,
-    category: categoryFilter,
-    status: statusFilter,
-  });
+  const { data: documents = [], isLoading: documentsLoading, isError: documentsError } = useDocuments();
+  const { data: outputs = [], isLoading: outputsLoading, isError: outputsError } = useOutputRepository();
+  const outputDownload = useOutputRepositoryDownload();
+  const allItems = useMemo(() => buildRepositoryItems(documents, outputs), [documents, outputs]);
+  const visibleItems = useMemo(() => filterRepositoryItems(allItems, {
+    search, category: categoryFilter, status: statusFilter,
+  }), [allItems, search, categoryFilter, statusFilter]);
+  const paged = useMemo(() => paginateRepositoryItems(visibleItems, page), [visibleItems, page]);
+  const isLoading = documentsLoading || outputsLoading;
+  const isError = documentsError || outputsError;
   const documentDownload = useDocumentDownloadUrl();
   const snapshot = useMemo(
     () => [
-      { label: "Dokumen tersedia", value: documents.length },
-      { label: "Disetujui", value: documents.filter((item) => item.status === "APPROVED").length },
-      { label: "Terkait milestone", value: documents.filter((item) => Boolean(item.milestoneId)).length },
-      {
-        label: "Versi dokumen",
-        value: documents.reduce(
-          (total, item) => total + (item._count?.versions ?? item.versions?.length ?? 0),
-          0
-        ),
-      },
+      { label: translateI18n("documentPage.available"), value: visibleItems.length },
+      { label: translateI18n("documentStatus.APPROVED"), value: visibleItems.filter((item) => item.sourceType === "OUTPUT" || item.document.status === "APPROVED").length },
+      { label: translateI18n("documentPage.relatedMilestone"), value: visibleItems.filter((item) => item.sourceType === "OUTPUT" || Boolean(item.document.milestoneId)).length },
+      { label: translateI18n("documentPage.projectOutputs"), value: visibleItems.filter((item) => item.sourceType === "OUTPUT").length },
     ],
-    [documents]
+    [visibleItems]
   );
   const hasFilters = Boolean(search || categoryFilter !== "ALL" || statusFilter !== "ALL");
 
@@ -119,8 +122,22 @@ export default function DocumentsPage() {
       link.click();
     } catch (error) {
       setDownloadError(
-        error instanceof Error ? error.message : "Gagal mengunduh dokumen."
+        error instanceof Error ? error.message : translateI18n("documentPage.downloadFailed")
       );
+    }
+  };
+
+  const handleOutputDownload = async (item: OutputRepositoryItem) => {
+    setDownloadError("");
+    try {
+      const { url } = await outputDownload.mutateAsync({ projectId: item.projectId, documentKey: item.documentKey });
+      const link = window.document.createElement("a");
+      link.href = url;
+      link.target = "_blank";
+      link.rel = "noopener noreferrer";
+      link.click();
+    } catch (error) {
+      setDownloadError(error instanceof Error ? error.message : translateI18n("documentPage.outputDownloadFailed"));
     }
   };
 
@@ -128,26 +145,27 @@ export default function DocumentsPage() {
     setSearch("");
     setCategoryFilter("ALL");
     setStatusFilter("ALL");
+    setPage(1);
   };
 
   return (
     <div className="mx-auto w-full max-w-[1280px] space-y-5 px-4 py-6 sm:px-6 lg:px-8">
       <header className="border-b border-border/60 pb-5">
-        <p className="text-xs font-semibold uppercase text-primary">{pageCopy.eyebrow}</p>
-        <h1 className="mt-1 text-2xl font-semibold text-foreground sm:text-3xl">{pageCopy.title}</h1>
-        <p className="mt-1 max-w-2xl text-sm text-muted-foreground">{pageCopy.description}</p>
+        <p className="text-xs font-semibold uppercase text-primary">{translateI18n(pageCopy.eyebrow)}</p>
+        <h1 className="mt-1 text-2xl font-semibold text-foreground sm:text-3xl">{translateI18n(pageCopy.title)}</h1>
+        <p className="mt-1 max-w-2xl text-sm text-muted-foreground">{translateI18n(pageCopy.description)}</p>
       </header>
 
-      <div role="tablist" aria-label="Koleksi dokumen" className="flex gap-2 border-b border-border/60 pb-2">
-        <Button role="tab" aria-selected={activeTab === "OFFICIAL"} variant={activeTab === "OFFICIAL" ? "secondary" : "ghost"} onClick={() => setActiveTab("OFFICIAL")}>Dokumen resmi</Button>
-        <Button role="tab" aria-selected={activeTab === "OUTPUT"} variant={activeTab === "OUTPUT" ? "secondary" : "ghost"} onClick={() => setActiveTab("OUTPUT")}>Output dokumen</Button>
-      </div>
+      {(user?.role === "HEAD_SA" || user?.role === "SA") && <div role="tablist" aria-label={translateI18n("documentPage.collection")} className="flex gap-2 border-b border-border/60 pb-2">
+        <Button role="tab" aria-selected={activeTab === "REPOSITORY"} variant={activeTab === "REPOSITORY" ? "secondary" : "ghost"} onClick={() => setActiveTab("REPOSITORY")}>{translateI18n("documentPage.allResults")}</Button>
+        <Button role="tab" aria-selected={activeTab === "WORKING"} variant={activeTab === "WORKING" ? "secondary" : "ghost"} onClick={() => setActiveTab("WORKING")}>{translateI18n("documentPage.workingOutputs")}</Button>
+      </div>}
 
-      {activeTab === "OFFICIAL" ? (
+      {activeTab === "REPOSITORY" ? (
       <>
 
       <section
-        aria-label="Ringkasan dokumen"
+        aria-label={translateI18n("documentPage.summary")}
         className="grid grid-cols-2 overflow-hidden rounded-lg border border-border/60 bg-card lg:grid-cols-4"
       >
         {snapshot.map((item, index) => (
@@ -168,9 +186,9 @@ export default function DocumentsPage() {
       <section className="overflow-hidden rounded-lg border border-border/60 bg-card">
         <div className="space-y-4 border-b border-border/60 p-4 sm:p-5">
           <div>
-            <h2 className="text-base font-semibold text-foreground">Dokumen resmi</h2>
+            <h2 className="text-base font-semibold text-foreground">{translateI18n("documentPage.allResults")}</h2>
             <p className="text-xs text-muted-foreground">
-              Dokumen resmi terpisah dari bukti awal proyek dan pengajuan yang belum disetujui.
+              {translateI18n("documentPage.resultsDescription")}
             </p>
           </div>
           <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_220px_180px_auto]">
@@ -178,44 +196,45 @@ export default function DocumentsPage() {
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 type="text"
-                placeholder="Cari judul dokumen"
-                aria-label="Cari dokumen"
+                placeholder={translateI18n("documentPage.searchTitle")}
+                aria-label={translateI18n("documentPage.searchDocuments")}
                 value={search}
-                onChange={(event) => setSearch(event.target.value)}
+                onChange={(event) => { setSearch(event.target.value); setPage(1); }}
                 className="pl-9"
               />
             </div>
             <select
-              aria-label="Saring dokumen berdasarkan kategori"
+              aria-label={translateI18n("documentPage.filterCategory")}
               value={categoryFilter}
               onChange={(event) =>
-                setCategoryFilter(event.target.value as DocumentCategory | "ALL")
+                { setCategoryFilter(event.target.value as DocumentCategory | "OUTPUT" | "ALL"); setPage(1); }
               }
               className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
             >
-              <option value="ALL">Semua kategori</option>
+              <option value="ALL">{translateI18n("copy.allCategories")}</option>
+              <option value="OUTPUT">{translateI18n("documents.output")}</option>
               <option value="PROPOSAL">Proposal</option>
               <option value="ARCHITECTURE_DESIGN">Architecture Design</option>
               <option value="SIZING_SHEET">Sizing Sheet</option>
               <option value="MOM">Minutes of Meeting</option>
               <option value="ASSESSMENT_REPORT">Assessment Report</option>
               <option value="BOQ">Bill of Quantity</option>
-              <option value="DELIVERABLE">Deliverables</option>
-              <option value="OTHER">Other</option>
+              <option value="DELIVERABLE">{translateI18n("copy.deliverables")}</option>
+              <option value="OTHER">{translateI18n("copy.other")}</option>
             </select>
             <select
-              aria-label="Saring dokumen berdasarkan status"
+              aria-label={translateI18n("documentPage.filterStatus")}
               value={statusFilter}
               onChange={(event) =>
-                setStatusFilter(event.target.value as DocumentStatus | "ALL")
+                { setStatusFilter(event.target.value as DocumentStatus | "ALL"); setPage(1); }
               }
               className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
             >
-              <option value="ALL">Semua status</option>
-              <option value="APPROVED">Disetujui</option>
-              <option value="SUBMITTED">Diajukan</option>
-              <option value="REJECTED">Ditolak</option>
-              <option value="DRAFT">Draf</option>
+              <option value="ALL">{translateI18n("copy.allStatuses")}</option>
+              <option value="APPROVED">{translateI18n("approvalStatus.APPROVED")}</option>
+              <option value="SUBMITTED">{translateI18n("documentStatus.SUBMITTED")}</option>
+              <option value="REJECTED">{translateI18n("approvalStatus.REJECTED")}</option>
+              <option value="DRAFT">{translateI18n("documentStatus.DRAFT")}</option>
             </select>
             <Button
               variant="ghost"
@@ -225,7 +244,7 @@ export default function DocumentsPage() {
               onClick={resetFilters}
             >
               <X className="h-3.5 w-3.5" />
-              Atur ulang
+              {translateI18n("documentPage.resetFilters")}
             </Button>
           </div>
           {downloadError && (
@@ -237,18 +256,18 @@ export default function DocumentsPage() {
                 className="h-7 self-start px-2 sm:self-auto"
                 onClick={() => setDownloadError("")}
               >
-                Tutup
+                {translateI18n("common.close")}
               </Button>
             </div>
           )}
         </div>
 
-        {!isLoading && !isError && documents.length > 0 && (
+        {!isLoading && !isError && visibleItems.length > 0 && (
           <div className="hidden grid-cols-[minmax(240px,1.7fr)_minmax(180px,1fr)_minmax(230px,1.3fr)_auto] gap-4 border-b border-border/60 px-5 py-2.5 text-[11px] font-semibold uppercase text-muted-foreground lg:grid">
-            <span>Dokumen</span>
-            <span>Proyek</span>
-            <span>Versi terbaru</span>
-            <span className="text-right">Aksi</span>
+            <span>{translateI18n("nav.documents")}</span>
+            <span>{translateI18n("nav.projects")}</span>
+            <span>{translateI18n("ui.latestVersion")}</span>
+            <span className="text-right">{translateI18n("common.actions")}</span>
           </div>
         )}
 
@@ -260,37 +279,42 @@ export default function DocumentsPage() {
           </div>
         ) : isError ? (
           <div className="px-5 py-14 text-center">
-            <p className="font-medium text-destructive">Dokumen gagal dimuat.</p>
-            <p className="mt-1 text-xs text-muted-foreground">Muat ulang halaman lalu coba lagi.</p>
+            <p className="font-medium text-destructive">{translateI18n("ui.documentLoadFailed")}</p>
+            <p className="mt-1 text-xs text-muted-foreground">{translateI18n("copy.refreshTryAgain")}</p>
           </div>
-        ) : documents.length === 0 ? (
+        ) : visibleItems.length === 0 ? (
           <div className="px-5 py-14 text-center">
             <FolderArchive className="mx-auto h-8 w-8 text-muted-foreground" />
-            <p className="mt-3 font-medium text-foreground">Dokumen tidak ditemukan</p>
+            <p className="mt-3 font-medium text-foreground">{translateI18n("ui.documentNotFound")}</p>
             <p className="mt-1 text-xs text-muted-foreground">
               {hasFilters
-                ? "Ubah filter untuk memperluas hasil."
-                : "Dokumen resmi akan muncul setelah disetujui melalui alur kerja."}
+                ? translateI18n("documentPage.expandFilters")
+                 : translateI18n("documentPage.resultsAfterApproval")}
             </p>
           </div>
         ) : (
           <div>
-            {documents.map((document) => (
-              <DocumentRow
-                key={document.id}
-                document={document}
-                downloadPending={documentDownload.isPending}
-                onDownload={handleDownload}
-                onOpenDetails={() => setSelectedDocForDetail(document)}
-                onUploadVersion={() => {
-                  setSelectedDocForVersion(document);
-                  setIsUploadVersionOpen(true);
-                }}
-              />
+            {paged.items.map((item) => item.sourceType === "OFFICIAL" ? (
+              <DocumentRow key={`official:${item.sourceId}`} document={item.document}
+                downloadPending={documentDownload.isPending} onDownload={handleDownload}
+                onOpenDetails={() => setSelectedDocForDetail(item.document)}
+                onUploadVersion={() => { setSelectedDocForVersion(item.document); setIsUploadVersionOpen(true); }} />
+            ) : (
+              <OutputRepositoryRow key={`output:${item.sourceId}`} item={item.output}
+                downloadPending={outputDownload.isPending && outputDownload.variables?.projectId === item.output.projectId && outputDownload.variables?.documentKey === item.output.documentKey}
+                onDownload={() => void handleOutputDownload(item.output)} />
             ))}
           </div>
         )}
       </section>
+
+      {!isLoading && !isError && visibleItems.length > 0 && <nav className="flex flex-wrap items-center justify-between gap-3 text-sm" aria-label={translateI18n("documentPage.pagination")}>
+        <span className="text-muted-foreground">{translateI18n("documentPage.pageOf", { page: paged.page, total: paged.totalPages })} · {translateI18n("documentPage.resultsCount", { count: visibleItems.length })}</span>
+        <div className="flex gap-2">
+          <Button type="button" size="sm" variant="outline" disabled={paged.page <= 1} onClick={() => setPage(paged.page - 1)}>{translateI18n("documentPage.previous")}</Button>
+          <Button type="button" size="sm" variant="outline" disabled={paged.page >= paged.totalPages} onClick={() => setPage(paged.page + 1)}>{translateI18n("documentPage.next")}</Button>
+        </div>
+      </nav>}
 
       <UploadVersionDialog
         open={isUploadVersionOpen}
@@ -311,13 +335,35 @@ export default function DocumentsPage() {
         }}
       />
       </>
-      ) : <OutputDocumentsTab />}
+      ) : <OutputDocumentsTab outputs={outputs.filter((item) => item.status !== "APPROVED")} isLoading={outputsLoading} isError={outputsError} />}
     </div>
   );
 }
 
-function OutputDocumentsTab() {
-  const { data: outputs = [], isLoading, isError } = useOutputRepository();
+function OutputRepositoryRow({ item, downloadPending, onDownload }: {
+  item: OutputRepositoryItem;
+  downloadPending: boolean;
+  onDownload: () => void;
+}) {
+  return <div className="grid gap-4 border-t border-border/60 px-4 py-4 first:border-t-0 sm:px-5 lg:grid-cols-[minmax(240px,1.7fr)_minmax(180px,1fr)_minmax(230px,1.3fr)_auto] lg:items-center">
+    <div className="min-w-0">
+      <div className="flex flex-wrap items-center gap-2"><Badge variant="outline">{translateI18n("documents.output")}</Badge><Badge variant="success">{translateOutputStatus(item.status)}</Badge></div>
+      <h3 className="mt-2 break-words font-semibold text-foreground">{item.name}</h3>
+      <p className="mt-1 text-xs text-muted-foreground">{item.group === "PRA_TENDER" ? "Pra-Tender" : "On Submission Tender"}</p>
+    </div>
+    <Link href={`/projects/${item.projectId}`} className="min-w-0 text-sm font-medium text-foreground hover:text-primary">
+      <span className="break-words">{item.projectName}</span>
+      <span className="block break-words text-xs font-normal text-muted-foreground">{item.customer}</span>
+    </Link>
+    <div className="min-w-0"><p className="truncate text-sm font-medium text-foreground" title={item.fileName}><FileText className="mr-1 inline h-4 w-4 text-primary" />{item.fileName}</p><p className="mt-1 text-xs text-muted-foreground">v{item.versionNumber}</p></div>
+    <div className="flex flex-wrap gap-1 lg:justify-end">
+      <Button type="button" size="sm" variant="ghost" disabled={downloadPending} onClick={onDownload}><Download className="mr-1 h-3.5 w-3.5" />{translateI18n("common.download")}</Button>
+      <Link href={`/projects/${item.projectId}#milestone-outputs-${item.milestoneId}`}><Button type="button" size="sm" variant="outline"><ArrowRight className="mr-1 h-3.5 w-3.5" />{translateI18n("project.open")}</Button></Link>
+    </div>
+  </div>;
+}
+
+function OutputDocumentsTab({ outputs, isLoading, isError }: { outputs: OutputRepositoryItem[]; isLoading: boolean; isError: boolean }) {
   const download = useOutputRepositoryDownload();
   const [search, setSearch] = useState("");
   const [group, setGroup] = useState<"ALL" | OutputRepositoryItem["group"]>("ALL");
@@ -340,7 +386,7 @@ function OutputDocumentsTab() {
       link.rel = "noopener noreferrer";
       link.click();
     } catch (error) {
-      setDownloadError(error instanceof Error ? error.message : "Output dokumen gagal diunduh.");
+      setDownloadError(error instanceof Error ? error.message : translateI18n("documentPage.outputDownloadFailed"));
     }
   };
 
@@ -348,36 +394,35 @@ function OutputDocumentsTab() {
     <section className="overflow-hidden rounded-lg border border-border/60 bg-card">
       <div className="space-y-4 border-b border-border/60 p-4 sm:p-5">
         <div>
-          <h2 className="text-base font-semibold text-foreground">Output dokumen</h2>
-          <p className="text-xs text-muted-foreground">Output proyek tetap terpisah dari dokumen resmi dalam repositori.</p>
+          <h2 className="text-base font-semibold text-foreground">{translateI18n("documents.output")}</h2>
+          <p className="text-xs text-muted-foreground">{translateI18n("documentPage.workingDescription")}</p>
         </div>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_220px_180px]">
           <div className="relative min-w-0">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input aria-label="Cari output atau proyek" placeholder="Cari output atau proyek" value={search} onChange={(event) => setSearch(event.target.value)} className="pl-9" />
+            <Input aria-label={translateI18n("documentPage.searchOutputs")} placeholder={translateI18n("documentPage.searchOutputs")} value={search} onChange={(event) => setSearch(event.target.value)} className="pl-9" />
           </div>
-          <select aria-label="Saring kelompok output" value={group} onChange={(event) => setGroup(event.target.value as typeof group)} className="h-10 min-w-0 rounded-md border border-border bg-background px-3 text-sm text-foreground">
-            <option value="ALL">Semua kelompok</option>
+          <select aria-label={translateI18n("documentPage.filterOutputGroup")} value={group} onChange={(event) => setGroup(event.target.value as typeof group)} className="h-10 min-w-0 rounded-md border border-border bg-background px-3 text-sm text-foreground">
+            <option value="ALL">{translateI18n("copy.allGroups")}</option>
             <option value="PRA_TENDER">Pra-Tender</option>
             <option value="ON_SUBMISSION_TENDER">On Submission Tender</option>
           </select>
-          <select aria-label="Saring status output" value={status} onChange={(event) => setStatus(event.target.value as typeof status)} className="h-10 min-w-0 rounded-md border border-border bg-background px-3 text-sm text-foreground">
-            <option value="ALL">Semua status</option>
-            <option value="DRAFT">Draf</option>
-            <option value="IN_REVIEW">Dalam peninjauan</option>
-            <option value="REVISION_REQUIRED">Perlu revisi</option>
-            <option value="APPROVED">Disetujui</option>
+          <select aria-label={translateI18n("documentPage.filterOutputStatus")} value={status} onChange={(event) => setStatus(event.target.value as typeof status)} className="h-10 min-w-0 rounded-md border border-border bg-background px-3 text-sm text-foreground">
+            <option value="ALL">{translateI18n("copy.allStatuses")}</option>
+            <option value="DRAFT">{translateI18n("documentStatus.DRAFT")}</option>
+            <option value="IN_REVIEW">{translateI18n("milestoneStatus.SUBMITTED")}</option>
+            <option value="REVISION_REQUIRED">{translateI18n("milestoneStatus.REVISION_REQUIRED")}</option>
           </select>
         </div>
-        {!isLoading && !isError && <p className="text-xs text-muted-foreground">{visible.length} dari {outputs.length} berkas output tersedia</p>}
+        {!isLoading && !isError && <p className="text-xs text-muted-foreground">{translateI18n("documentPage.outputAvailable", { visible: visible.length, total: outputs.length })}</p>}
         {downloadError && <p role="alert" className="text-xs text-destructive">{downloadError}</p>}
       </div>
       {isLoading ? (
-        <div className="space-y-3 p-5" aria-label="Memuat output dokumen"><div className="h-16 animate-pulse rounded bg-muted/30" /><div className="h-16 animate-pulse rounded bg-muted/30" /></div>
+        <div className="space-y-3 p-5" aria-label={translateI18n("ui.loadingOutputsAria")}><div className="h-16 animate-pulse rounded bg-muted/30" /><div className="h-16 animate-pulse rounded bg-muted/30" /></div>
       ) : isError ? (
-        <p className="p-8 text-center text-sm text-destructive">Output dokumen gagal dimuat. Muat ulang halaman lalu coba lagi.</p>
+        <p className="p-8 text-center text-sm text-destructive">{translateI18n("ui.outputLoadRetry")}</p>
       ) : visible.length === 0 ? (
-        <p className="p-8 text-center text-sm text-muted-foreground">Tidak ada berkas output yang cocok.</p>
+        <p className="p-8 text-center text-sm text-muted-foreground">{translateI18n("copy.noMatchingOutputs")}</p>
       ) : (
         <div>
           {visible.map((item) => (
@@ -389,11 +434,11 @@ function OutputDocumentsTab() {
               <p className="min-w-0 break-words text-xs text-muted-foreground">{item.group === "PRA_TENDER" ? "Pra-Tender" : "On Submission Tender"}</p>
               <div className="min-w-0">
                 <p className="break-words text-sm text-foreground">{item.projectName}</p>
-                <Badge variant={item.status === "APPROVED" ? "success" : item.status === "REVISION_REQUIRED" ? "destructive" : "warning"}>{{ DRAFT: "Draf", IN_REVIEW: "Dalam peninjauan", REVISION_REQUIRED: "Perlu revisi", APPROVED: "Disetujui", TO_DO: "Belum dikerjakan", NOT_REQUIRED: "Tidak diperlukan" }[item.status]}</Badge>
+                <Badge variant={item.status === "APPROVED" ? "success" : item.status === "REVISION_REQUIRED" ? "destructive" : "warning"}>{translateOutputStatus(item.status)}</Badge>
               </div>
               <div className="flex flex-wrap gap-2 lg:justify-end">
-                <Link href={`/projects/${item.projectId}#output-documents`}><Button size="sm" variant="outline" className="gap-1.5"><ArrowRight className="h-3.5 w-3.5" />Buka proyek</Button></Link>
-                <Button size="sm" variant="ghost" className="gap-1.5" disabled={download.isPending && download.variables?.projectId === item.projectId && download.variables?.documentKey === item.documentKey} onClick={() => void handleDownload(item)}><Download className="h-3.5 w-3.5" />Download</Button>
+                <Link href={`/projects/${item.projectId}#milestone-outputs-${item.milestoneId}`}><Button size="sm" variant="outline" className="gap-1.5"><ArrowRight className="h-3.5 w-3.5" />{translateI18n("project.open")}</Button></Link>
+                <Button size="sm" variant="ghost" className="gap-1.5" disabled={download.isPending && download.variables?.projectId === item.projectId && download.variables?.documentKey === item.documentKey} onClick={() => void handleDownload(item)}><Download className="h-3.5 w-3.5" />{translateI18n("common.download")}</Button>
               </div>
             </div>
           ))}
@@ -422,7 +467,7 @@ function DocumentRow({
     <div className="grid gap-4 border-t border-border/60 px-4 py-4 first:border-t-0 sm:px-5 lg:grid-cols-[minmax(240px,1.7fr)_minmax(180px,1fr)_minmax(230px,1.3fr)_auto] lg:items-center">
       <div className="min-w-0">
         <div className="flex flex-wrap items-center gap-2">
-          <Badge variant="outline">Dokumen resmi</Badge>
+          <Badge variant="outline">{translateI18n("ui.officialDocument")}</Badge>
           <Badge variant="secondary">{getCategoryLabel(document.category)}</Badge>
           {getStatusBadge(document.status)}
         </div>
@@ -437,13 +482,13 @@ function DocumentRow({
         </h3>
         {document.milestone && (
           <p className="mt-1 truncate text-xs text-muted-foreground">
-            Tahap {document.milestone.orderIndex}: {document.milestone.name}
+            {translateI18n("documentPage.stage", { number: document.milestone.orderIndex })} {document.milestone.name}
           </p>
         )}
       </div>
 
       <div className="flex min-w-0 items-center justify-between gap-3 lg:block">
-        <span className="text-[11px] font-medium text-muted-foreground lg:hidden">Proyek</span>
+        <span className="text-[11px] font-medium text-muted-foreground lg:hidden">{translateI18n("nav.projects")}</span>
         {document.project ? (
           <Link
             href={`/projects/${document.project.id}`}
@@ -457,7 +502,7 @@ function DocumentRow({
             </p>
           </Link>
         ) : (
-          <p className="text-sm text-muted-foreground">Proyek tidak tersedia</p>
+          <p className="text-sm text-muted-foreground">{translateI18n("ui.projectUnavailable")}</p>
         )}
       </div>
 
@@ -473,8 +518,8 @@ function DocumentRow({
             </div>
             <p className="mt-1 truncate text-xs text-muted-foreground">
               {(latestVersion.fileSize / 1024 / 1024).toFixed(2)} MB |{" "}
-              {latestVersion.uploadedBy?.fullName || "Pengunggah tidak diketahui"} |{" "}
-              {new Date(latestVersion.createdAt).toLocaleDateString("id-ID", {
+              {latestVersion.uploadedBy?.fullName || translateI18n("documentPage.unknownUploader")} |{" "}
+              {new Date(latestVersion.createdAt).toLocaleDateString(getIntlLocale(), {
                 dateStyle: "medium",
               })}
             </p>
@@ -485,7 +530,7 @@ function DocumentRow({
             )}
           </>
         ) : (
-          <p className="text-sm text-muted-foreground">Belum ada versi</p>
+          <p className="text-sm text-muted-foreground">{translateI18n("ui.noVersions")}</p>
         )}
       </div>
 
@@ -499,7 +544,7 @@ function DocumentRow({
             disabled={downloadPending}
           >
             <Download className="h-3.5 w-3.5" />
-            Unduh
+            {translateI18n("common.download")}
           </Button>
         )}
         <Button size="sm" variant="ghost" className="gap-1.5" onClick={onOpenDetails}>
@@ -514,7 +559,7 @@ function DocumentRow({
         )}
         {document.project && (
           <Link href={`/projects/${document.project.id}`}>
-            <Button size="icon" variant="ghost" title="Buka proyek">
+            <Button size="icon" variant="ghost" title={translateI18n("project.open")}>
               <ArrowRight className="h-4 w-4" />
             </Button>
           </Link>

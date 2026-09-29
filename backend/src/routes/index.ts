@@ -11,7 +11,6 @@ import meRoutes from './me.routes';
 import deadlineRoutes from './deadline.routes';
 import milestoneRoutes from './milestone.routes';
 import deadlineApprovalRoutes from './deadline-approval.routes';
-import milestoneApprovalRoutes from './milestone-approval.routes';
 import milestoneInitiationApprovalRoutes from './milestone-initiation-approval.routes';
 import projectPlanApprovalRoutes from './project-plan-approval.routes';
 import approvalOverviewRoutes from './approval-overview.routes';
@@ -44,7 +43,6 @@ router.use('/search', searchRoutes);
 router.use('/deadlines', deadlineRoutes);
 router.use('/milestones', milestoneRoutes);
 router.use('/deadline-approvals', deadlineApprovalRoutes);
-router.use('/milestone-approvals', milestoneApprovalRoutes);
 router.use('/milestone-initiation-approvals', milestoneInitiationApprovalRoutes);
 router.use('/project-plan-approvals', projectPlanApprovalRoutes);
 

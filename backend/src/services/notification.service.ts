@@ -4,6 +4,7 @@ import {
   UpdateNotificationPreferencesInput,
 } from '../validators/notification.validator';
 import { TelegramDeliveryService } from './telegram-delivery.service';
+import { localizeNotificationText } from './notification-localization';
 
 type NotificationRow = {
   id: string;
@@ -34,6 +35,8 @@ export type CreateNotificationInput = {
   projectId?: string | null;
   milestoneId?: string | null;
   actionUrl?: string | null;
+  projectName?: string;
+  milestoneName?: string;
 };
 
 export class NotificationServiceError extends Error {
@@ -171,14 +174,22 @@ export class NotificationService {
     const type = requiredText(input.type, 'Notification type');
     const title = requiredText(input.title, 'Notification title');
     const message = requiredText(input.message, 'Notification message');
+    let language: 'en' | 'id' = 'en';
+    const { data: recipient, error: languageError } = await supabaseAdmin
+      .from('users')
+      .select('preferred_language')
+      .eq('id', userId)
+      .maybeSingle();
+    if (!languageError && recipient?.preferred_language === 'id') language = 'id';
+    const localized = localizeNotificationText({ title, message }, input, language);
 
     const { data, error } = await supabaseAdmin
       .from('notifications')
       .insert({
         user_id: userId,
         type,
-        title,
-        message,
+        title: localized.title,
+        message: localized.message,
         project_id: optionalText(input.projectId),
         milestone_id: optionalText(input.milestoneId),
         action_url: optionalText(input.actionUrl),

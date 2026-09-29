@@ -1,7 +1,5 @@
 import {
   buildInitialMilestoneRows,
-  buildMilestoneRevisionStartResult,
-  buildMilestoneSubmissionResult,
   calculateMilestoneProgress,
   INITIAL_MILESTONE_STATUS,
   resolveWorkflowInitializationMode,
@@ -110,34 +108,3 @@ assert(
   'Test 5b: persisted legacy project model resolution must not require scenario is_active=true'
 );
 console.log('Test 5b - Existing project model resolution remains valid when its LEGACY scenario is inactive');
-
-assertThrows('Test 6 - CREATED milestone submit attempt', () =>
-  buildMilestoneSubmissionResult(
-    {
-      id: 'milestone-created',
-      name: 'Requirement Gathering',
-      status: 'CREATED',
-      pic_id: 'sa-1',
-      project: { status: 'ACTIVE', is_postponed: false },
-    },
-    saPic,
-    false
-  )
-);
-console.log('Test 6 - CREATED SA stage cannot be submitted before it starts');
-
-const revision = buildMilestoneRevisionStartResult(
-  {
-    id: 'milestone-rejected',
-    project_id: 'project-1',
-    name: 'Pain Point Analysis',
-    status: 'REJECTED',
-    pic_id: 'sa-1',
-    project: { status: 'ACTIVE', is_postponed: false },
-  },
-  saPic,
-  true,
-  false
-);
-assert(revision.status === 'IN_PROGRESS', 'Test 7: rejected milestone should start revision to IN_PROGRESS');
-console.log('Test 7 - Existing REJECTED -> start-revision flow: IN_PROGRESS');

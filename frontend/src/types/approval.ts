@@ -1,9 +1,9 @@
-export type ApprovalCategory = "ALL" | "PROJECT_PLAN" | "DEADLINE" | "SUBMISSION";
+export type ApprovalCategory = "ALL" | "PROJECT_PLAN" | "DEADLINE";
 export type ApprovalStatus = "ALL" | "PENDING" | "APPROVED" | "REJECTED" | "SUPERSEDED";
 
 export interface ApprovalItem {
   id: string;
-  category: "PROJECT_PLAN" | "DEADLINE" | "SUBMISSION";
+  category: "PROJECT_PLAN" | "DEADLINE";
   title: string;
   status: "PENDING" | "APPROVED" | "REJECTED" | "SUPERSEDED";
   isCurrentApproval?: boolean;
@@ -66,7 +66,6 @@ export interface ApprovalItem {
 export interface ApprovalStats {
   totalPending: number;
   pendingProjectPlans: number;
-  pendingSubmissions: number;
   pendingMilestones: number;
   pendingDocs: number;
   pendingDeadlines: number;

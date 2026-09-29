@@ -22,6 +22,7 @@ import {
 } from './workflow-progression.service';
 import { OutputNotificationOutboxWorker } from './output-notification-outbox.worker';
 import zlib from 'zlib';
+import { getDateOnlyKeyInTimeZone } from '../utils/dates';
 
 
 function makeCrc32Table(): Uint32Array {
@@ -188,6 +189,7 @@ export interface OutputDocumentItem {
   id: string;
   projectId: string;
   key: string;
+  milestoneId: string;
   name: string;
   group: 'PRA_TENDER' | 'ON_SUBMISSION_TENDER';
   isRequired: boolean;
@@ -214,48 +216,98 @@ type BatchItemResult = {
 };
 
 export class OutputDocumentService {
+  private static async assertOutputMilestoneIsActive(projectId: string, milestoneId: string, actor: Actor) {
+    const { data: milestone, error } = await supabaseAdmin.from('project_milestones')
+      .select('id,project_id,pic_id,status,start_date')
+      .eq('id', milestoneId).maybeSingle();
+    if (error || !milestone || milestone.project_id !== projectId) {
+      throw new OutputDocumentError('Output milestone not found.', 404);
+    }
+    if (milestone.pic_id !== actor.userId || milestone.status !== 'IN_PROGRESS') {
+      throw new OutputDocumentError('Only the active milestone PIC can work on this output.', 403);
+    }
+    if (milestone.start_date && milestone.start_date.slice(0, 10) > getDateOnlyKeyInTimeZone()) {
+      throw new OutputDocumentError('Milestone start date has not arrived.', 409);
+    }
+  }
+
+  private static async completeApprovedMilestones(projectId: string, actor: Actor, milestoneIds: string[]) {
+    for (const milestoneId of [...new Set(milestoneIds)]) {
+      const { data: outputs, error: outputError } = await supabaseAdmin.from('project_output_documents')
+        .select('is_required,is_selected,status').eq('milestone_id', milestoneId);
+      if (outputError) throw new OutputDocumentError('Failed to verify SA milestone outputs.', 500);
+      if (!areSelectedProjectOutputsApproved(outputs || [])) continue;
+      const { data, error } = await supabaseAdmin.rpc('complete_sa_output_milestone', {
+        p_milestone_id: milestoneId,
+        p_actor_id: actor.userId,
+        p_allow_empty: false,
+      });
+      if (error) {
+        if (error.message === 'Milestone is not in progress') continue;
+        throw new OutputDocumentError('Failed to complete approved SA milestone.', 500);
+      }
+      const result = Array.isArray(data) ? data[0] : data;
+      if (result?.changed) await advanceToNextMilestone(projectId, milestoneId, actor);
+    }
+  }
+
   static async listAccessibleFiles(actor: Actor) {
     const accessibleIds = await getAccessibleProjectIds(actor);
     if (accessibleIds?.length === 0) return [];
 
     const rows: any[] = [];
     const pageSize = 250;
-    for (let offset = 0; ; offset += pageSize) {
-      let query = supabaseAdmin
-        .from('project_output_documents')
-        .select('project_id,document_key,title,is_required,is_selected,status,file_name,storage_path,current_version_id,updated_at')
-        .or('is_required.eq.true,is_selected.eq.true')
-        .not('storage_path', 'is', null)
-        .not('current_version_id', 'is', null)
-        .order('updated_at', { ascending: false })
-        .range(offset, offset + pageSize - 1);
-      if (accessibleIds) query = query.in('project_id', accessibleIds);
-      if (actor.role === 'SALES' || actor.role === 'SUPER_ADMIN') query = query.eq('status', 'APPROVED');
-      const { data, error } = await query;
-      if (error) throw new OutputDocumentError('Unable to list output documents.', 500);
-      rows.push(...(data || []));
-      if (!data || data.length < pageSize) break;
+    const projectScopes = accessibleIds
+      ? Array.from({ length: Math.ceil(accessibleIds.length / pageSize) }, (_, index) => accessibleIds.slice(index * pageSize, (index + 1) * pageSize))
+      : [null];
+    for (const scope of projectScopes) {
+      for (let offset = 0; ; offset += pageSize) {
+        let query = supabaseAdmin
+          .from('project_output_documents')
+          .select('id,project_id,document_key,milestone_id,title,is_required,is_selected,status,file_name,storage_path,current_version_id,updated_at')
+          .or('is_required.eq.true,is_selected.eq.true')
+          .not('storage_path', 'is', null)
+          .not('current_version_id', 'is', null)
+          .order('updated_at', { ascending: false })
+          .order('id', { ascending: true })
+          .range(offset, offset + pageSize - 1);
+        if (scope) query = query.in('project_id', scope);
+        if (actor.role === 'SALES' || actor.role === 'SUPER_ADMIN') query = query.eq('status', 'APPROVED');
+        const { data, error } = await query;
+        if (error) throw new OutputDocumentError('Unable to list output documents.', 500);
+        rows.push(...(data || []));
+        if (!data || data.length < pageSize) break;
+      }
     }
     if (!rows?.length) return [];
 
     const projectIds = [...new Set(rows.map((row) => row.project_id))];
     const versionIds = [...new Set(rows.map((row) => row.current_version_id).filter(Boolean))];
-    const [projectsResult, versionsResult] = await Promise.all([
-      supabaseAdmin.from('projects').select('id,name,customer,sales_id,pic_id').in('id', projectIds),
-      supabaseAdmin.from('project_output_document_versions').select('id,version_number').in('id', versionIds),
-    ]);
-    if (projectsResult.error || versionsResult.error) {
-      throw new OutputDocumentError('Unable to list output documents.', 500);
+    const projectRows: any[] = [];
+    const versionRows: any[] = [];
+    for (let offset = 0; offset < Math.max(projectIds.length, versionIds.length); offset += pageSize) {
+      const [projectsResult, versionsResult] = await Promise.all([
+        offset < projectIds.length
+          ? supabaseAdmin.from('projects').select('id,name,customer,sales_id,pic_id').in('id', projectIds.slice(offset, offset + pageSize))
+          : Promise.resolve({ data: [], error: null }),
+        offset < versionIds.length
+          ? supabaseAdmin.from('project_output_document_versions').select('id,output_document_id,version_number').in('id', versionIds.slice(offset, offset + pageSize))
+          : Promise.resolve({ data: [], error: null }),
+      ]);
+      if (projectsResult.error || versionsResult.error) throw new OutputDocumentError('Unable to list output documents.', 500);
+      projectRows.push(...(projectsResult.data || []));
+      versionRows.push(...(versionsResult.data || []));
     }
-    const projects = new Map((projectsResult.data || []).map((project) => [project.id, project]));
-    const versions = new Map((versionsResult.data || []).map((version) => [version.id, version.version_number]));
+    const projects = new Map(projectRows.map((project) => [project.id, project]));
+    const versions = new Map(versionRows.map((version) => [version.id, version]));
     const definitions = new Map(getScenarioDocuments('Pra-Tender').map((definition) => [definition.key, definition]));
 
     return rows.flatMap((row) => {
       const project = projects.get(row.project_id);
       const definition = definitions.get(row.document_key);
-      const versionNumber = versions.get(row.current_version_id);
-      if (!project || !canAccessProject(project, actor) || !definition || !versionNumber
+      const currentVersion = versions.get(row.current_version_id);
+      if (!project || !canAccessProject(project, actor) || !definition || !currentVersion?.version_number
+        || currentVersion.output_document_id !== row.id
         || !(row.is_required || row.is_selected) || !row.file_name || !row.storage_path
         || (row.status !== 'APPROVED' && !canReadNonFinalOutput(project as OutputProject, actor))) return [];
       return [{
@@ -263,11 +315,13 @@ export class OutputDocumentService {
         projectName: project.name,
         customer: project.customer,
         documentKey: row.document_key,
+        milestoneId: row.milestone_id,
         name: row.title,
         group: definition.group,
         status: row.status,
         fileName: row.file_name,
-        versionNumber,
+        versionNumber: currentVersion.version_number,
+        updatedAt: row.updated_at,
       }];
     });
   }
@@ -284,15 +338,15 @@ export class OutputDocumentService {
     return project;
   }
 
-  private static async isPlanApproved(projectId: string): Promise<boolean> {
-    const { data } = await supabaseAdmin
+  private static async isPlanScopeLocked(projectId: string): Promise<boolean> {
+    const { data, error } = await supabaseAdmin
       .from('project_plan_approvals')
-      .select('id, status')
+      .select('id')
       .eq('project_id', projectId)
-      .eq('status', 'APPROVED')
-      .maybeSingle();
-
-    return Boolean(data);
+      .in('status', ['PENDING', 'APPROVED'])
+      .limit(1);
+    if (error) throw new OutputDocumentError('Failed to verify project plan scope lock.', 500);
+    return Boolean(data?.length);
   }
 
   static async initializeForProject(
@@ -305,12 +359,25 @@ export class OutputDocumentService {
     const mandatoryKeys = new Set(getMandatoryDocumentKeys(scenarioKey));
     const selectedKeySet = new Set([...(selectedKeys || []), ...mandatoryKeys]);
 
-    const rows = definitions.map((def) => {
+    const { data: milestoneRows, error: milestoneError } = await supabaseAdmin
+      .from('project_milestones')
+      .select('id,workflow_stage:workflow_stages!project_milestones_workflow_stage_id_fkey(stage_key)')
+      .eq('project_id', projectId);
+    if (milestoneError) throw new OutputDocumentError('Failed to map output documents to milestones.', 500);
+    const milestoneByStageKey = new Map((milestoneRows || []).map((milestone: any) => [
+      (Array.isArray(milestone.workflow_stage) ? milestone.workflow_stage[0] : milestone.workflow_stage)?.stage_key,
+      milestone.id,
+    ]));
+
+    const rows = definitions.filter((def) => selectedKeySet.has(def.key)).map((def) => {
+      const milestoneId = milestoneByStageKey.get(def.stageKey);
+      if (!milestoneId) throw new OutputDocumentError(`Missing SA milestone for ${def.key}.`, 500);
       const isSelected = selectedKeySet.has(def.key);
       const status: OutputDocumentStatus = def.isRequired || isSelected ? 'TO_DO' : 'NOT_REQUIRED';
       return {
         project_id: projectId,
         document_key: def.key,
+        milestone_id: milestoneId,
         title: def.name,
         is_required: def.isRequired,
         is_selected: isSelected,
@@ -319,7 +386,7 @@ export class OutputDocumentService {
     });
 
     const { error } = await supabaseAdmin.from('project_output_documents').upsert(rows, {
-      onConflict: 'project_id,document_key',
+      onConflict: 'project_id,document_key', ignoreDuplicates: true,
     });
     if (error) {
       throw new OutputDocumentError('Failed to initialize project output documents.', 500);
@@ -343,7 +410,7 @@ export class OutputDocumentService {
       const { data, error } = await supabaseAdmin
         .from('project_output_documents')
         .select(`
-          id, project_id, document_key, title, is_required, is_selected, status,
+          id, project_id, document_key, milestone_id, title, is_required, is_selected, status,
           file_name, storage_path, file_size, mime_type, uploaded_at, review_feedback, reviewed_at, current_version_id,
           uploaded_by_user:users!project_output_documents_uploaded_by_fkey(id, full_name, role),
           reviewed_by_user:users!project_output_documents_reviewed_by_fkey(id, full_name, role)
@@ -354,15 +421,23 @@ export class OutputDocumentService {
       return data || [];
     };
 
-    let existingRows = await loadRows();
-
-    // If no rows existed, initialize rows
-    if (existingRows.length < definitions.length) {
-      await this.initializeForProject(projectId, scenarioName, storedSelectedKeys);
-      existingRows = await loadRows();
-    }
+    const existingRows = await loadRows();
 
     const rowByKey = new Map<string, any>(existingRows.map((row) => [row.document_key, row]));
+    const { data: milestoneRows, error: milestoneError } = await supabaseAdmin.from('project_milestones')
+      .select('id,workflow_stage:workflow_stages!project_milestones_workflow_stage_id_fkey(stage_key,default_role,scenario_id)')
+      .eq('project_id', projectId);
+    if (milestoneError) throw new OutputDocumentError('Failed to verify output milestones.', 500);
+    const milestoneById = new Map((milestoneRows || []).map((milestone: any) => [milestone.id,
+      Array.isArray(milestone.workflow_stage) ? milestone.workflow_stage[0] : milestone.workflow_stage]));
+    if (definitions.some((def) => {
+      if (!activeSelectedKeys.has(def.key)) return false;
+      const row = rowByKey.get(def.key);
+      const stage: any = row && milestoneById.get(row.milestone_id);
+      return !row || !stage || row.is_required !== def.isRequired || !row.is_selected
+        || stage.stage_key !== def.stageKey || stage.default_role !== 'SA'
+        || stage.scenario_id !== project.scenario_id || row.status === 'NOT_REQUIRED';
+    })) throw new OutputDocumentError('Selected output is missing or mapped to the wrong SA milestone.', 409);
     const outputDocumentIds = existingRows.map((row) => row.id);
     const versionCounts = new Map<string, number>();
     if (outputDocumentIds.length > 0) {
@@ -378,7 +453,7 @@ export class OutputDocumentService {
       }
     }
 
-    const isScopeLocked = project.status !== 'DRAFT' || (await this.isPlanApproved(projectId));
+    const isScopeLocked = project.status !== 'DRAFT' || (await this.isPlanScopeLocked(projectId));
     let canRetryCompletion = false;
     if ((actor.role === 'HEAD_SA' || (actor.role === 'SALES' && project.sales_id === actor.userId))
       && project.status === 'ACTIVE'
@@ -398,7 +473,7 @@ export class OutputDocumentService {
 
     const items: OutputDocumentItem[] = definitions.map((def: ScenarioDocumentDefinition) => {
         const row = rowByKey.get(def.key);
-        const isSelected = row ? row.is_selected : activeSelectedKeys.has(def.key);
+        const isSelected = activeSelectedKeys.has(def.key);
         const rawStatus = row?.status || (def.isRequired || isSelected ? 'TO_DO' : 'NOT_REQUIRED');
 
         const uploadedByUser = row?.uploaded_by_user;
@@ -408,6 +483,7 @@ export class OutputDocumentService {
           id: row?.id || `${projectId}-${def.key}`,
           projectId,
           key: def.key,
+          milestoneId: row?.milestone_id || '',
           name: def.name,
           group: def.group,
           isRequired: def.isRequired,
@@ -508,13 +584,14 @@ export class OutputDocumentService {
 
     const { data: current } = await supabaseAdmin
       .from('project_output_documents')
-      .select('id,status,current_version_id')
+      .select('id,status,current_version_id,milestone_id')
       .eq('project_id', projectId)
       .eq('document_key', documentKey)
       .maybeSingle();
     if (!current) {
       throw new OutputDocumentError('Output document was not initialized.', 409);
     }
+    await this.assertOutputMilestoneIsActive(projectId, current.milestone_id, actor);
     if (!['TO_DO', 'DRAFT', 'REVISION_REQUIRED'].includes(current.status)) {
       throw new OutputDocumentError('This output document cannot be replaced in its current state.', 409);
     }
@@ -576,7 +653,7 @@ export class OutputDocumentService {
 
       const { data: row, error: rowError } = await supabaseAdmin
         .from('project_output_documents')
-        .select('id,document_key,status,file_name,current_version_id')
+        .select('id,document_key,status,file_name,current_version_id,milestone_id')
         .eq('project_id', projectId)
         .eq('document_key', item.document_key)
         .maybeSingle();
@@ -592,6 +669,7 @@ export class OutputDocumentService {
         results.push({ documentKey: item.document_key, success: false, message: 'The file changed. Refresh before submitting.' });
         continue;
       }
+      await this.assertOutputMilestoneIsActive(projectId, row.milestone_id, actor);
 
       const { error: transitionError } = await supabaseAdmin.rpc('transition_project_output_document_version', {
         p_output_document_id: row.id,
@@ -635,6 +713,10 @@ export class OutputDocumentService {
 
     const project = await this.getProject(projectId, actor);
 
+    if (project.status !== 'ACTIVE' || project.is_postponed) {
+      throw new OutputDocumentError('Project is not active for output review.', 409);
+    }
+
     const isApproval = input.decision === 'APPROVE';
     const newStatus: OutputDocumentStatus = isApproval ? 'APPROVED' : 'REVISION_REQUIRED';
     const results: BatchItemResult[] = [];
@@ -643,12 +725,18 @@ export class OutputDocumentService {
     for (const item of input.items) {
       const { data: row, error: rowError } = await supabaseAdmin
         .from('project_output_documents')
-        .select('id,document_key,status,current_version_id')
+        .select('id,document_key,status,current_version_id,milestone_id')
         .eq('project_id', projectId)
         .eq('document_key', item.document_key)
         .maybeSingle();
       if (rowError || !row) {
         results.push({ documentKey: item.document_key, success: false, message: 'Output document not found.' });
+        continue;
+      }
+      const { data: milestone, error: milestoneError } = await supabaseAdmin.from('project_milestones')
+        .select('id,project_id,status').eq('id', row.milestone_id).maybeSingle();
+      if (milestoneError || !milestone || milestone.project_id !== projectId || milestone.status !== 'IN_PROGRESS') {
+        results.push({ documentKey: item.document_key, success: false, message: 'The output milestone is not active.' });
         continue;
       }
       if (!isOutputReadyForReview(row.status) || !row.current_version_id) {
@@ -689,21 +777,15 @@ export class OutputDocumentService {
       await OutputNotificationOutboxWorker.runOnceBestEffort();
 
       if (isApproval) {
-        const { data: milestones, error: milestoneError } = await supabaseAdmin
-          .from('project_milestones')
-          .select('id,status,step_order')
-          .eq('project_id', projectId)
-          .order('step_order', { ascending: false });
-        if (!milestoneError && milestones?.length
-          && milestones.every((milestone) => ['COMPLETED', 'APPROVED'].includes(milestone.status))) {
-          try {
-            await advanceToNextMilestone(projectId, milestones[0].id, actor);
-          } catch {
-            console.error('[OutputDocumentService] Failed to reconcile project completion after output approval.', {
-              projectId,
-            });
-            completionRetryRequired = true;
-          }
+        const { data: reviewedRows, error: reviewedError } = await supabaseAdmin
+          .from('project_output_documents').select('milestone_id')
+          .eq('project_id', projectId).in('document_key', reviewedKeys);
+        if (reviewedError) throw new OutputDocumentError('Failed to locate reviewed milestone.', 500);
+        try {
+          await this.completeApprovedMilestones(projectId, actor, (reviewedRows || []).map((row) => row.milestone_id));
+        } catch {
+          console.error('[OutputDocumentService] Failed to reconcile SA milestone after output approval.', { projectId });
+          completionRetryRequired = true;
         }
       }
     }
@@ -717,15 +799,6 @@ export class OutputDocumentService {
       throw new OutputDocumentError('Only Sales can modify the output documents checklist.', 403);
     }
 
-    // Enforce Scope Lock: Locked if project plan is approved or status is active
-    const isLocked = project.status !== 'DRAFT' || (await this.isPlanApproved(projectId));
-    if (isLocked) {
-      throw new OutputDocumentError(
-        'Checklist is locked because Project Plan has been approved (Scope Lock).',
-        403
-      );
-    }
-
     const scenarioName = (project.scenario as any)?.name || project.scenario_id;
     const scenarioKey = resolveScenarioKey(scenarioName);
     const definitions = getScenarioDocuments(scenarioKey);
@@ -735,56 +808,27 @@ export class OutputDocumentService {
       throw new OutputDocumentError('One or more selected output documents are invalid.', 400);
     }
 
-    // Ensure mandatory keys are always included
     const finalSelectedKeys = Array.from(new Set([...selectedKeys, ...mandatoryKeys]));
-
-    // Update projects table
-    const { error: projectUpdateError } = await supabaseAdmin
-      .from('projects')
-      .update({ selected_document_keys: finalSelectedKeys, updated_at: new Date().toISOString() })
-      .eq('id', projectId);
-    if (projectUpdateError) {
-      throw new OutputDocumentError('Failed to update the output documents checklist.', 500);
+    const { data, error } = await supabaseAdmin.rpc('sync_draft_output_scope', {
+      p_project_id: projectId, p_sales_id: actor.userId, p_selected_keys: finalSelectedKeys,
+    });
+    if (error) {
+      const safeMessages = new Set([
+        'Only the Sales owner may change an unlocked DRAFT scope',
+        'Project plan is pending review or locked',
+        'Invalid output selection for scenario',
+        'DRAFT milestone already contains workflow progress',
+        'An output to be removed has work or version history',
+        'An output with work has an invalid milestone mapping',
+        'An empty milestone has linked work or history',
+        'An empty milestone has legacy submissions',
+        'An empty milestone has legacy approvals',
+        'Selected output has no active SA stage',
+        'Final Sales stage is missing',
+      ]);
+      throw new OutputDocumentError(safeMessages.has(error.message) ? error.message : 'Failed to update output scope.', 409);
     }
-
-    // Update project_output_documents
-    for (const def of definitions) {
-      const isSelected = finalSelectedKeys.includes(def.key);
-      const isRequired = def.isRequired;
-
-      const { data: existing } = await supabaseAdmin
-        .from('project_output_documents')
-        .select('id, status, file_name')
-        .eq('project_id', projectId)
-        .eq('document_key', def.key)
-        .maybeSingle();
-
-      if (existing) {
-        if (!existing.file_name) {
-          const newStatus = isRequired || isSelected ? 'TO_DO' : 'NOT_REQUIRED';
-          await supabaseAdmin
-            .from('project_output_documents')
-            .update({ is_selected: isSelected, status: newStatus, updated_at: new Date().toISOString() })
-            .eq('id', existing.id);
-        } else {
-          await supabaseAdmin
-            .from('project_output_documents')
-            .update({ is_selected: isSelected, updated_at: new Date().toISOString() })
-            .eq('id', existing.id);
-        }
-      } else {
-        await supabaseAdmin
-          .from('project_output_documents')
-          .insert({
-            project_id: projectId,
-            document_key: def.key,
-            title: def.name,
-            is_required: isRequired,
-            is_selected: isSelected,
-            status: isRequired || isSelected ? 'TO_DO' : 'NOT_REQUIRED',
-          });
-      }
-    }
+    const result = Array.isArray(data) ? data[0] : data;
 
     await logWorkflowActivityBestEffort(
       actor,
@@ -793,7 +837,7 @@ export class OutputDocumentService {
       `${actor.fullName} updated the Output Documents Checklist`
     );
 
-    return { success: true, selectedDocumentKeys: finalSelectedKeys };
+    return { success: true, selectedDocumentKeys: result?.selected_keys || finalSelectedKeys };
   }
 
   static async listVersions(projectId: string, documentKey: string, actor: Actor) {

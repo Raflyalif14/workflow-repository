@@ -5,8 +5,10 @@ import {
   ChangeInitialPasswordInput,
   ForgotPasswordInput,
   LoginInput,
+  PreferredLanguage,
   RegisterInput,
   ResetPasswordInput,
+  UpdateLanguagePreferenceInput,
   UserRole,
 } from '../validators/auth.validator';
 import { EmailService, InitialPasswordEmailInput, PasswordResetEmailInput } from './email.service';
@@ -23,6 +25,7 @@ const toProfile = (row: any) => ({
   mustChangePassword: row.must_change_password ?? false,
   createdAt: row.created_at,
   updatedAt: row.updated_at,
+  preferredLanguage: row.preferred_language === 'id' ? 'id' : 'en',
 });
 
 type RegisterPublicUser = {
@@ -41,6 +44,7 @@ type PublicUserSecurityState = {
   full_name: string;
   is_active: boolean;
   must_change_password?: boolean;
+  preferred_language?: string | null;
 };
 
 type CreatePublicUserInput = {
@@ -86,6 +90,11 @@ export type ResetPasswordDependencies = {
   getPublicUserById: (userId: string) => Promise<PublicUserSecurityState | null>;
   updateAuthPassword: (userId: string, newPassword: string) => Promise<void>;
   updateMustChangePassword: (userId: string) => Promise<void>;
+};
+
+export type LanguagePreferenceDependencies = {
+  getPreferredLanguage: (userId: string) => Promise<unknown>;
+  updatePreferredLanguage: (userId: string, language: PreferredLanguage) => Promise<unknown>;
 };
 
 const passwordChars = {
@@ -172,6 +181,23 @@ export function buildPasswordResetUrl(passwordResetUrl: string, tokenHash: strin
 
 export function buildForgotPasswordResponse() {
   return forgotPasswordGenericResponse;
+}
+
+const normalizePreferredLanguage = (value: unknown): PreferredLanguage => value === 'id' ? 'id' : 'en';
+
+export async function getLanguagePreferenceWithDependencies(
+  userId: string,
+  deps: Pick<LanguagePreferenceDependencies, 'getPreferredLanguage'>
+): Promise<{ language: PreferredLanguage }> {
+  return { language: normalizePreferredLanguage(await deps.getPreferredLanguage(userId)) };
+}
+
+export async function updateLanguagePreferenceWithDependencies(
+  userId: string,
+  input: UpdateLanguagePreferenceInput,
+  deps: Pick<LanguagePreferenceDependencies, 'updatePreferredLanguage'>
+): Promise<{ language: PreferredLanguage }> {
+  return { language: normalizePreferredLanguage(await deps.updatePreferredLanguage(userId, input.language)) };
 }
 
 export const isDuplicateAuthError = (error: unknown) => {
@@ -289,6 +315,7 @@ export async function forgotPasswordWithDependencies(input: ForgotPasswordInput,
       recipientEmail: user.email,
       recipientName: user.full_name,
       resetUrl,
+      language: user.preferred_language === 'id' ? 'id' : 'en',
     });
   } catch {
     console.warn('Password reset request could not be completed safely.');
@@ -427,7 +454,7 @@ export class AuthService {
       findPublicUserByEmail: async (email) => {
         const { data, error } = await supabaseAdmin
           .from('users')
-          .select('id,email,full_name,is_active,must_change_password')
+          .select('id,email,full_name,is_active,must_change_password,preferred_language')
           .eq('email', email)
           .maybeSingle();
 
@@ -491,6 +518,31 @@ export class AuthService {
     const { data, error } = await supabaseAdmin.from('users').select('*').eq('id', userId).single();
     if (error || !data) throw new Error('User not found');
     return toProfile(data);
+  }
+
+  static async getLanguagePreference(userId: string): Promise<{ language: PreferredLanguage }> {
+    return getLanguagePreferenceWithDependencies(userId, {
+      getPreferredLanguage: async (id) => {
+        const { data, error } = await supabaseAdmin.from('users').select('preferred_language').eq('id', id).single();
+        if (error || !data) throw new Error('Failed to retrieve language preference.');
+        return data.preferred_language;
+      },
+    });
+  }
+
+  static async updateLanguagePreference(userId: string, input: UpdateLanguagePreferenceInput): Promise<{ language: PreferredLanguage }> {
+    return updateLanguagePreferenceWithDependencies(userId, input, {
+      updatePreferredLanguage: async (id, language) => {
+        const { data, error } = await supabaseAdmin
+          .from('users')
+          .update({ preferred_language: language })
+          .eq('id', id)
+          .select('preferred_language')
+          .single();
+        if (error || !data) throw new Error('Failed to update language preference.');
+        return data.preferred_language;
+      },
+    });
   }
 
   static async logout(accessToken: string) {

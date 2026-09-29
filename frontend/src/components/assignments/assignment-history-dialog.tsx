@@ -1,5 +1,7 @@
 "use client";
 
+import { translate as translateI18n, getIntlLocale } from "@/i18n";
+
 import React from "react";
 import {
   Dialog,
@@ -33,7 +35,7 @@ export function AssignmentHistoryDialog({
       <DialogHeader>
         <div className="flex items-center gap-2 text-primary mb-1">
           <History className="h-5 w-5" />
-          <DialogTitle>Assignment History Audit</DialogTitle>
+          <DialogTitle>{translateI18n("copy.assignmentAudit")}</DialogTitle>
         </div>
         <DialogDescription>
           Complete historical timeline of Solution Architect assignments for project{" "}
@@ -67,7 +69,7 @@ export function AssignmentHistoryDialog({
                       {item.milestone ? `Stage: ${item.milestone.name}` : "Project-Wide PIC"}
                     </span>
                     <span className="text-muted-foreground font-mono text-[11px]">
-                      {new Date(item.createdAt).toLocaleString("id-ID", {
+                      {new Date(item.createdAt).toLocaleString(getIntlLocale(), {
                         dateStyle: "medium",
                         timeStyle: "short",
                       })}
@@ -107,7 +109,7 @@ export function AssignmentHistoryDialog({
 
       <DialogFooter>
         <Button variant="outline" onClick={() => onOpenChange(false)}>
-          Close
+          {translateI18n("common.close")}
         </Button>
       </DialogFooter>
     </Dialog>

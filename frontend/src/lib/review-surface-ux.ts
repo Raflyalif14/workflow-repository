@@ -1,4 +1,5 @@
-export type ReviewSurfaceType = "PROJECT_PLAN" | "SUBMISSION" | "DEADLINE";
+import { getIntlLocale, translate, type TranslationKey } from "@/i18n";
+export type ReviewSurfaceType = "PROJECT_PLAN" | "DEADLINE";
 export type ReviewDecision = "APPROVE" | "REJECT";
 
 export type ReviewActionCopy = {
@@ -11,75 +12,24 @@ export type ReviewActionCopy = {
   noteRequired: boolean;
 };
 
-const copyByType: Record<
-  ReviewSurfaceType,
-  Record<ReviewDecision, Omit<ReviewActionCopy, "noteRequired">>
-> = {
-  PROJECT_PLAN: {
-    APPROVE: {
-      title: "Approve project plan",
-      selectionLabel: "Approve plan",
-      submitLabel: "Approve & activate",
-      pendingLabel: "Approving & activating...",
-      noteLabel: "Approval remarks (optional)",
-      notePlaceholder: "Add optional sign-off remarks...",
-    },
-    REJECT: {
-      title: "Reject project plan",
-      selectionLabel: "Reject plan",
-      submitLabel: "Reject plan",
-      pendingLabel: "Rejecting plan...",
-      noteLabel: "Rejection reason / timeline feedback",
-      notePlaceholder:
-        "Specify timeline issues or required changes before the plan can be approved...",
-    },
-  },
-  SUBMISSION: {
-    APPROVE: {
-      title: "Review work submission",
-      selectionLabel: "Approve submission",
-      submitLabel: "Approve submission",
-      pendingLabel: "Approving...",
-      noteLabel: "Review note (optional)",
-      notePlaceholder: "Add optional review remarks...",
-    },
-    REJECT: {
-      title: "Review work submission",
-      selectionLabel: "Request revision",
-      submitLabel: "Request revision",
-      pendingLabel: "Requesting revision...",
-      noteLabel: "Revision guidance",
-      notePlaceholder:
-        "Explain what needs to change before this work can be approved...",
-    },
-  },
-  DEADLINE: {
-    APPROVE: {
-      title: "Approve deadline change",
-      selectionLabel: "Approve deadline",
-      submitLabel: "Approve deadline",
-      pendingLabel: "Approving...",
-      noteLabel: "Review note (optional)",
-      notePlaceholder: "Add optional approval remarks...",
-    },
-    REJECT: {
-      title: "Reject deadline change",
-      selectionLabel: "Reject request",
-      submitLabel: "Reject request",
-      pendingLabel: "Rejecting request...",
-      noteLabel: "Rejection reason",
-      notePlaceholder:
-        "Explain why this deadline change cannot be approved...",
-    },
-  },
+const copyPrefixes: Record<ReviewSurfaceType, Record<ReviewDecision, string>> = {
+  PROJECT_PLAN: { APPROVE: "approvePlan", REJECT: "rejectPlan" },
+  DEADLINE: { APPROVE: "approveDeadline", REJECT: "rejectDeadline" },
 };
 
 export function getReviewActionCopy(
   type: ReviewSurfaceType,
   decision: ReviewDecision
 ): ReviewActionCopy {
+  const prefix = copyPrefixes[type][decision];
+  const copy = (suffix: string) => translate(`reviewCopy.${prefix}${suffix}` as TranslationKey);
   return {
-    ...copyByType[type][decision],
+    title: copy("Title"),
+    selectionLabel: copy("Selection"),
+    submitLabel: copy("Submit"),
+    pendingLabel: copy("Pending"),
+    noteLabel: copy("Note"),
+    notePlaceholder: copy("Placeholder"),
     noteRequired: decision === "REJECT",
   };
 }
@@ -120,9 +70,9 @@ function parseReviewDate(value?: string | null): Date | null {
 
 export function formatReviewDate(value?: string | null): string {
   const parsed = parseReviewDate(value);
-  if (!parsed) return "Unavailable";
+  if (!parsed) return translate("reviewCopy.unavailable");
 
-  return parsed.toLocaleDateString("id-ID", {
+  return parsed.toLocaleDateString(getIntlLocale(), {
     day: "numeric",
     month: "short",
     year: "numeric",
@@ -132,9 +82,9 @@ export function formatReviewDate(value?: string | null): string {
 
 export function formatReviewDateTime(value?: string | null): string {
   const parsed = parseReviewDate(value);
-  if (!parsed) return "Unavailable";
+  if (!parsed) return translate("reviewCopy.unavailable");
 
-  return parsed.toLocaleString("id-ID", {
+  return parsed.toLocaleString(getIntlLocale(), {
     dateStyle: "medium",
     timeStyle: "short",
   });
@@ -154,12 +104,12 @@ export function formatReviewStatus(
   status?: string | null,
   revisionContext = false
 ): string {
-  if (!status) return "Status unavailable";
+  if (!status) return translate("reviewCopy.statusUnavailable");
   if (status === "PENDING" || status === "PENDING_REVIEW") {
-    return "Waiting for review";
+    return translate("reviewCopy.waitingReview");
   }
-  if (status === "APPROVED") return "Approved";
-  if (status === "REJECTED" && revisionContext) return "Revision requested";
+  if (status === "APPROVED") return translate("approvalStatus.APPROVED");
+  if (status === "REJECTED" && revisionContext) return translate("reviewCopy.revisionRequested");
 
   const normalized = status
     .trim()
@@ -168,11 +118,11 @@ export function formatReviewStatus(
     .replace(/\s+/g, " ");
   return normalized
     ? normalized.charAt(0).toUpperCase() + normalized.slice(1)
-    : "Status unavailable";
+    : translate("reviewCopy.statusUnavailable");
 }
 
 export function formatReviewParticipant(value?: string | null): string {
-  return value?.trim() || "Unavailable";
+  return value?.trim() || translate("reviewCopy.unavailable");
 }
 
 export function isProjectPlanPicRequired(

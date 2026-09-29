@@ -2,7 +2,6 @@ import {
   DeadlineApprovalStatus,
   MilestoneDeadlineApproval,
   MilestoneStatus,
-  MilestoneSubmissionApproval,
   Project,
   ProjectMilestonePhase4,
   ProjectPlanApproval,
@@ -10,6 +9,7 @@ import {
 } from "@/types/project";
 import { isMilestoneCompleted } from "./milestone-ui-state";
 import { formatMilestoneDate, isInitialSubmissionBeforeEffectiveStart } from "./dates";
+import { translateMilestoneStatus, translateProjectStatus, translateRole } from "@/i18n";
 
 export { formatMilestoneDate, isInitialSubmissionBeforeEffectiveStart } from "./dates";
 
@@ -65,8 +65,6 @@ export interface NextActionInfo {
     | "ASSIGN_PIC"
     | "MARK_COMPLETE"
     | "SUBMIT_WORK"
-    | "START_REVISION"
-    | "REVIEW_SUBMISSION"
     | "REVIEW_DEADLINE"
     | "RESUME_PROJECT"
     | "SETUP_TIMELINE"
@@ -92,20 +90,7 @@ export function formatHumanReadableLabel(value?: string | null): string {
  * Formats persisted role values for human-facing workflow guidance.
  */
 export function formatActorRoleLabel(role?: string): string {
-  switch (role) {
-    case "SALES":
-      return "Sales";
-    case "HEAD_SA":
-      return "Head SA";
-    case "SA":
-      return "Solution Architect";
-    case "SUPER_ADMIN":
-      return "Super Admin";
-    case "GUEST":
-      return "Guest";
-    default:
-      return role ? formatHumanReadableLabel(role) : "Guest";
-  }
+  return translateRole(role || "GUEST");
 }
 
 /**
@@ -121,8 +106,6 @@ export function resolveNextActionTargetId(nextAction: NextActionInfo): string | 
       return "project-pic-assignment";
     case "MARK_COMPLETE":
     case "SUBMIT_WORK":
-    case "START_REVISION":
-    case "REVIEW_SUBMISSION":
     case "REVIEW_DEADLINE":
       return nextAction.targetMilestoneId
         ? `project-milestone-${nextAction.targetMilestoneId}`
@@ -136,47 +119,14 @@ export function resolveNextActionTargetId(nextAction: NextActionInfo): string | 
  * Maps project status to human-friendly label.
  */
 export function formatProjectStatusLabel(status: ProjectStatus | string): string {
-  switch (status) {
-    case "DRAFT":
-      return "Planning";
-    case "ACTIVE":
-      return "Active";
-    case "POSTPONED":
-      return "Postponed";
-    case "COMPLETED":
-      return "Completed";
-    case "WAITING_RESULT":
-      return "Waiting Result";
-    case "WON":
-      return "Won";
-    case "LOST":
-      return "Lost";
-    case "CANCELLED":
-      return "Cancelled";
-    default:
-      return formatHumanReadableLabel(status);
-  }
+  return translateProjectStatus(status);
 }
 
 /**
  * Maps milestone status to human-friendly label.
  */
 export function formatMilestoneStatusLabel(status: MilestoneStatus | string): string {
-  switch (status) {
-    case "CREATED":
-      return "Not Started";
-    case "IN_PROGRESS":
-      return "In Progress";
-    case "SUBMITTED":
-      return "Under Review";
-    case "REJECTED":
-      return "Revision Required";
-    case "COMPLETED":
-    case "APPROVED":
-      return "Completed";
-    default:
-      return formatHumanReadableLabel(status);
-  }
+  return translateMilestoneStatus(status);
 }
 
 /**
@@ -189,9 +139,6 @@ export function getApprovalTypeDisplay(category: string): string {
     case "DEADLINE":
     case "DEADLINE_CHANGE":
       return "Deadline Change";
-    case "SUBMISSION":
-    case "MILESTONE_SUBMISSION":
-      return "Work Submission";
     default:
       return formatHumanReadableLabel(category);
   }
@@ -431,56 +378,6 @@ export function resolveNextAction(
       };
     }
 
-    // Case 5b: Stage in SUBMITTED state (Awaiting Head SA review)
-    if (currentMilestone.status === "SUBMITTED") {
-      if (isHeadSa) {
-        return {
-          title: `Review work submission: ${currentMilestone.name}`,
-          description: "Review the submitted work and decide whether it can move forward.",
-          actionLabel: "Review Submission",
-          actionType: "REVIEW_SUBMISSION",
-          isWaiting: false,
-          canPerformAction: true,
-          targetMilestoneId: currentMilestone.id,
-          targetMilestoneName: currentMilestone.name,
-        };
-      }
-      return {
-        title: `Work submission under review: ${currentMilestone.name}`,
-        description: "Head SA is reviewing the submitted work.",
-        isWaiting: true,
-        waitingForRole: "HEAD_SA",
-        canPerformAction: false,
-        targetMilestoneId: currentMilestone.id,
-        targetMilestoneName: currentMilestone.name,
-      };
-    }
-
-    // Case 5c: Stage in REJECTED state (Needs SA revision)
-    if (currentMilestone.status === "REJECTED") {
-      if (stageRole === "SA" && isAssignedPic) {
-        return {
-          title: `Revise your submission: ${currentMilestone.name}`,
-          description: "Submission was rejected by Head SA. Start revision and make necessary updates.",
-          actionLabel: "Start Revision",
-          actionType: "START_REVISION",
-          isWaiting: false,
-          canPerformAction: true,
-          targetMilestoneId: currentMilestone.id,
-          targetMilestoneName: currentMilestone.name,
-        };
-      }
-      return {
-        title: `Work revision in progress: ${currentMilestone.name}`,
-        description: `The assigned Solution Architect (${currentMilestone.pic?.full_name || currentMilestone.pic?.fullName || "Solution Architect"}) is revising the work.`,
-        isWaiting: true,
-        waitingForRole: "SA",
-        canPerformAction: false,
-        targetMilestoneId: currentMilestone.id,
-        targetMilestoneName: currentMilestone.name,
-      };
-    }
-
     // Case 5d: Stage in IN_PROGRESS state
     if (currentMilestone.status === "IN_PROGRESS") {
       if (stageRole === "SALES") {
@@ -542,7 +439,7 @@ export function resolveNextAction(
             return {
               title: `Upcoming stage: ${currentMilestone.name}`,
               description: `Upcoming — Starts ${formatMilestoneDate(currentMilestone.start_date)}`,
-              actionLabel: "Prepare submission",
+              actionLabel: "View milestone outputs",
               actionType: "SUBMIT_WORK",
               isWaiting: true,
               waitingForRole: "SA",
@@ -553,9 +450,9 @@ export function resolveNextAction(
           }
 
           return {
-            title: `Submit work: ${currentMilestone.name}`,
-            description: `Complete your deliverables for '${currentMilestone.name}' and submit for Head SA review.`,
-            actionLabel: "Submit Work",
+            title: `Work on outputs: ${currentMilestone.name}`,
+            description: `Upload and submit the selected outputs within this milestone.`,
+            actionLabel: "Open outputs",
             actionType: "SUBMIT_WORK",
             isWaiting: false,
             canPerformAction: true,
@@ -565,7 +462,7 @@ export function resolveNextAction(
         }
       return {
         title: `Current work: ${currentMilestone.name}`,
-        description: `The assigned Solution Architect (${currentMilestone.pic?.full_name || currentMilestone.pic?.fullName || "Solution Architect"}) is preparing the work submission.`,
+        description: `The assigned Solution Architect (${currentMilestone.pic?.full_name || currentMilestone.pic?.fullName || "Solution Architect"}) is working on the selected outputs.`,
           isWaiting: true,
           waitingForRole: "SA",
           canPerformAction: false,

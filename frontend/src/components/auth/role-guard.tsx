@@ -5,6 +5,7 @@ import { useAuth } from "./auth-provider";
 import { ShieldAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
+import { useLanguage } from "@/components/i18n/language-provider";
 
 interface RoleGuardProps {
   allowedRoles: string[];
@@ -13,11 +14,12 @@ interface RoleGuardProps {
 
 export function RoleGuard({ allowedRoles, children }: RoleGuardProps) {
   const { user, isLoading } = useAuth();
+  const { t } = useLanguage();
 
   if (isLoading) {
     return (
       <div className="flex py-20 items-center justify-center text-sm text-muted-foreground">
-        Checking access permissions...
+        {t("common.loading")}
       </div>
     );
   }
@@ -25,7 +27,7 @@ export function RoleGuard({ allowedRoles, children }: RoleGuardProps) {
   if (user?.mustChangePassword) {
     return (
       <div className="flex py-20 items-center justify-center text-sm text-muted-foreground">
-        Redirecting to password change...
+        {t("ui.redirectingPassword")}
       </div>
     );
   }
@@ -37,14 +39,14 @@ export function RoleGuard({ allowedRoles, children }: RoleGuardProps) {
           <ShieldAlert className="h-7 w-7" />
         </div>
         <div className="space-y-1 max-w-md mx-auto">
-          <h2 className="text-xl font-bold text-foreground">Access Restricted</h2>
+          <h2 className="text-xl font-bold text-foreground">{t("ui.accessRestricted")}</h2>
           <p className="text-sm text-muted-foreground leading-relaxed">
-            Your role (<strong className="text-primary">{user?.role?.replace(/_/g, " ")}</strong>) does not have permission to view or manage this page.
+            {t("ui.roleNoPermission", { role: user?.role?.replace(/_/g, " ") || t("role.GUEST") })}
           </p>
         </div>
         <Link href="/">
           <Button variant="outline" className="gap-2 mt-2">
-            Return to Dashboard
+            {t("common.back")}
           </Button>
         </Link>
       </div>

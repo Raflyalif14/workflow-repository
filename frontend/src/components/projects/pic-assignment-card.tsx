@@ -1,5 +1,7 @@
 "use client";
 
+import { translate as translateI18n } from "@/i18n";
+
 import { useEffect, useMemo, useState } from "react";
 import { AlertCircle, CheckCircle2, Search, UserCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -69,7 +71,7 @@ export function PicAssignmentCard({
       <section className="border-b border-border/60 pb-4" aria-labelledby="solution-architect-heading">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div className="min-w-0 space-y-1">
-            <p id="solution-architect-heading" className="text-sm font-medium text-foreground">Solution Architect</p>
+            <p id="solution-architect-heading" className="text-sm font-medium text-foreground">{translateI18n("role.SA")}</p>
             {currentPic ? (
               <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
                 <span className="font-semibold text-foreground">{currentPic.full_name || currentPic.fullName}</span>
@@ -104,7 +106,7 @@ export function PicAssignmentCard({
         <div className="space-y-4">
           {currentPic && (
             <div className="rounded-xl border border-border/60 bg-muted/20 p-3 text-sm">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">Current PIC</p>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">{translateI18n("copy.currentPic")}</p>
               <p className="mt-1 font-medium text-foreground">{currentPic.full_name || currentPic.fullName}</p>
               <p className="mt-0.5 text-xs text-muted-foreground">{currentPic.email}</p>
             </div>
@@ -128,9 +130,9 @@ export function PicAssignmentCard({
 
           <div className="max-h-64 space-y-2 overflow-y-auto pr-1">
             {isLoading ? (
-              <p className="py-4 text-center text-sm text-muted-foreground">Loading Solution Architects...</p>
+              <p className="py-4 text-center text-sm text-muted-foreground">{translateI18n("copy.loadingSa")}</p>
             ) : options.length === 0 ? (
-              <p className="py-4 text-center text-sm text-muted-foreground">No eligible Solution Architects found.</p>
+              <p className="py-4 text-center text-sm text-muted-foreground">{translateI18n("copy.noEligibleSa")}</p>
             ) : (
               options.map((pic) => (
                 <button
@@ -156,12 +158,12 @@ export function PicAssignmentCard({
             )}
           </div>
 
-          {isSamePic && <p className="text-sm text-destructive">New PIC must be different from the current PIC.</p>}
+          {isSamePic && <p className="text-sm text-destructive">{translateI18n("copy.newPicDifferent")}</p>}
 
           {currentPic && (
             <div className="space-y-2">
               <label htmlFor="pic-reassignment-reason" className="text-sm font-medium text-foreground">
-                Reason
+                {translateI18n("copy.reason")}
               </label>
               <textarea
                 id="pic-reassignment-reason"
@@ -171,7 +173,7 @@ export function PicAssignmentCard({
                 onChange={(event) => setReason(event.target.value)}
                 className="flex w-full resize-none rounded-lg border border-input bg-card px-3 py-2 text-sm shadow-sm outline-none transition-colors placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-1 focus-visible:ring-ring"
               />
-              <p className="text-xs text-muted-foreground">A reason is required when changing the assigned PIC.</p>
+              <p className="text-xs text-muted-foreground">{translateI18n("copy.reasonRequired")}</p>
             </div>
           )}
 
@@ -184,7 +186,7 @@ export function PicAssignmentCard({
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => setOpen(false)} disabled={assign.isPending}>Cancel</Button>
+          <Button variant="outline" onClick={() => setOpen(false)} disabled={assign.isPending}>{translateI18n("common.cancel")}</Button>
           <Button onClick={() => void submit()} disabled={!canSubmit || assign.isPending}>
             {assign.isPending ? "Saving..." : currentPic ? "Reassign PIC" : "Assign PIC"}
           </Button>

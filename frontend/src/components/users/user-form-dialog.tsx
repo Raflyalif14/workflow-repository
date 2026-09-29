@@ -1,5 +1,7 @@
 "use client";
 
+import { translate as translateI18n } from "@/i18n";
+
 import React, { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -148,9 +150,9 @@ export function UserFormDialog({
               className="flex h-9 w-full rounded-md border border-input bg-card px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-primary"
               disabled={isSubmitting}
             >
-              <option value="SUPER_ADMIN">Super Admin</option>
-              <option value="SALES">Sales</option>
-              <option value="HEAD_SA">Head SA</option>
+              <option value="SUPER_ADMIN">{translateI18n("role.SUPER_ADMIN")}</option>
+              <option value="SALES">{translateI18n("role.SALES")}</option>
+              <option value="HEAD_SA">{translateI18n("role.HEAD_SA")}</option>
               <option value="SA">SA</option>
             </select>
             {errors.role && (
@@ -179,7 +181,7 @@ export function UserFormDialog({
             onClick={() => onOpenChange(false)}
             disabled={isSubmitting}
           >
-            Cancel
+            {translateI18n("common.cancel")}
           </Button>
           <Button type="submit" disabled={isSubmitting}>
             {isSubmitting ? "Saving..." : isEditing ? "Update User" : "Create User"}

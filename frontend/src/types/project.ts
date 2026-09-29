@@ -46,7 +46,6 @@ export interface ProjectMilestonePhase4 {
 export type DeadlineApprovalStatus = "PENDING" | "APPROVED" | "REJECTED" | "SUPERSEDED";
 export type ProjectPlanApprovalStatus = "PENDING" | "APPROVED" | "REJECTED";
 export type InitiationApprovalStatus = "PENDING" | "APPROVED" | "REJECTED";
-export type MilestoneSubmissionApprovalStatus = "PENDING" | "APPROVED" | "REJECTED";
 
 export interface UserSummarySnake {
   id: string;
@@ -103,89 +102,6 @@ export interface MilestoneInitiationApproval {
   review_note: string | null;
   requested_at: string;
   reviewed_at: string | null;
-}
-
-export interface MilestoneSubmissionApproval {
-  id: string;
-  status: MilestoneSubmissionApprovalStatus;
-  submission_note: string | null;
-  submitted_by: UserSummarySnake | null;
-  submitted_at: string;
-  review_note: string | null;
-  reviewed_by: UserSummarySnake | null;
-  reviewed_at: string | null;
-}
-
-export type SubmissionPackageStatus =
-  | "PENDING_REVIEW"
-  | "PROMOTING"
-  | "APPROVED"
-  | "REJECTING"
-  | "REJECTED";
-
-export interface MilestoneSubmissionAttachment {
-  id: string;
-  file_name: string;
-  file_size: number | string;
-  mime_type: string;
-  status: string;
-}
-
-export interface MilestoneSubmissionPackage {
-  id: string;
-  status: SubmissionPackageStatus;
-  submission_approval_id: string | null;
-  attachment_count: number;
-  attachments: MilestoneSubmissionAttachment[];
-}
-
-export interface MilestoneSubmissionAttachmentDownload {
-  attachment_id: string;
-  file_name: string;
-  url: string;
-}
-
-export interface MilestoneSubmissionRevisionActor {
-  id: string;
-  fullName: string;
-}
-
-export interface MilestoneSubmissionRevisionAttachment {
-  id: string;
-  fileName: string;
-  fileSize: number | string;
-  mimeType: string;
-  status: "PENDING" | "PROMOTED" | "REJECTED";
-  promotedDocumentId: string | null;
-}
-
-export interface MilestoneSubmissionRevision {
-  id: string;
-  revision: number;
-  status: Extract<SubmissionPackageStatus, "PENDING_REVIEW" | "APPROVED" | "REJECTED">;
-  submission: {
-    approvalId: string;
-    note: string | null;
-    submittedAt: string;
-    submittedBy: MilestoneSubmissionRevisionActor | null;
-  };
-  review: {
-    note: string | null;
-    reviewedAt: string | null;
-    reviewedBy: MilestoneSubmissionRevisionActor | null;
-  };
-  attachments: MilestoneSubmissionRevisionAttachment[];
-}
-
-export interface MilestoneSubmissionPackageHistory {
-  items: MilestoneSubmissionRevision[];
-}
-
-export interface MilestoneSubmissionRevisionAttachmentDownload {
-  attachmentId: string;
-  fileName: string;
-  url: string;
-  expiresInSeconds: number;
 }
 
 export interface MilestoneContributionAttachment {
@@ -354,6 +270,7 @@ export interface ProjectOutputDocumentItem {
   id: string;
   projectId: string;
   key: string;
+  milestoneId: string;
   name: string;
   group: "PRA_TENDER" | "ON_SUBMISSION_TENDER";
   isRequired: boolean;
@@ -418,12 +335,12 @@ export interface ProjectDeletionPreview {
   milestone_count: number;
   document_count: number;
   document_version_count: number;
-  submission_package_count: number;
-  submission_attachment_count: number;
+  project_output_document_count: number;
+  project_output_document_version_count: number;
   milestone_contribution_count: number;
   milestone_contribution_attachment_count: number;
   project_intake_attachment_count: number;
-  approvals: { milestone: number; deadline: number; deadline_history: number; project_plan: number; document_version: number };
+  approvals: { deadline: number; deadline_history: number; project_plan: number; document_version: number };
   assignment_count: number;
   activity_log_count: number;
   notification_count: number;

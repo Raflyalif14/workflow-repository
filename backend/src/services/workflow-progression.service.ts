@@ -19,6 +19,7 @@ type WorkflowProject = {
   status: string;
   is_postponed: boolean | null;
   scenario_id: string;
+  selected_document_keys: string[] | null;
 };
 
 type WorkflowMilestone = {
@@ -49,6 +50,16 @@ export const areSelectedProjectOutputsApproved = (
   const requiredOrSelected = rows.filter((row) => row.is_required || row.is_selected);
   return requiredOrSelected.length > 0
     && requiredOrSelected.every((row) => row.status === 'APPROVED');
+};
+
+export const areExpectedProjectOutputsApproved = (
+  selectedKeys: string[] | null | undefined,
+  scenarioName: string,
+  rows: Array<{ document_key: string; is_required: boolean; is_selected: boolean; status: string }>
+): boolean => {
+  const expected = new Set([...(selectedKeys || []), ...getMandatoryDocumentKeys(resolveScenarioKey(scenarioName))]);
+  return expected.size > 0 && [...expected].every((key) => rows.some((row) =>
+    row.document_key === key && (row.is_required || row.is_selected) && row.status === 'APPROVED'));
 };
 
 export const isMilestoneCompletedLike = (status: string): boolean =>
@@ -130,7 +141,7 @@ function existingNextMilestoneResult(next: WorkflowMilestone) {
 async function getProject(projectId: string): Promise<WorkflowProject> {
   const { data, error } = await supabaseAdmin
     .from('projects')
-    .select('id,name,sales_id,pic_id,status,is_postponed,scenario_id')
+    .select('id,name,sales_id,pic_id,status,is_postponed,scenario_id,selected_document_keys')
     .eq('id', projectId)
     .single();
 
@@ -152,7 +163,7 @@ async function getProjectMilestones(projectId: string): Promise<WorkflowMileston
 async function getMilestoneWithProject(milestoneId: string) {
   const { data, error } = await supabaseAdmin
     .from('project_milestones')
-    .select(`${milestoneSelect},project:projects!project_milestones_project_id_fkey(id,name,sales_id,pic_id,status,is_postponed,scenario_id)`)
+    .select(`${milestoneSelect},project:projects!project_milestones_project_id_fkey(id,name,sales_id,pic_id,status,is_postponed,scenario_id,selected_document_keys)`)
     .eq('id', milestoneId)
     .single();
 
@@ -196,10 +207,13 @@ export async function advanceToNextMilestone(
 
     const { data: outputDocuments, error: outputError } = await supabaseAdmin
       .from('project_output_documents')
-      .select('is_required,is_selected,status')
+      .select('document_key,is_required,is_selected,status')
       .eq('project_id', project.id);
     if (outputError) throw new Error('Failed to verify project output documents.');
-    if (!areSelectedProjectOutputsApproved(outputDocuments || [])) {
+    const { data: scenario, error: scenarioError } = await supabaseAdmin.from('scenarios')
+      .select('name').eq('id', project.scenario_id).single();
+    if (scenarioError || !scenario) throw new Error('Failed to verify project scenario.');
+    if (!areExpectedProjectOutputsApproved(project.selected_document_keys, scenario.name, outputDocuments || [])) {
       return { next_milestone: null, started: false, project_completed: false, blocked_reason: 'OUTPUT_DOCUMENTS_PENDING' as const };
     }
 
@@ -227,6 +241,7 @@ export async function advanceToNextMilestone(
           title: 'Project Result Required',
           message: `Delivery for project '${project.name}' is complete. Record the tender result as WON or LOST.`,
           projectId: project.id,
+          projectName: project.name,
           actionUrl: `/projects/${project.id}`,
         })
       );
@@ -327,6 +342,24 @@ function assertCanCompleteOrReconcile(milestone: WorkflowMilestone, project: Wor
 
 export async function completeMilestoneStage(milestoneId: string, actor: WorkflowActor, outcomeInput?: ProjectOutcomeInput) {
   let { milestone, project } = await getMilestoneWithProject(milestoneId);
+  if (stageRoleOf(milestone) === 'SA') {
+    assertProjectIsActive(project);
+    if (milestone.pic_id !== actor.userId || !['SA', 'HEAD_SA'].includes(actor.role)) {
+      throw new Error('Only the assigned PIC can complete this SA milestone.');
+    }
+    const { data, error } = await supabaseAdmin.rpc('complete_sa_output_milestone', {
+      p_milestone_id: milestone.id,
+      p_actor_id: actor.userId,
+      p_allow_empty: true,
+    });
+    if (error) throw new Error(error.message);
+    const result = Array.isArray(data) ? data[0] : data;
+    const progression = await advanceToNextMilestone(project.id, milestone.id, actor);
+    return { milestone_id: milestone.id, name: milestone.name, status: 'COMPLETED',
+      next_milestone: progression.next_milestone, started: progression.started,
+      project_completed: progression.project_completed, blocked_reason: progression.blocked_reason,
+      changed: Boolean(result?.changed) };
+  }
   let isFinalSalesMilestone = false;
   if (stageRoleOf(milestone) === 'SALES') {
     try {
@@ -425,6 +458,24 @@ export async function completeMilestoneStage(milestoneId: string, actor: Workflo
     completed_at: milestone.completed_at,
     ...progression,
   };
+}
+
+export async function retrySaMilestoneProgression(milestoneId: string, actor: WorkflowActor) {
+  const { milestone, project } = await getMilestoneWithProject(milestoneId);
+  assertProjectIsActive(project);
+  if (stageRoleOf(milestone) !== 'SA' || !['IN_PROGRESS', 'COMPLETED'].includes(milestone.status)) {
+    throw new Error('Only an active or completed SA milestone can be reconciled.');
+  }
+  if (actor.role !== 'HEAD_SA' && !(actor.role === 'SA' && milestone.pic_id === actor.userId)) {
+    throw new Error('Only Head SA or the assigned PIC can reconcile this milestone.');
+  }
+  if (milestone.status === 'IN_PROGRESS') {
+    const { error: completeError } = await supabaseAdmin.rpc('complete_sa_output_milestone', {
+      p_milestone_id: milestoneId, p_actor_id: actor.userId, p_allow_empty: false,
+    });
+    if (completeError) throw new Error(completeError.message || 'Unable to complete approved SA milestone.');
+  }
+  return advanceToNextMilestone(project.id, milestoneId, actor);
 }
 
 export async function completeAssignPicStageIfCurrent(projectId: string, actor: WorkflowActor) {

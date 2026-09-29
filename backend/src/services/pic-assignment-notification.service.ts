@@ -28,7 +28,9 @@ export function buildPicAssignmentNotification(
       ? `You are now assigned as PIC${milestoneContext} for project '${context.projectName}'.`
       : `You have been assigned as PIC${milestoneContext} for project '${context.projectName}'.`,
     projectId: context.projectId,
+    projectName: context.projectName,
     milestoneId: context.milestoneId || null,
+    milestoneName: context.milestoneName || undefined,
     actionUrl: projectActionUrl(context.projectId),
   };
 }

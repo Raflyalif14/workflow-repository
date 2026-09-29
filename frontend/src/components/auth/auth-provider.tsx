@@ -21,6 +21,7 @@ import {
   setAuthTokens,
 } from "@/lib/auth";
 import { User } from "@/types/user";
+import { translate } from "@/i18n";
 
 type LoginInput = { email: string; password: string };
 type LoginResponse = {
@@ -47,7 +48,7 @@ const isAuthEntryPath = (pathname: string) => pathname === "/login";
 function LoadingSession() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-background text-sm text-muted-foreground">
-      Loading session...
+      {translate("common.loading")}
     </div>
   );
 }

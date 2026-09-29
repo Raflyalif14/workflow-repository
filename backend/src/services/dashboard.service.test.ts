@@ -26,7 +26,7 @@ const rows: DashboardSourceRows = {
     { id: 'milestone-overdue', project_id: 'project-sales', status: 'IN_PROGRESS', due_date: '2026-08-20' },
     { id: 'milestone-completed', project_id: 'project-sales', status: 'COMPLETED', due_date: '2026-08-20' },
     { id: 'milestone-historical-approved', project_id: 'project-sales', status: 'APPROVED', due_date: '2026-08-21' },
-    { id: 'milestone-submission', project_id: 'project-sales', status: 'SUBMITTED', due_date: '2026-09-01' },
+    { id: 'milestone-future', project_id: 'project-sales', status: 'CREATED', due_date: '2026-09-01' },
     { id: 'milestone-completed-project-open', project_id: 'project-sales-completed', status: 'CREATED', due_date: '2026-08-20' },
     { id: 'milestone-draft', project_id: 'project-draft', status: 'IN_PROGRESS', due_date: '2026-08-20' },
     { id: 'milestone-sa', project_id: 'project-sa', status: 'CREATED', due_date: '2026-08-29' },
@@ -44,10 +44,6 @@ const rows: DashboardSourceRows = {
   projectPlanApprovals: [
     { id: 'plan-1', project_id: 'project-draft', status: 'PENDING' },
   ],
-  milestoneApprovals: [
-    { id: 'submission-active', milestone_id: 'milestone-submission', status: 'PENDING' },
-    { id: 'submission-postponed', milestone_id: 'milestone-postponed', status: 'PENDING' },
-  ],
   activityLogs: [
     { id: 'activity-1', project_id: 'project-sales', user_id: 'sales-1', action: 'MILESTONE_STARTED', description: "Sales Test started milestone 'Assessment'", created_at: '2026-08-28T06:00:00.000Z' },
     { id: 'activity-2', project_id: 'project-cancelled', user_id: 'sales-3', action: 'UNKNOWN_RUNTIME_ACTION', description: null, created_at: '2026-08-28T05:00:00.000Z' },
@@ -64,11 +60,11 @@ const rows: DashboardSourceRows = {
     { id: 'sa-inactive', full_name: 'Inactive Solution Architect', role: 'SA', is_active: false },
   ],
   outputDocuments: [
-    { project_id: 'project-sales', status: 'IN_REVIEW', is_required: true, is_selected: true },
-    { project_id: 'project-sales', status: 'APPROVED', is_required: true, is_selected: true },
-    { project_id: 'project-sa', status: 'REVISION_REQUIRED', is_required: true, is_selected: true },
-    { project_id: 'project-sa', status: 'DRAFT', is_required: false, is_selected: true },
-    { project_id: 'project-postponed', status: 'IN_REVIEW', is_required: true, is_selected: true },
+    { project_id: 'project-sales', milestone_id: 'milestone-overdue', status: 'IN_REVIEW', is_required: true, is_selected: true },
+    { project_id: 'project-sales', milestone_id: 'milestone-overdue', status: 'APPROVED', is_required: true, is_selected: true },
+    { project_id: 'project-sa', milestone_id: 'milestone-sa', status: 'REVISION_REQUIRED', is_required: true, is_selected: true },
+    { project_id: 'project-sa', milestone_id: 'milestone-sa', status: 'DRAFT', is_required: false, is_selected: true },
+    { project_id: 'project-postponed', milestone_id: 'milestone-postponed', status: 'IN_REVIEW', is_required: true, is_selected: true },
   ],
 };
 
@@ -101,8 +97,8 @@ console.log('Test 5 - Dashboard keeps DRAFT, ACTIVE, POSTPONED, COMPLETED, and C
 assert(countOverdueMilestones(rows.milestones, rows.projects, today) === 1, 'Test 6: overdue should use due_date and exclude completed/postponed/cancelled');
 console.log('Test 6 - Overdue uses due_date and excludes completed/postponed/cancelled milestones: passed');
 
-assert(superDashboard.summary.waitingApproval === 3, 'Test 7: waiting approval should include project plan, active deadline, and active submission');
-assert(countWaitingApprovals(new Set(['milestone-overdue']), rows.deadlineApprovals, rows.milestoneApprovals) === 1, 'Test 7: milestone approval count should stay scoped by milestone id');
+assert(superDashboard.summary.waitingApproval === 2, 'Test 7: waiting approval should include project plan and active deadline');
+assert(countWaitingApprovals(new Set(['milestone-overdue']), rows.deadlineApprovals) === 1, 'Test 7: deadline approval count should stay scoped by milestone id');
 console.log('Test 7 - Waiting approval excludes initiation and includes pending project plan approvals: passed');
 
 const assessmentDistribution = salesDashboard.scenarioDistribution.find((item) => item.scenarioName === 'Assessment');
@@ -155,22 +151,10 @@ const workloadRows: DashboardSourceRows = {
   ...rows,
   milestones: [
     ...rows.milestones,
-    { id: 'milestone-sa-revision', project_id: 'project-sa', status: 'REJECTED', due_date: '2026-09-05' },
     { id: 'milestone-sa-revision-started', project_id: 'project-sa', status: 'IN_PROGRESS', due_date: '2026-09-06' },
     { id: 'milestone-sa-history-pending', project_id: 'project-sa', status: 'IN_PROGRESS', due_date: '2026-09-07' },
     { id: 'milestone-sa-history-approved', project_id: 'project-sa', status: 'IN_PROGRESS', due_date: '2026-09-08' },
     { id: 'milestone-sa-completed', project_id: 'project-sa', status: 'COMPLETED', due_date: '2026-08-20' },
-    { id: 'milestone-sa-waiting', project_id: 'project-sa', status: 'SUBMITTED', due_date: '2026-08-20' },
-  ],
-  milestoneApprovals: [
-    ...rows.milestoneApprovals,
-    { id: 'revision-rejected', milestone_id: 'milestone-sa-revision', status: 'REJECTED', submitted_at: '2026-09-01T08:00:00.000Z' },
-    { id: 'revision-started-rejected', milestone_id: 'milestone-sa-revision-started', status: 'REJECTED', submitted_at: '2026-09-02T08:00:00.000Z' },
-    { id: 'history-pending-rejected', milestone_id: 'milestone-sa-history-pending', status: 'REJECTED', submitted_at: '2026-09-01T08:00:00.000Z' },
-    { id: 'history-pending-current', milestone_id: 'milestone-sa-history-pending', status: 'PENDING', submitted_at: '2026-09-03T08:00:00.000Z' },
-    { id: 'history-approved-rejected', milestone_id: 'milestone-sa-history-approved', status: 'REJECTED', submitted_at: '2026-09-01T08:00:00.000Z' },
-    { id: 'history-approved-current', milestone_id: 'milestone-sa-history-approved', status: 'APPROVED', submitted_at: '2026-09-04T08:00:00.000Z' },
-    { id: 'submission-sa-waiting', milestone_id: 'milestone-sa-waiting', status: 'PENDING' },
   ],
 };
 const workload = buildDashboardOverviewFromRows(workloadRows, headSa, today).saWorkload;
@@ -179,27 +163,13 @@ const saTwoWorkload = workload.find((item) => item.saId === 'sa-2');
 const saThreeWorkload = workload.find((item) => item.saId === 'sa-3');
 const idleSaWorkload = workload.find((item) => item.saId === 'sa-zero');
 assert(workload.length === 4 && !workload.some((item) => item.saId === 'sa-inactive'), 'Test 16: HEAD_SA should receive every active SA and exclude inactive users');
-assert(saOneWorkload?.activeProjectCount === 1 && saOneWorkload.activeMilestoneCount === 4, 'Test 16: active SA work must include revision work and exclude completed milestones');
-assert(saOneWorkload?.revisionCount === 3, 'Test 16: rejected milestones, active revisions, and output revisions must be attributed to the project PIC without duplication');
-assert(saOneWorkload?.waitingReviewCount === 1 && saOneWorkload.overdueCount === 0, 'Test 16: waiting review must not count as actionable overdue work');
-assert(saOneWorkload?.nearestDeadline === '2026-09-05', 'Test 16: nearest deadline must use actionable valid date-only work');
-const revisionCountForOnlyMilestone = (milestoneId: string) => {
-  const scenario: DashboardSourceRows = {
-    ...workloadRows,
-    milestones: workloadRows.milestones.filter((milestone) => milestone.project_id !== 'project-sa' || milestone.id === milestoneId),
-    milestoneApprovals: workloadRows.milestoneApprovals.filter((approval) => approval.milestone_id === milestoneId),
-    outputDocuments: [],
-  };
-  return buildDashboardOverviewFromRows(scenario, headSa, today).saWorkload.find((item) => item.saId === 'sa-1')?.revisionCount;
-};
-assert(revisionCountForOnlyMilestone('milestone-sa-revision') === 1, 'Test 16: a REJECTED milestone must count once even when its latest approval is REJECTED');
-assert(revisionCountForOnlyMilestone('milestone-sa-revision-started') === 1, 'Test 16: an IN_PROGRESS milestone with latest REJECTED approval must count as revision work');
-assert(revisionCountForOnlyMilestone('milestone-sa-history-pending') === 0, 'Test 16: historical REJECTED approval must not count after a latest PENDING decision');
-assert(revisionCountForOnlyMilestone('milestone-sa-history-approved') === 0, 'Test 16: historical REJECTED approval must not count after a latest APPROVED decision');
+assert(saOneWorkload?.activeProjectCount === 1 && saOneWorkload.activeMilestoneCount === 3, 'Test 16: active SA work excludes completed milestones');
+assert(saOneWorkload?.revisionCount === 1, 'Test 16: output revisions must be attributed to the project PIC');
+assert(saOneWorkload?.waitingReviewCount === 0 && saOneWorkload.overdueCount === 0, 'Test 16: no output awaiting review is counted');
+assert(saOneWorkload?.nearestDeadline === '2026-09-06', 'Test 16: nearest deadline must use actionable valid date-only work');
 const outputOnlyScenario: DashboardSourceRows = {
   ...workloadRows,
   milestones: workloadRows.milestones.filter((milestone) => milestone.project_id !== 'project-sa'),
-  milestoneApprovals: [],
   outputDocuments: workloadRows.outputDocuments?.filter((output) => output.project_id === 'project-sa'),
 };
 assert(buildDashboardOverviewFromRows(outputOnlyScenario, headSa, today).saWorkload.find((item) => item.saId === 'sa-1')?.revisionCount === 1, 'Test 16: REVISION_REQUIRED output documents must remain attributed to the project PIC');

@@ -1,5 +1,7 @@
 "use client";
 
+
+import { translate as translateI18n } from "@/i18n";
 import React, { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
 import { AlertCircle, ArrowRight, CheckCircle2, Eye, EyeOff, LockKeyhole } from "lucide-react";
@@ -65,7 +67,7 @@ export default function ResetPasswordPage() {
     <div className="flex min-h-screen items-center justify-center bg-background px-4 py-8">
       <Card className="w-full max-w-md border-border/70 bg-card/80 shadow-2xl shadow-black/30 hover:border-border/70">
         <CardHeader className="space-y-2">
-          <CardTitle className="text-xl">Reset Password</CardTitle>
+          <CardTitle className="text-xl">{translateI18n("copy.resetPassword")}</CardTitle>
           <p className="text-sm text-muted-foreground">
             Create a new password from your recovery link.
           </p>
@@ -75,7 +77,7 @@ export default function ResetPasswordPage() {
             <div className="space-y-4">
               <div className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
                 <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-                <span>Link reset password tidak valid atau sudah kedaluwarsa.</span>
+                <span>{translateI18n("copy.invalidResetLink")}</span>
               </div>
               <Link href="/forgot-password">
                 <Button className="w-full" variant="outline">

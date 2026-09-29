@@ -18,14 +18,6 @@ assert.equal(
   "Reject plan"
 );
 assert.equal(
-  getReviewActionCopy("SUBMISSION", "APPROVE").submitLabel,
-  "Approve submission"
-);
-assert.equal(
-  getReviewActionCopy("SUBMISSION", "REJECT").submitLabel,
-  "Request revision"
-);
-assert.equal(
   getReviewActionCopy("DEADLINE", "APPROVE").submitLabel,
   "Approve deadline"
 );
@@ -34,8 +26,6 @@ assert.equal(
   "Reject request"
 );
 
-assert.equal(getReviewActionCopy("SUBMISSION", "APPROVE").noteRequired, false);
-assert.equal(getReviewActionCopy("SUBMISSION", "REJECT").noteRequired, true);
 assert.equal(getReviewActionCopy("DEADLINE", "APPROVE").pendingLabel, "Approving...");
 assert.equal(
   getReviewActionCopy("DEADLINE", "REJECT").pendingLabel,

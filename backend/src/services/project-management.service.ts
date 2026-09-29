@@ -420,10 +420,11 @@ export class ProjectManagementService {
     const keysToUpdate = selectedDocumentKeys || selected_document_keys;
     if (keysToUpdate) {
       await OutputDocumentService.updateChecklist(id, keysToUpdate, actor);
-      updatePayload.selected_document_keys = keysToUpdate;
     }
 
-    const { data, error } = await supabaseAdmin.from('projects').update(updatePayload).eq('id', id).select(projectSelect).single();
+    const { data, error } = Object.keys(updatePayload).length
+      ? await supabaseAdmin.from('projects').update(updatePayload).eq('id', id).select(projectSelect).single()
+      : await supabaseAdmin.from('projects').select(projectSelect).eq('id', id).single();
     if (error || !data) throw new Error('Project not found');
     await logProject(actor, id, 'UPDATE', `${actor.fullName} updated project '${data.name}'`);
     return mapProject(data);

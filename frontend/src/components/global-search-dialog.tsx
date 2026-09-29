@@ -1,5 +1,7 @@
 "use client";
 
+import { translate as translateI18n } from "@/i18n";
+
 import { KeyboardEvent, useEffect, useMemo, useRef, useState } from "react";
 import { FileText, FolderKanban, Milestone, Search, X } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -105,13 +107,13 @@ export function GlobalSearchDialog({ open, onOpenChange }: GlobalSearchDialogPro
         </div>
         <div className="min-h-0 max-h-[min(56vh,430px)] overflow-y-auto border-t border-border/60 p-2">
           {!isEligible ? (
-            <p className="px-3 py-8 text-center text-sm text-muted-foreground">Type at least 2 characters to search.</p>
+            <p className="px-3 py-8 text-center text-sm text-muted-foreground">{translateI18n("search.minimum")}</p>
           ) : search.isDebouncing || search.isLoading ? (
-            <p className="px-3 py-8 text-center text-sm text-muted-foreground">Searching...</p>
+            <p className="px-3 py-8 text-center text-sm text-muted-foreground">{translateI18n("search.searching")}</p>
           ) : search.isError ? (
-            <p className="px-3 py-8 text-center text-sm text-destructive">Unable to search right now. Please try again.</p>
+            <p className="px-3 py-8 text-center text-sm text-destructive">{translateI18n("search.error")}</p>
           ) : results.length === 0 ? (
-            <p className="px-3 py-8 text-center text-sm text-muted-foreground">No matching records found.</p>
+            <p className="px-3 py-8 text-center text-sm text-muted-foreground">{translateI18n("common.noResults")}</p>
           ) : (
             resultGroups.map((group) => {
               const groupResults = search.data?.[group.key] || [];

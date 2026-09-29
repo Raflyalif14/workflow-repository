@@ -1,5 +1,7 @@
 "use client";
 
+import { translate as translateI18n, getIntlLocale } from "@/i18n";
+
 import React, { useState } from "react";
 import {
   Dialog,
@@ -17,7 +19,6 @@ import {
   XCircle,
   CalendarClock,
   ClipboardCheck,
-  FileCheck2,
   AlertCircle,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -116,10 +117,9 @@ export function ApprovalActionDialog({
           <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-primary/15 bg-primary/10 text-primary">
             {item.category === "DEADLINE" && <CalendarClock className="h-4 w-4 text-amber-400" />}
             {item.category === "PROJECT_PLAN" && <ClipboardCheck className="h-4 w-4" />}
-            {item.category === "SUBMISSION" && <FileCheck2 className="h-4 w-4 text-emerald-400" />}
           </span>
           <div className="min-w-0 space-y-1">
-            <DialogTitle className="text-base font-semibold tracking-tight">Head SA Review & Sign-Off</DialogTitle>
+            <DialogTitle className="text-base font-semibold tracking-tight">{translateI18n("copy.headReview")}</DialogTitle>
             <DialogDescription className="mt-0 text-xs leading-relaxed">
               Review submission for <span className="font-semibold text-foreground">{item.projectName}</span> ({item.clientName}).
             </DialogDescription>
@@ -135,7 +135,7 @@ export function ApprovalActionDialog({
               {getApprovalTypeDisplay(item.category)}
             </Badge>
             <span className="text-muted-foreground">
-              Submitted: {new Date(item.submittedAt).toLocaleString("id-ID", { dateStyle: "medium", timeStyle: "short" })}
+              Submitted: {new Date(item.submittedAt).toLocaleString(getIntlLocale(), { dateStyle: "medium", timeStyle: "short" })}
             </span>
           </div>
 
@@ -151,26 +151,17 @@ export function ApprovalActionDialog({
 
           {item.category === "PROJECT_PLAN" && (
             <div className="space-y-1 rounded-xl border border-border/40 bg-card/70 p-3">
-              <p>Project: <strong className="text-foreground">{item.projectName}</strong></p>
-              {item.requestNote && <p>Plan note: <strong className="text-foreground">&quot;{item.requestNote}&quot;</strong></p>}
-              {item.reviewNote && <p>Review note: <strong className="text-foreground">&quot;{item.reviewNote}&quot;</strong></p>}
+              <p>{translateI18n("copy.projectColon")} <strong className="text-foreground">{item.projectName}</strong></p>
+              {item.requestNote && <p>{translateI18n("copy.planNote")} <strong className="text-foreground">&quot;{item.requestNote}&quot;</strong></p>}
+              {item.reviewNote && <p>{translateI18n("copy.reviewNoteLabel")} <strong className="text-foreground">&quot;{item.reviewNote}&quot;</strong></p>}
             </div>
           )}
 
-          {item.category === "SUBMISSION" && (
-            <div className="space-y-1 rounded-xl border border-border/40 bg-card/70 p-3">
-              <p>Milestone: <strong className="text-foreground">{item.milestoneName}</strong></p>
-              <p>Submitted by: <strong className="text-foreground">{item.submittedBy}</strong></p>
-              <p>Submission note: <strong className="text-foreground">{item.submissionNote ? `"${item.submissionNote}"` : "-"}</strong></p>
-              {item.reviewNote && <p>Review note: <strong className="text-foreground">&quot;{item.reviewNote}&quot;</strong></p>}
-              {item.currentDeadline?.due_date && <p>Effective due: <strong className="text-foreground">{formatDate(item.currentDeadline.due_date)}</strong></p>}
-            </div>
-          )}
 
           <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border/40 pt-3 text-[11px] text-muted-foreground">
-            <span>Requested by: <strong className="text-foreground">{item.submittedBy}</strong></span>
+            <span>{translateI18n("copy.requestedBy")} <strong className="text-foreground">{item.submittedBy}</strong></span>
             {item.deadline && (
-              <span>Target: <strong className="text-foreground">{new Date(item.deadline).toLocaleDateString("id-ID", { dateStyle: "medium" })}</strong></span>
+              <span>{translateI18n("copy.targetLabel")} <strong className="text-foreground">{new Date(item.deadline).toLocaleDateString(getIntlLocale(), { dateStyle: "medium" })}</strong></span>
             )}
           </div>
         </div>
@@ -191,7 +182,7 @@ export function ApprovalActionDialog({
                 }}
               >
                 <CheckCircle2 className="h-4 w-4" />
-                <span>Approve Request</span>
+                <span>{translateI18n("approval.approveRequest")}</span>
               </Button>
               <Button
                 type="button"
@@ -203,7 +194,7 @@ export function ApprovalActionDialog({
                 }}
               >
                 <XCircle className="h-4 w-4" />
-                <span>Reject (Needs Revision)</span>
+                <span>{translateI18n("copy.rejectRevision")}</span>
               </Button>
             </div>
 
@@ -239,7 +230,7 @@ export function ApprovalActionDialog({
                     className="flex h-10 w-full rounded-md border border-input bg-card px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-primary"
                     required
                   >
-                    <option value="">Select Solution Architect</option>
+                    <option value="">{translateI18n("copy.selectSa")}</option>
                     {pics.map((pic) => (
                       <option key={pic.id} value={pic.id}>
                         {pic.full_name} ({formatActorRoleLabel(pic.role)}) - {pic.email}
@@ -293,7 +284,7 @@ export function ApprovalActionDialog({
                 disabled={processMutation.isPending}
                 className="h-9 rounded-lg"
               >
-                Cancel
+                {translateI18n("common.cancel")}
               </Button>
               <Button
                 type="submit"
@@ -312,13 +303,13 @@ export function ApprovalActionDialog({
         ) : (
           <div className="space-y-3">
             <div className="space-y-1 rounded-xl border border-border/40 bg-muted/15 p-3 text-xs">
-              <p>Status: <strong className="text-foreground">{formatReviewStatus(item.status)}</strong></p>
-              <p>Reviewed by: <strong className="text-foreground">{item.reviewer?.full_name || item.reviewer?.fullName || "-"}</strong></p>
-              {item.reviewNote && <p>Review note: <strong className="text-foreground">&quot;{item.reviewNote}&quot;</strong></p>}
+              <p>{translateI18n("copy.statusLabel")} <strong className="text-foreground">{formatReviewStatus(item.status)}</strong></p>
+              <p>{translateI18n("copy.reviewedBy")} <strong className="text-foreground">{item.reviewer?.full_name || item.reviewer?.fullName || "-"}</strong></p>
+              {item.reviewNote && <p>{translateI18n("copy.reviewNoteLabel")} <strong className="text-foreground">&quot;{item.reviewNote}&quot;</strong></p>}
             </div>
             <DialogFooter className="border-t border-border/40 pt-4">
               <Button type="button" variant="outline" className="h-9 rounded-lg" onClick={() => onOpenChange(false)}>
-                Close
+                {translateI18n("common.close")}
               </Button>
             </DialogFooter>
           </div>
@@ -330,7 +321,7 @@ export function ApprovalActionDialog({
 
 function formatDate(value?: string | null) {
   if (!value) return "-";
-  return new Date(value).toLocaleDateString("id-ID", { dateStyle: "medium" });
+  return new Date(value).toLocaleDateString(getIntlLocale(), { dateStyle: "medium" });
 }
 
 function DeadlineBox({

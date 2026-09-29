@@ -1,5 +1,7 @@
 "use client";
 
+import { translate as translateI18n } from "@/i18n";
+
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { CalendarClock } from "lucide-react";
@@ -45,7 +47,7 @@ export function PostponeProjectDialog({
       <DialogHeader>
         <div className="mb-1 flex items-center gap-2 text-amber-500">
           <CalendarClock className="h-5 w-5" />
-          <DialogTitle>Postpone Project</DialogTitle>
+          <DialogTitle>{translateI18n("copy.postponeProject")}</DialogTitle>
         </div>
         <DialogDescription>
           {project?.name}
@@ -65,7 +67,7 @@ export function PostponeProjectDialog({
           {errors.reason && <p className="mt-1 text-xs text-destructive">{errors.reason.message}</p>}
         </div>
         <DialogFooter>
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isSubmitting}>Cancel</Button>
+          <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isSubmitting}>{translateI18n("common.cancel")}</Button>
           <Button type="submit" disabled={isSubmitting} className="bg-amber-500 text-black hover:bg-amber-600">
             {isSubmitting ? "Saving..." : "Confirm Postpone"}
           </Button>

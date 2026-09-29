@@ -1,29 +1,22 @@
 "use client";
 
+import { translate as translateI18n, getIntlLocale } from "@/i18n";
+
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import {
   ArrowRight,
   CheckCircle2,
-  Clock3,
-  FileCheck2,
   FolderKanban,
   Milestone,
-  RotateCcw,
-  ShieldCheck,
 } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
-import { MilestoneSubmissionReviewDialog } from "@/components/milestones/milestone-submission-review-dialog";
-import { MilestoneSubmissionDialog } from "@/components/projects/milestone-submission-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { useApprovals } from "@/hooks/use-approvals";
-import { useStartMilestoneRevision, useSubmissionPackageHistory } from "@/hooks/use-milestone-workflow";
 import { AssignedMilestone, useMyAssignedMilestones } from "@/hooks/use-projects";
+import { useOutputRepository, OutputRepositoryItem } from "@/hooks/use-output-documents";
 import { formatMilestoneStatusLabel } from "@/lib/workflow-ux-helpers";
-import { getAssignedMilestonesNeedingAction, isAssignedProjectActive, isAssignedProjectPaused } from "@/lib/assigned-milestone-ux";
-import { formatMilestoneDate, isInitialSubmissionBeforeEffectiveStart } from "@/lib/dates";
-import { ApprovalItem } from "@/types/approval";
+import { getAssignedMilestonesNeedingAction, isAssignedProjectPaused } from "@/lib/assigned-milestone-ux";
 
 type QueueTab = "ACTION" | "REVIEW" | "PENDING_REVIEW" | "COMPLETED" | "ALL";
 
@@ -54,21 +47,16 @@ function getMilestoneStatusBadge(status: string) {
   switch (status) {
     case "COMPLETED":
     case "APPROVED":
-      return <Badge variant="success">Completed</Badge>;
+      return <Badge variant="success">{translateI18n("projectStatus.COMPLETED")}</Badge>;
     case "IN_PROGRESS":
-      return <Badge variant="default">In progress</Badge>;
+      return <Badge variant="default">{translateI18n("milestoneStatus.IN_PROGRESS")}</Badge>;
     case "SUBMITTED":
-      return <Badge variant="warning">Under review</Badge>;
+      return <Badge variant="warning">{translateI18n("milestoneStatus.SUBMITTED")}</Badge>;
     case "REJECTED":
-      return <Badge variant="destructive">Revision required</Badge>;
+      return <Badge variant="destructive">{translateI18n("milestoneStatus.REVISION_REQUIRED")}</Badge>;
     default:
       return <Badge variant="outline">{formatMilestoneStatusLabel(status)}</Badge>;
   }
-}
-
-function formatDate(value?: string | null) {
-  if (!value) return "Date unavailable";
-  return new Date(value).toLocaleDateString("id-ID", { dateStyle: "medium" });
 }
 
 export default function MilestonesPage() {
@@ -78,39 +66,8 @@ export default function MilestonesPage() {
   const isSaOrHeadSa = userRole === "SA" || userRole === "HEAD_SA";
   const isHeadSa = userRole === "HEAD_SA";
   const { data: milestones = [], isLoading, isError } = useMyAssignedMilestones(isSaOrHeadSa);
-  const {
-    data: pendingSubmissions = [],
-    isLoading: pendingReviewsLoading,
-    isError: pendingReviewsError,
-  } = useApprovals(
-    {
-      type: "SUBMISSION",
-      status: "PENDING",
-    },
-    isHeadSa
-  );
-
-  const reviewableSubmissions = useMemo(() => {
-    if (!isHeadSa) return [];
-
-    const currentByMilestone = new Map<string, ApprovalItem>();
-    pendingSubmissions.forEach((item) => {
-      if (
-        item.category === "SUBMISSION" &&
-        item.status === "PENDING" &&
-        item.isCurrentApproval !== false &&
-        item.milestoneId
-      ) {
-        currentByMilestone.set(item.milestoneId, item);
-      }
-    });
-
-    return [...currentByMilestone.values()].sort(
-      (left, right) =>
-        new Date(left.requestedAt || left.submittedAt).getTime() -
-        new Date(right.requestedAt || right.submittedAt).getTime()
-    );
-  }, [isHeadSa, pendingSubmissions]);
+  const { data: outputFiles = [], isLoading: pendingReviewsLoading, isError: pendingReviewsError } = useOutputRepository(isSaOrHeadSa);
+  const reviewableOutputs = isHeadSa ? outputFiles.filter((item) => item.status === "IN_REVIEW") : [];
 
   const [activeTab, setActiveTab] = useState<QueueTab>("ACTION");
   const needsAction = useMemo(
@@ -118,8 +75,8 @@ export default function MilestonesPage() {
     [milestones]
   );
   const underReview = useMemo(
-    () => milestones.filter((item) => item.status === "SUBMITTED"),
-    [milestones]
+    () => milestones.filter((item) => outputFiles.some((output) => output.milestoneId === item.id && output.status === "IN_REVIEW")),
+    [milestones, outputFiles]
   );
   const completed = useMemo(
     () => milestones.filter((item) => item.status === "COMPLETED" || item.status === "APPROVED"),
@@ -140,7 +97,7 @@ export default function MilestonesPage() {
   const snapshot = isHeadSa
     ? [
         { label: "Assigned actions", value: needsAction.length },
-        { label: "Pending reviews", value: reviewableSubmissions.length },
+        { label: "Pending reviews", value: reviewableOutputs.length },
         { label: "Own work in review", value: underReview.length },
         { label: "Completed assignments", value: completed.length },
       ]
@@ -162,7 +119,7 @@ export default function MilestonesPage() {
         <Link href="/projects" className="self-start sm:self-auto">
           <Button variant="outline" className="gap-2">
             <FolderKanban className="h-4 w-4" />
-            Projects
+            {translateI18n("nav.projects")}
           </Button>
         </Link>
       </header>
@@ -170,12 +127,12 @@ export default function MilestonesPage() {
       {!isSaOrHeadSa ? (
         <section className="rounded-lg border border-border/60 bg-card px-5 py-14 text-center">
           <FolderKanban className="mx-auto h-8 w-8 text-muted-foreground" />
-          <h2 className="mt-3 font-semibold text-foreground">Milestones live inside each project</h2>
+          <h2 className="mt-3 font-semibold text-foreground">{translateI18n("copy.milestoneLocation")}</h2>
           <p className="mx-auto mt-1 max-w-md text-sm text-muted-foreground">
             Use the Projects workspace to open the delivery timeline available to your role.
           </p>
           <Link href="/projects" className="mt-4 inline-block">
-            <Button size="sm">Open projects</Button>
+            <Button size="sm">{translateI18n("copy.openProjects")}</Button>
           </Link>
         </section>
       ) : (
@@ -212,7 +169,7 @@ export default function MilestonesPage() {
                   <QueueTabButton
                     active={activeTab === "PENDING_REVIEW"}
                     label="Pending review"
-                    count={reviewableSubmissions.length}
+                    count={reviewableOutputs.length}
                     onClick={() => setActiveTab("PENDING_REVIEW")}
                   />
                 )}
@@ -239,7 +196,7 @@ export default function MilestonesPage() {
 
             {activeTab === "PENDING_REVIEW" && isHeadSa ? (
               <HeadSaReviewQueue
-                reviewableSubmissions={reviewableSubmissions}
+                reviewableOutputs={reviewableOutputs}
                 isLoading={pendingReviewsLoading}
                 isError={pendingReviewsError}
               />
@@ -312,7 +269,7 @@ function ErrorState({ message }: { message: string }) {
   return (
     <div className="px-5 py-14 text-center">
       <p className="font-medium text-destructive">{message}</p>
-      <p className="mt-1 text-xs text-muted-foreground">Refresh the page and try again.</p>
+      <p className="mt-1 text-xs text-muted-foreground">{translateI18n("copy.refreshTryAgain")}</p>
     </div>
   );
 }
@@ -330,233 +287,26 @@ function EmptyState({ actionQueue, message }: { actionQueue: boolean; message: s
   );
 }
 
-function HeadSaReviewQueue({
-  reviewableSubmissions,
-  isLoading,
-  isError,
-}: {
-  reviewableSubmissions: ApprovalItem[];
-  isLoading: boolean;
-  isError: boolean;
+function HeadSaReviewQueue({ reviewableOutputs, isLoading, isError }: {
+  reviewableOutputs: OutputRepositoryItem[]; isLoading: boolean; isError: boolean;
 }) {
   if (isLoading) return <LoadingRows />;
-  if (isError) return <ErrorState message="Unable to load pending milestone submissions." />;
-  if (reviewableSubmissions.length === 0) {
-    return <EmptyState actionQueue message="No submissions are waiting for review." />;
-  }
-
-  return (
-    <div>
-      {reviewableSubmissions.map((item) => (
-        <ReviewableSubmissionRow key={item.id} item={item} />
-      ))}
+  if (isError) return <ErrorState message="Unable to load outputs awaiting review." />;
+  if (!reviewableOutputs.length) return <EmptyState actionQueue message="No outputs are waiting for review." />;
+  return <div>{reviewableOutputs.map((item) =>
+    <div key={`${item.projectId}:${item.documentKey}`} className="flex items-center justify-between gap-3 border-t border-border/60 px-4 py-4 first:border-t-0 sm:px-5">
+      <div><p className="font-medium">{item.name}</p><p className="text-xs text-muted-foreground">{item.projectName}</p></div>
+      <Link href={`/projects/${item.projectId}#milestone-outputs-${item.milestoneId}`}><Button size="sm" variant="outline">Review output <ArrowRight className="ml-1 h-3.5 w-3.5" /></Button></Link>
     </div>
-  );
+  )}</div>;
 }
 
-function ReviewableSubmissionRow({ item }: { item: ApprovalItem }) {
-  const [reviewOpen, setReviewOpen] = useState(false);
-
-  return (
-    <>
-      <div className="flex flex-col gap-4 border-t border-border/60 px-4 py-4 first:border-t-0 sm:px-5 lg:flex-row lg:items-center lg:justify-between">
-        <div className="flex min-w-0 gap-3">
-          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-border bg-muted text-xs font-semibold text-foreground">
-            {item.stepOrder != null ? String(item.stepOrder).padStart(2, "0") : "--"}
-          </span>
-          <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-2">
-              <p className="font-semibold text-foreground">
-                {item.milestoneName || "Milestone submission"}
-              </p>
-              <Badge variant="warning">Pending review</Badge>
-            </div>
-            <p className="mt-1 text-xs text-muted-foreground">
-              {item.projectName || "Project"} | {item.clientName || "Customer unavailable"}
-            </p>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Submitted by {item.submittedBy || "Unknown submitter"} |{" "}
-              {formatDate(item.requestedAt || item.submittedAt)}
-            </p>
-          </div>
-        </div>
-
-        <div className="flex shrink-0 flex-wrap gap-2 sm:pl-11 lg:pl-0">
-          <Button
-            size="sm"
-            variant="outline"
-            className="gap-1.5"
-            onClick={() => setReviewOpen(true)}
-          >
-            <ShieldCheck className="h-3.5 w-3.5" />
-            Review submission
-          </Button>
-          {item.projectId && (
-            <Link href={`/projects/${item.projectId}#project-milestone-${item.milestoneId || ""}`}>
-              <Button size="sm" variant="ghost" className="gap-1.5">
-                Open project
-                <ArrowRight className="h-3.5 w-3.5" />
-              </Button>
-            </Link>
-          )}
-        </div>
-      </div>
-
-      {item.milestoneId && (
-        <MilestoneSubmissionReviewDialog
-          open={reviewOpen}
-          onOpenChange={setReviewOpen}
-          milestoneId={item.milestoneId}
-          milestoneName={item.milestoneName || "Milestone"}
-          projectId={item.projectId}
-          projectName={item.projectName}
-          approvalId={item.id}
-          submissionNote={item.submissionNote}
-          submittedBy={item.submittedBy}
-          submittedAt={item.submittedAt}
-          dueDate={item.deadline}
-          stepOrder={item.stepOrder}
-          status={item.status}
-        />
-      )}
-    </>
-  );
-}
-
-function AssignedMilestoneRow({
-  milestone,
-  isHeadSa,
-}: {
-  milestone: AssignedMilestone;
-  isHeadSa?: boolean;
-}) {
-  const { user } = useAuth();
-  const [submitOpen, setSubmitOpen] = useState(false);
-  const [reviewOpen, setReviewOpen] = useState(false);
-  const [message, setMessage] = useState("");
-  const [error, setError] = useState("");
+function AssignedMilestoneRow({ milestone }: { milestone: AssignedMilestone; isHeadSa?: boolean }) {
   const projectId = milestone.project?.id || milestone.project_id;
-  const isAssignedPic =
-    (user?.role === "SA" || user?.role === "HEAD_SA") && milestone.pic_id === user?.id;
-  const projectIsActive = isAssignedProjectActive(milestone);
-  const projectIsPaused = isAssignedProjectPaused(milestone);
-  const submissionHistory = useSubmissionPackageHistory(
-    milestone.id,
-    isAssignedPic && milestone.status === "IN_PROGRESS"
-  );
-  const isActiveRevision =
-    milestone.status === "IN_PROGRESS" && submissionHistory.data?.items[0]?.status === "REJECTED";
-  const isBeforeStartDate = isInitialSubmissionBeforeEffectiveStart(
-    milestone.start_date,
-    isActiveRevision
-  );
-  const startRevision = useStartMilestoneRevision(projectId, milestone.id);
-
-  const handleStartRevision = async () => {
-    setMessage("");
-    setError("");
-    try {
-      await startRevision.mutateAsync();
-      setMessage("Revision started. You can update the work and resubmit.");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to start revision.");
-    }
-  };
-
-  return (
-    <>
-      <div className="flex flex-col gap-4 border-t border-border/60 px-4 py-4 first:border-t-0 sm:px-5 lg:flex-row lg:items-center lg:justify-between">
-        <div className="flex min-w-0 gap-3">
-          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-border bg-muted text-xs font-semibold text-foreground">
-            {String(milestone.step_order).padStart(2, "0")}
-          </span>
-          <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-2">
-              <p className="font-semibold text-foreground">{milestone.name}</p>
-              {getMilestoneStatusBadge(milestone.status)}
-              {projectIsPaused && <Badge variant="outline">Project paused</Badge>}
-            </div>
-            <p className="mt-1 text-xs text-muted-foreground">
-              {milestone.project?.name || "Project"} | {milestone.project?.customer || "Customer unavailable"}
-            </p>
-            {milestone.status === "SUBMITTED" && !isHeadSa && (
-              <p className="mt-1 inline-flex items-center gap-1 text-xs text-amber-400">
-                <Clock3 className="h-3.5 w-3.5" />
-                Waiting for Head SA review
-              </p>
-            )}
-            {message && <p className="mt-1 text-xs text-emerald-400">{message}</p>}
-            {error && <p className="mt-1 text-xs text-destructive">{error}</p>}
-          </div>
-        </div>
-
-        <div className="flex shrink-0 flex-wrap gap-2 sm:pl-11 lg:pl-0">
-          {projectIsActive && isAssignedPic && milestone.status === "IN_PROGRESS" && (
-            isBeforeStartDate ? (
-              <Badge variant="outline" className="gap-1.5 py-1 text-xs text-muted-foreground font-normal border-border/70">
-                <Clock3 className="h-3.5 w-3.5 text-muted-foreground" />
-                Upcoming — Starts {formatMilestoneDate(milestone.start_date)}
-              </Badge>
-            ) : (
-              <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setSubmitOpen(true)}>
-                <FileCheck2 className="h-3.5 w-3.5" />
-                Submit work
-              </Button>
-            )
-          )}
-          {projectIsActive && isHeadSa && milestone.status === "SUBMITTED" && (
-            <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setReviewOpen(true)}>
-              <ShieldCheck className="h-3.5 w-3.5" />
-              Review submission
-            </Button>
-          )}
-          {projectIsActive && isAssignedPic && milestone.status === "REJECTED" && (
-            <Button
-              size="sm"
-              variant="outline"
-              className="gap-1.5 text-destructive"
-              onClick={() => void handleStartRevision()}
-              disabled={startRevision.isPending}
-            >
-              <RotateCcw className="h-3.5 w-3.5" />
-              {startRevision.isPending ? "Starting..." : "Start revision"}
-            </Button>
-          )}
-          {projectId && (
-            <Link href={`/projects/${projectId}#project-milestone-${milestone.id}`}>
-              <Button size="sm" variant="ghost" className="gap-1.5">
-                Open project
-                <ArrowRight className="h-3.5 w-3.5" />
-              </Button>
-            </Link>
-          )}
-        </div>
-      </div>
-
-      <MilestoneSubmissionDialog
-        open={submitOpen}
-        onOpenChange={setSubmitOpen}
-        projectId={projectId}
-        projectName={milestone.project?.name}
-        milestoneId={milestone.id}
-        milestoneName={milestone.name}
-        milestoneStatus={milestone.status}
-        stepOrder={milestone.step_order}
-        startDate={milestone.start_date}
-        onSuccess={() => setMessage("Milestone submitted successfully for Head SA review.")}
-      />
-      <MilestoneSubmissionReviewDialog
-        open={reviewOpen}
-        onOpenChange={setReviewOpen}
-        milestoneId={milestone.id}
-        milestoneName={milestone.name}
-        projectId={projectId}
-        projectName={milestone.project?.name}
-        approvalId={undefined}
-        submissionNote={undefined}
-        stepOrder={milestone.step_order}
-        status={milestone.status}
-      />
-    </>
-  );
+  return <div className="flex items-center justify-between gap-3 border-t border-border/60 px-4 py-4 first:border-t-0 sm:px-5">
+    <div className="min-w-0"><div className="flex items-center gap-2"><p className="font-medium">{milestone.name}</p>{getMilestoneStatusBadge(milestone.status)}</div>
+      <p className="text-xs text-muted-foreground">{milestone.project?.name || "Project"}{isAssignedProjectPaused(milestone) ? " ? Paused" : ""}</p>
+    </div>
+    {projectId && <Link href={`/projects/${projectId}#project-milestone-${milestone.id}`}><Button size="sm" variant="outline">Open milestone <ArrowRight className="ml-1 h-3.5 w-3.5" /></Button></Link>}
+  </div>;
 }

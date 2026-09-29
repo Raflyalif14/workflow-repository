@@ -6,7 +6,7 @@ import {
   DocumentStorageService,
   isAllowedDocumentFileName,
   MAX_DOCUMENT_FILE_SIZE_BYTES,
-  MAX_MILESTONE_SUBMISSION_FILES,
+  MAX_MILESTONE_FILES,
 } from '../utils/storage.util';
 import { OfficialDocumentPromotionService } from './official-document-promotion.service';
 import { logWorkflowActivityBestEffort } from './workflow-progression.service';
@@ -188,9 +188,9 @@ export class MilestoneContributionService {
   }
 
   private static assertFilesValid(files: Express.Multer.File[]): void {
-    if (files.length > MAX_MILESTONE_SUBMISSION_FILES) {
+    if (files.length > MAX_MILESTONE_FILES) {
       throw new MilestoneContributionError(
-        `A maximum of ${MAX_MILESTONE_SUBMISSION_FILES} files may be added at once.`,
+        `A maximum of ${MAX_MILESTONE_FILES} files may be added at once.`,
         400
       );
     }

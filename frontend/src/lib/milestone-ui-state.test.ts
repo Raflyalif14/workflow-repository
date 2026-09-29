@@ -2,13 +2,10 @@ import {
   getDeadlineHealthPresentation,
   getDeadlinePrerequisiteStatus,
   getEffectiveDeadline,
-  getLatestSubmissionApproval,
   getMilestoneDisplayStatus,
-  canReadSubmissionPackageHistory,
 } from "./milestone-ui-state";
 import {
   MilestoneDeadlineApproval,
-  MilestoneSubmissionApproval,
   ProjectMilestonePhase4,
 } from "@/types/project";
 
@@ -60,25 +57,6 @@ const rejectedDeadlineChange: MilestoneDeadlineApproval = {
   },
 };
 
-const approvedSubmission: MilestoneSubmissionApproval = {
-  id: "submission-approval-1",
-  status: "APPROVED",
-  submission_note: "Assessment Report sudah direvisi sesuai feedback",
-  submitted_by: null,
-  submitted_at: "2026-08-28T08:40:00.000+00:00",
-  review_note: null,
-  reviewed_by: null,
-  reviewed_at: "2026-08-28T08:42:32.818+00:00",
-};
-
-const rejectedSubmission: MilestoneSubmissionApproval = {
-  ...approvedSubmission,
-  id: "submission-approval-0",
-  status: "REJECTED",
-  submitted_at: "2026-08-27T08:40:00.000+00:00",
-  review_note: "Please revise",
-};
-
 const effectiveDeadline = getEffectiveDeadline(completedMilestone);
 
 if (getMilestoneDisplayStatus(completedMilestone) !== "COMPLETED") {
@@ -95,45 +73,6 @@ if (
 
 if (getDeadlinePrerequisiteStatus(completedMilestone, rejectedDeadlineChange, [rejectedDeadlineChange, approvedDeadline]) !== "APPROVED") {
   throw new Error("Rejected deadline change must not invalidate older approved effective deadline");
-}
-
-if (getLatestSubmissionApproval([approvedSubmission, rejectedSubmission])?.status !== "APPROVED") {
-  throw new Error("Latest submission approval must be history[0]");
-}
-
-if (getMilestoneDisplayStatus({ ...completedMilestone, status: "REJECTED" }) !== "REJECTED") {
-  throw new Error("Rejected milestone badge must use milestone.status");
-}
-
-if (getMilestoneDisplayStatus({ ...completedMilestone, status: "SUBMITTED" }) !== "SUBMITTED") {
-  throw new Error("Submitted milestone badge must use milestone.status");
-}
-
-const assignedSa = { id: "sa-1", role: "SA" };
-if (!canReadSubmissionPackageHistory(assignedSa, completedMilestone)) {
-  throw new Error("Assigned SA must read submission package history");
-}
-const revisedMilestone = { ...completedMilestone, status: "IN_PROGRESS" };
-if (!canReadSubmissionPackageHistory(assignedSa, revisedMilestone)) {
-  throw new Error("Submission package history access must survive Start Revision");
-}
-if (!canReadSubmissionPackageHistory({ id: "head-sa", role: "HEAD_SA" }, completedMilestone)) {
-  throw new Error("HEAD_SA must read submission package history");
-}
-if (!canReadSubmissionPackageHistory({ id: "admin", role: "SUPER_ADMIN" }, completedMilestone)) {
-  throw new Error("SUPER_ADMIN must read submission package history");
-}
-if (canReadSubmissionPackageHistory({ id: "sales-1", role: "SALES" }, completedMilestone)) {
-  throw new Error("SALES must not read submission package history without project ownership");
-}
-if (!canReadSubmissionPackageHistory({ id: "sales-1", role: "SALES" }, completedMilestone, "sales-1")) {
-  throw new Error("Project owner SALES must read submission package history");
-}
-if (canReadSubmissionPackageHistory({ id: "sales-2", role: "SALES" }, completedMilestone, "sales-1")) {
-  throw new Error("Non-owner SALES must not read submission package history");
-}
-if (canReadSubmissionPackageHistory({ id: "sa-other", role: "SA" }, completedMilestone)) {
-  throw new Error("Unassigned SA must not read submission package history");
 }
 
 const overdueTwoDays = getDeadlineHealthPresentation("OVERDUE", -2);

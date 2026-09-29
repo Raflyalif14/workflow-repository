@@ -1,5 +1,7 @@
 "use client";
 
+import { translate as translateI18n } from "@/i18n";
+
 import React, { FormEvent, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, CheckCircle2, Mail } from "lucide-react";
@@ -38,7 +40,7 @@ export default function ForgotPasswordPage() {
     <div className="flex min-h-screen items-center justify-center bg-background px-4 py-8">
       <Card className="w-full max-w-md border-border/70 bg-card/80 shadow-2xl shadow-black/30 hover:border-border/70">
         <CardHeader className="space-y-2">
-          <CardTitle className="text-xl">Forgot Password</CardTitle>
+          <CardTitle className="text-xl">{translateI18n("copy.forgotPassword")}</CardTitle>
           <p className="text-sm text-muted-foreground">
             Enter your email to receive reset instructions.
           </p>
@@ -47,7 +49,7 @@ export default function ForgotPasswordPage() {
           <form className="space-y-4" onSubmit={handleSubmit}>
             <div className="space-y-2">
               <label htmlFor="email" className="text-xs font-medium text-muted-foreground">
-                Email
+                {translateI18n("auth.email")}
               </label>
               <div className="relative">
                 <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />

@@ -12,6 +12,7 @@ export type GlobalSearchResult = {
   type: 'PROJECT' | 'DOCUMENT' | 'MILESTONE' | 'OUTPUT_DOCUMENT';
   id: string;
   projectId: string;
+  milestoneId?: string;
   title: string;
   subtitle: string;
   status?: string;
@@ -122,6 +123,7 @@ export class GlobalSearchService {
           type: 'OUTPUT_DOCUMENT',
           id: `${output.projectId}:${output.documentKey}`,
           projectId: output.projectId,
+          milestoneId: output.milestoneId,
           title: output.name,
           subtitle: `${output.projectName} | ${output.group === 'PRA_TENDER' ? 'Pra-Tender' : 'On Submission Tender'}`,
           status: output.status,

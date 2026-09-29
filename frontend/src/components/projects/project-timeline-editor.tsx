@@ -1,5 +1,7 @@
 "use client";
 
+import { translate as translateI18n, getIntlLocale } from "@/i18n";
+
 import { useEffect, useMemo, useState } from "react";
 import { AlertCircle, CalendarDays, CheckCircle2, Save } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -131,10 +133,10 @@ export function ProjectTimelineEditor({
     return (
       <Card className="border-destructive/40 bg-destructive/5 shadow-sm">
         <CardHeader className="pb-3">
-          <CardTitle className="text-base font-semibold tracking-tight">Project Timeline Setup</CardTitle>
+          <CardTitle className="text-base font-semibold tracking-tight">{translateI18n("copy.timelineSetup")}</CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-xs text-destructive">Unable to determine the project workflow model. Timeline edits are unavailable.</p>
+          <p className="text-xs text-destructive">{translateI18n("copy.workflowUnknown")}</p>
         </CardContent>
       </Card>
     );
@@ -150,7 +152,7 @@ export function ProjectTimelineEditor({
             <CalendarDays className="h-4 w-4" />
           </span>
           <div className="min-w-0 space-y-2">
-            <CardTitle className="text-base font-semibold tracking-tight">Project Timeline Setup</CardTitle>
+            <CardTitle className="text-base font-semibold tracking-tight">{translateI18n("copy.timelineSetup")}</CardTitle>
             <div className="rounded-lg border border-border/50 bg-muted/15 px-3 py-2">
               <CardDescription className="text-xs leading-relaxed">
                 Specify start dates and durations in working days for all executable milestones
@@ -174,12 +176,12 @@ export function ProjectTimelineEditor({
         <div className="max-w-full overflow-x-auto">
           <div className="min-w-0 space-y-2 text-sm xl:min-w-[652px]">
             <div className="hidden grid-cols-[44px_minmax(140px,1.6fr)_70px_minmax(116px,1fr)_92px_minmax(126px,1fr)] gap-2 border-b border-border/60 px-3 pb-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground xl:grid">
-              <span>Step</span>
-              <span>Milestone</span>
-              <span>Role</span>
-              <span>Start Date</span>
-              <span>Duration</span>
-              <span>Calculated Due Date</span>
+              <span>{translateI18n("copy.step")}</span>
+              <span>{translateI18n("nav.milestones")}</span>
+              <span>{translateI18n("copy.role")}</span>
+              <span>{translateI18n("copy.startDate")}</span>
+              <span>{translateI18n("copy.duration")}</span>
+              <span>{translateI18n("copy.calculatedDue")}</span>
             </div>
             {rows.map((row) => {
               const isRowIncomplete =
@@ -200,7 +202,7 @@ export function ProjectTimelineEditor({
                   }`}
                 >
                   <span className="flex items-center gap-2 font-mono text-xs text-muted-foreground">
-                    <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground xl:hidden">Step</span>
+                    <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground xl:hidden">{translateI18n("copy.step")}</span>
                     {String(row.stepOrder).padStart(2, "0")}
                   </span>
                   <div className="min-w-0">
@@ -210,16 +212,16 @@ export function ProjectTimelineEditor({
                     {isRowIncomplete && canEdit && (
                       <p className="mt-1 flex items-center gap-1 text-[10px] font-medium text-destructive">
                         <AlertCircle className="h-3 w-3 shrink-0" />
-                        <span>Missing start date or duration</span>
+                        <span>{translateI18n("copy.missingTimeline")}</span>
                       </p>
                     )}
                   </div>
                   <div className="flex items-center justify-between gap-2 xl:block">
-                    <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground xl:hidden">Role</span>
+                    <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground xl:hidden">{translateI18n("copy.role")}</span>
                     <span className="inline-flex rounded-md bg-muted/50 px-2 py-1 font-mono text-xs text-foreground">{row.role}</span>
                   </div>
                   <div className="space-y-1">
-                    <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground xl:hidden">Start Date</span>
+                    <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground xl:hidden">{translateI18n("copy.startDate")}</span>
                     {canEdit ? (
                       <Input
                         type="date"
@@ -232,7 +234,7 @@ export function ProjectTimelineEditor({
                     )}
                   </div>
                   <div className="space-y-1">
-                    <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground xl:hidden">Duration</span>
+                    <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground xl:hidden">{translateI18n("copy.duration")}</span>
                     {canEdit ? (
                       <Input
                         type="number"
@@ -248,7 +250,7 @@ export function ProjectTimelineEditor({
                     )}
                   </div>
                   <div className="space-y-1">
-                    <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground xl:hidden">Calculated Due Date</span>
+                    <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground xl:hidden">{translateI18n("copy.calculatedDue")}</span>
                     <span
                       className={`flex h-9 items-center rounded-lg border border-border/40 bg-muted/20 px-3 font-mono text-xs ${
                         changed ? "italic text-amber-400" : "font-semibold text-foreground"
@@ -282,5 +284,5 @@ export function ProjectTimelineEditor({
 
 function formatDate(value?: string | null) {
   if (!value) return "-";
-  return new Date(value).toLocaleDateString("id-ID", { dateStyle: "medium" });
+  return new Date(value).toLocaleDateString(getIntlLocale(), { dateStyle: "medium" });
 }

@@ -14,6 +14,7 @@ import {
   isBatchSubmissionOperation,
   getSubmittableOutputDocuments,
 } from "./output-document-ux";
+import { DEFAULT_LANGUAGE, setActiveLanguage } from "../i18n";
 
 type TestOutputDocument = {
   key: string;
@@ -25,6 +26,10 @@ type TestOutputDocument = {
 const assert: (condition: unknown, message: string) => asserts condition = (condition, message) => {
   if (!condition) throw new Error(message);
 };
+
+assert(DEFAULT_LANGUAGE === "en", "English must remain the default language.");
+assert(getOutputDocumentsHeaderDescription("SA") === "Upload project outputs and submit drafts for Head SA review.", "Default output copy must be English.");
+setActiveLanguage("id");
 
 const documents: TestOutputDocument[] = [
   { key: "required", isRequired: true, isSelected: false, status: "TO_DO" },

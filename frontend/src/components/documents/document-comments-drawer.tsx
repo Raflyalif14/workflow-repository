@@ -1,5 +1,7 @@
 "use client";
 
+import { translate as translateI18n } from "@/i18n";
+
 import Link from "next/link";
 import { type FormEvent, useEffect, useState } from "react";
 import {
@@ -145,7 +147,7 @@ export function DocumentCommentsDrawer({
         <DialogHeader className="mb-0 border-b border-border/60 pb-4">
           <div className="space-y-3 pr-6">
             <div className="flex flex-wrap items-center gap-2">
-              <Badge variant="outline">Official document</Badge>
+              <Badge variant="outline">{translateI18n("ui.officialDocument")}</Badge>
               <Badge variant="secondary">
                 {getDocumentContextLabel(
                   "OFFICIAL_DOCUMENT",
@@ -245,7 +247,7 @@ export function DocumentCommentsDrawer({
               id="latest-document-version"
               className="text-sm font-semibold text-foreground"
             >
-              Latest version
+              {translateI18n("ui.latestVersion")}
             </h3>
             {latestVersion && (
               <>
@@ -253,7 +255,7 @@ export function DocumentCommentsDrawer({
                   {getVersionLabel(latestVersion.versionNumber)}
                 </Badge>
                 {getLatestVersionLabel(latestVersion.isLatest) && (
-                  <Badge variant="success">Latest</Badge>
+                  <Badge variant="success">{translateI18n("copy.latest")}</Badge>
                 )}
               </>
             )}
@@ -299,7 +301,7 @@ export function DocumentCommentsDrawer({
                 disabled={downloadMutation.isPending}
               >
                 <Download className="h-3.5 w-3.5" />
-                Download
+                {translateI18n("common.download")}
               </Button>
             </div>
           ) : (
@@ -315,7 +317,7 @@ export function DocumentCommentsDrawer({
               id="document-version-history"
               className="text-sm font-semibold text-foreground"
             >
-              Version history
+              {translateI18n("copy.versionHistory")}
             </h3>
             <span className="text-xs text-muted-foreground">
               {currentDocument._count?.versions ?? versions.length} total
@@ -357,7 +359,7 @@ export function DocumentCommentsDrawer({
                         </span>
                         {getLatestVersionLabel(version.isLatest) && (
                           <Badge variant="success" className="text-[10px]">
-                            Latest
+                            {translateI18n("copy.latest")}
                           </Badge>
                         )}
                         <span className="truncate text-muted-foreground">
@@ -509,7 +511,7 @@ export function DocumentCommentsDrawer({
             variant="outline"
             onClick={() => handleOpenChange(false)}
           >
-            Close
+            {translateI18n("common.close")}
           </Button>
         </DialogFooter>
       </div>

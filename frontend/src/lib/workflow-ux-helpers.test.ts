@@ -348,7 +348,7 @@ if (resolveNextActionTargetId(saActionAssigned) !== "project-milestone-m-3") {
   throw new Error("SUBMIT_WORK should target the current milestone");
 }
 
-for (const actionType of ["MARK_COMPLETE", "START_REVISION", "REVIEW_SUBMISSION", "REVIEW_DEADLINE"] as const) {
+for (const actionType of ["MARK_COMPLETE", "REVIEW_DEADLINE"] as const) {
   const action = { ...saActionAssigned, actionType };
   if (resolveNextActionTargetId(action) !== "project-milestone-m-3") {
     throw new Error(`${actionType} should target the current milestone`);
@@ -395,26 +395,6 @@ const headSaOtherSubmit = resolveNextAction(activeProject, saMilestones, null, {
 });
 if (headSaOtherSubmit.actionType === "SUBMIT_WORK" || headSaOtherSubmit.canPerformAction) {
   throw new Error("Unassigned HEAD_SA must not receive SA-stage worker actions");
-}
-
-const headSaAssignedRevision = resolveNextAction(
-  activeProject,
-  [milestone1, { ...milestone2, status: "COMPLETED" }, { ...headSaPicMilestone, status: "REJECTED" }],
-  null,
-  { id: "head-1", role: "HEAD_SA" }
-);
-if (headSaAssignedRevision.actionType !== "START_REVISION" || !headSaAssignedRevision.canPerformAction) {
-  throw new Error("Assigned HEAD_SA PIC should have START_REVISION action on an SA stage");
-}
-
-const headSaSelfReview = resolveNextAction(
-  activeProject,
-  [milestone1, { ...milestone2, status: "COMPLETED" }, { ...headSaPicMilestone, status: "SUBMITTED" }],
-  null,
-  { id: "head-1", role: "HEAD_SA" }
-);
-if (headSaSelfReview.actionType !== "REVIEW_SUBMISSION" || !headSaSelfReview.canPerformAction) {
-  throw new Error("HEAD_SA should retain REVIEW_SUBMISSION after self-submission");
 }
 
 const postponedProject: Project = { ...baseProject, status: "POSTPONED", is_postponed: true };

@@ -54,8 +54,8 @@ export interface RecentActivity {
 }
 
 export interface DashboardOutputDocuments {
-  reviewQueue: Array<{ projectId: string; projectName: string; count: number }>;
-  revisionQueue: Array<{ projectId: string; projectName: string; count: number }>;
+  reviewQueue: Array<{ projectId: string; milestoneId: string; projectName: string; count: number }>;
+  revisionQueue: Array<{ projectId: string; milestoneId: string; projectName: string; count: number }>;
   salesProgress: Array<{ projectId: string; approvedCount: number; selectedCount: number }>;
 }
 

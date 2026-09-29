@@ -202,7 +202,14 @@ async function run() {
     recipientName: activeUser.full_name,
     resetUrl,
   });
-  assert(String(email.text).includes('reset password'), 'Security Test: reset email body should describe reset');
+  assert(/reset.*password/i.test(String(email.text)), 'Security Test: reset email body should describe reset');
+  const idEmail = buildPasswordResetEmail({
+    recipientEmail: activeUser.email,
+    recipientName: activeUser.full_name,
+    resetUrl,
+    language: 'id',
+  });
+  assert(String(idEmail.text).includes('Kami menerima permintaan'), 'Security Test: Indonesian preference should localize reset email');
   assert(forgotActive.message === forgotMissing.message && forgotMissing.message === forgotExternal.message, 'Security Test: forgot anti-enumeration responses should match');
   assert(!responseJson.includes(tokenHash) && !responseJson.includes(strongPassword), 'Security Test: reset response should not leak token or password');
   console.log('Security Test - No password/token in responses; forgot responses are equivalent');

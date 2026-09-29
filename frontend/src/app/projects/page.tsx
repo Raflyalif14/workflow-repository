@@ -1,5 +1,7 @@
 "use client";
 
+import { translate as translateI18n } from "@/i18n";
+
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { ArrowRight, FolderKanban, Plus, Search, X } from "lucide-react";
@@ -48,21 +50,21 @@ const rolePageCopy: Record<string, { eyebrow: string; title: string; description
 function getStatusBadge(projectStatus: ProjectStatus) {
   switch (projectStatus) {
     case "ACTIVE":
-      return <Badge variant="default">Active</Badge>;
+      return <Badge variant="default">{translateI18n("common.active")}</Badge>;
     case "DRAFT":
-      return <Badge variant="outline">Planning</Badge>;
+      return <Badge variant="outline">{translateI18n("projectStatus.DRAFT")}</Badge>;
     case "POSTPONED":
-      return <Badge variant="warning">Postponed</Badge>;
+      return <Badge variant="warning">{translateI18n("projectStatus.POSTPONED")}</Badge>;
     case "COMPLETED":
-      return <Badge variant="success">Completed</Badge>;
+      return <Badge variant="success">{translateI18n("projectStatus.COMPLETED")}</Badge>;
     case "WAITING_RESULT":
-      return <Badge variant="warning">Waiting Result</Badge>;
+      return <Badge variant="warning">{translateI18n("copy.waitingResult")}</Badge>;
     case "WON":
-      return <Badge variant="success">Won</Badge>;
+      return <Badge variant="success">{translateI18n("projectStatus.WON")}</Badge>;
     case "LOST":
-      return <Badge variant="destructive">Lost</Badge>;
+      return <Badge variant="destructive">{translateI18n("projectStatus.LOST")}</Badge>;
     case "CANCELLED":
-      return <Badge variant="destructive">Cancelled</Badge>;
+      return <Badge variant="destructive">{translateI18n("projectStatus.CANCELLED")}</Badge>;
     default:
       return <Badge variant="outline">{formatProjectStatusLabel(projectStatus)}</Badge>;
   }
@@ -181,7 +183,7 @@ function ProjectRow({ project, role }: { project: Project; role: string }) {
       </div>
 
       <div className="flex min-w-0 items-center justify-between gap-3 lg:block">
-        <span className="text-[11px] font-medium text-muted-foreground lg:hidden">State</span>
+        <span className="text-[11px] font-medium text-muted-foreground lg:hidden">{translateI18n("copy.state")}</span>
         <div className="min-w-0 text-right lg:text-left">
           {getStatusBadge(project.status)}
           <p className="mt-1 truncate text-xs text-muted-foreground">
@@ -222,7 +224,7 @@ function ProjectRow({ project, role }: { project: Project; role: string }) {
       </div>
 
       <div className="flex min-w-0 items-center justify-between gap-3 lg:block">
-        <span className="text-[11px] font-medium text-muted-foreground lg:hidden">Responsible</span>
+        <span className="text-[11px] font-medium text-muted-foreground lg:hidden">{translateI18n("copy.responsible")}</span>
         <div className="min-w-0 text-right lg:text-left">
           <p className="truncate text-sm font-medium text-foreground">{responsible.name}</p>
           <p className="truncate text-xs text-muted-foreground">{responsible.role}</p>
@@ -231,7 +233,7 @@ function ProjectRow({ project, role }: { project: Project; role: string }) {
 
       <Link href={`/projects/${project.id}`} className="justify-self-stretch lg:justify-self-end">
         <Button variant="ghost" size="sm" className="w-full gap-1.5 lg:w-auto">
-          Open
+          {translateI18n("common.open")}
           <ArrowRight className="h-3.5 w-3.5" />
         </Button>
       </Link>
@@ -302,7 +304,7 @@ export default function ProjectsPage() {
           <Link href="/projects/new" className="self-start sm:self-auto">
             <Button className="gap-2">
               <Plus className="h-4 w-4" />
-              Create project
+              {translateI18n("project.create")}
             </Button>
           </Link>
         )}
@@ -331,7 +333,7 @@ export default function ProjectsPage() {
         <div className="space-y-4 border-b border-border/60 p-4 sm:p-5">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div>
-              <h2 className="text-base font-semibold text-foreground">Projects</h2>
+              <h2 className="text-base font-semibold text-foreground">{translateI18n("nav.projects")}</h2>
               <p className="text-xs text-muted-foreground">
                 {pagination?.total || 0} projects match the current view
               </p>
@@ -377,7 +379,7 @@ export default function ProjectsPage() {
                 setPage(1);
               }}
             >
-              <option value="">All scenarios</option>
+              <option value="">{translateI18n("copy.allScenarios")}</option>
               {scenarios.map((scenario) => (
                 <option key={scenario.id} value={scenario.id}>
                   {scenario.name}
@@ -399,11 +401,11 @@ export default function ProjectsPage() {
 
         {!isLoading && !isError && projects.length > 0 && (
           <div className="hidden grid-cols-[minmax(220px,2fr)_minmax(130px,1fr)_minmax(150px,1.1fr)_minmax(150px,1fr)_auto] gap-4 border-b border-border/60 px-5 py-2.5 text-[11px] font-semibold uppercase text-muted-foreground lg:grid">
-            <span>Project</span>
-            <span>State</span>
-            <span>Progress</span>
-            <span>Responsible</span>
-            <span className="text-right">Action</span>
+            <span>{translateI18n("copy.projectLabel")}</span>
+            <span>{translateI18n("copy.state")}</span>
+            <span>{translateI18n("copy.progress")}</span>
+            <span>{translateI18n("copy.responsible")}</span>
+            <span className="text-right">{translateI18n("copy.action")}</span>
           </div>
         )}
 
@@ -415,13 +417,13 @@ export default function ProjectsPage() {
           </div>
         ) : isError ? (
           <div className="px-5 py-14 text-center">
-            <p className="font-medium text-destructive">Unable to load projects.</p>
-            <p className="mt-1 text-xs text-muted-foreground">Refresh the page and try again.</p>
+            <p className="font-medium text-destructive">{translateI18n("project.loadError")}</p>
+            <p className="mt-1 text-xs text-muted-foreground">{translateI18n("copy.refreshTryAgain")}</p>
           </div>
         ) : projects.length === 0 ? (
           <div className="px-5 py-14 text-center">
             <FolderKanban className="mx-auto h-8 w-8 text-muted-foreground" />
-            <p className="mt-3 font-medium text-foreground">No projects found</p>
+            <p className="mt-3 font-medium text-foreground">{translateI18n("project.noProjects")}</p>
             <p className="mt-1 text-xs text-muted-foreground">
               {hasFilters ? "Adjust the current filters to broaden the results." : "No projects are available in this workspace yet."}
             </p>
@@ -454,7 +456,7 @@ export default function ProjectsPage() {
                 disabled={!pagination?.hasNextPage}
                 onClick={() => setPage((current) => current + 1)}
               >
-                Next
+                {translateI18n("common.next")}
               </Button>
             </div>
           </div>

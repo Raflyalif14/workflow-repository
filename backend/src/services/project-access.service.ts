@@ -31,9 +31,15 @@ export async function getAccessibleProjectIds(actor: ProjectAccessActor): Promis
   if (actor.role === 'SUPER_ADMIN' || actor.role === 'HEAD_SA') return null;
   if (!['SALES', 'SA'].includes(actor.role)) return [];
 
-  let query: any = supabaseAdmin.from('projects').select('id');
-  query = applyProjectAccessScope(query, actor);
-  const { data, error } = await query;
-  if (error) throw new Error('Failed to resolve accessible projects.');
-  return (data || []).map((project: { id: string }) => project.id);
+  const ids: string[] = [];
+  const pageSize = 250;
+  for (let offset = 0; ; offset += pageSize) {
+    let query: any = supabaseAdmin.from('projects').select('id');
+    query = applyProjectAccessScope(query, actor);
+    const { data, error } = await query.order('id', { ascending: true }).range(offset, offset + pageSize - 1);
+    if (error) throw new Error('Failed to resolve accessible projects.');
+    ids.push(...(data || []).map((project: { id: string }) => project.id));
+    if (!data || data.length < pageSize) break;
+  }
+  return ids;
 }

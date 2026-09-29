@@ -13,6 +13,7 @@ export interface ScenarioDocumentDefinition {
   name: string;
   isRequired: boolean;
   group: ScenarioKey;
+  stageKey: string;
   description?: string;
 }
 
@@ -25,26 +26,26 @@ export interface ScenarioDefinition {
 }
 
 const PRE_TENDER_DOCUMENTS: ScenarioDocumentDefinition[] = [
-  { key: 'proposal_deck_solusi', name: 'Proposal atau Deck Solusi', isRequired: true, group: 'PRA_TENDER' },
-  { key: 'poc_demo', name: 'POC atau Demo', isRequired: false, group: 'PRA_TENDER' },
-  { key: 'assessment', name: 'Assessment', isRequired: false, group: 'PRA_TENDER' },
-  { key: 'kak_rfp', name: 'KAK atau RFP', isRequired: false, group: 'PRA_TENDER' },
-  { key: 'rab', name: 'RAB', isRequired: false, group: 'PRA_TENDER' },
-  { key: 'kajian_teknis', name: 'Kajian Teknis', isRequired: false, group: 'PRA_TENDER' },
-  { key: 'spesifikasi_teknis', name: 'Spesifikasi Teknis', isRequired: false, group: 'PRA_TENDER' },
-  { key: 'analisa_kebutuhan', name: 'Analisa Kebutuhan', isRequired: false, group: 'PRA_TENDER' },
-  { key: 'operational_requirement', name: 'Operational Requirement', isRequired: false, group: 'PRA_TENDER' },
-  { key: 'rencana_distribusi', name: 'Rencana Distribusi', isRequired: false, group: 'PRA_TENDER' },
+  { key: 'proposal_deck_solusi', name: 'Proposal atau Deck Solusi', isRequired: true, group: 'PRA_TENDER', stageKey: 'PROPOSAL_SOLUTION' },
+  { key: 'poc_demo', name: 'POC atau Demo', isRequired: false, group: 'PRA_TENDER', stageKey: 'DELIVERABLES' },
+  { key: 'assessment', name: 'Assessment', isRequired: false, group: 'PRA_TENDER', stageKey: 'ASSESSMENT_REPORT' },
+  { key: 'kak_rfp', name: 'KAK atau RFP', isRequired: false, group: 'PRA_TENDER', stageKey: 'REQUIREMENT_GATHERING' },
+  { key: 'rab', name: 'RAB', isRequired: false, group: 'PRA_TENDER', stageKey: 'TECHNICAL_PROPOSAL_BOQ' },
+  { key: 'kajian_teknis', name: 'Kajian Teknis', isRequired: false, group: 'PRA_TENDER', stageKey: 'PAIN_POINT_ANALYSIS' },
+  { key: 'spesifikasi_teknis', name: 'Spesifikasi Teknis', isRequired: false, group: 'PRA_TENDER', stageKey: 'TECHNICAL_PROPOSAL_BOQ' },
+  { key: 'analisa_kebutuhan', name: 'Analisa Kebutuhan', isRequired: false, group: 'PRA_TENDER', stageKey: 'REQUIREMENT_GATHERING' },
+  { key: 'operational_requirement', name: 'Operational Requirement', isRequired: false, group: 'PRA_TENDER', stageKey: 'REQUIREMENT_GATHERING' },
+  { key: 'rencana_distribusi', name: 'Rencana Distribusi', isRequired: false, group: 'PRA_TENDER', stageKey: 'DELIVERABLES' },
 ];
 
 const ON_SUBMISSION_TENDER_DOCUMENTS: ScenarioDocumentDefinition[] = [
-  { key: 'proposal_teknis', name: 'Proposal Teknis', isRequired: true, group: 'ON_SUBMISSION_TENDER' },
-  { key: 'metodologi_implementasi', name: 'Metodologi Implementasi', isRequired: false, group: 'ON_SUBMISSION_TENDER' },
-  { key: 'timeline_proyek', name: 'Timeline Proyek', isRequired: true, group: 'ON_SUBMISSION_TENDER' },
-  { key: 'identitas_barang_produk', name: 'Identitas Barang/Produk yang Ditawarkan', isRequired: true, group: 'ON_SUBMISSION_TENDER' },
-  { key: 'spesifikasi_teknis_toc', name: 'Spesifikasi Teknis Barang/Produk yang Ditawarkan atau TOC', isRequired: true, group: 'ON_SUBMISSION_TENDER' },
-  { key: 'arsitektur_sistem', name: 'Arsitektur Sistem', isRequired: false, group: 'ON_SUBMISSION_TENDER' },
-  { key: 'poc_demo_report', name: 'POC atau Solusi Demo Report', isRequired: false, group: 'ON_SUBMISSION_TENDER' },
+  { key: 'proposal_teknis', name: 'Proposal Teknis', isRequired: true, group: 'ON_SUBMISSION_TENDER', stageKey: 'TECHNICAL_PROPOSAL_BOQ' },
+  { key: 'metodologi_implementasi', name: 'Metodologi Implementasi', isRequired: false, group: 'ON_SUBMISSION_TENDER', stageKey: 'PROPOSAL_SOLUTION' },
+  { key: 'timeline_proyek', name: 'Timeline Proyek', isRequired: true, group: 'ON_SUBMISSION_TENDER', stageKey: 'TECHNICAL_PROPOSAL_BOQ' },
+  { key: 'identitas_barang_produk', name: 'Identitas Barang/Produk yang Ditawarkan', isRequired: true, group: 'ON_SUBMISSION_TENDER', stageKey: 'DELIVERABLES' },
+  { key: 'spesifikasi_teknis_toc', name: 'Spesifikasi Teknis Barang/Produk yang Ditawarkan atau TOC', isRequired: true, group: 'ON_SUBMISSION_TENDER', stageKey: 'TECHNICAL_PROPOSAL_BOQ' },
+  { key: 'arsitektur_sistem', name: 'Arsitektur Sistem', isRequired: false, group: 'ON_SUBMISSION_TENDER', stageKey: 'PROPOSAL_SOLUTION' },
+  { key: 'poc_demo_report', name: 'POC atau Solusi Demo Report', isRequired: false, group: 'ON_SUBMISSION_TENDER', stageKey: 'DELIVERABLES' },
 ];
 
 export const SCENARIO_DOCUMENTS: Record<ScenarioKey, ScenarioDocumentDefinition[]> = {

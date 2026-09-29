@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "@/lib/api-client";
 import { ProjectOutputDocumentItem, ProjectOutputDocumentVersion } from "@/types/project";
-import { projectKeys } from "@/lib/query-keys";
+import { assignmentKeys, dashboardKeys, projectKeys } from "@/lib/query-keys";
 
 export interface OutputDocumentsResponse {
   scenarioKey: string;
@@ -23,6 +23,7 @@ export const outputDocumentKeys = {
 
 export interface OutputRepositoryItem {
   projectId: string;
+  milestoneId: string;
   projectName: string;
   customer: string;
   documentKey: string;
@@ -31,6 +32,7 @@ export interface OutputRepositoryItem {
   status: ProjectOutputDocumentItem["status"];
   fileName: string;
   versionNumber: number;
+  updatedAt?: string;
 }
 
 export function useOutputRepository(enabled = true) {
@@ -91,7 +93,12 @@ export function useUploadOutputDocument(projectId: string, documentKey: string) 
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: outputDocumentKeys.project(projectId) });
+      queryClient.invalidateQueries({ queryKey: outputDocumentKeys.repository() });
       queryClient.invalidateQueries({ queryKey: projectKeys.detail(projectId) });
+      queryClient.invalidateQueries({ queryKey: projectKeys.milestones(projectId) });
+      queryClient.invalidateQueries({ queryKey: projectKeys.progress(projectId) });
+      queryClient.invalidateQueries({ queryKey: dashboardKeys.overview() });
+      queryClient.invalidateQueries({ queryKey: assignmentKeys.myAssignedMilestones() });
     },
   });
 }
@@ -107,7 +114,9 @@ export function useSubmitOutputDocuments(projectId: string) {
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: outputDocumentKeys.project(projectId) });
+      queryClient.invalidateQueries({ queryKey: outputDocumentKeys.repository() });
       queryClient.invalidateQueries({ queryKey: projectKeys.detail(projectId) });
+      queryClient.invalidateQueries({ queryKey: dashboardKeys.overview() });
     },
   });
 }
@@ -123,7 +132,12 @@ export function useReviewOutputDocuments(projectId: string) {
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: outputDocumentKeys.project(projectId) });
+      queryClient.invalidateQueries({ queryKey: outputDocumentKeys.repository() });
       queryClient.invalidateQueries({ queryKey: projectKeys.detail(projectId) });
+      queryClient.invalidateQueries({ queryKey: projectKeys.milestones(projectId) });
+      queryClient.invalidateQueries({ queryKey: projectKeys.progress(projectId) });
+      queryClient.invalidateQueries({ queryKey: dashboardKeys.overview() });
+      queryClient.invalidateQueries({ queryKey: assignmentKeys.myAssignedMilestones() });
     },
   });
 }
@@ -143,6 +157,9 @@ export function useUpdateOutputChecklist(projectId: string) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: outputDocumentKeys.project(projectId) });
       queryClient.invalidateQueries({ queryKey: projectKeys.detail(projectId) });
+      queryClient.invalidateQueries({ queryKey: projectKeys.milestones(projectId) });
+      queryClient.invalidateQueries({ queryKey: projectKeys.progress(projectId) });
+      queryClient.invalidateQueries({ queryKey: dashboardKeys.overview() });
     },
   });
 }

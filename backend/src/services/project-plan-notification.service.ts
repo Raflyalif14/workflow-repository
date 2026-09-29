@@ -22,6 +22,7 @@ export function buildProjectPlanSubmittedNotification(
     title: 'Project Plan Submitted',
     message: `Project plan for '${project.name}' is waiting for review.`,
     projectId: project.id,
+    projectName: project.name,
     actionUrl: '/approvals',
   };
 }
@@ -39,6 +40,7 @@ function buildProjectPlanDecisionNotification(
         title: 'Project Plan Approved',
         message: `Project plan for '${project.name}' has been approved.`,
         projectId: project.id,
+        projectName: project.name,
         actionUrl: projectActionUrl(project.id),
       }
     : {
@@ -47,6 +49,7 @@ function buildProjectPlanDecisionNotification(
         title: 'Project Plan Rejected',
         message: `Project plan for '${project.name}' was rejected and requires revision.`,
         projectId: project.id,
+        projectName: project.name,
         actionUrl: projectActionUrl(project.id),
       };
 }

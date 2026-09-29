@@ -1,7 +1,7 @@
 import { supabaseAdmin } from '../config/supabase';
 import {
   advanceToNextMilestone,
-  areSelectedProjectOutputsApproved,
+  areExpectedProjectOutputsApproved,
   isMilestoneCompletedLike,
   WorkflowActor,
 } from './workflow-progression.service';
@@ -21,7 +21,7 @@ export async function retryProjectCompletion(projectId: string, actor: RetryActo
   // 1. Verify access & load project
   const { data: project, error: projectError } = await supabaseAdmin
     .from('projects')
-    .select('id,name,sales_id,pic_id,status,is_postponed')
+    .select('id,name,sales_id,pic_id,status,is_postponed,scenario_id,selected_document_keys')
     .eq('id', projectId)
     .single();
 
@@ -73,7 +73,7 @@ export async function retryProjectCompletion(projectId: string, actor: RetryActo
   // 6. Verify all selected output documents APPROVED
   const { data: outputDocuments, error: outputError } = await supabaseAdmin
     .from('project_output_documents')
-    .select('is_required,is_selected,status')
+    .select('document_key,is_required,is_selected,status')
     .eq('project_id', projectId);
 
   if (outputError) {
@@ -82,7 +82,10 @@ export async function retryProjectCompletion(projectId: string, actor: RetryActo
   if (!outputDocuments?.length) {
     throw new ProjectCompletionRetryError('Project output documents are not available for completion verification.');
   }
-  if (!areSelectedProjectOutputsApproved(outputDocuments)) {
+  const { data: scenario, error: scenarioError } = await supabaseAdmin.from('scenarios')
+    .select('name').eq('id', project.scenario_id).single();
+  if (scenarioError || !scenario) throw new ProjectCompletionRetryError('Failed to verify project scenario.', 500);
+  if (!areExpectedProjectOutputsApproved(project.selected_document_keys, scenario.name, outputDocuments)) {
     throw new ProjectCompletionRetryError(
       'Not all selected output documents are approved. Complete them before retrying.'
     );

@@ -23,35 +23,35 @@ export function getOutputDocumentContextMessage({
   hasAssignedPic,
 }: OutputDocumentPresentationInput): string | null {
   if (role === "SA" && status === "DRAFT" && canUpload) {
-    return "Siap diajukan untuk ditinjau Head SA.";
+    return translate("outputCopy.readyToSubmit");
   }
 
   if (canUpload || canReview) return null;
 
   if (role === "HEAD_SA") {
-    if (!hasAssignedPic) return "Menunggu penetapan Solution Architect.";
-    if (status === "TO_DO") return "Menunggu SA yang ditugaskan mengunggah output ini.";
-    if (status === "DRAFT") return "Menunggu SA yang ditugaskan mengajukan output ini.";
-    if (status === "REVISION_REQUIRED") return "Menunggu SA yang ditugaskan mengunggah dan mengajukan revisi.";
-    if (status === "APPROVED") return "Peninjauan selesai.";
+    if (!hasAssignedPic) return translate("outputCopy.waitingAssignment");
+    if (status === "TO_DO") return translate("outputCopy.waitingUpload");
+    if (status === "DRAFT") return translate("outputCopy.waitingSubmission");
+    if (status === "REVISION_REQUIRED") return translate("outputCopy.waitingRevision");
+    if (status === "APPROVED") return translate("outputCopy.reviewComplete");
   }
 
   if (role === "SA") {
-    if (status === "IN_REVIEW") return "Menunggu peninjauan Head SA.";
-    if (status === "APPROVED") return "Disetujui dan tersedia sebagai hasil proyek.";
+    if (status === "IN_REVIEW") return translate("outputCopy.waitingHeadReview");
+    if (status === "APPROVED") return translate("outputCopy.approvedAvailable");
   }
 
   if ((role === "SALES" || role === "SUPER_ADMIN") && status === "APPROVED") {
-    return "Hasil proyek disetujui.";
+    return translate("outputCopy.resultApproved");
   }
 
   return null;
 }
 
 export function getOutputDocumentsHeaderDescription(role?: string): string {
-  if (role === "HEAD_SA") return "Tinjau output yang diajukan dan pantau hasil proyek yang disepakati.";
-  if (role === "SA") return "Unggah output proyek dan ajukan draf untuk ditinjau Head SA.";
-  return "Pantau setiap output proyek yang telah disepakati.";
+  if (role === "HEAD_SA") return translate("outputCopy.headDescription");
+  if (role === "SA") return translate("outputCopy.saDescription");
+  return translate("outputCopy.generalDescription");
 }
 
 type OutputDocumentSubmissionInput = {
@@ -66,7 +66,7 @@ export function getOutputDocumentSubmitAction({
   currentVersionId,
   canUpload,
 }: Pick<OutputDocumentSubmissionInput, "status" | "currentVersionId"> & { role?: string; canUpload: boolean }): string | null {
-  return role === "SA" && canUpload && status === "DRAFT" && Boolean(currentVersionId) ? "Ajukan untuk ditinjau" : null;
+  return role === "SA" && canUpload && status === "DRAFT" && Boolean(currentVersionId) ? translate("outputCopy.submitForReview") : null;
 }
 
 export function getSubmittableOutputDocuments<T extends OutputDocumentSubmissionInput>(
@@ -78,7 +78,7 @@ export function getSubmittableOutputDocuments<T extends OutputDocumentSubmission
 }
 
 export function getOutputDocumentSubmissionSelectionLabel(documentName: string): string {
-  return `Pilih ${documentName} untuk diajukan`;
+  return translate("outputCopy.selectToSubmit", { name: documentName });
 }
 
 export type SubmissionOperation =
@@ -113,7 +113,7 @@ export function getOutputDocumentApproveAction({
   canReview,
 }: Pick<OutputDocumentReviewInput, "status" | "currentVersionId"> & { canReview: boolean }): string | null {
   return canReview && status === "IN_REVIEW" && Boolean(currentVersionId && UUID_PATTERN.test(currentVersionId))
-    ? "Setujui"
+    ? translate("outputCopy.approve")
     : null;
 }
 
@@ -125,7 +125,7 @@ export function getReviewableOutputDocuments<T extends OutputDocumentReviewInput
 }
 
 export function getOutputDocumentApprovalSelectionLabel(documentName: string): string {
-  return `Pilih ${documentName} untuk disetujui`;
+  return translate("outputCopy.selectToApprove", { name: documentName });
 }
 
 export function getOutputDocumentApprovalSelection<T extends { key: string }>(
@@ -152,3 +152,4 @@ export function getSingleReviewOperationState(operation: ReviewOperation, docume
 export function isBatchReviewOperation(operation: ReviewOperation): boolean {
   return operation?.kind === "batch";
 }
+import { translate } from "@/i18n";

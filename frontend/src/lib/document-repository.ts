@@ -1,0 +1,55 @@
+import type { OutputRepositoryItem } from "@/hooks/use-output-documents";
+import type { DocumentCategory, DocumentItem, DocumentStatus } from "@/types/document";
+
+export type RepositoryItem =
+  | { sourceType: "OFFICIAL"; sourceId: string; document: DocumentItem }
+  | { sourceType: "OUTPUT"; sourceId: string; output: OutputRepositoryItem };
+
+export type RepositoryFilters = {
+  search: string;
+  category: DocumentCategory | "OUTPUT" | "ALL";
+  status: DocumentStatus | "ALL";
+};
+
+export const REPOSITORY_PAGE_SIZE = 20;
+
+export function buildRepositoryItems(documents: readonly DocumentItem[], outputs: readonly OutputRepositoryItem[]): RepositoryItem[] {
+  const items: RepositoryItem[] = documents.map((document) => ({
+    sourceType: "OFFICIAL", sourceId: document.id, document,
+  }));
+  const outputIds = new Set<string>();
+  for (const output of outputs) {
+    if (output.status !== "APPROVED" || !output.projectId || !output.documentKey) continue;
+    const sourceId = `${output.projectId}:${output.documentKey}`;
+    if (outputIds.has(sourceId)) continue;
+    outputIds.add(sourceId);
+    items.push({ sourceType: "OUTPUT", sourceId, output });
+  }
+  return items.sort((left, right) => {
+    const leftUpdated = left.sourceType === "OFFICIAL" ? left.document.updatedAt : left.output.updatedAt || "";
+    const rightUpdated = right.sourceType === "OFFICIAL" ? right.document.updatedAt : right.output.updatedAt || "";
+    return rightUpdated.localeCompare(leftUpdated) || `${left.sourceType}:${left.sourceId}`.localeCompare(`${right.sourceType}:${right.sourceId}`);
+  });
+}
+
+export function filterRepositoryItems(items: readonly RepositoryItem[], filters: RepositoryFilters): RepositoryItem[] {
+  const query = filters.search.trim().toLocaleLowerCase();
+  return items.filter((item) => {
+    if (item.sourceType === "OFFICIAL") {
+      const document = item.document;
+      return (filters.category === "ALL" || document.category === filters.category)
+        && (filters.status === "ALL" || document.status === filters.status)
+        && (!query || `${document.title} ${document.project?.name || ""} ${document.versions?.[0]?.fileName || ""}`.toLocaleLowerCase().includes(query));
+    }
+    const output = item.output;
+    return (filters.category === "ALL" || filters.category === "OUTPUT")
+      && (filters.status === "ALL" || filters.status === "APPROVED")
+      && (!query || `${output.name} ${output.projectName} ${output.fileName}`.toLocaleLowerCase().includes(query));
+  });
+}
+
+export function paginateRepositoryItems(items: readonly RepositoryItem[], page: number, pageSize = REPOSITORY_PAGE_SIZE) {
+  const totalPages = Math.max(1, Math.ceil(items.length / pageSize));
+  const safePage = Math.min(Math.max(1, page), totalPages);
+  return { page: safePage, totalPages, items: items.slice((safePage - 1) * pageSize, safePage * pageSize) };
+}

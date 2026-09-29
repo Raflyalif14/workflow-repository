@@ -6,12 +6,14 @@ export type InitialPasswordEmailInput = {
   recipientName: string;
   initialPassword: string;
   loginUrl?: string;
+  language?: 'en' | 'id';
 };
 
 export type PasswordResetEmailInput = {
   recipientEmail: string;
   recipientName: string;
   resetUrl: string;
+  language?: 'en' | 'id';
 };
 
 const parseSmtpSecure = (value: string) => ['true', '1', 'yes'].includes(value.trim().toLowerCase());
@@ -55,34 +57,47 @@ const getLoginUrl = (loginUrl?: string) => {
 
 export const buildInitialPasswordEmail = (input: InitialPasswordEmailInput): SendMailOptions => {
   const loginUrl = getLoginUrl(input.loginUrl);
-  const subject = '[Workflow Repository] Akun Anda Telah Dibuat';
+  const copy = input.language === 'id' ? {
+    subject: '[Workflow Repository] Akun Anda Telah Dibuat',
+    greeting: 'Halo', account: 'Akun Workflow Repository System Anda telah dibuat.',
+    temporaryPassword: 'Password sementara', login: 'Silakan login menggunakan credential tersebut.',
+    security: 'Untuk keamanan, Anda wajib mengganti password setelah login pertama kali.',
+    thanks: 'Terima kasih.',
+  } : {
+    subject: '[Workflow Repository] Your Account Has Been Created',
+    greeting: 'Hello', account: 'Your Workflow Repository System account has been created.',
+    temporaryPassword: 'Temporary password', login: 'Sign in using these credentials.',
+    security: 'For security, you must change your password after signing in for the first time.',
+    thanks: 'Thank you.',
+  };
+  const subject = copy.subject;
   const text = [
-    `Halo ${input.recipientName},`,
+    `${copy.greeting} ${input.recipientName},`,
     '',
-    'Akun Workflow Repository System Anda telah dibuat.',
+    copy.account,
     '',
     `Email: ${input.recipientEmail}`,
     '',
-    `Password sementara: ${input.initialPassword}`,
+    `${copy.temporaryPassword}: ${input.initialPassword}`,
     '',
-    'Silakan login menggunakan credential tersebut.',
+    copy.login,
     '',
-    'Untuk keamanan, Anda wajib mengganti password setelah login pertama kali.',
+    copy.security,
     '',
     loginUrl ? `Login: ${loginUrl}` : '',
     '',
-    'Terima kasih.',
+    copy.thanks,
   ].filter((line) => loginUrl || !line.startsWith('Login:')).join('\n');
 
   const html = `
-    <p>Halo ${escapeHtml(input.recipientName)},</p>
-    <p>Akun Workflow Repository System Anda telah dibuat.</p>
+    <p>${copy.greeting} ${escapeHtml(input.recipientName)},</p>
+    <p>${copy.account}</p>
     <p><strong>Email:</strong><br>${escapeHtml(input.recipientEmail)}</p>
-    <p><strong>Password sementara:</strong><br>${escapeHtml(input.initialPassword)}</p>
-    <p>Silakan login menggunakan credential tersebut.</p>
-    <p>Untuk keamanan, Anda wajib mengganti password setelah login pertama kali.</p>
+    <p><strong>${copy.temporaryPassword}:</strong><br>${escapeHtml(input.initialPassword)}</p>
+    <p>${copy.login}</p>
+    <p>${copy.security}</p>
     ${loginUrl ? `<p><strong>Login:</strong><br><a href="${escapeHtml(loginUrl)}">${escapeHtml(loginUrl)}</a></p>` : ''}
-    <p>Terima kasih.</p>
+    <p>${copy.thanks}</p>
   `;
 
   return {
@@ -95,31 +110,44 @@ export const buildInitialPasswordEmail = (input: InitialPasswordEmailInput): Sen
 };
 
 export const buildPasswordResetEmail = (input: PasswordResetEmailInput): SendMailOptions => {
+  const copy = input.language === 'id' ? {
+    greeting: 'Halo', received: 'Kami menerima permintaan untuk melakukan reset password Workflow Repository System.',
+    instruction: 'Silakan gunakan link berikut untuk membuat password baru:',
+    ignore: 'Jika Anda tidak merasa meminta reset password, abaikan email ini.',
+    security: 'Untuk keamanan, link reset bersifat terbatas dan hanya dapat digunakan sesuai kebijakan recovery Supabase.',
+    thanks: 'Terima kasih.',
+  } : {
+    greeting: 'Hello', received: 'We received a request to reset your Workflow Repository System password.',
+    instruction: 'Use the following link to create a new password:',
+    ignore: 'If you did not request a password reset, ignore this email.',
+    security: 'For security, the reset link is time limited and follows the Supabase recovery policy.',
+    thanks: 'Thank you.',
+  };
   const subject = '[Workflow Repository] Reset Password';
   const text = [
-    `Halo ${input.recipientName},`,
+    `${copy.greeting} ${input.recipientName},`,
     '',
-    'Kami menerima permintaan untuk melakukan reset password Workflow Repository System.',
+    copy.received,
     '',
-    'Silakan gunakan link berikut untuk membuat password baru:',
+    copy.instruction,
     '',
     input.resetUrl,
     '',
-    'Jika Anda tidak merasa meminta reset password, abaikan email ini.',
+    copy.ignore,
     '',
-    'Untuk keamanan, link reset bersifat terbatas dan hanya dapat digunakan sesuai kebijakan recovery Supabase.',
+    copy.security,
     '',
-    'Terima kasih.',
+    copy.thanks,
   ].join('\n');
 
   const html = `
-    <p>Halo ${escapeHtml(input.recipientName)},</p>
-    <p>Kami menerima permintaan untuk melakukan reset password Workflow Repository System.</p>
-    <p>Silakan gunakan link berikut untuk membuat password baru:</p>
+    <p>${copy.greeting} ${escapeHtml(input.recipientName)},</p>
+    <p>${copy.received}</p>
+    <p>${copy.instruction}</p>
     <p><a href="${escapeHtml(input.resetUrl)}">${escapeHtml(input.resetUrl)}</a></p>
-    <p>Jika Anda tidak merasa meminta reset password, abaikan email ini.</p>
-    <p>Untuk keamanan, link reset bersifat terbatas dan hanya dapat digunakan sesuai kebijakan recovery Supabase.</p>
-    <p>Terima kasih.</p>
+    <p>${copy.ignore}</p>
+    <p>${copy.security}</p>
+    <p>${copy.thanks}</p>
   `;
 
   return {

@@ -2,6 +2,7 @@ export type GlobalSearchResult = {
   type: "PROJECT" | "DOCUMENT" | "MILESTONE" | "OUTPUT_DOCUMENT";
   id: string;
   projectId: string;
+  milestoneId?: string;
   title: string;
   subtitle: string;
   status?: string;
@@ -29,5 +30,5 @@ export const moveGlobalSearchSelection = (current: number, direction: -1 | 1, to
   return Math.min(total - 1, Math.max(0, current + direction));
 };
 
-export const globalSearchResultHref = (result: Pick<GlobalSearchResult, "projectId" | "type">) =>
-  `/projects/${result.projectId}${result.type === "OUTPUT_DOCUMENT" ? "#output-documents" : ""}`;
+export const globalSearchResultHref = (result: Pick<GlobalSearchResult, "projectId" | "type" | "milestoneId">) =>
+  `/projects/${result.projectId}${result.type === "OUTPUT_DOCUMENT" && result.milestoneId ? `#milestone-outputs-${result.milestoneId}` : ""}`;

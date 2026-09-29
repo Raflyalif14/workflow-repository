@@ -614,11 +614,16 @@ async function verifySalesDocumentReadFinality(): Promise<void> {
           return request;
         },
         ilike: () => request,
+        range: (start: number, end: number) => {
+          request.pageStart = start;
+          request.pageEnd = end;
+          return request;
+        },
         then: (resolve: (value: unknown) => unknown, reject?: (reason: unknown) => unknown) => {
           const data = documents.filter((document) =>
             filters.every(([field, value]) => document[field as keyof typeof document] === value) &&
             inFilters.every(([field, values]) => values.includes(document[field as keyof typeof document]))
-          );
+          ).slice(request.pageStart || 0, (request.pageEnd ?? documents.length - 1) + 1);
           return Promise.resolve({ data, error: null }).then(resolve, reject);
         },
       };
@@ -629,6 +634,12 @@ async function verifySalesDocumentReadFinality(): Promise<void> {
     assert(salesDocuments.length === 1 && salesDocuments[0].id === approvedDocument.id, 'Test 12c: SALES list must contain approved documents only');
     const headSaDocuments = await DocumentService.listDocuments({ projectId: 'project-1' }, actors.headSa);
     assert(headSaDocuments.length === 2, 'Test 12c: HEAD_SA retains access to approved and non-final documents');
+    for (let index = 0; index < 101; index++) {
+      documents.push({ ...approvedDocument, id: `extra-official-${index}` });
+    }
+    const pagedDocuments = await DocumentService.listDocuments({ projectId: 'project-1' }, actors.salesOwner);
+    assert(pagedDocuments.length === 102, 'Test 12c: official repository listing must include results after the first database page');
+    documents.length = 2;
 
     const salesApprovedDocument = await DocumentService.getDocumentById(approvedDocument.id, actors.salesOwner);
     assert(salesApprovedDocument.id === approvedDocument.id, 'Test 12c: SALES may fetch an approved document');

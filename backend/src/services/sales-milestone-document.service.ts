@@ -5,7 +5,7 @@ import {
   DocumentStorageService,
   isAllowedDocumentFileName,
   MAX_DOCUMENT_FILE_SIZE_BYTES,
-  MAX_MILESTONE_SUBMISSION_FILES,
+  MAX_MILESTONE_FILES,
 } from '../utils/storage.util';
 
 export type SalesMilestoneDocumentActor = { userId: string; role: string; fullName: string };
@@ -105,9 +105,9 @@ export class SalesMilestoneDocumentService {
     if (!files.length) {
       throw new SalesMilestoneDocumentError('At least one file is required for milestone document upload.', 400);
     }
-    if (files.length > MAX_MILESTONE_SUBMISSION_FILES) {
+    if (files.length > MAX_MILESTONE_FILES) {
       throw new SalesMilestoneDocumentError(
-        `A maximum of ${MAX_MILESTONE_SUBMISSION_FILES} files may be uploaded at once.`,
+        `A maximum of ${MAX_MILESTONE_FILES} files may be uploaded at once.`,
         400
       );
     }

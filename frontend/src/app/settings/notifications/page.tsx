@@ -1,5 +1,7 @@
 "use client";
 
+import { translate as translateI18n, getIntlLocale } from "@/i18n";
+
 import { useEffect, useMemo, useState } from "react";
 import {
   Bell,
@@ -66,7 +68,7 @@ const formatLinkedAt = (value: string | null): string | null => {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return null;
 
-  return new Intl.DateTimeFormat(undefined, {
+  return new Intl.DateTimeFormat(getIntlLocale(), {
     dateStyle: "medium",
     timeStyle: "short",
   }).format(date);
@@ -288,8 +290,8 @@ function NotificationSettingsContent() {
             Personal Preferences
           </span>
         </div>
-        <h1 className="text-3xl font-bold tracking-tight">Notification Settings</h1>
-        <p className="mt-1 text-sm text-muted-foreground">Manage how you receive workflow updates.</p>
+        <h1 className="text-3xl font-bold tracking-tight">{translateI18n("notifications.settings")}</h1>
+        <p className="mt-1 text-sm text-muted-foreground">{translateI18n("copy.notificationDelivery")}</p>
       </div>
 
       {actionError && (
@@ -322,7 +324,7 @@ function NotificationSettingsContent() {
         <Card className="border-border/60 bg-card/70 shadow-sm">
           <CardContent className="flex min-h-48 flex-col items-center justify-center gap-3 px-5 text-center">
             <CircleAlert className="h-5 w-5 text-destructive" aria-hidden="true" />
-            <p className="text-sm text-muted-foreground">Unable to load notification preferences.</p>
+            <p className="text-sm text-muted-foreground">{translateI18n("copy.notificationPrefsError")}</p>
             <Button variant="outline" size="sm" onClick={() => void refetchPreferences()}>
               Try Again
             </Button>
@@ -341,7 +343,7 @@ function NotificationSettingsContent() {
                 </Badge>
               </div>
               <div>
-                <CardTitle className="text-base font-semibold tracking-tight">In-App Notifications</CardTitle>
+                <CardTitle className="text-base font-semibold tracking-tight">{translateI18n("ui.inAppNotifications")}</CardTitle>
                 <CardDescription className="mt-1 text-xs">
                   Receive workflow updates in the notification bell.
                 </CardDescription>
@@ -349,8 +351,8 @@ function NotificationSettingsContent() {
             </CardHeader>
             <CardContent className="flex items-center justify-between gap-4 border-t border-border/40 pt-5">
               <div>
-                <p className="text-sm font-medium text-foreground">Show in-app updates</p>
-                <p className="mt-1 text-xs text-muted-foreground">Control notifications in your workspace.</p>
+                <p className="text-sm font-medium text-foreground">{translateI18n("copy.showInApp")}</p>
+                <p className="mt-1 text-xs text-muted-foreground">{translateI18n("copy.notificationControl")}</p>
               </div>
               <PreferencesToggle
                 id="in-app-enabled"
@@ -373,7 +375,7 @@ function NotificationSettingsContent() {
                 </Badge>
               </div>
               <div>
-                <CardTitle className="text-base font-semibold tracking-tight">Telegram Notifications</CardTitle>
+                <CardTitle className="text-base font-semibold tracking-tight">{translateI18n("copy.telegramNotifications")}</CardTitle>
                 <CardDescription className="mt-1 text-xs">
                   Link Telegram first, then choose whether workflow updates are delivered there.
                 </CardDescription>
@@ -390,8 +392,8 @@ function NotificationSettingsContent() {
                   </div>
                   <div className="flex items-center justify-between gap-4">
                     <div>
-                      <p className="text-sm font-medium text-foreground">Enable Telegram delivery</p>
-                      <p className="mt-1 text-xs text-muted-foreground">Telegram remains off until you enable it.</p>
+                      <p className="text-sm font-medium text-foreground">{translateI18n("copy.enableTelegram")}</p>
+                      <p className="mt-1 text-xs text-muted-foreground">{translateI18n("copy.telegramOff")}</p>
                     </div>
                     <PreferencesToggle
                       id="telegram-enabled"
@@ -417,7 +419,7 @@ function NotificationSettingsContent() {
                   <div className="flex items-start gap-3">
                     <LoaderCircle className="mt-0.5 h-4 w-4 animate-spin text-primary" aria-hidden="true" />
                     <div>
-                      <p className="text-sm font-medium text-foreground">Waiting for Telegram connection...</p>
+                      <p className="text-sm font-medium text-foreground">{translateI18n("copy.waitingTelegram")}</p>
                       <p className="mt-1 text-xs text-muted-foreground">
                         Complete the connection in Telegram. This page will update automatically.
                       </p>
@@ -439,7 +441,7 @@ function NotificationSettingsContent() {
                 <div className="space-y-4">
                   <div className="flex items-start gap-3 rounded-lg border border-border/50 bg-muted/20 p-3 text-xs text-muted-foreground">
                     <MessageCircle className="mt-0.5 h-4 w-4 shrink-0 text-sky-400" aria-hidden="true" />
-                    <p>Telegram must be linked before delivery can be enabled.</p>
+                    <p>{translateI18n("copy.telegramLinkRequired")}</p>
                   </div>
                   <Button
                     type="button"
@@ -460,14 +462,14 @@ function NotificationSettingsContent() {
 
       <Dialog open={disconnectOpen} onOpenChange={setDisconnectOpen}>
         <DialogHeader>
-          <DialogTitle>Disconnect Telegram?</DialogTitle>
+          <DialogTitle>{translateI18n("copy.disconnectTelegram")}</DialogTitle>
           <DialogDescription>
             Telegram delivery will be disabled and this account will no longer receive workflow updates there.
           </DialogDescription>
         </DialogHeader>
         <DialogFooter>
           <Button variant="outline" onClick={() => setDisconnectOpen(false)} disabled={unlinkTelegram.isPending}>
-            Cancel
+            {translateI18n("common.cancel")}
           </Button>
           <Button variant="destructive" onClick={() => void handleDisconnectTelegram()} disabled={unlinkTelegram.isPending}>
             {unlinkTelegram.isPending ? "Disconnecting..." : "Disconnect Telegram"}

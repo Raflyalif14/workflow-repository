@@ -5,7 +5,7 @@ import { ENV } from '../config/env';
 import { supabaseAdmin } from '../config/supabase';
 
 export const MAX_DOCUMENT_FILE_SIZE_BYTES = 50 * 1024 * 1024;
-export const MAX_MILESTONE_SUBMISSION_FILES = 10;
+export const MAX_MILESTONE_FILES = 10;
 const allowedExtensions = new Set([
   '.pdf',
   '.doc',
@@ -43,15 +43,6 @@ export function buildProjectIntakeStoragePath(
   originalName: string
 ): string {
   return `project-intake/${projectId}/${attachmentId}/${randomUUID()}-${sanitizeStorageFileName(originalName)}`;
-}
-
-export function buildMilestoneSubmissionStoragePath(
-  projectId: string,
-  milestoneId: string,
-  packageId: string,
-  originalName: string
-): string {
-  return `milestone-submissions/${projectId}/${milestoneId}/${packageId}/${randomUUID()}-${sanitizeStorageFileName(originalName)}`;
 }
 
 export function buildMilestoneContributionStoragePath(

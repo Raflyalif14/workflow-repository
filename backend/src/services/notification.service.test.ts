@@ -1,11 +1,13 @@
 import { supabaseAdmin } from '../config/supabase';
 import { NotificationService, NotificationServiceError } from './notification.service';
+import { TelegramDeliveryService } from './telegram-delivery.service';
 
 const assert = (condition: boolean, message: string): void => {
   if (!condition) throw new Error(message);
 };
 
 const originalFrom = supabaseAdmin.from;
+const originalDispatch = TelegramDeliveryService.dispatchBestEffort;
 
 async function run(): Promise<void> {
   try {
@@ -101,8 +103,38 @@ async function run(): Promise<void> {
     assert(listFilters.some(([field, value]) => field === 'user_id' && value === 'user-1'), 'Test 4: list must filter by authenticated user ID');
     assert(listFilters.some(([field, value]) => field === 'is_read' && value === false), 'Test 4: unread filter must request unread notifications only');
     console.log('Test 4 - Notification list is user-scoped and applies unread filtering: passed');
+
+    const languageFilters: Array<[string, unknown]> = [];
+    let savedNotification: Record<string, unknown> | null = null;
+    let telegramTitle = '';
+    (TelegramDeliveryService as any).dispatchBestEffort = async (input: { title: string }) => {
+      telegramTitle = input.title;
+    };
+    (supabaseAdmin as any).from = (table: string) => {
+      if (table === 'users') return {
+        select: () => ({ eq: (field: string, value: unknown) => {
+          languageFilters.push([field, value]);
+          return { maybeSingle: async () => ({ data: { preferred_language: 'id' }, error: null }) };
+        } }),
+      };
+      assert(table === 'notifications', 'Test 5: notification must be inserted into notifications');
+      return { insert: (value: Record<string, unknown>) => {
+        savedNotification = value;
+        return { select: () => ({ single: async () => ({ data: { id: 'notification-5', ...value }, error: null }) }) };
+      } };
+    };
+    await NotificationService.createNotification({
+      userId: 'user-5', type: 'MILESTONE_SUBMITTED', title: 'Milestone Submitted',
+      message: "Milestone 'Design' for project 'Alpha' is waiting for review.",
+      projectName: 'Alpha', milestoneName: 'Design',
+    });
+    assert(languageFilters.some(([field, value]) => field === 'id' && value === 'user-5'), 'Test 5: language must come from the recipient profile');
+    assert((savedNotification as Record<string, unknown> | null)?.title === 'Milestone Diajukan', 'Test 5: in-app notification must use recipient language');
+    assert(telegramTitle === 'Milestone Diajukan', 'Test 5: Telegram must receive the same localized title');
+    console.log('Test 5 - In-app and Telegram notification use recipient language: passed');
   } finally {
     (supabaseAdmin as any).from = originalFrom;
+    (TelegramDeliveryService as any).dispatchBestEffort = originalDispatch;
   }
 }
 

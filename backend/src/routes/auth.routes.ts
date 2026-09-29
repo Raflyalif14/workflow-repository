@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { AuthController } from '../controllers/auth.controller';
 import { validateBody } from '../middlewares/validate.middleware';
-import { changeInitialPasswordSchema, forgotPasswordSchema, loginSchema, registerSchema, resetPasswordSchema } from '../validators/auth.validator';
+import { changeInitialPasswordSchema, forgotPasswordSchema, loginSchema, registerSchema, resetPasswordSchema, updateLanguagePreferenceSchema } from '../validators/auth.validator';
 import { authenticateUser } from '../middlewares/auth.middleware';
 import {
   AUTH_RATE_LIMITS,
@@ -22,5 +22,7 @@ router.post('/reset-password', createAuthRateLimiter(AUTH_RATE_LIMITS.resetPassw
 router.post('/change-initial-password', authenticateUser, validateBody(changeInitialPasswordSchema), AuthController.changeInitialPassword);
 router.post('/logout', authenticateUser, AuthController.logout);
 router.get('/me', authenticateUser, AuthController.getMe);
+router.get('/preferences/language', authenticateUser, AuthController.getLanguagePreference);
+router.put('/preferences/language', authenticateUser, validateBody(updateLanguagePreferenceSchema), AuthController.updateLanguagePreference);
 
 export default router;

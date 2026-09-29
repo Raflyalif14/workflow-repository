@@ -1,5 +1,7 @@
 "use client";
 
+
+import { translate as translateI18n } from "@/i18n";
 import React, { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AlertCircle, CheckCircle2, Eye, EyeOff, LockKeyhole } from "lucide-react";
@@ -46,7 +48,7 @@ export default function ChangePasswordPage() {
       await changeInitialPassword(newPassword);
       setSuccess("Password berhasil diubah. Silakan login kembali.");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Gagal mengubah password.");
+      setError(err instanceof Error ? err.message : translateI18n("ui.passwordChangeFailed"));
     } finally {
       setIsSubmitting(false);
     }
@@ -59,7 +61,7 @@ export default function ChangePasswordPage() {
           <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-primary text-primary-foreground">
             <LockKeyhole className="h-5 w-5" />
           </div>
-          <CardTitle className="text-xl">Change Password</CardTitle>
+          <CardTitle className="text-xl">{translateI18n("copy.changePassword")}</CardTitle>
           <p className="text-sm text-muted-foreground">
             Set a new password before accessing the workspace.
           </p>

@@ -58,18 +58,6 @@ type DeadlineHistoryRow = {
     change_reason: string | null;
 };
 
-type SubmissionApprovalRow = {
-    id: string;
-    milestone_id: string;
-    submitted_by: string;
-    submission_note: string | null;
-    status: ApprovalStatus;
-    reviewed_by: string | null;
-    review_note: string | null;
-    submitted_at: string;
-    reviewed_at: string | null;
-};
-
 type UserRow = {
     id: string;
     full_name: string;
@@ -125,7 +113,6 @@ export class ApprovalOverviewService {
                     totalPending: 0,
                     pendingProjectPlans: 0,
                     pendingDeadlines: 0,
-                    pendingSubmissions: 0,
                 },
                 items: [],
             };
@@ -171,42 +158,16 @@ export class ApprovalOverviewService {
          * Step 3
          * Fetch all milestone approval sources in batch.
          */
-        const [deadlineResult, submissionResult] = milestoneIds.length
-            ? await Promise.all([
-                supabaseAdmin
-                    .from('milestone_deadline_approvals')
-                    .select(
-                        'id,milestone_id,deadline_history_id,status,requested_by,reviewed_by,review_note,requested_at,reviewed_at'
-                    )
-                    .in('milestone_id', milestoneIds)
-                    .order('requested_at', { ascending: false }),
-
-                supabaseAdmin
-                    .from('milestone_approvals')
-                    .select(
-                        'id,milestone_id,submitted_by,submission_note,status,reviewed_by,review_note,submitted_at,reviewed_at'
-                    )
-                    .in('milestone_id', milestoneIds)
-                    .order('submitted_at', { ascending: false }),
-            ])
-            : [
-                { data: [], error: null },
-                { data: [], error: null },
-            ];
-
-        if (deadlineResult.error) {
-            throw safeError(deadlineResult.error, 'milestone_deadline_approvals');
-        }
-
-        if (submissionResult.error) {
-            throw safeError(submissionResult.error, 'milestone_approvals');
-        }
+        const deadlineResult = milestoneIds.length
+            ? await supabaseAdmin.from('milestone_deadline_approvals')
+                .select('id,milestone_id,deadline_history_id,status,requested_by,reviewed_by,review_note,requested_at,reviewed_at')
+                .in('milestone_id', milestoneIds)
+                .order('requested_at', { ascending: false })
+            : { data: [], error: null };
+        if (deadlineResult.error) throw safeError(deadlineResult.error, 'milestone_deadline_approvals');
 
         const deadlineApprovals =
             (deadlineResult.data || []) as DeadlineApprovalRow[];
-
-        const submissionApprovals =
-            (submissionResult.data || []) as SubmissionApprovalRow[];
 
         /*
          * Step 4
@@ -227,8 +188,6 @@ export class ApprovalOverviewService {
                     ...planApprovals.map((approval) => approval.reviewed_by),
                     ...deadlineApprovals.map((approval) => approval.requested_by),
                     ...deadlineApprovals.map((approval) => approval.reviewed_by),
-                    ...submissionApprovals.map((approval) => approval.submitted_by),
-                    ...submissionApprovals.map((approval) => approval.reviewed_by),
                     ...milestones.map((milestone) => milestone.pic_id),
                 ].filter((id): id is string => Boolean(id))
             ),
@@ -303,17 +262,6 @@ export class ApprovalOverviewService {
         for (const approval of deadlineApprovals) {
             if (!latestDeadlineByMilestone.has(approval.milestone_id)) {
                 latestDeadlineByMilestone.set(
-                    approval.milestone_id,
-                    approval.id
-                );
-            }
-        }
-
-        const latestSubmissionByMilestone = new Map<string, string>();
-
-        for (const approval of submissionApprovals) {
-            if (!latestSubmissionByMilestone.has(approval.milestone_id)) {
-                latestSubmissionByMilestone.set(
                     approval.milestone_id,
                     approval.id
                 );
@@ -462,93 +410,9 @@ export class ApprovalOverviewService {
             };
         });
 
-        /*
-         * SA Submission items
-         */
-        const submissionItems = submissionApprovals.map(
-            (approval) => {
-                const milestone = milestoneMap.get(
-                    approval.milestone_id
-                );
-
-                const project = milestone
-                    ? projectMap.get(milestone.project_id)
-                    : undefined;
-
-                return {
-                    id: approval.id,
-                    category: 'SUBMISSION' as const,
-                    status: approval.status,
-
-                    isCurrentApproval:
-                        latestSubmissionByMilestone.get(
-                            approval.milestone_id
-                        ) === approval.id,
-
-                    title: `Submission Review: ${milestone?.name || approval.milestone_id
-                        }`,
-
-                    projectId: milestone?.project_id || '',
-                    projectName: project?.name || '-',
-                    projectCode: project?.id.slice(0, 8) || '-',
-                    clientName: project?.customer || '-',
-
-                    milestoneId: milestone?.id,
-                    milestoneName: milestone?.name,
-                    stepOrder: milestone?.step_order,
-
-                    targetEntityId:
-                        milestone?.id || approval.milestone_id,
-
-                    submittedBy:
-                        userMap.get(approval.submitted_by)?.full_name || '-',
-
-                    submittedAt: approval.submitted_at,
-                    requestedAt: approval.submitted_at,
-
-                    requester: userPayload(
-                        userMap.get(approval.submitted_by)
-                    ),
-
-                    reviewer: approval.reviewed_by
-                        ? userPayload(userMap.get(approval.reviewed_by))
-                        : null,
-
-                    pic: milestone?.pic_id
-                        ? userPayload(userMap.get(milestone.pic_id))
-                        : null,
-
-                    submissionNote: approval.submission_note,
-                    reviewNote: approval.review_note,
-
-                    feedback:
-                        approval.review_note ||
-                        approval.submission_note ||
-                        null,
-
-                    currentDeadline: milestone
-                        ? {
-                            start_date: milestone.start_date,
-                            duration_working_days:
-                                milestone.duration_working_days,
-                            due_date: milestone.due_date,
-                        }
-                        : undefined,
-
-                    deadline: milestone?.due_date || undefined,
-                    approvedAt: approval.reviewed_at,
-
-                    details: milestone
-                        ? `Step ${milestone.step_order}. Milestone status is ${milestone.status}.`
-                        : 'Milestone submission approval.',
-                };
-            }
-        );
-
         const items = [
             ...projectPlanItems,
             ...deadlineItems,
-            ...submissionItems,
         ].sort((a, b) => {
             const aPending =
                 a.status === 'PENDING' &&
@@ -582,22 +446,15 @@ export class ApprovalOverviewService {
                 item.isCurrentApproval
         ).length;
 
-        const pendingSubmissions = submissionItems.filter(
-            (item) =>
-                item.status === 'PENDING' &&
-                item.isCurrentApproval
-        ).length;
 
         return {
             stats: {
                 totalPending:
                     pendingProjectPlans +
-                    pendingDeadlines +
-                    pendingSubmissions,
+                    pendingDeadlines,
 
                 pendingProjectPlans,
                 pendingDeadlines,
-                pendingSubmissions,
             },
 
             items,

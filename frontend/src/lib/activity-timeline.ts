@@ -13,9 +13,6 @@ const actionLabels: Record<string, string> = {
   PIC_ASSIGNED: "PIC Assigned",
   PIC_REASSIGNED: "PIC Reassigned",
   MILESTONE_STARTED: "Milestone Started",
-  MILESTONE_SUBMITTED: "Work Submitted",
-  MILESTONE_APPROVED: "Milestone Approved",
-  MILESTONE_REJECTED: "Milestone Rejected",
   MILESTONE_COMPLETED: "Milestone Completed",
   DEADLINE_CHANGE_REQUESTED: "Deadline Change Requested",
   DEADLINE_APPROVED: "Deadline Approved",
@@ -24,7 +21,6 @@ const actionLabels: Record<string, string> = {
 };
 
 export const formatActivityAction = (action: string): string => {
-  if (action.startsWith("MILESTONE_REVISION")) return "Revision Requested";
   return actionLabels[action] || action.toLowerCase().split("_").filter(Boolean).map((part) => part[0].toUpperCase() + part.slice(1)).join(" ");
 };
 

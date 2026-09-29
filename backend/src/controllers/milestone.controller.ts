@@ -1,10 +1,9 @@
 import { Response } from 'express';
 import { AuthenticatedRequest } from '../middlewares/auth.middleware';
 import { MilestoneService } from '../services/milestone.service';
-import { MilestoneSubmissionPackageError, MilestoneSubmissionPackageService } from '../services/milestone-submission-package.service';
+import { retrySaMilestoneProgression } from '../services/workflow-progression.service';
 import { sendError, sendSuccess } from '../utils/response.util';
 import { getRouteParam } from '../utils/request.util';
-import { SubmitMilestoneInput } from '../validators/milestone.validator';
 
 const getStatusCode = (message?: string) => {
   if (message === 'Forbidden') return 403;
@@ -13,6 +12,15 @@ const getStatusCode = (message?: string) => {
 };
 
 export class MilestoneController {
+  static async retryProgression(req: AuthenticatedRequest, res: Response): Promise<void> {
+    try {
+      const result = await retrySaMilestoneProgression(getRouteParam(req, 'milestoneId'), req.user!);
+      sendSuccess(res, 'Milestone progression reconciled', result);
+    } catch (error: any) {
+      sendError(res, error.message || 'Failed to reconcile milestone progression', null, getStatusCode(error.message));
+    }
+  }
+
   static async complete(req: AuthenticatedRequest, res: Response): Promise<void> {
     try {
       const result = await MilestoneService.completeStage(getRouteParam(req, 'milestoneId'), req.user!, req.body);
@@ -28,29 +36,4 @@ export class MilestoneController {
     }
   }
 
-  static async submit(req: AuthenticatedRequest, res: Response): Promise<void> {
-    try {
-      const input = req.body as SubmitMilestoneInput;
-      const files = Array.isArray(req.files) ? req.files : [];
-      const result = await MilestoneSubmissionPackageService.submit(
-        getRouteParam(req, 'milestoneId'),
-        req.user!,
-        files,
-        input.note
-      );
-      sendSuccess(res, 'Milestone submitted successfully', result);
-    } catch (error: any) {
-      const status = error instanceof MilestoneSubmissionPackageError ? error.statusCode : getStatusCode(error.message);
-      sendError(res, error.message || 'Failed to submit milestone', null, status);
-    }
-  }
-
-  static async startRevision(req: AuthenticatedRequest, res: Response): Promise<void> {
-    try {
-      const result = await MilestoneService.startRevision(getRouteParam(req, 'milestoneId'), req.user!);
-      sendSuccess(res, 'Milestone revision started successfully', result);
-    } catch (error: any) {
-      sendError(res, error.message || 'Failed to start milestone revision', null, getStatusCode(error.message));
-    }
-  }
 }

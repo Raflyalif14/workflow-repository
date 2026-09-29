@@ -1,13 +1,18 @@
 "use client";
 
+
+import { translate as translateI18n } from "@/i18n";
 import React from "react";
 import Link from "next/link";
 import { Layers, LogOut, Plus, UserCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/components/auth/auth-provider";
+import { useLanguage } from "@/components/i18n/language-provider";
+import { LanguageSwitcher } from "@/components/language-switcher";
 
 export function Navbar() {
   const { user, logout } = useAuth();
+  const { t } = useLanguage();
 
   const initials = user?.fullName
     ?.split(" ")
@@ -29,27 +34,28 @@ export function Navbar() {
 
           <nav className="hidden md:flex items-center gap-6 text-sm font-medium text-muted-foreground">
             <Link href="/" className="transition hover:text-foreground">
-              Dashboard
+              {t("nav.dashboard")}
             </Link>
             <Link href="/projects" className="transition hover:text-foreground">
-              Projects
+              {t("nav.projects")}
             </Link>
             <Link href="/documents" className="transition hover:text-foreground">
-              Documents
+              {t("nav.documents")}
             </Link>
             <Link href="/approvals" className="transition hover:text-foreground">
-              Approvals
+              {t("nav.approvals")}
             </Link>
             <Link href="/users" className="transition hover:text-foreground">
-              Users
+              {t("nav.users")}
             </Link>
           </nav>
         </div>
 
         <div className="flex items-center gap-3">
+          <LanguageSwitcher compact />
           <Button size="sm" className="hidden sm:inline-flex gap-2">
             <Plus className="h-4 w-4" />
-            <span>New Workflow</span>
+            <span>{translateI18n("copy.newWorkflow")}</span>
           </Button>
           <div className="hidden md:flex items-center gap-2 rounded-lg border border-border/60 bg-card/60 px-2 py-1.5">
             <div className="flex h-7 w-7 items-center justify-center rounded-md bg-primary/15 text-xs font-bold text-primary">
@@ -71,7 +77,7 @@ export function Navbar() {
             onClick={() => void logout()}
           >
             <LogOut className="h-4 w-4" />
-            <span className="hidden sm:inline">Logout</span>
+            <span className="hidden sm:inline">{t("nav.logout")}</span>
           </Button>
         </div>
       </div>

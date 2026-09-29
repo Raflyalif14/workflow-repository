@@ -23,7 +23,10 @@ import { useAuth } from "@/components/auth/auth-provider";
 import { useApprovalStats } from "@/hooks/use-approvals";
 import { useMyAssignedMilestones } from "@/hooks/use-projects";
 import { NotificationBell } from "@/components/notifications/notification-bell";
-import { SYSTEM_SETTINGS_ALLOWED_ROLES } from "@/lib/settings-access";
+import { LanguageSwitcher } from "@/components/language-switcher";
+import { useLanguage } from "@/components/i18n/language-provider";
+import { PERSONAL_SETTINGS_ALLOWED_ROLES } from "@/lib/settings-access";
+import type { TranslationKey } from "@/i18n";
 import { GlobalSearchDialog } from "@/components/global-search-dialog";
 import { formatActorRoleLabel } from "@/lib/workflow-ux-helpers";
 import { countAssignedMilestonesNeedingAction } from "@/lib/assigned-milestone-ux";
@@ -47,7 +50,7 @@ export const useSidebar = () => useContext(SidebarContext);
 
 // ─── Role-Based Navigation Config ───
 export interface NavItem {
-  label: string;
+  labelKey: TranslationKey;
   href: string;
   icon: any;
   allowedRoles?: string[]; // If undefined, visible to all roles
@@ -55,42 +58,42 @@ export interface NavItem {
 
 const NAV_ITEMS: NavItem[] = [
   {
-    label: "Dashboard",
+    labelKey: "nav.dashboard",
     href: "/",
     icon: LayoutDashboard,
   },
   {
-    label: "Projects",
+    labelKey: "nav.projects",
     href: "/projects",
     icon: FolderKanban,
   },
   {
-    label: "Milestones",
+    labelKey: "nav.milestones",
     href: "/milestones",
     icon: Milestone,
   },
   {
-    label: "Approvals",
+    labelKey: "nav.approvals",
     href: "/approvals",
     icon: ShieldCheck,
     allowedRoles: ["SUPER_ADMIN", "HEAD_SA"],
   },
   {
-    label: "Documents",
+    labelKey: "nav.documents",
     href: "/documents",
     icon: FileText,
   },
   {
-    label: "Users",
+    labelKey: "nav.users",
     href: "/users",
     icon: Users,
     allowedRoles: ["SUPER_ADMIN"],
   },
   {
-    label: "Settings",
+    labelKey: "nav.settings",
     href: "/settings",
     icon: Settings,
-    allowedRoles: SYSTEM_SETTINGS_ALLOWED_ROLES,
+    allowedRoles: PERSONAL_SETTINGS_ALLOWED_ROLES,
   },
 ];
 
@@ -99,6 +102,7 @@ export function Sidebar() {
   const pathname = usePathname();
   const { collapsed, setCollapsed, mobileOpen, setMobileOpen } = useSidebar();
   const { user } = useAuth();
+  const { t } = useLanguage();
 
   const userRole = user?.role || "GUEST";
   const { data: approvalStats } = useApprovalStats();
@@ -156,7 +160,7 @@ export function Sidebar() {
               key={item.href}
               href={item.href}
               onClick={() => setMobileOpen(false)}
-              title={collapsed ? item.label : undefined}
+              title={collapsed ? t(item.labelKey) : undefined}
               className={`
                 group relative flex h-10 items-center gap-2.5 rounded-md px-3 text-sm font-medium transition-colors
                 ${collapsed ? "justify-center px-0" : ""}
@@ -187,7 +191,7 @@ export function Sidebar() {
 
               {!collapsed && (
                 <div className="flex flex-1 items-center justify-between overflow-hidden">
-                  <span className="truncate leading-tight">{item.label}</span>
+                  <span className="truncate leading-tight">{t(item.labelKey)}</span>
                   {badgeCount > 0 && (
                     <span
                       className={`ml-2 shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-semibold ${active
@@ -211,16 +215,16 @@ export function Sidebar() {
         <button
           type="button"
           onClick={() => setCollapsed(!collapsed)}
-          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          aria-label={collapsed ? t("nav.expandSidebar") : t("nav.collapseSidebar")}
           className="hidden lg:flex h-10 w-full items-center gap-2.5 rounded-md px-3 text-sm text-[hsl(var(--sidebar-foreground))] hover:bg-[hsl(var(--sidebar-hover))] hover:text-foreground transition-colors"
-          title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          title={collapsed ? t("nav.expandSidebar") : t("nav.collapseSidebar")}
         >
           {collapsed ? (
             <ChevronRight className="h-[18px] w-[18px] shrink-0 mx-auto" />
           ) : (
             <>
               <ChevronLeft className="h-[18px] w-[18px] shrink-0" />
-              <span>Collapse</span>
+              <span>{t("nav.collapseSidebar")}</span>
             </>
           )}
         </button>
@@ -257,7 +261,7 @@ export function Sidebar() {
         <button
           type="button"
           onClick={() => setMobileOpen(false)}
-          aria-label="Close navigation"
+          aria-label={t("nav.closeNavigation")}
           className="absolute top-4 right-3 p-1 rounded-md text-[hsl(var(--sidebar-foreground))] hover:text-foreground hover:bg-[hsl(var(--sidebar-hover))] transition"
         >
           <X className="h-5 w-5" />
@@ -272,6 +276,7 @@ export function Sidebar() {
 export function TopBar() {
   const { setMobileOpen } = useSidebar();
   const { user, logout } = useAuth();
+  const { t } = useLanguage();
   const [globalSearchOpen, setGlobalSearchOpen] = useState(false);
   const globalSearchRef = useRef<HTMLDivElement>(null);
 
@@ -313,7 +318,7 @@ export function TopBar() {
           <button
             type="button"
             onClick={() => setMobileOpen(true)}
-            aria-label="Open navigation"
+            aria-label={t("nav.openNavigation")}
             className="lg:hidden p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition"
           >
             <Menu className="h-5 w-5" />
@@ -324,14 +329,14 @@ export function TopBar() {
             <button
               type="button"
               onClick={() => setGlobalSearchOpen(true)}
-              aria-label="Open global search"
+              aria-label={t("nav.openSearch")}
               aria-expanded={globalSearchOpen}
               aria-haspopup="dialog"
               aria-controls={globalSearchOpen ? "global-search-panel" : undefined}
               className="flex h-9 w-9 items-center justify-center gap-2 rounded-md px-2 text-left text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground sm:w-72 sm:justify-start sm:px-3 lg:w-80"
             >
               <Search className="h-3.5 w-3.5 shrink-0" />
-              <span className="hidden sm:inline text-xs">Search projects, documents...</span>
+              <span className="hidden sm:inline text-xs">{t("nav.searchPlaceholder")}</span>
               <kbd className="ml-auto hidden rounded border border-border/50 bg-muted/40 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground sm:block">
                 Ctrl K
               </kbd>
@@ -342,6 +347,7 @@ export function TopBar() {
 
         {/* Right: User Profile & Actions */}
         <div className="flex items-center gap-2">
+          <div className="hidden md:block"><LanguageSwitcher compact /></div>
           <NotificationBell enabled={Boolean(user)} />
 
           <div className="flex h-10 items-center gap-2">
@@ -361,9 +367,9 @@ export function TopBar() {
             <button
               type="button"
               onClick={() => logout()}
-              aria-label="Sign out"
+              aria-label={t("nav.logout")}
               className="ml-1 flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
-              title="Sign Out"
+              title={t("nav.logout")}
             >
               <LogOut className="h-4 w-4" />
             </button>

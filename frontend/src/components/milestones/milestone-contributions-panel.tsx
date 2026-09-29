@@ -1,5 +1,7 @@
 "use client";
 
+import { translate as translateI18n, getIntlLocale } from "@/i18n";
+
 import { useState, type FormEvent } from "react";
 import { AlertCircle, Download, FileText, MessageSquareText, Paperclip, Plus, UploadCloud, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -27,7 +29,7 @@ function formatFileSize(value: number): string {
 }
 
 function formatDateTime(value: string): string {
-  return new Date(value).toLocaleString("id-ID", { dateStyle: "medium", timeStyle: "short" });
+  return new Date(value).toLocaleString(getIntlLocale(), { dateStyle: "medium", timeStyle: "short" });
 }
 
 export function MilestoneContributionsPanel({
@@ -131,8 +133,8 @@ export function MilestoneContributionsPanel({
         <div className="flex items-center gap-2">
           <MessageSquareText className="h-4 w-4 text-primary" />
           <div>
-            <p className="text-xs font-semibold text-foreground">Supporting Input</p>
-            <p className="text-[11px] text-muted-foreground">Notes and files shared for the first operational milestone.</p>
+            <p className="text-xs font-semibold text-foreground">{translateI18n("copy.supportingInput")}</p>
+            <p className="text-[11px] text-muted-foreground">{translateI18n("copy.supportingDescription")}</p>
           </div>
         </div>
         {canCreate && (
@@ -155,11 +157,11 @@ export function MilestoneContributionsPanel({
       )}
 
       {contributions.isLoading ? (
-        <p className="mt-3 text-xs text-muted-foreground">Loading supporting input...</p>
+        <p className="mt-3 text-xs text-muted-foreground">{translateI18n("copy.loadingSupporting")}</p>
       ) : contributions.isError ? (
-        <p className="mt-3 text-xs text-destructive">Unable to load supporting input.</p>
+        <p className="mt-3 text-xs text-destructive">{translateI18n("copy.supportingLoadError")}</p>
       ) : !contributions.data?.length ? (
-        <p className="mt-3 text-xs text-muted-foreground">No supporting input yet.</p>
+        <p className="mt-3 text-xs text-muted-foreground">{translateI18n("copy.noSupporting")}</p>
       ) : (
         <div className="mt-3 space-y-2">
           {contributions.data.map((contribution) => (
@@ -194,7 +196,7 @@ export function MilestoneContributionsPanel({
                             </Badge>
                             {attachment.promotion_status === "PROMOTED" && (
                               <Badge variant="outline" className="border-emerald-500/30 bg-emerald-500/10 px-1.5 py-0 text-[9px] font-medium text-emerald-500">
-                                In Repository
+                                {translateI18n("copy.inRepository")}
                               </Badge>
                             )}
                           </div>
@@ -209,7 +211,7 @@ export function MilestoneContributionsPanel({
                           onClick={() => void openAttachment(contribution.id, attachment.id)}
                         >
                           <Download className="h-3.5 w-3.5" />
-                          View / Download
+                          {translateI18n("copy.viewDownload")}
                         </Button>
                         {canPromote && attachment.promotion_status === "NOT_PROMOTED" && (
                           <Button
@@ -227,7 +229,7 @@ export function MilestoneContributionsPanel({
                             }}
                           >
                             <UploadCloud className="h-3.5 w-3.5" />
-                            Promote to Repository
+                            {translateI18n("copy.promoteRepository")}
                           </Button>
                         )}
                         {canPromote && attachment.promotion_status === "PROMOTING" && (
@@ -253,7 +255,7 @@ export function MilestoneContributionsPanel({
         }}
       >
         <DialogHeader className="space-y-2">
-          <DialogTitle>Promote to Repository</DialogTitle>
+          <DialogTitle>{translateI18n("copy.promoteRepository")}</DialogTitle>
           <DialogDescription>
             Promote <span className="font-semibold text-foreground">&quot;{promotionTarget?.fileName}&quot;</span> to the official Document Repository?
           </DialogDescription>
@@ -268,7 +270,7 @@ export function MilestoneContributionsPanel({
         )}
         <DialogFooter className="border-t border-border/40 pt-4">
           <Button type="button" variant="outline" disabled={promoteAttachment.isPending} onClick={() => setPromotionTarget(null)}>
-            Cancel
+            {translateI18n("common.cancel")}
           </Button>
           <Button type="button" disabled={promoteAttachment.isPending} onClick={() => void promote()}>
             {promoteAttachment.isPending ? "Promoting..." : "Promote Document"}
@@ -278,7 +280,7 @@ export function MilestoneContributionsPanel({
 
       <Dialog open={dialogOpen} onOpenChange={handleDialogOpenChange}>
         <DialogHeader>
-          <DialogTitle>Add Supporting Input</DialogTitle>
+          <DialogTitle>{translateI18n("copy.addSupporting")}</DialogTitle>
           <DialogDescription>{milestoneName}</DialogDescription>
         </DialogHeader>
         <form className="space-y-4" onSubmit={submit}>
@@ -302,10 +304,10 @@ export function MilestoneContributionsPanel({
           </div>
 
           <div>
-            <p className="mb-1 text-xs font-semibold text-foreground">Files <span className="font-normal text-muted-foreground">(optional)</span></p>
+            <p className="mb-1 text-xs font-semibold text-foreground">{translateI18n("copy.files")} <span className="font-normal text-muted-foreground">(optional)</span></p>
             <label className="flex min-h-24 cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed border-border/60 bg-muted/15 px-4 text-center transition-colors hover:border-primary/30 hover:bg-muted/25">
               <Paperclip className="mb-2 h-6 w-6 text-muted-foreground" />
-              <span className="text-xs font-medium text-foreground">Choose one or more files</span>
+              <span className="text-xs font-medium text-foreground">{translateI18n("copy.chooseFiles")}</span>
               <span className="mt-0.5 text-[11px] text-muted-foreground">Up to {MAX_DOCUMENT_FILES} files, 50 MB each</span>
               <Input
                 type="file"
@@ -358,7 +360,7 @@ export function MilestoneContributionsPanel({
 
           <DialogFooter className="border-t border-border/40 pt-4">
             <Button type="button" variant="outline" onClick={() => handleDialogOpenChange(false)} disabled={createContribution.isPending}>
-              Cancel
+              {translateI18n("common.cancel")}
             </Button>
             <Button type="submit" disabled={!canSubmit}>
               {createContribution.isPending ? "Adding..." : "Add Input"}

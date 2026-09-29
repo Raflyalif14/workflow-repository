@@ -35,14 +35,15 @@ import {
 } from "./dashboard-ux";
 import type { Project } from "@/types/project";
 import type { DashboardSaWorkload } from "@/types/dashboard";
+import { setActiveLanguage } from "@/i18n";
 
 const roleCases: Array<[string | undefined, string]> = [
-  ["SALES", "Ruang kerja Sales"],
-  ["HEAD_SA", "Ruang kerja Head SA"],
-  ["SA", "Ruang kerja SA"],
-  ["SUPER_ADMIN", "Ikhtisar operasional"],
-  ["UNKNOWN", "Ruang kerja"],
-  [undefined, "Ruang kerja"],
+  ["SALES", "Sales workspace"],
+  ["HEAD_SA", "Head SA workspace"],
+  ["SA", "SA workspace"],
+  ["SUPER_ADMIN", "Operations overview"],
+  ["UNKNOWN", "Workspace"],
+  [undefined, "Workspace"],
 ];
 
 for (const [role, expectedTitle] of roleCases) {
@@ -52,13 +53,13 @@ for (const [role, expectedTitle] of roleCases) {
 }
 
 const greetingCases: Array<[number, string]> = [
-  [0, "Selamat pagi"],
-  [11, "Selamat pagi"],
-  [12, "Selamat siang"],
-  [17, "Selamat siang"],
-  [18, "Selamat malam"],
-  [23, "Selamat malam"],
-  [-1, "Halo"],
+  [0, "Good morning"],
+  [11, "Good morning"],
+  [12, "Good afternoon"],
+  [17, "Good afternoon"],
+  [18, "Good evening"],
+  [23, "Good evening"],
+  [-1, "Hello"],
 ];
 
 for (const [hour, expectedGreeting] of greetingCases) {
@@ -66,6 +67,12 @@ for (const [hour, expectedGreeting] of greetingCases) {
     throw new Error(`Unexpected dashboard greeting for hour ${hour}`);
   }
 }
+
+setActiveLanguage("id");
+if (getDashboardRoleContent("SALES").title !== "Ruang kerja Sales" || getDashboardGreeting(8) !== "Selamat pagi" || getDashboardKpiLabels("SALES")[0] !== "Total estimated revenue") {
+  throw new Error("Dashboard copy should switch to Indonesian");
+}
+setActiveLanguage("en");
 
 const greetingSubjectCases: Array<[string | undefined, string | undefined, string]> = [
   ["Senja Pratama", "HEAD_SA", "Senja"],
@@ -81,7 +88,7 @@ for (const [displayName, role, expectedSubject] of greetingSubjectCases) {
   }
 }
 
-if (getDashboardKpiLabels("HEAD_SA").join(",") !== "Assigned architects,Active delivery,Work submissions,Unassigned projects") {
+if (getDashboardKpiLabels("HEAD_SA").join(",") !== "Assigned architects,Active delivery,Outputs awaiting review,Unassigned projects") {
   throw new Error("Head SA KPI labels should describe SA workload and current delivery status");
 }
 
@@ -136,17 +143,17 @@ if (getMilestoneProjectHref("project-1", "milestone-1") !== "/projects/project-1
   throw new Error("Assigned milestones should open the matching Project Detail milestone");
 }
 
-if (getOutputDocumentsHref("project-1") !== "/projects/project-1#output-documents") {
+if (getOutputDocumentsHref("project-1", "milestone-1") !== "/projects/project-1#milestone-outputs-milestone-1") {
   throw new Error("Output document dashboard links should target the existing Project Detail anchor");
 }
 
-const headSaOutputItems = getHeadSaOutputReviewItems([{ projectId: "project-output", projectName: "Output Review", count: 2 }]);
-if (headSaOutputItems.length !== 1 || headSaOutputItems[0].href !== "/projects/project-output#output-documents" || headSaOutputItems[0].label !== "Output documents awaiting review") {
-  throw new Error("Head SA should receive one project-grouped output review task");
+const headSaOutputItems = getHeadSaOutputReviewItems([{ projectId: "project-output", milestoneId: "milestone-output", projectName: "Output Review", count: 2 }]);
+if (headSaOutputItems.length !== 1 || headSaOutputItems[0].href !== "/projects/project-output#milestone-outputs-milestone-output" || headSaOutputItems[0].label !== "Output documents awaiting review") {
+  throw new Error("Head SA should receive one milestone output review task");
 }
 
-const saOutputItems = getSaOutputRevisionItems([{ projectId: "project-output", projectName: "Output Revision", count: 1 }]);
-if (saOutputItems.length !== 1 || saOutputItems[0].priority >= 10 || saOutputItems[0].href !== "/projects/project-output#output-documents") {
+const saOutputItems = getSaOutputRevisionItems([{ projectId: "project-output", milestoneId: "milestone-output", projectName: "Output Revision", count: 1 }]);
+if (saOutputItems.length !== 1 || saOutputItems[0].priority >= 10 || saOutputItems[0].href !== "/projects/project-output#milestone-outputs-milestone-output") {
   throw new Error("Assigned SA output revisions should be a high-priority direct task");
 }
 
@@ -223,7 +230,7 @@ const saMetrics = getSaDashboardMetrics([
     project: { ...activeSaMilestone.project, status },
   })),
 ], new Date("2026-09-10T12:00:00"));
-if (saMetrics.inProgress !== 1 || saMetrics.needsRevision !== 1 || saMetrics.upcomingDeadlines !== 1 || saMetrics.overdue !== 1) {
+if (saMetrics.inProgress !== 1 || saMetrics.needsRevision !== 0 || saMetrics.upcomingDeadlines !== 0 || saMetrics.overdue !== 1) {
   throw new Error("Paused and non-active SA milestones must be excluded from active, revision, upcoming, and overdue metrics");
 }
 
@@ -352,6 +359,11 @@ const revisionInsight = getDashboardInsights([unsorted[1]])[0];
 if (revisionInsight.tone !== "risk" || !revisionInsight.isPrimaryAction) {
   throw new Error("Revision work should be classified as a real actionable risk insight");
 }
+setActiveLanguage("id");
+if (getDashboardInsights([{ ...unsorted[1], label: "Perlu revisi", state: "Perlu revisi" }])[0].tone !== "risk") {
+  throw new Error("Risk classification must not depend on English display copy");
+}
+setActiveLanguage("en");
 
 if (formatDashboardLabel("PENDING_REVIEW") !== "Pending Review") {
   throw new Error("Dashboard labels must not expose raw underscore values");
@@ -398,7 +410,7 @@ if (getDashboardProjectHealthLabel({ ...healthProjects[0], percentage: null }, "
   throw new Error("Unknown project progress must not be presented as confirmed healthy");
 }
 
-if (formatDashboardActivityLabel("MILESTONE_SUBMITTED") !== "Work Submitted" || /_/.test(formatDashboardActivityLabel("FUTURE_ACTIVITY"))) {
+if (formatDashboardActivityLabel("MILESTONE_COMPLETED") !== "Milestone Completed" || /_/.test(formatDashboardActivityLabel("FUTURE_ACTIVITY"))) {
   throw new Error("Activity labels must not expose raw underscore action values");
 }
 

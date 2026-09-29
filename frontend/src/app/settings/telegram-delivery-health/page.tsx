@@ -1,5 +1,7 @@
 "use client";
 
+import { translate as translateI18n, getIntlLocale } from "@/i18n";
+
 import type { ReactNode } from "react";
 import Link from "next/link";
 import {
@@ -29,7 +31,7 @@ const formatTimestamp = (value: string | null, emptyLabel = "-"): string => {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "-";
 
-  return new Intl.DateTimeFormat(undefined, {
+  return new Intl.DateTimeFormat(getIntlLocale(), {
     dateStyle: "medium",
     timeStyle: "short",
   }).format(date);
@@ -54,10 +56,10 @@ const failureKindDetails: Record<TelegramDeliveryFailureKind, { title: string; d
 };
 
 function FailureKindBadge({ kind }: { kind: TelegramDeliveryFailureKind | null }) {
-  if (!kind) return <Badge variant="outline">Legacy / Unknown</Badge>;
-  if (kind === "RETRYABLE") return <Badge variant="default">Retryable</Badge>;
-  if (kind === "AMBIGUOUS") return <Badge variant="warning">Ambiguous</Badge>;
-  return <Badge variant="destructive">Terminal</Badge>;
+  if (!kind) return <Badge variant="outline">{translateI18n("copy.legacyUnknown")}</Badge>;
+  if (kind === "RETRYABLE") return <Badge variant="default">{translateI18n("copy.retryable")}</Badge>;
+  if (kind === "AMBIGUOUS") return <Badge variant="warning">{translateI18n("copy.ambiguous")}</Badge>;
+  return <Badge variant="destructive">{translateI18n("copy.terminal")}</Badge>;
 }
 
 function MetricCard({
@@ -100,7 +102,7 @@ function RecentFailureRow({ failure }: { failure: TelegramDeliveryRecentFailure 
     <div className="grid gap-3 rounded-xl border border-border/40 bg-muted/10 p-3.5 transition-colors duration-200 hover:border-primary/30 hover:bg-muted/25 md:grid-cols-[minmax(11rem,1.5fr)_auto_repeat(4,minmax(6.5rem,0.8fr))] md:items-center">
       <div className="min-w-0">
         <p className="truncate text-sm font-semibold text-foreground">{failure.notificationType}</p>
-        <p className="mt-1 text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground">Telegram delivery failed</p>
+        <p className="mt-1 text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground">{translateI18n("copy.telegramFailed")}</p>
       </div>
       <div>
         <FailureKindBadge kind={failure.failureKind} />
@@ -150,9 +152,9 @@ function TelegramDeliveryHealthContent() {
             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-primary/15 bg-primary/10 text-primary">
               <RadioTower className="h-4 w-4" aria-hidden="true" />
             </span>
-            <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-primary">Operational Monitoring</span>
+            <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-primary">{translateI18n("copy.operationalMonitoring")}</span>
           </div>
-          <h1 className="text-3xl font-bold tracking-tight">Telegram Delivery Health</h1>
+          <h1 className="text-3xl font-bold tracking-tight">{translateI18n("settings.telegramHealth")}</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             Review delivery status, retry backlog, and recent Telegram delivery failures.
           </p>
@@ -189,8 +191,8 @@ function TelegramDeliveryHealthContent() {
           <CardContent className="flex min-h-64 flex-col items-center justify-center gap-3 px-5 text-center">
             <CircleAlert className="h-6 w-6 text-destructive" aria-hidden="true" />
             <div>
-              <p className="text-base font-semibold tracking-tight text-foreground">Unable to load Telegram delivery health.</p>
-              <p className="mt-1 text-sm text-muted-foreground">Refresh to request the latest operational data.</p>
+              <p className="text-base font-semibold tracking-tight text-foreground">{translateI18n("copy.telegramHealthError")}</p>
+              <p className="mt-1 text-sm text-muted-foreground">{translateI18n("copy.refreshOperational")}</p>
             </div>
             <Button variant="outline" className="gap-2" onClick={() => void refetch()}>
               <RefreshCw className="h-4 w-4" aria-hidden="true" />
@@ -217,8 +219,8 @@ function TelegramDeliveryHealthContent() {
 
           <section className="space-y-3" aria-labelledby="telegram-delivery-summary">
             <div>
-              <h2 id="telegram-delivery-summary" className="text-base font-semibold tracking-tight text-foreground">Delivery Summary</h2>
-              <p className="mt-1 text-xs text-muted-foreground">Current aggregate state for Telegram delivery records.</p>
+              <h2 id="telegram-delivery-summary" className="text-base font-semibold tracking-tight text-foreground">{translateI18n("copy.deliverySummary")}</h2>
+              <p className="mt-1 text-xs text-muted-foreground">{translateI18n("copy.deliveryAggregate")}</p>
             </div>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
               <MetricCard label="Total" value={health.summary.total} description="All Telegram deliveries" icon={<Activity className="h-4 w-4 text-primary" />} iconClassName="border-primary/15 bg-primary/10" />
@@ -230,8 +232,8 @@ function TelegramDeliveryHealthContent() {
 
           <section className="space-y-3" aria-labelledby="telegram-delivery-failure-summary">
             <div>
-              <h2 id="telegram-delivery-failure-summary" className="text-base font-semibold tracking-tight text-foreground">Failure and Retry State</h2>
-              <p className="mt-1 text-xs text-muted-foreground">Classification is supplied by the backend delivery lifecycle.</p>
+              <h2 id="telegram-delivery-failure-summary" className="text-base font-semibold tracking-tight text-foreground">{translateI18n("copy.failureRetry")}</h2>
+              <p className="mt-1 text-xs text-muted-foreground">{translateI18n("copy.classificationHelp")}</p>
             </div>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
               <MetricCard label="Retryable" value={health.summary.retryable} description="Eligible retry classification" icon={<RefreshCw className="h-4 w-4 text-primary" />} iconClassName="border-primary/15 bg-primary/10" valueClassName="text-primary" />
@@ -248,8 +250,8 @@ function TelegramDeliveryHealthContent() {
                   <CircleAlert className="h-4 w-4" aria-hidden="true" />
                 </span>
                 <div>
-                  <CardTitle className="text-base font-semibold tracking-tight">Failure Classification</CardTitle>
-                  <CardDescription className="mt-1 text-xs">How the delivery lifecycle treats each failure kind.</CardDescription>
+                  <CardTitle className="text-base font-semibold tracking-tight">{translateI18n("copy.failureClassification")}</CardTitle>
+                  <CardDescription className="mt-1 text-xs">{translateI18n("copy.failureHelp")}</CardDescription>
                 </div>
               </div>
             </CardHeader>
@@ -273,8 +275,8 @@ function TelegramDeliveryHealthContent() {
                   <AlertTriangle className="h-4 w-4" aria-hidden="true" />
                 </span>
                 <div>
-                  <CardTitle className="text-base font-semibold tracking-tight">Recent Delivery Failures</CardTitle>
-                  <CardDescription className="mt-1 text-xs">Newest Telegram failures first, limited to the latest 20 records.</CardDescription>
+                  <CardTitle className="text-base font-semibold tracking-tight">{translateI18n("copy.recentDeliveryFailures")}</CardTitle>
+                  <CardDescription className="mt-1 text-xs">{translateI18n("copy.recentFailureHelp")}</CardDescription>
                 </div>
               </div>
               <Badge variant="outline">{health.recentFailures.length} shown</Badge>
@@ -283,19 +285,19 @@ function TelegramDeliveryHealthContent() {
               <CardContent className="space-y-3 py-14 text-center">
                 <CheckCircle2 className="mx-auto h-9 w-9 text-emerald-400" aria-hidden="true" />
                 <div>
-                  <p className="text-base font-semibold tracking-tight text-foreground">No recent Telegram delivery failures.</p>
-                  <p className="mt-1 text-xs text-muted-foreground">New failures will appear here when reported by the delivery lifecycle.</p>
+                  <p className="text-base font-semibold tracking-tight text-foreground">{translateI18n("copy.noTelegramFailures")}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">{translateI18n("copy.newFailureHelp")}</p>
                 </div>
               </CardContent>
             ) : (
               <CardContent className="space-y-2 pt-5">
                 <div className="hidden grid-cols-[minmax(11rem,1.5fr)_auto_repeat(4,minmax(6.5rem,0.8fr))] gap-3 px-3.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground md:grid">
-                  <span>Notification type</span>
-                  <span>Classification</span>
-                  <span>Attempts</span>
-                  <span>Last attempt</span>
-                  <span>Next retry</span>
-                  <span>Created</span>
+                  <span>{translateI18n("copy.notificationType")}</span>
+                  <span>{translateI18n("copy.classification")}</span>
+                  <span>{translateI18n("copy.attempts")}</span>
+                  <span>{translateI18n("copy.lastAttempt")}</span>
+                  <span>{translateI18n("copy.nextRetry")}</span>
+                  <span>{translateI18n("copy.created")}</span>
                 </div>
                 {health.recentFailures.map((failure) => <RecentFailureRow key={failure.deliveryId} failure={failure} />)}
               </CardContent>

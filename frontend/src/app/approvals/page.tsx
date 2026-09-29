@@ -1,5 +1,7 @@
 "use client";
 
+import { translate as translateI18n, getIntlLocale } from "@/i18n";
+
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
@@ -8,7 +10,6 @@ import {
   CheckCircle2,
   ClipboardCheck,
   Eye,
-  FileCheck2,
   History,
   Inbox,
   Search,
@@ -28,10 +29,9 @@ const categoryOptions: Array<{ key: ApprovalCategory; label: string }> = [
   { key: "ALL", label: "All requests" },
   { key: "PROJECT_PLAN", label: "Project plans" },
   { key: "DEADLINE", label: "Deadline changes" },
-  { key: "SUBMISSION", label: "Work submissions" },
 ];
 
-const categoryOrder: ApprovalItem["category"][] = ["PROJECT_PLAN", "SUBMISSION", "DEADLINE"];
+const categoryOrder: ApprovalItem["category"][] = ["PROJECT_PLAN", "DEADLINE"];
 
 export default function ApprovalCenterPage() {
   return (
@@ -86,7 +86,6 @@ function ApprovalCenterPageContent() {
     { label: "Total pending", value: stats?.totalPending || 0 },
     { label: "Project plans", value: stats?.pendingProjectPlans || 0 },
     { label: "Deadline changes", value: stats?.pendingDeadlines || 0 },
-    { label: "Work submissions", value: stats?.pendingSubmissions || 0 },
   ];
 
   const openAction = (item: ApprovalItem, action: "APPROVE" | "REJECT") => {
@@ -168,10 +167,10 @@ function ApprovalCenterPageContent() {
                 }
                 className="h-9 w-full rounded-md border border-border bg-background px-3 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary sm:w-[180px]"
               >
-                <option value="ALL">All resolved</option>
-                <option value="APPROVED">Approved</option>
-                <option value="REJECTED">Rejected</option>
-                <option value="SUPERSEDED">Superseded</option>
+                <option value="ALL">{translateI18n("copy.allResolved")}</option>
+                <option value="APPROVED">{translateI18n("milestoneStatus.APPROVED")}</option>
+                <option value="REJECTED">{translateI18n("approvalStatus.REJECTED")}</option>
+                <option value="SUPERSEDED">{translateI18n("documentStatus.SUPERSEDED")}</option>
               </select>
             )}
           </div>
@@ -210,8 +209,8 @@ function ApprovalCenterPageContent() {
           </div>
         ) : isError ? (
           <div className="px-5 py-14 text-center">
-            <p className="font-medium text-destructive">Unable to load approvals.</p>
-            <p className="mt-1 text-xs text-muted-foreground">Refresh the page and try again.</p>
+            <p className="font-medium text-destructive">{translateI18n("approval.loadError")}</p>
+            <p className="mt-1 text-xs text-muted-foreground">{translateI18n("copy.refreshTryAgain")}</p>
           </div>
         ) : displayedApprovals.length === 0 ? (
           <div className="px-5 py-14 text-center">
@@ -333,7 +332,7 @@ function ApprovalRow({
                 onClick={() => onOpenAction(item, "REJECT")}
               >
                 <X className="h-3.5 w-3.5" />
-                Reject
+                {translateI18n("common.reject")}
               </Button>
               <Button
                 size="sm"
@@ -342,7 +341,7 @@ function ApprovalRow({
                 onClick={() => onOpenAction(item, "APPROVE")}
               >
                 <Check className="h-3.5 w-3.5" />
-                Approve
+                {translateI18n("common.approve")}
               </Button>
             </>
           ) : (
@@ -365,13 +364,13 @@ function ApprovalRow({
 function StatusBadge({ status }: { status: ApprovalStatus }) {
   switch (status) {
     case "APPROVED":
-      return <Badge variant="success">Approved</Badge>;
+      return <Badge variant="success">{translateI18n("milestoneStatus.APPROVED")}</Badge>;
     case "REJECTED":
-      return <Badge variant="destructive">Rejected</Badge>;
+      return <Badge variant="destructive">{translateI18n("approvalStatus.REJECTED")}</Badge>;
     case "SUPERSEDED":
-      return <Badge variant="outline">Superseded</Badge>;
+      return <Badge variant="outline">{translateI18n("documentStatus.SUPERSEDED")}</Badge>;
     default:
-      return <Badge variant="warning">Pending review</Badge>;
+      return <Badge variant="warning">{translateI18n("approvalStatus.PENDING")}</Badge>;
   }
 }
 
@@ -381,12 +380,12 @@ function ApprovalSummary({ item }: { item: ApprovalItem }) {
       <div className="mt-3 border-l-2 border-border pl-3 text-xs text-muted-foreground">
         <p>
           {item.requestNote
-            ? <>Plan note: <strong className="font-medium text-foreground">&quot;{item.requestNote}&quot;</strong></>
+            ? <>{translateI18n("copy.planNote")} <strong className="font-medium text-foreground">&quot;{item.requestNote}&quot;</strong></>
             : "Initial project timeline submitted for sign-off."}
         </p>
         {item.reviewNote && (
           <p className="mt-1">
-            Review note: <strong className="font-medium text-foreground">&quot;{item.reviewNote}&quot;</strong>
+            {translateI18n("copy.reviewNoteLabel")} <strong className="font-medium text-foreground">&quot;{item.reviewNote}&quot;</strong>
           </p>
         )}
       </div>
@@ -398,27 +397,6 @@ function ApprovalSummary({ item }: { item: ApprovalItem }) {
       <div className="mt-3 grid gap-3 border-l-2 border-border pl-3 text-xs sm:grid-cols-2">
         <DeadlineMini title="Current timeline" deadline={item.currentDeadline} />
         <DeadlineMini title="Proposed change" deadline={item.proposedDeadline} />
-      </div>
-    );
-  }
-
-  if (item.category === "SUBMISSION") {
-    return (
-      <div className="mt-3 border-l-2 border-border pl-3 text-xs text-muted-foreground">
-        <p>
-          {item.milestoneName || "Milestone work"} submitted for review
-          {item.stepOrder ? ` at step ${item.stepOrder}` : ""}.
-        </p>
-        {item.submissionNote && (
-          <p className="mt-1">
-            Submission note: <strong className="font-medium text-foreground">&quot;{item.submissionNote}&quot;</strong>
-          </p>
-        )}
-        {item.reviewNote && (
-          <p className="mt-1">
-            Review feedback: <strong className="font-medium text-foreground">&quot;{item.reviewNote}&quot;</strong>
-          </p>
-        )}
       </div>
     );
   }
@@ -454,15 +432,12 @@ function DeadlineMini({
 
 function formatDate(value?: string | null) {
   if (!value) return "Date unavailable";
-  return new Date(value).toLocaleDateString("id-ID", { dateStyle: "medium" });
+  return new Date(value).toLocaleDateString(getIntlLocale(), { dateStyle: "medium" });
 }
 
 function ApprovalCategoryIcon({ category }: { category: ApprovalItem["category"] }) {
   if (category === "DEADLINE") {
     return <CalendarClock className="h-3.5 w-3.5 text-amber-400" />;
-  }
-  if (category === "SUBMISSION") {
-    return <FileCheck2 className="h-3.5 w-3.5 text-emerald-400" />;
   }
   return <ClipboardCheck className="h-3.5 w-3.5 text-primary" />;
 }

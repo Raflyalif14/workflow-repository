@@ -1,5 +1,7 @@
 "use client";
 
+import { translate as translateI18n } from "@/i18n";
+
 import React, { useState } from "react";
 import {
   Dialog,
@@ -87,7 +89,7 @@ export function UploadVersionDialog({
             </span>
             <div className="min-w-0 space-y-1">
               <div className="flex flex-wrap items-center gap-2">
-                <DialogTitle className="text-base">Upload new version</DialogTitle>
+                <DialogTitle className="text-base">{translateI18n("documents.uploadVersion")}</DialogTitle>
                 <Badge variant="outline">{getVersionLabel(nextVersion)}</Badge>
               </div>
               <DialogDescription className="mt-0 text-xs leading-5">
@@ -210,7 +212,7 @@ export function UploadVersionDialog({
               onClick={() => handleOpenChange(false)}
               disabled={uploadVersionMutation.isPending}
             >
-              Cancel
+              {translateI18n("common.cancel")}
             </Button>
             <Button type="submit" disabled={uploadVersionMutation.isPending}>
               {uploadVersionMutation.isPending ? "Uploading..." : "Upload version"}

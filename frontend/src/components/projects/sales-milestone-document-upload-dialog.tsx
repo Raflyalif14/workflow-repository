@@ -1,5 +1,7 @@
 "use client";
 
+import { translate as translateI18n } from "@/i18n";
+
 import { useState, type FormEvent } from "react";
 import { AlertCircle, FileText, Paperclip, UploadCloud, X } from "lucide-react";
 import {
@@ -95,7 +97,7 @@ export function SalesMilestoneDocumentUploadDialog({
             <UploadCloud className="h-4 w-4" />
           </span>
           <div className="min-w-0 space-y-1">
-            <DialogTitle className="text-base font-semibold tracking-tight">Upload Milestone Documents</DialogTitle>
+            <DialogTitle className="text-base font-semibold tracking-tight">{translateI18n("ui.uploadMilestoneDocuments")}</DialogTitle>
             <DialogDescription className="mt-0 text-xs leading-relaxed">
               Add official documents for the SALES milestone &ldquo;{milestoneName}&rdquo;.
             </DialogDescription>
@@ -106,11 +108,11 @@ export function SalesMilestoneDocumentUploadDialog({
       <form onSubmit={submit} className="space-y-4">
         <div>
           <label className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-            Documents
+            {translateI18n("nav.documents")}
           </label>
           <label className="flex min-h-28 w-full cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed border-border/60 bg-muted/15 px-4 text-center transition-colors hover:border-primary/30 hover:bg-muted/25">
             <Paperclip className="mb-2 h-7 w-7 text-muted-foreground" />
-            <span className="text-xs font-medium text-foreground">Choose one or more files</span>
+            <span className="text-xs font-medium text-foreground">{translateI18n("copy.chooseFiles")}</span>
             <span className="mt-0.5 text-[11px] text-muted-foreground">
               Up to {MAX_DOCUMENT_FILES} files, 50 MB each
             </span>
@@ -171,7 +173,7 @@ export function SalesMilestoneDocumentUploadDialog({
             onClick={() => handleOpenChange(false)}
             disabled={uploadDocuments.isPending}
           >
-            Cancel
+            {translateI18n("common.cancel")}
           </Button>
           <Button
             type="submit"

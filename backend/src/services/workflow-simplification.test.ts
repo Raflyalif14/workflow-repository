@@ -5,13 +5,7 @@ import {
 } from './deadline.service';
 import { buildDeadlineApprovalResolution } from './deadline-approval.service';
 import {
-  buildMilestoneApprovalReview,
-  shouldCompleteProject,
-} from './milestone-approval.service';
-import {
   buildInitialMilestoneRows,
-  buildMilestoneRevisionStartResult,
-  buildMilestoneSubmissionResult,
 } from './milestone.service';
 import {
   buildInitialTimelineUpdate,
@@ -143,29 +137,6 @@ console.log('Test 15 - Assigned SA stage is eligible for auto-start');
 
 assert(isMilestoneCompletedLike('COMPLETED') && isMilestoneCompletedLike('APPROVED'), 'Test 16: historical APPROVED remains completed-equivalent');
 console.log('Test 16 - COMPLETED and historical APPROVED are completed-equivalent');
-
-assert(shouldCompleteProject('ACTIVE', [{ status: 'COMPLETED' }, { status: 'APPROVED' }]), 'Test 17: completed final stage completes project');
-console.log('Test 17 - Final completed stage can complete project');
-
-const submission = buildMilestoneSubmissionResult({
-  id: 'milestone-sa',
-  name: 'Requirement Gathering',
-  status: 'IN_PROGRESS',
-  pic_id: sa.userId,
-  project: activeProject,
-}, sa, false, 'Ready for review');
-assert(submission.status === 'SUBMITTED' && submission.approval.status === 'PENDING', 'Test 18: SA submission remains reviewed');
-console.log('Test 18 - SA work still submits for HEAD_SA review');
-
-const rejection = buildMilestoneApprovalReview('PENDING', 'SUBMITTED', activeProject, 'REJECTED', headSa, 'Please revise');
-assert(rejection.milestone.status === 'REJECTED', 'Test 19: HEAD_SA rejection keeps revision flow');
-console.log('Test 19 - SA rejection remains REJECTED');
-
-const revision = buildMilestoneRevisionStartResult({
-  id: 'milestone-sa', project_id: 'project-1', name: 'Requirement Gathering', status: 'REJECTED', pic_id: sa.userId, project: activeProject,
-}, sa, true, false);
-assert(revision.status === 'IN_PROGRESS', 'Test 20: SA can start revision');
-console.log('Test 20 - SA revision returns the milestone to IN_PROGRESS');
 
 const projectRoutes = readFileSync(join(__dirname, '../routes/project.routes.ts'), 'utf8');
 assert(projectRoutes.includes("'/:projectId/timeline'") && projectRoutes.includes("'/:projectId/plan/submit'") && projectRoutes.includes("'/:projectId/plan/approve'"), 'Test 21: project timeline and plan review routes must be registered');

@@ -13,6 +13,7 @@ export interface User {
   role: UserRole;
   isActive: boolean;
   mustChangePassword: boolean;
+  preferredLanguage?: "en" | "id";
   createdAt: string;
   updatedAt?: string;
   _count?: {

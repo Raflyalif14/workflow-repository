@@ -73,13 +73,10 @@ export class ProjectDeletionService {
     const milestoneIds = ids(milestones);
     const documents = await rows('documents', (query) => query.eq('project_id', projectId));
     const documentIds = ids(documents);
-    const packages = await rows('milestone_submission_packages', (query) => query.eq('project_id', projectId));
-    const packageIds = ids(packages);
     const contributions = await rows('milestone_contributions', (query) => query.eq('project_id', projectId));
     const contributionIds = ids(contributions);
-    const [versions, attachments, contributionAttachments, intakeAttachments, outputDocuments, outputVersions] = await Promise.all([
+    const [versions, contributionAttachments, intakeAttachments, outputDocuments, outputVersions] = await Promise.all([
       documentIds.length ? storageRows('document_versions', (query) => query.in('document_id', documentIds)) : [],
-      packageIds.length ? storageRows('milestone_submission_attachments', (query) => query.in('package_id', packageIds)) : [],
       contributionIds.length
         ? storageRows('milestone_contribution_attachments', (query) => query.in('contribution_id', contributionIds))
         : [],
@@ -93,7 +90,6 @@ export class ProjectDeletionService {
     const notifications = [...new Map([...projectNotifications, ...milestoneNotifications].map((row) => [row.id, row])).values()];
     const notificationIds = ids(notifications);
     const counts = await Promise.all([
-      milestoneIds.length ? rows('milestone_approvals', (query) => query.in('milestone_id', milestoneIds)) : [],
       milestoneIds.length ? rows('milestone_deadline_approvals', (query) => query.in('milestone_id', milestoneIds)) : [],
       milestoneIds.length ? rows('milestone_deadline_history', (query) => query.in('milestone_id', milestoneIds)) : [],
       rows('project_plan_approvals', (query) => query.eq('project_id', projectId)),
@@ -104,7 +100,7 @@ export class ProjectDeletionService {
       documentIds.length ? rows('document_comments', (query) => query.in('document_id', documentIds)) : [],
     ]);
     const storageObjectCount = new Set(
-      [...versions, ...attachments, ...contributionAttachments, ...intakeAttachments, ...outputDocuments, ...outputVersions]
+      [...versions, ...contributionAttachments, ...intakeAttachments, ...outputDocuments, ...outputVersions]
         .map((row) => row.storage_path)
         .filter(Boolean)
     ).size;
@@ -117,19 +113,17 @@ export class ProjectDeletionService {
       milestone_count: milestones.length,
       document_count: documents.length,
       document_version_count: versions.length,
-      submission_package_count: packages.length,
-      submission_attachment_count: attachments.length,
       milestone_contribution_count: contributions.length,
       milestone_contribution_attachment_count: contributionAttachments.length,
       project_intake_attachment_count: intakeAttachments.length,
       project_output_document_count: outputDocuments.length,
       project_output_document_version_count: outputVersions.length,
-      approvals: { milestone: counts[0].length, deadline: counts[1].length, deadline_history: counts[2].length, project_plan: counts[3].length, document_version: counts[7].length },
-      assignment_count: counts[4].length,
-      activity_log_count: counts[5].length,
+      approvals: { deadline: counts[0].length, deadline_history: counts[1].length, project_plan: counts[2].length, document_version: counts[6].length },
+      assignment_count: counts[3].length,
+      activity_log_count: counts[4].length,
       notification_count: notifications.length,
-      notification_delivery_count: counts[6].length,
-      document_comment_count: counts[8].length,
+      notification_delivery_count: counts[5].length,
+      document_comment_count: counts[7].length,
       storage_object_count: storageObjectCount,
     };
   }

@@ -208,6 +208,15 @@ async function run() {
     loginUrl: 'http://localhost:3000/login',
   });
   assert(String(email.text).includes('user@r17.co.id'), 'Security Test: email body may include recipient email');
+  assert(String(email.subject).includes('Your Account Has Been Created'), 'Default registration email should be English');
+  const indonesianEmail = buildInitialPasswordEmail({
+    recipientEmail: 'user@r17.co.id',
+    recipientName: 'User R17',
+    initialPassword: securePassword,
+    loginUrl: 'http://localhost:3000/login',
+    language: 'id',
+  });
+  assert(String(indonesianEmail.subject).includes('Akun Anda Telah Dibuat'), 'Indonesian account email should be localized');
   assert(String(email.text).includes(securePassword), 'Security Test: SMTP email includes temporary password only in email payload');
   assert(!responseJson.includes(securePassword), 'Security Test: password should not appear in response JSON');
   console.log('Security Test - Initial password only appears in SMTP payload, not response or test output');

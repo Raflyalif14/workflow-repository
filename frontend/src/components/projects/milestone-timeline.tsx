@@ -1,5 +1,7 @@
 "use client";
 
+
+import { getIntlLocale } from "@/i18n";
 import { CalendarClock, Check, Circle, Clock, User as UserIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { ProjectMilestone, MilestoneStatus } from "@/types/project";
@@ -90,5 +92,5 @@ function MilestoneStatusBadge({ status }: { status: MilestoneStatus }) {
 
 function formatDate(value?: string | null) {
   if (!value) return "-";
-  return new Date(value).toLocaleDateString("id-ID", { dateStyle: "medium" });
+  return new Date(value).toLocaleDateString(getIntlLocale(), { dateStyle: "medium" });
 }

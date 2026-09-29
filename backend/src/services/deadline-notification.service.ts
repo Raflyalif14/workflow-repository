@@ -24,7 +24,9 @@ export function buildDeadlineChangeRequestedNotification(
     title: 'Deadline Change Requested',
     message: `Deadline change for milestone '${context.milestoneName}' in project '${context.projectName}' is waiting for review.`,
     projectId: context.projectId,
+    projectName: context.projectName,
     milestoneId: context.milestoneId,
+    milestoneName: context.milestoneName,
     actionUrl: '/approvals',
   };
 }
@@ -42,7 +44,9 @@ function buildDeadlineChangeDecisionNotification(
         title: 'Deadline Change Approved',
         message: `Requested deadline change for milestone '${context.milestoneName}' in project '${context.projectName}' was approved.`,
         projectId: context.projectId,
+        projectName: context.projectName,
         milestoneId: context.milestoneId,
+        milestoneName: context.milestoneName,
         actionUrl: projectActionUrl(context.projectId),
       }
     : {
@@ -51,7 +55,9 @@ function buildDeadlineChangeDecisionNotification(
         title: 'Deadline Change Rejected',
         message: `Requested deadline change for milestone '${context.milestoneName}' in project '${context.projectName}' was rejected.`,
         projectId: context.projectId,
+        projectName: context.projectName,
         milestoneId: context.milestoneId,
+        milestoneName: context.milestoneName,
         actionUrl: projectActionUrl(context.projectId),
       };
 }

@@ -1,5 +1,7 @@
 "use client";
 
+import { translate as translateI18n, getIntlLocale } from "@/i18n";
+
 import React, { useState } from "react";
 import {
   Users,
@@ -70,28 +72,28 @@ function UsersPageContent() {
         return (
           <Badge className="bg-purple-500/15 text-purple-400 border border-purple-500/30 gap-1">
             <Shield className="h-3 w-3" />
-            <span>Super Admin</span>
+            <span>{translateI18n("role.SUPER_ADMIN")}</span>
           </Badge>
         );
       case "SALES":
         return (
           <Badge className="bg-blue-500/15 text-blue-400 border border-blue-500/30 gap-1">
             <Briefcase className="h-3 w-3" />
-            <span>Sales</span>
+            <span>{translateI18n("role.SALES")}</span>
           </Badge>
         );
       case "HEAD_SA":
         return (
           <Badge className="bg-amber-500/15 text-amber-400 border border-amber-500/30 gap-1">
             <Layers className="h-3 w-3" />
-            <span>Head SA</span>
+            <span>{translateI18n("role.HEAD_SA")}</span>
           </Badge>
         );
       case "SA":
         return (
           <Badge className="bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 gap-1">
             <Code2 className="h-3 w-3" />
-            <span>Solution Architect</span>
+            <span>{translateI18n("role.SA")}</span>
           </Badge>
         );
       default:
@@ -116,9 +118,9 @@ function UsersPageContent() {
         <div>
           <div className="flex items-center gap-2 text-primary text-xs font-semibold uppercase tracking-wider mb-1">
             <Users className="h-4 w-4" />
-            <span>Super Admin Access</span>
+            <span>{translateI18n("copy.superAdminAccess")}</span>
           </div>
-          <h1 className="text-3xl font-bold tracking-tight">User Management</h1>
+          <h1 className="text-3xl font-bold tracking-tight">{translateI18n("users.management")}</h1>
           <p className="text-sm text-muted-foreground mt-1">
             Manage organization team members, assign access roles, and perform credential maintenance.
           </p>
@@ -126,7 +128,7 @@ function UsersPageContent() {
 
         <Button onClick={handleOpenCreate} className="gap-2 self-start sm:self-auto shadow-md">
           <UserPlus className="h-4 w-4" />
-          <span>Add New User</span>
+          <span>{translateI18n("users.add")}</span>
         </Button>
       </div>
 
@@ -157,10 +159,10 @@ function UsersPageContent() {
             }}
             className="flex h-9 w-full rounded-md border border-input bg-card px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-primary"
           >
-            <option value="ALL">All Roles</option>
-            <option value="SUPER_ADMIN">Super Admin</option>
-            <option value="SALES">Sales</option>
-            <option value="HEAD_SA">Head SA</option>
+            <option value="ALL">{translateI18n("users.allRoles")}</option>
+            <option value="SUPER_ADMIN">{translateI18n("role.SUPER_ADMIN")}</option>
+            <option value="SALES">{translateI18n("role.SALES")}</option>
+            <option value="HEAD_SA">{translateI18n("role.HEAD_SA")}</option>
             <option value="SA">SA</option>
           </select>
         </div>
@@ -175,9 +177,9 @@ function UsersPageContent() {
             }}
             className="flex h-9 w-full rounded-md border border-input bg-card px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-primary"
           >
-            <option value="">All Statuses</option>
-            <option value="true">Active Only</option>
-            <option value="false">Inactive Only</option>
+            <option value="">{translateI18n("users.allStatuses")}</option>
+            <option value="true">{translateI18n("copy.activeOnly")}</option>
+            <option value="false">{translateI18n("ui.inactiveOnly")}</option>
           </select>
         </div>
       </div>
@@ -188,11 +190,11 @@ function UsersPageContent() {
           <table className="w-full text-left text-sm">
             <thead className="bg-muted/40 border-b border-border text-xs uppercase font-semibold text-muted-foreground">
               <tr>
-                <th className="px-6 py-4">User</th>
-                <th className="px-6 py-4">Role</th>
-                <th className="px-6 py-4">Status</th>
-                <th className="px-6 py-4">Created At</th>
-                <th className="px-6 py-4 text-right">Actions</th>
+                <th className="px-6 py-4">{translateI18n("copy.user")}</th>
+                <th className="px-6 py-4">{translateI18n("copy.role")}</th>
+                <th className="px-6 py-4">{translateI18n("common.status")}</th>
+                <th className="px-6 py-4">{translateI18n("users.createdAt")}</th>
+                <th className="px-6 py-4 text-right">{translateI18n("common.actions")}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border/50">
@@ -238,7 +240,7 @@ function UsersPageContent() {
                       </Badge>
                     </td>
                     <td className="px-6 py-4 text-xs text-muted-foreground">
-                      {new Date(user.createdAt).toLocaleDateString()}
+                      {new Date(user.createdAt).toLocaleDateString(getIntlLocale())}
                     </td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex items-center justify-end gap-1.5">

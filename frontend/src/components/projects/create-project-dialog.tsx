@@ -1,5 +1,7 @@
 "use client";
 
+import { translate as translateI18n } from "@/i18n";
+
 import React, { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -67,7 +69,7 @@ export function CreateProjectDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogHeader>
-        <DialogTitle>Create New Project (Sales)</DialogTitle>
+        <DialogTitle>{translateI18n("copy.createSalesProject")}</DialogTitle>
         <DialogDescription>
           Initiate a new client engagement, select a workflow scenario, and configure timeline deadlines.
         </DialogDescription>
@@ -132,7 +134,7 @@ export function CreateProjectDialog({
             className="flex h-10 w-full rounded-md border border-input bg-card px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-primary"
             disabled={isSubmitting || isLoadingScenarios}
           >
-            <option value="">-- Choose a standard Scenario --</option>
+            <option value="">{translateI18n("copy.chooseScenario")}</option>
             {scenarios.map((scenario) => (
               <option key={scenario.id} value={scenario.id}>
                 {scenario.name} (SLA: {scenario.slaWorkingDays} Working Days)
@@ -159,7 +161,7 @@ export function CreateProjectDialog({
             </div>
             {selectedScenario.stages && selectedScenario.stages.length > 0 && (
               <div className="flex items-center gap-1.5 flex-wrap pt-1 text-muted-foreground">
-                <span className="font-semibold text-foreground">Auto-generated Milestones:</span>
+                <span className="font-semibold text-foreground">{translateI18n("copy.generatedMilestones")}</span>
                 {selectedScenario.stages.map((stage, idx) => (
                   <span key={stage.id} className="bg-background px-2 py-0.5 rounded border border-border">
                     {idx + 1}. {stage.name} ({stage.defaultDurationDays}d)
@@ -203,7 +205,7 @@ export function CreateProjectDialog({
 
         <div>
           <label className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1">
-            Description
+            {translateI18n("ui.description")}
           </label>
           <textarea
             rows={2}
@@ -221,7 +223,7 @@ export function CreateProjectDialog({
             onClick={() => onOpenChange(false)}
             disabled={isSubmitting}
           >
-            Cancel
+            {translateI18n("common.cancel")}
           </Button>
           <Button type="submit" disabled={isSubmitting}>
             {isSubmitting ? "Creating Project..." : "Create Project"}

@@ -1,121 +1,79 @@
 "use client";
 
-import React from "react";
-import { Settings, Shield, Server, Database, Key, Bell, Palette, RadioTower, Workflow } from "lucide-react";
+import { RadioTower, Server, Settings, Shield, Workflow } from "lucide-react";
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-
 import { useAuth } from "@/components/auth/auth-provider";
-import { RoleGuard } from "@/components/auth/role-guard";
-import { SYSTEM_SETTINGS_ALLOWED_ROLES } from "@/lib/settings-access";
+import { useLanguage } from "@/components/i18n/language-provider";
+import { LanguageSwitcher } from "@/components/language-switcher";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 export default function SettingsPage() {
+  const { user } = useAuth();
+  const { error, t } = useLanguage();
+  const isSystemAdmin = user?.role === "SUPER_ADMIN";
+
   return (
-    <RoleGuard allowedRoles={SYSTEM_SETTINGS_ALLOWED_ROLES}>
-      <SettingsPageContent />
-    </RoleGuard>
+    <div className="container space-y-6 py-8">
+      <div className="border-b border-border/50 pb-6">
+        <div className="mb-1 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-primary">
+          <Settings className="h-4 w-4" aria-hidden="true" />
+          {t("settings.personal")}
+        </div>
+        <h1 className="text-3xl font-bold tracking-tight">{t("nav.settings")}</h1>
+        <p className="mt-1 text-sm text-muted-foreground">{t("language.description")}</p>
+      </div>
+
+      <Card className="border-primary/20 bg-card/70">
+        <CardHeader>
+          <CardTitle className="text-base">{t("language.preference")}</CardTitle>
+          <CardDescription>{t("language.description")}</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <LanguageSwitcher />
+          {error && <p className="text-sm text-destructive" role="alert">{t(error)}</p>}
+        </CardContent>
+      </Card>
+
+      {isSystemAdmin && (
+        <section className="space-y-4" aria-labelledby="system-settings-title">
+          <div>
+            <h2 id="system-settings-title" className="text-xl font-semibold">{t("settings.system")}</h2>
+            <p className="text-sm text-muted-foreground">{t("settings.systemDescription")}</p>
+          </div>
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+            <Card>
+              <CardHeader><CardTitle className="flex items-center gap-2 text-base"><Workflow className="h-4 w-4" />{t("settings.workflowTemplates")}</CardTitle><CardDescription>{t("settings.workflowDescription")}</CardDescription></CardHeader>
+              <CardContent><Link href="/settings/workflows"><Button><Workflow className="mr-2 h-4 w-4" />{t("settings.openWorkflow")}</Button></Link></CardContent>
+            </Card>
+            <Card>
+              <CardHeader><CardTitle className="flex items-center gap-2 text-base"><RadioTower className="h-4 w-4" />{t("settings.telegramHealth")}</CardTitle><CardDescription>{t("settings.telegramDescription")}</CardDescription></CardHeader>
+              <CardContent><Link href="/settings/telegram-delivery-health"><Button><RadioTower className="mr-2 h-4 w-4" />{t("settings.openTelegram")}</Button></Link></CardContent>
+            </Card>
+            <Card>
+              <CardHeader><CardTitle className="flex items-center gap-2 text-base"><Shield className="h-4 w-4" />{t("settings.authentication")}</CardTitle><CardDescription>{t("settings.authenticationDescription")}</CardDescription></CardHeader>
+              <CardContent className="space-y-3 text-xs">
+                <SettingRow label={t("settings.authenticationProvider")} value="Supabase Auth" />
+                <SettingRow label={t("settings.applicationRoles")} value="4 Roles" />
+                <SettingRow label={t("settings.profileStorage")} value="Supabase Database" />
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader><CardTitle className="flex items-center gap-2 text-base"><Server className="h-4 w-4" />{t("settings.repositoryStorage")}</CardTitle><CardDescription>{t("settings.repositoryDescription")}</CardDescription></CardHeader>
+              <CardContent className="space-y-3 text-xs">
+                <SettingRow label={t("settings.storageProvider")} value="Supabase Storage" success />
+                <SettingRow label={t("settings.access")} value="Backend-signed download URLs" />
+                <SettingRow label="Bucket" value={t("settings.environmentConfigured")} />
+              </CardContent>
+            </Card>
+          </div>
+        </section>
+      )}
+    </div>
   );
 }
 
-function SettingsPageContent() {
-  const { user } = useAuth();
-
-  return (
-    <div className="container py-8 space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-border/50 pb-6">
-        <div>
-          <div className="flex items-center gap-2 text-primary text-xs font-semibold uppercase tracking-wider mb-1">
-            <Settings className="h-4 w-4" />
-            <span>Enterprise System Configuration</span>
-          </div>
-          <h1 className="text-3xl font-bold tracking-tight">System Settings</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Configure authentication rules and workflow templates for the repository.
-          </p>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <Card className="bg-card/50 border-border/60">
-          <CardHeader>
-            <div className="flex items-center gap-2"><Workflow className="h-4 w-4 text-primary" /><CardTitle className="text-base">Workflow Templates</CardTitle></div>
-            <CardDescription className="text-xs">Manage scenarios and ordered workflow stages</CardDescription>
-          </CardHeader>
-          <CardContent><Link href="/settings/workflows"><Button className="gap-2"><Workflow className="h-4 w-4" />Open Workflow Management</Button></Link></CardContent>
-        </Card>
-        {user?.role === "SUPER_ADMIN" && (
-          <Card className="border-border/60 bg-card/70 shadow-sm transition-all duration-200 hover:border-primary/20 hover:shadow-md">
-            <CardHeader className="space-y-3">
-              <span className="flex h-9 w-9 items-center justify-center rounded-xl border border-primary/15 bg-primary/10 text-primary">
-                <RadioTower className="h-4 w-4" aria-hidden="true" />
-              </span>
-              <div>
-                <CardTitle className="text-base font-semibold tracking-tight">Telegram Delivery Health</CardTitle>
-                <CardDescription className="mt-1 text-xs">
-                  Monitor Telegram delivery status, retry backlog, and recent failures.
-                </CardDescription>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <Link href="/settings/telegram-delivery-health">
-                <Button className="gap-2">
-                  <RadioTower className="h-4 w-4" aria-hidden="true" />
-                  Open Delivery Monitoring
-                </Button>
-              </Link>
-            </CardContent>
-          </Card>
-        )}
-        <Card className="bg-card/50 border-border/60">
-          <CardHeader>
-            <div className="flex items-center gap-2">
-              <Shield className="h-4 w-4 text-primary" />
-              <CardTitle className="text-base">Supabase Authentication</CardTitle>
-            </div>
-            <CardDescription className="text-xs">Managed authentication and session policies</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3 text-xs">
-            <div className="flex items-center justify-between py-1.5 border-b border-border/30">
-              <span className="text-muted-foreground">Authentication Provider</span>
-              <Badge variant="outline" className="font-mono text-[10px]">Supabase Auth</Badge>
-            </div>
-            <div className="flex items-center justify-between py-1.5 border-b border-border/30">
-              <span className="text-muted-foreground">Application Roles</span>
-              <Badge variant="outline" className="font-mono text-[10px]">4 Roles</Badge>
-            </div>
-            <div className="flex items-center justify-between py-1.5">
-              <span className="text-muted-foreground">Profile Storage</span>
-              <Badge variant="outline" className="font-mono text-[10px]">Supabase Database</Badge>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-card/50 border-border/60">
-          <CardHeader>
-            <div className="flex items-center gap-2">
-              <Server className="h-4 w-4 text-blue-400" />
-              <CardTitle className="text-base">Repository Storage</CardTitle>
-            </div>
-            <CardDescription className="text-xs">Document repository cloud storage endpoint</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3 text-xs">
-            <div className="flex items-center justify-between py-1.5 border-b border-border/30">
-              <span className="text-muted-foreground">Storage Provider</span>
-              <Badge variant="success" className="font-mono text-[10px]">Supabase Storage</Badge>
-            </div>
-            <div className="flex items-center justify-between py-1.5 border-b border-border/30">
-              <span className="text-muted-foreground">Access</span>
-              <span className="font-mono text-foreground">Backend-signed download URLs</span>
-            </div>
-            <div className="flex items-center justify-between py-1.5">
-              <span className="text-muted-foreground">Bucket</span>
-              <span className="font-mono text-foreground">Environment configured</span>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    </div>
-  );
+function SettingRow({ label, value, success = false }: { label: string; value: string; success?: boolean }) {
+  return <div className="flex items-center justify-between border-b border-border/30 py-1.5 last:border-0"><span className="text-muted-foreground">{label}</span><Badge variant={success ? "success" : "outline"}>{value}</Badge></div>;
 }

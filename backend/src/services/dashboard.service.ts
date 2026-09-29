@@ -66,14 +66,15 @@ export type DashboardUserRow = {
 
 export type DashboardOutputDocumentRow = {
   project_id: string;
+  milestone_id?: string;
   status: string;
   is_required: boolean;
   is_selected: boolean;
 };
 
 export type DashboardOutputDocuments = {
-  reviewQueue: Array<{ projectId: string; projectName: string; count: number }>;
-  revisionQueue: Array<{ projectId: string; projectName: string; count: number }>;
+  reviewQueue: Array<{ projectId: string; milestoneId: string; projectName: string; count: number }>;
+  revisionQueue: Array<{ projectId: string; milestoneId: string; projectName: string; count: number }>;
   salesProgress: Array<{ projectId: string; approvedCount: number; selectedCount: number }>;
 };
 
@@ -109,7 +110,6 @@ export type DashboardSourceRows = {
   scenarios: DashboardScenarioRow[];
   deadlineApprovals: DashboardApprovalRow[];
   projectPlanApprovals: DashboardProjectPlanApprovalRow[];
-  milestoneApprovals: DashboardApprovalRow[];
   activityLogs: DashboardActivityRow[];
   users: DashboardUserRow[];
   outputDocuments?: DashboardOutputDocumentRow[];
@@ -118,7 +118,7 @@ export type DashboardSourceRows = {
 
 const LIVE_PROJECT_STATUSES = ['DRAFT', 'ACTIVE', 'POSTPONED', 'WAITING_RESULT', 'WON', 'LOST', 'COMPLETED', 'CANCELLED'] as const;
 const COMPLETED_MILESTONE_STATUSES = new Set(['COMPLETED', 'APPROVED']);
-const SA_ACTIONABLE_MILESTONE_STATUSES = new Set(['IN_PROGRESS', 'REJECTED']);
+const SA_ACTIONABLE_MILESTONE_STATUSES = new Set(['IN_PROGRESS']);
 const PROJECT_STATUS_COLORS: Record<string, string> = {
   DRAFT: '#64748b',
   ACTIVE: '#3b82f6',
@@ -199,28 +199,6 @@ function buildSaWorkload(
   const activeProjects = projects.filter((project) => project.status === 'ACTIVE' && !project.is_postponed);
   const activeProjectIds = new Set(activeProjects.map((project) => project.id));
   const activeProjectById = new Map(activeProjects.map((project) => [project.id, project]));
-  const pendingMilestoneIds = new Set(
-    rows.milestoneApprovals
-      .filter((approval) => approval.status === 'PENDING')
-      .map((approval) => approval.milestone_id)
-  );
-  const latestApprovalByMilestone = new Map<string, DashboardApprovalRow>();
-  const compareApprovalRecency = (left: DashboardApprovalRow, right: DashboardApprovalRow) => {
-    const leftTimestamp = left.submitted_at ? Date.parse(left.submitted_at) : Number.NaN;
-    const rightTimestamp = right.submitted_at ? Date.parse(right.submitted_at) : Number.NaN;
-    if (!Number.isNaN(leftTimestamp) && !Number.isNaN(rightTimestamp) && leftTimestamp !== rightTimestamp) {
-      return leftTimestamp - rightTimestamp;
-    }
-    if (!Number.isNaN(leftTimestamp) && Number.isNaN(rightTimestamp)) return 1;
-    if (Number.isNaN(leftTimestamp) && !Number.isNaN(rightTimestamp)) return -1;
-    return (left.id || '').localeCompare(right.id || '');
-  };
-  for (const approval of rows.milestoneApprovals) {
-    const current = latestApprovalByMilestone.get(approval.milestone_id);
-    if (!current || compareApprovalRecency(approval, current) > 0) {
-      latestApprovalByMilestone.set(approval.milestone_id, approval);
-    }
-  }
   const outputRows = (rows.outputDocuments || []).filter((output) =>
     activeProjectIds.has(output.project_id) && (output.is_required || output.is_selected)
   );
@@ -237,14 +215,8 @@ function buildSaWorkload(
       const actionableMilestones = saMilestones.filter((milestone) =>
         SA_ACTIONABLE_MILESTONE_STATUSES.has(milestone.status)
       );
-      const revisionCount = saMilestones.filter((milestone) =>
-        milestone.status === 'REJECTED'
-        || (milestone.status === 'IN_PROGRESS' && latestApprovalByMilestone.get(milestone.id)?.status === 'REJECTED')
-      ).length
-        + outputRows.filter((output) => output.project_id && saProjectIds.has(output.project_id) && output.status === 'REVISION_REQUIRED').length;
-      const waitingReviewCount = saMilestones.filter((milestone) =>
-        milestone.status === 'SUBMITTED' && pendingMilestoneIds.has(milestone.id)
-      ).length + outputRows.filter((output) =>
+      const revisionCount = outputRows.filter((output) => output.project_id && saProjectIds.has(output.project_id) && output.status === 'REVISION_REQUIRED').length;
+      const waitingReviewCount = outputRows.filter((output) =>
         saProjectIds.has(output.project_id) && output.status === 'IN_REVIEW'
       ).length;
       const actionableDueDates = actionableMilestones
@@ -386,13 +358,19 @@ export function buildDashboardOverviewFromRows(
   );
   const outputRows = (rows.outputDocuments || []).filter((output) => projectIds.has(output.project_id));
   const projectNameFor = (projectId: string) => projectMap.get(projectId)?.name || 'Project';
-  const countByProject = (status: string) => Array.from(activeProjects)
-    .map((projectId) => ({
-      projectId,
-      projectName: projectNameFor(projectId),
-      count: outputRows.filter((output) => output.project_id === projectId && output.status === status).length,
-    }))
-    .filter((item) => item.count > 0);
+  const countByMilestone = (status: string) => {
+    const groups = new Map<string, { projectId: string; milestoneId: string; projectName: string; count: number }>();
+    for (const output of outputRows) {
+      if (!activeProjects.has(output.project_id) || output.status !== status || !output.milestone_id) continue;
+      const group = groups.get(output.milestone_id) || {
+        projectId: output.project_id, milestoneId: output.milestone_id,
+        projectName: projectNameFor(output.project_id), count: 0,
+      };
+      group.count += 1;
+      groups.set(output.milestone_id, group);
+    }
+    return [...groups.values()];
+  };
   const salesProgress = actor.role === 'SALES'
     ? projects.map((project) => {
         const selected = outputRows.filter((output) =>
@@ -443,9 +421,10 @@ export function buildDashboardOverviewFromRows(
       overdueMilestones: countOverdueMilestones(milestones, projects, today),
       waitingApproval: countWaitingApprovals(
         activeMilestoneIds,
-        rows.deadlineApprovals,
-        rows.milestoneApprovals
-      ) + pendingProjectPlans,
+        rows.deadlineApprovals
+      ) + pendingProjectPlans + (actor.role === 'HEAD_SA'
+        ? outputRows.filter((output) => activeProjects.has(output.project_id) && output.status === 'IN_REVIEW').length
+        : 0),
     },
     scenarioDistribution: Array.from(scenarioCounts.values()).sort((a, b) => b.count - a.count),
     statusDistribution: LIVE_PROJECT_STATUSES.map((status) => ({
@@ -456,8 +435,8 @@ export function buildDashboardOverviewFromRows(
     projectProgress,
     recentActivity,
     outputDocuments: {
-      reviewQueue: actor.role === 'HEAD_SA' ? countByProject('IN_REVIEW') : [],
-      revisionQueue: actor.role === 'SA' ? countByProject('REVISION_REQUIRED') : [],
+      reviewQueue: actor.role === 'HEAD_SA' ? countByMilestone('IN_REVIEW') : [],
+      revisionQueue: actor.role === 'SA' ? countByMilestone('REVISION_REQUIRED') : [],
       salesProgress,
     } satisfies DashboardOutputDocuments,
     saWorkload,
@@ -506,7 +485,6 @@ async function getRowsByProjectIds(projectIds: string[]) {
       users: [],
       deadlineApprovals: [],
       projectPlanApprovals: [],
-      milestoneApprovals: [],
       outputDocuments: [],
     };
   }
@@ -527,7 +505,7 @@ async function getRowsByProjectIds(projectIds: string[]) {
       .limit(8),
     supabaseAdmin
       .from('project_output_documents')
-      .select('project_id,status,is_required,is_selected')
+      .select('project_id,milestone_id,status,is_required,is_selected')
       .in('project_id', projectIds),
   ]);
 
@@ -546,7 +524,7 @@ async function getRowsByProjectIds(projectIds: string[]) {
     ),
   ];
 
-  const [deadlineResult, projectPlanResult, submissionResult, userResult] = await Promise.all([
+  const [deadlineResult, projectPlanResult, userResult] = await Promise.all([
     milestoneIds.length
       ? supabaseAdmin
           .from('milestone_deadline_approvals')
@@ -559,14 +537,6 @@ async function getRowsByProjectIds(projectIds: string[]) {
       .select('id,project_id,status')
       .eq('status', 'PENDING')
       .in('project_id', projectIds),
-    milestoneIds.length
-      ? supabaseAdmin
-          .from('milestone_approvals')
-          .select('id,milestone_id,status,submitted_at')
-          .in('milestone_id', milestoneIds)
-          .order('submitted_at', { ascending: false })
-          .order('id', { ascending: false })
-      : Promise.resolve({ data: [], error: null }),
     userIds.length
       ? supabaseAdmin
           .from('users')
@@ -577,7 +547,6 @@ async function getRowsByProjectIds(projectIds: string[]) {
 
   if (deadlineResult.error) throw toSafeDashboardError(deadlineResult.error, 'milestone_deadline_approvals');
   if (projectPlanResult.error) throw toSafeDashboardError(projectPlanResult.error, 'project_plan_approvals');
-  if (submissionResult.error) throw toSafeDashboardError(submissionResult.error, 'milestone_approvals');
   if (userResult.error) throw toSafeDashboardError(userResult.error, 'users');
 
   return {
@@ -587,7 +556,6 @@ async function getRowsByProjectIds(projectIds: string[]) {
     users: (userResult.data || []) as DashboardUserRow[],
     deadlineApprovals: (deadlineResult.data || []) as DashboardApprovalRow[],
     projectPlanApprovals: (projectPlanResult.data || []) as DashboardProjectPlanApprovalRow[],
-    milestoneApprovals: (submissionResult.data || []) as DashboardApprovalRow[],
     outputDocuments: (outputDocumentResult.data || []) as DashboardOutputDocumentRow[],
   };
 }

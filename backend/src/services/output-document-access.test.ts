@@ -34,10 +34,11 @@ const makeState = (): State => {
       id: `output-${index + 1}`,
       project_id: projectId,
       document_key: definition.key,
+      milestone_id: `milestone-${definition.stageKey}`,
       title: definition.name,
       is_required: definition.isRequired,
       is_selected: definition.isRequired,
-      status: isNonFinal ? 'IN_REVIEW' : isApproved ? 'APPROVED' : 'NOT_REQUIRED',
+      status: isNonFinal ? 'IN_REVIEW' : isApproved ? 'APPROVED' : definition.isRequired ? 'TO_DO' : 'NOT_REQUIRED',
       file_name: isNonFinal ? 'internal-draft.pdf' : isApproved ? 'approved-timeline.pdf' : null,
       storage_path: isNonFinal ? 'output-documents/project/internal-draft.pdf' : isApproved ? 'output-documents/project/approved-timeline.pdf' : null,
       file_size: isNonFinal || isApproved ? 256 : null,
@@ -98,6 +99,7 @@ class QueryMock {
   eq(column: string, value: unknown): this { this.filters.push({ kind: 'eq', column, value }); return this; }
   in(column: string, value: unknown[]): this { this.filters.push({ kind: 'in', column, value }); return this; }
   order(): this { return this; }
+  limit(): this { return this; }
   maybeSingle(): Promise<{ data: unknown; error: null }> { return Promise.resolve(this.execute(true)); }
   single(): Promise<{ data: unknown; error: null }> { return Promise.resolve(this.execute(true)); }
   then<TResult1 = { data: unknown; error: null }, TResult2 = never>(
@@ -119,7 +121,17 @@ class QueryMock {
       return { data: single ? (rows[0] || null) : rows, error: null };
     }
     if (this.table === 'project_plan_approvals') return { data: single ? { id: 'plan-approved', status: 'APPROVED' } : [], error: null };
-    if (this.table === 'project_milestones') return { data: [], error: null };
+    if (this.table === 'project_milestones') {
+      const rows = [...new Set(getScenarioDocuments('On Submission Tender').map((definition) => definition.stageKey))]
+        .map((stageKey) => ({
+          id: `milestone-${stageKey}`,
+          project_id: projectId,
+          status: 'ACTIVE',
+          workflow_stage: { stage_key: stageKey, default_role: 'SA', scenario_id: 'scenario-on-submission' },
+        }))
+        .filter((row) => this.matches(row));
+      return { data: single ? (rows[0] || null) : rows, error: null };
+    }
     if (this.table === 'project_output_documents') {
       const rows = this.state.outputs.filter((row) => this.matches(row)).map((row) => ({ ...row }));
       return { data: single ? (rows[0] || null) : rows, error: null };
