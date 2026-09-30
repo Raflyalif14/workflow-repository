@@ -23,6 +23,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useApprovals, useApprovalStats } from "@/hooks/use-approvals";
+import { canReadApprovalOverview } from "@/lib/approval-overview-access";
 import { ApprovalCategory, ApprovalItem, ApprovalStatus } from "@/types/approval";
 
 const categoryOptions: Array<{ key: ApprovalCategory; label: "approvalUi.allRequests" | "approvalUi.projectPlans" | "approvalUi.deadlineChanges" }> = [
@@ -45,6 +46,7 @@ export default function ApprovalCenterPage() {
 function ApprovalCenterPageContent() {
   const router = useRouter();
   const { user } = useAuth();
+  const canLoadApprovalOverview = canReadApprovalOverview(user?.role);
   const [viewMode, setViewMode] = useState<"NEEDS_REVIEW" | "HISTORY">("NEEDS_REVIEW");
   const [categoryTab, setCategoryTab] = useState<ApprovalCategory>("ALL");
   const [historyStatusFilter, setHistoryStatusFilter] = useState<ApprovalStatus>("ALL");
@@ -53,14 +55,14 @@ function ApprovalCenterPageContent() {
   const [initialAction, setInitialAction] = useState<"APPROVE" | "REJECT" | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
-  const { data: stats } = useApprovalStats();
+  const { data: stats } = useApprovalStats(canLoadApprovalOverview);
   const effectiveStatus: ApprovalStatus =
     viewMode === "NEEDS_REVIEW" ? "PENDING" : historyStatusFilter;
   const { data: approvals = [], isLoading, isError } = useApprovals({
     type: categoryTab,
     status: effectiveStatus,
     search,
-  });
+  }, canLoadApprovalOverview);
   const canReview = user?.role === "HEAD_SA";
   const isHistory = viewMode === "HISTORY";
   const displayedApprovals = useMemo(() => {

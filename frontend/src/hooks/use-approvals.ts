@@ -79,7 +79,7 @@ export function useApprovals(filters: ApprovalFilters = {}, enabled = true) {
   });
 }
 
-export function useApprovalStats() {
+export function useApprovalStats(enabled = true) {
   return useQuery<
     ApprovalOverviewResponse,
     Error,
@@ -87,10 +87,11 @@ export function useApprovalStats() {
   >({
     queryKey: approvalOverviewQueryKey,
     queryFn: getApprovalOverview,
+    enabled,
     select: (overview) => overview.stats,
 
     staleTime: 30_000,
-    refetchInterval: 60_000,
+    refetchInterval: enabled ? 60_000 : false,
     refetchOnWindowFocus: false,
   });
 }

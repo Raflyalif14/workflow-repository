@@ -22,6 +22,7 @@ import {
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
 import { useAuth } from "@/components/auth/auth-provider";
 import { useApprovals, useApprovalStats } from "@/hooks/use-approvals";
+import { canReadApprovalOverview } from "@/lib/approval-overview-access";
 import { useDashboard } from "@/hooks/use-dashboard";
 import { AssignedMilestone, useMyAssignedMilestones, useProjects } from "@/hooks/use-projects";
 import {
@@ -826,9 +827,10 @@ export default function DashboardPage() {
   const userRole = user?.role || "GUEST";
   const isHeadSa = userRole === "HEAD_SA";
   const isSa = userRole === "SA";
+  const canLoadApprovalOverview = canReadApprovalOverview(user?.role);
 
   const dashboardQuery = useDashboard();
-  const approvalStatsQuery = useApprovalStats();
+  const approvalStatsQuery = useApprovalStats(canLoadApprovalOverview);
   const approvalsQuery = useApprovals({}, isHeadSa);
   const assignedMilestonesQuery = useMyAssignedMilestones(isSa || isHeadSa);
   const projectsQuery = useProjects({ limit: 100 });
@@ -841,7 +843,7 @@ export default function DashboardPage() {
     onHoldProjects: summary?.onHoldProjects || 0,
     postponedProjects: summary?.postponedProjects || 0,
     overdueMilestones: summary?.overdueMilestones || 0,
-    waitingApproval: summary?.waitingApproval ?? approvalStatsQuery.data?.totalPending ?? 0,
+    waitingApproval: summary?.waitingApproval ?? (canLoadApprovalOverview ? approvalStatsQuery.data?.totalPending : undefined) ?? 0,
   };
   const projectProgress = dashboardQuery.data?.projectProgress || [];
   const recentActivity = dashboardQuery.data?.recentActivity || [];
@@ -965,7 +967,7 @@ export default function DashboardPage() {
   const retryVisibleQueries = () => {
     void dashboardQuery.refetch();
     void projectsQuery.refetch();
-    void approvalStatsQuery.refetch();
+    if (canLoadApprovalOverview) void approvalStatsQuery.refetch();
     if (isHeadSa) void approvalsQuery.refetch();
     if (isSa) void assignedMilestonesQuery.refetch();
   };

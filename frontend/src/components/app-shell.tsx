@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { useApprovalStats } from "@/hooks/use-approvals";
+import { canReadApprovalOverview } from "@/lib/approval-overview-access";
 import { useMyAssignedMilestones } from "@/hooks/use-projects";
 import { NotificationBell } from "@/components/notifications/notification-bell";
 import { LanguageSwitcher } from "@/components/language-switcher";
@@ -105,12 +106,13 @@ export function Sidebar() {
   const { t } = useLanguage();
 
   const userRole = user?.role || "GUEST";
-  const { data: approvalStats } = useApprovalStats();
+  const canLoadApprovalOverview = canReadApprovalOverview(user?.role);
+  const { data: approvalStats } = useApprovalStats(canLoadApprovalOverview);
   const isAssignedMilestoneRole = userRole === "SA" || userRole === "HEAD_SA";
   const { data: assignedMilestones = [] } = useMyAssignedMilestones(isAssignedMilestoneRole);
 
   const pendingApprovalsCount =
-    userRole === "HEAD_SA" || userRole === "SUPER_ADMIN" ? approvalStats?.totalPending || 0 : 0;
+    canLoadApprovalOverview ? approvalStats?.totalPending || 0 : 0;
 
   const assignedActionableMilestonesCount =
     isAssignedMilestoneRole
