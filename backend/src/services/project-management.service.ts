@@ -240,10 +240,15 @@ export class ProjectManagementService {
     return { projects, pagination: { page, limit, total, totalPages: Math.ceil(total / limit), hasNextPage: page * limit < total, hasPrevPage: page > 1 } };
   }
 
-  static async get(id: string, actor: Actor) {
+  static async get(id: string, actor: Actor, options: { includeActivity?: boolean } = {}) {
     const { data, error } = await supabaseAdmin.from('projects').select(projectSelect).eq('id', id).single();
     if (error || !data || !canAccessProject(data, actor)) throw new Error('Project not found');
-    return mapProject(await withActivity(data));
+    const project = mapProject(options.includeActivity === false ? data : await withActivity(data));
+    if (options.includeActivity === false) {
+      const { activity_logs: _unused, ...withoutActivity } = project;
+      return withoutActivity;
+    }
+    return project;
   }
 
   private static async activeScenario(scenarioId: string) {

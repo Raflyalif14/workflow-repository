@@ -91,10 +91,11 @@ export function useProjects(filters: ProjectFilters = {}) {
   });
 }
 
-export function useProject(id: string) {
+export function useProject(id: string, options: { includeActivity?: boolean } = {}) {
+  const includeActivity = options.includeActivity !== false;
   return useQuery<Project>({
-    queryKey: projectKeys.detail(id),
-    queryFn: () => apiClient<Project>(`/projects/${id}`),
+    queryKey: includeActivity ? projectKeys.detail(id) : projectKeys.detailWithoutActivity(id),
+    queryFn: () => apiClient<Project>(`/projects/${id}${includeActivity ? '' : '?include_activity=false'}`),
     enabled: Boolean(id),
     staleTime: 0,
     refetchOnWindowFocus: true,

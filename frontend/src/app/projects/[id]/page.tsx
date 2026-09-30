@@ -119,7 +119,7 @@ export default function ProjectDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const { user } = useAuth();
-  const { data: project, isLoading: projectLoading, isError } = useProject(id);
+  const { data: project, isLoading: projectLoading, isError } = useProject(id, { includeActivity: false });
   const { data: milestones = [], isLoading: milestonesLoading } = useProjectMilestones(id);
   const outputReadiness = useOutputDocuments(id);
   const { data: progress } = useProjectProgress(id);

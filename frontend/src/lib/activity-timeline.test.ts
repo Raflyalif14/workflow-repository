@@ -1,5 +1,6 @@
 import { strict as assert } from "assert";
 import { flattenActivityPages, formatActivityAction } from "./activity-timeline";
+import { projectKeys } from "./query-keys";
 
 assert.equal(formatActivityAction("PROJECT_PLAN_APPROVED"), "Project Plan Approved", "Test 1: known actions receive readable labels");
 console.log("Test 1 - Known activity action formatting: passed");
@@ -13,3 +14,7 @@ const flattened = flattenActivityPages([
 ]);
 assert.deepEqual(flattened.map((item) => item.id), ["one", "two"], "Test 3: paginated activity results preserve page order");
 console.log("Test 3 - Activity page flattening: passed");
+
+assert.notDeepEqual(projectKeys.detailWithoutActivity("project-1"), projectKeys.detail("project-1"), "Reduced detail must have a separate cache entry");
+assert.deepEqual(projectKeys.detailWithoutActivity("project-1").slice(0, 2), projectKeys.detail("project-1"), "Detail invalidation must cover both cache entries");
+assert.notDeepEqual(projectKeys.activities("project-1"), projectKeys.detailWithoutActivity("project-1"), "Paginated activities keep their own cache entry");

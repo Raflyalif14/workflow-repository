@@ -2,6 +2,7 @@ export const projectKeys = {
   all: () => ["projects"] as const,
   list: (filters?: unknown) => ["projects", filters ?? "all"] as const,
   detail: (projectId: string) => ["project", projectId] as const,
+  detailWithoutActivity: (projectId: string) => ["project", projectId, "without-activity"] as const,
   milestones: (projectId: string) => ["project-milestones", projectId] as const,
   progress: (projectId: string) => ["project-progress", projectId] as const,
   planApproval: (projectId: string) => ["project-plan-approval", projectId] as const,

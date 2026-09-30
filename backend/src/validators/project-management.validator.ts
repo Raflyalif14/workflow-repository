@@ -64,6 +64,7 @@ export const projectOutcomeSchema = z.object({
   }
 });
 export const projectQuerySchema = z.object({ page: z.coerce.number().int().min(1).default(1), limit: z.coerce.number().int().min(1).max(100).default(10), search: z.string().trim().optional(), scenario_id: z.string().uuid().optional(), status: projectManagementStatusEnum.optional(), sales_id: z.string().uuid().optional() });
+export const projectDetailQuerySchema = z.object({ include_activity: z.enum(['true', 'false']).default('true') });
 export type CreateProjectManagementInput = z.infer<typeof createProjectManagementSchema>;
 export type UpdateProjectManagementInput = z.infer<typeof updateProjectManagementSchema>;
 export type ProjectQuery = z.infer<typeof projectQuerySchema>;
