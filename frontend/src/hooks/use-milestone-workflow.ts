@@ -8,7 +8,6 @@ import {
 
 export type MilestoneApprovalState = {
   deadlineApproval: MilestoneDeadlineApproval | null;
-  deadlineApprovalHistory: MilestoneDeadlineApproval[];
 };
 
 export type MilestoneDeadlineStatus = {
@@ -64,17 +63,7 @@ export function useMilestoneApprovalStates(
   return useQueries({
     queries: milestones.map((milestone) => ({
       queryKey: milestoneKeys.workflowState(milestone.id),
-      queryFn: async (): Promise<MilestoneApprovalState> => {
-        const [deadlineApproval, deadlineApprovalHistory] = await Promise.all([
-          apiClient<MilestoneDeadlineApproval | null>(`/milestones/${milestone.id}/deadline-approval`),
-          apiClient<MilestoneDeadlineApproval[]>(`/milestones/${milestone.id}/deadline-approval-history`),
-        ]);
-
-        return {
-          deadlineApproval,
-          deadlineApprovalHistory,
-        };
-      },
+      queryFn: () => apiClient<MilestoneDeadlineApproval | null>(`/milestones/${milestone.id}/deadline-approval`),
       enabled,
       staleTime: 0,
       refetchOnWindowFocus: true,

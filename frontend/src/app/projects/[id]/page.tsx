@@ -175,8 +175,9 @@ export default function ProjectDetailPage() {
   const approvalByMilestone = useMemo(() => {
     const states = new Map<string, MilestoneApprovalState>();
     milestones.forEach((milestone, index) => {
-      const state = approvalQueries[index]?.data;
-      if (state) states.set(milestone.id, state);
+      states.set(milestone.id, {
+        deadlineApproval: approvalQueries[index]?.data ?? null,
+      });
     });
     return states;
   }, [approvalQueries, milestones]);
