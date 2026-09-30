@@ -490,6 +490,15 @@ async function getRowsByProjectIds(projectIds: string[], trace?: RequestTiming) 
     };
   }
 
+  // Project-plan approvals need only the scoped project IDs, so start them while the base batch runs.
+  const projectPlanPromise = Promise.resolve(supabaseAdmin
+    .from('project_plan_approvals')
+    .select('id,project_id,status')
+    .eq('status', 'PENDING')
+    .in('project_id', projectIds));
+  // The base batch can fail first; keep an early rejection handled without hiding it when awaited below.
+  void projectPlanPromise.catch(() => undefined);
+
   const [milestoneResult, scenarioResult, activityResult, outputDocumentResult] = await timeOperation(trace, 'dashboard.base_queries', () => Promise.all([
     supabaseAdmin
       .from('project_milestones')
@@ -533,11 +542,7 @@ async function getRowsByProjectIds(projectIds: string[], trace?: RequestTiming) 
           .eq('status', 'PENDING')
           .in('milestone_id', milestoneIds)
       : Promise.resolve({ data: [], error: null }),
-    supabaseAdmin
-      .from('project_plan_approvals')
-      .select('id,project_id,status')
-      .eq('status', 'PENDING')
-      .in('project_id', projectIds),
+    projectPlanPromise,
     userIds.length
       ? supabaseAdmin
           .from('users')
@@ -563,10 +568,15 @@ async function getRowsByProjectIds(projectIds: string[], trace?: RequestTiming) 
 
 export class DashboardService {
   static async getOverview(actor: DashboardActor, trace?: RequestTiming) {
+    // HEAD_SA roster has its own scope and does not depend on the project query.
+    const saUsersPromise = actor.role === 'HEAD_SA'
+      ? timeOperation(trace, 'dashboard.sa_users', () => getActiveSolutionArchitects())
+      : Promise.resolve([]);
+    void saUsersPromise.catch(() => undefined);
     const projects = await timeOperation(trace, 'dashboard.projects', () => getScopedProjects(actor));
     const [scopedRows, saUsers] = await Promise.all([
       getRowsByProjectIds(projects.map((project) => project.id), trace),
-      actor.role === 'HEAD_SA' ? timeOperation(trace, 'dashboard.sa_users', () => getActiveSolutionArchitects()) : Promise.resolve([]),
+      saUsersPromise,
     ]);
 
     return buildDashboardOverviewFromRows(
