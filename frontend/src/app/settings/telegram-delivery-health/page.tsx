@@ -24,6 +24,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useTelegramDeliveryHealth } from "@/hooks/use-notifications";
+import { OutputOutboxPanel, StorageCleanupPanel } from "@/components/settings/operational-health-panels";
+import { canReadOperationalHealth } from "@/lib/operational-health";
 import type { TelegramDeliveryFailureKind, TelegramDeliveryRecentFailure } from "@/types/notification";
 
 const formatTimestamp = (value: string | null, emptyLabel = "-"): string => {
@@ -134,7 +136,7 @@ export default function TelegramDeliveryHealthPage() {
 function TelegramDeliveryHealthContent() {
   useLanguage();
   const { user } = useAuth();
-  const isSuperAdmin = user?.role === "SUPER_ADMIN";
+  const isSuperAdmin = canReadOperationalHealth(user);
   const { data: health, isLoading, isError, isFetching, refetch } = useTelegramDeliveryHealth(isSuperAdmin);
   const needsAttention = Boolean(health && (health.summary.failed > 0 || health.summary.dueRetryable > 0));
 
@@ -156,7 +158,7 @@ function TelegramDeliveryHealthContent() {
           </div>
           <h1 className="text-3xl font-bold tracking-tight">{translateI18n("settings.telegramHealth")}</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            {translateI18n("telegramHealth.intro")}
+            {translateI18n("operations.intro")}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
@@ -173,6 +175,7 @@ function TelegramDeliveryHealthContent() {
         </div>
       </div>
 
+      <h2 className="text-lg font-semibold">{translateI18n("operations.telegramTitle")}</h2>
       {isLoading ? (
         <div className="space-y-4">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -305,6 +308,8 @@ function TelegramDeliveryHealthContent() {
           </Card>
         </>
       )}
+      <OutputOutboxPanel enabled={isSuperAdmin} />
+      <StorageCleanupPanel enabled={isSuperAdmin} />
     </div>
   );
 }

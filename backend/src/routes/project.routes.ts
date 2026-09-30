@@ -5,6 +5,7 @@ import { ProjectPlanApprovalController } from '../controllers/project-plan-appro
 import { MilestoneInitiationApprovalController } from '../controllers/milestone-initiation-approval.controller';
 import { AssignmentPhase5Controller } from '../controllers/assignment-phase5.controller';
 import { ProjectDeletionController } from '../controllers/project-deletion.controller';
+import { OperationalHealthController } from '../controllers/operational-health.controller';
 import { ProjectIntakeController } from '../controllers/project-intake.controller';
 import { OutputDocumentController } from '../controllers/output-document.controller';
 import { retryProjectCompletion, ProjectCompletionRetryError } from '../services/project-completion-retry.service';
@@ -50,6 +51,7 @@ router.use(authenticateJwt);
 
 // 1. Project List & Detail (Accessible by all internal roles)
 router.get('/', ProjectManagementController.list);
+router.get('/deletion-cleanups', requireRoles(['SUPER_ADMIN']), OperationalHealthController.storageCleanups);
 router.get('/:projectId/deletion-preview', requireRoles(['SUPER_ADMIN']), ProjectDeletionController.preview);
 router.delete('/:projectId', requireRoles(['SUPER_ADMIN']), ProjectDeletionController.delete);
 router.post('/deletion-cleanups/:cleanupId/retry', requireRoles(['SUPER_ADMIN']), ProjectDeletionController.retry);

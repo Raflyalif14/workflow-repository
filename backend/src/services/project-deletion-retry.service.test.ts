@@ -159,6 +159,8 @@ async function main() {
     partialFailure.failStorageCleanup = false;
     const recovered = await ProjectDeletionService.retry('cleanup-a', { userId: 'admin-1', role: 'SUPER_ADMIN' });
     assert(recovered.cleanup.status === 'COMPLETED', 'Test 8: a later retry reconciles a FAILED cleanup without the original project row');
+    assert(!JSON.stringify(recovered).includes('storage_paths') && !JSON.stringify(recovered).includes('path/'),
+      'Test 8: retry receipt must not expose captured Storage paths to monitoring clients');
   });
 
   const projectRoutes = readFileSync(join(__dirname, '../routes/project.routes.ts'), 'utf8');
