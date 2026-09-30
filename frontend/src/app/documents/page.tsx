@@ -33,12 +33,12 @@ const rolePageCopy: Record<string, { eyebrow: TranslationKey; title: Translation
     description: "documentPage.salesDescription",
   },
   HEAD_SA: {
-    eyebrow: "documentPage.workArchive",
+    eyebrow: "documentPage.projectArchive",
     title: "documentPage.projectDocuments",
     description: "documentPage.headDescription",
   },
   SA: {
-    eyebrow: "documentPage.saWorkspace",
+    eyebrow: "documentPage.projectArchive",
     title: "documentPage.projectDocuments",
     description: "documentPage.saDescription",
   },
@@ -80,7 +80,6 @@ export default function DocumentsPage() {
   const { user } = useAuth();
   const pageCopy = rolePageCopy[user?.role || ""] || rolePageCopy.SUPER_ADMIN;
   const [search, setSearch] = useState("");
-  const [activeTab, setActiveTab] = useState<"REPOSITORY" | "WORKING">("REPOSITORY");
   const [categoryFilter, setCategoryFilter] = useState<DocumentCategory | "OUTPUT" | "ALL">("ALL");
   const [statusFilter, setStatusFilter] = useState<DocumentStatus | "ALL">("ALL");
   const [page, setPage] = useState(1);
@@ -153,14 +152,6 @@ export default function DocumentsPage() {
         <h1 className="mt-1 text-2xl font-semibold text-foreground sm:text-3xl">{translateI18n(pageCopy.title)}</h1>
         <p className="mt-1 max-w-2xl text-sm text-muted-foreground">{translateI18n(pageCopy.description)}</p>
       </header>
-
-      {(user?.role === "HEAD_SA" || user?.role === "SA") && <div role="tablist" aria-label={translateI18n("documentPage.collection")} className="flex gap-2 border-b border-border/60 pb-2">
-        <Button role="tab" aria-selected={activeTab === "REPOSITORY"} variant={activeTab === "REPOSITORY" ? "secondary" : "ghost"} onClick={() => setActiveTab("REPOSITORY")}>{translateI18n("documentPage.allResults")}</Button>
-        <Button role="tab" aria-selected={activeTab === "WORKING"} variant={activeTab === "WORKING" ? "secondary" : "ghost"} onClick={() => setActiveTab("WORKING")}>{translateI18n("documentPage.workingOutputs")}</Button>
-      </div>}
-
-      {activeTab === "REPOSITORY" ? (
-      <>
 
       <section
         aria-label={translateI18n("documentPage.summary")}
@@ -332,8 +323,6 @@ export default function DocumentsPage() {
           setIsUploadVersionOpen(true);
         }}
       />
-      </>
-      ) : <OutputDocumentsTab outputs={outputs.filter((item) => item.status !== "APPROVED")} isLoading={outputsLoading} isError={outputsError} />}
     </div>
   );
 }
@@ -359,92 +348,6 @@ function OutputRepositoryRow({ item, downloadPending, onDownload }: {
       <Link href={`/projects/${item.projectId}#milestone-outputs-${item.milestoneId}`}><Button type="button" size="sm" variant="outline"><ArrowRight className="mr-1 h-3.5 w-3.5" />{translateI18n("project.open")}</Button></Link>
     </div>
   </div>;
-}
-
-function OutputDocumentsTab({ outputs, isLoading, isError }: { outputs: OutputRepositoryItem[]; isLoading: boolean; isError: boolean }) {
-  const { locale } = useLanguage();
-  const download = useOutputRepositoryDownload();
-  const [search, setSearch] = useState("");
-  const [group, setGroup] = useState<"ALL" | OutputRepositoryItem["group"]>("ALL");
-  const [status, setStatus] = useState<"ALL" | OutputRepositoryItem["status"]>("ALL");
-  const [downloadError, setDownloadError] = useState("");
-  const visible = useMemo(() => outputs.filter((item) => {
-    const query = search.trim().toLocaleLowerCase();
-    return (group === "ALL" || item.group === group)
-      && (status === "ALL" || item.status === status)
-      && (!query || `${item.name} ${translateOutputName(item.documentKey, item.name)} ${item.projectName}`.toLocaleLowerCase().includes(query));
-  }), [outputs, search, group, status, locale]);
-
-  const handleDownload = async (item: OutputRepositoryItem) => {
-    setDownloadError("");
-    try {
-      const { url } = await download.mutateAsync({ projectId: item.projectId, documentKey: item.documentKey });
-      const link = window.document.createElement("a");
-      link.href = url;
-      link.target = "_blank";
-      link.rel = "noopener noreferrer";
-      link.click();
-    } catch (error) {
-      setDownloadError("documentPage.outputDownloadFailed");
-    }
-  };
-
-  return (
-    <section className="overflow-hidden rounded-lg border border-border/60 bg-card">
-      <div className="space-y-4 border-b border-border/60 p-4 sm:p-5">
-        <div>
-          <h2 className="text-base font-semibold text-foreground">{translateI18n("documents.output")}</h2>
-          <p className="text-xs text-muted-foreground">{translateI18n("documentPage.workingDescription")}</p>
-        </div>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_220px_180px]">
-          <div className="relative min-w-0">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input aria-label={translateI18n("documentPage.searchOutputs")} placeholder={translateI18n("documentPage.searchOutputs")} value={search} onChange={(event) => setSearch(event.target.value)} className="pl-9" />
-          </div>
-          <select aria-label={translateI18n("documentPage.filterOutputGroup")} value={group} onChange={(event) => setGroup(event.target.value as typeof group)} className="h-10 min-w-0 rounded-md border border-border bg-background px-3 text-sm text-foreground">
-            <option value="ALL">{translateI18n("copy.allGroups")}</option>
-            <option value="PRA_TENDER">{translateI18n("projectCreate.praTender")}</option>
-            <option value="ON_SUBMISSION_TENDER">{translateI18n("projectCreate.onSubmissionTender")}</option>
-          </select>
-          <select aria-label={translateI18n("documentPage.filterOutputStatus")} value={status} onChange={(event) => setStatus(event.target.value as typeof status)} className="h-10 min-w-0 rounded-md border border-border bg-background px-3 text-sm text-foreground">
-            <option value="ALL">{translateI18n("copy.allStatuses")}</option>
-            <option value="DRAFT">{translateI18n("documentStatus.DRAFT")}</option>
-            <option value="IN_REVIEW">{translateI18n("milestoneStatus.SUBMITTED")}</option>
-            <option value="REVISION_REQUIRED">{translateI18n("milestoneStatus.REVISION_REQUIRED")}</option>
-          </select>
-        </div>
-        {!isLoading && !isError && <p className="text-xs text-muted-foreground">{translateI18n("documentPage.outputAvailable", { visible: visible.length, total: outputs.length })}</p>}
-        {downloadError && <p role="alert" className="text-xs text-destructive">{translateStoredError(downloadError)}</p>}
-      </div>
-      {isLoading ? (
-        <div className="space-y-3 p-5" aria-label={translateI18n("ui.loadingOutputsAria")}><div className="h-16 animate-pulse rounded bg-muted/30" /><div className="h-16 animate-pulse rounded bg-muted/30" /></div>
-      ) : isError ? (
-        <p className="p-8 text-center text-sm text-destructive">{translateI18n("ui.outputLoadRetry")}</p>
-      ) : visible.length === 0 ? (
-        <p className="p-8 text-center text-sm text-muted-foreground">{translateI18n("copy.noMatchingOutputs")}</p>
-      ) : (
-        <div>
-          {visible.map((item) => (
-            <div key={`${item.projectId}-${item.documentKey}`} className="grid gap-3 border-t border-border/60 p-4 first:border-t-0 sm:p-5 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)_minmax(0,1fr)_auto] lg:items-center">
-              <div className="min-w-0">
-                <p className="break-words text-sm font-semibold text-foreground">{translateOutputName(item.documentKey, item.name)}</p>
-                <p className="mt-1 break-all text-xs text-muted-foreground">{item.fileName} | v{item.versionNumber}</p>
-              </div>
-              <p className="min-w-0 break-words text-xs text-muted-foreground">{translateI18n(item.group === "PRA_TENDER" ? "projectCreate.praTender" : "projectCreate.onSubmissionTender")}</p>
-              <div className="min-w-0">
-                <p className="break-words text-sm text-foreground">{item.projectName}</p>
-                <Badge variant={item.status === "APPROVED" ? "success" : item.status === "REVISION_REQUIRED" ? "destructive" : "warning"}>{translateOutputStatus(item.status)}</Badge>
-              </div>
-              <div className="flex flex-wrap gap-2 lg:justify-end">
-                <Link href={`/projects/${item.projectId}#milestone-outputs-${item.milestoneId}`}><Button size="sm" variant="outline" className="gap-1.5"><ArrowRight className="h-3.5 w-3.5" />{translateI18n("project.open")}</Button></Link>
-                <Button size="sm" variant="ghost" className="gap-1.5" disabled={download.isPending && download.variables?.projectId === item.projectId && download.variables?.documentKey === item.documentKey} onClick={() => void handleDownload(item)}><Download className="h-3.5 w-3.5" />{translateI18n("common.download")}</Button>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-    </section>
-  );
 }
 
 function DocumentRow({

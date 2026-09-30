@@ -35,6 +35,12 @@ assert.equal(last.items.length, 4);
 assert.equal(new Set([...first.items, ...second.items, ...last.items].map((item) => `${item.sourceType}:${item.sourceId}`)).size, many.length);
 assert.equal(paginateRepositoryItems(many, 99).page, 3);
 const outputHooks = readFileSync(join(__dirname, "../hooks/use-output-documents.ts"), "utf8");
+const documentsPage = readFileSync(join(__dirname, "../app/documents/page.tsx"), "utf8");
+assert(documentsPage.includes("buildRepositoryItems(documents, outputs)"),
+  "Documents must render the combined repository directly");
+assert(!documentsPage.includes('role="tablist"') && !documentsPage.includes("OutputDocumentsTab")
+  && !documentsPage.includes('item.status !== "APPROVED"'),
+  "Documents must not expose a second non-final output panel");
 const reviewMutation = outputHooks.split("export function useReviewOutputDocuments")[1]?.split("export function useUpdateOutputChecklist")[0] || "";
 assert(reviewMutation.includes("queryClient.invalidateQueries({ queryKey: outputDocumentKeys.repository() })"),
   "Successful review must invalidate the repository query used by /documents");
