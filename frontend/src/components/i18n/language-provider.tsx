@@ -3,6 +3,8 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { apiClient } from "@/lib/api-client";
+import { getAccessToken } from "@/lib/auth";
+import { isCurrentLanguagePreferenceRequest, loadLanguagePreference } from "@/lib/language-preference-request";
 import {
   AppLanguage,
   DEFAULT_LANGUAGE,
@@ -71,14 +73,16 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
 
     setIsLoading(true);
     setError(null);
-    apiClient<{ language: AppLanguage }>("/auth/preferences/language")
-      .then((preference) => {
-        if (cancelled || generation !== changeGeneration.current) return;
-        applyLocale(preference.language);
-        cacheLocale(preference.language, user.id);
+    loadLanguagePreference(user.id, getAccessToken(), async () =>
+      (await apiClient<{ language: AppLanguage }>("/auth/preferences/language")).language
+    )
+      .then((language) => {
+        if (cancelled || !isCurrentLanguagePreferenceRequest(user.id, activeUserId.current, generation, changeGeneration.current)) return;
+        applyLocale(language);
+        cacheLocale(language, user.id);
       })
       .catch(() => {
-        if (!cancelled) setError("language.loadError");
+        if (!cancelled && isCurrentLanguagePreferenceRequest(user.id, activeUserId.current, generation, changeGeneration.current)) setError("language.loadError");
       })
       .finally(() => {
         if (!cancelled) setIsLoading(false);
