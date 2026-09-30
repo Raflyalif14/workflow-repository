@@ -82,7 +82,6 @@ import {
   useProjectActivities,
   useProjectMilestones,
   useProjectPlanApproval,
-  useProjectProgress,
   useResumeProject,
   useReviewProjectPlan,
   useSetProjectOutcome,
@@ -90,6 +89,7 @@ import {
   useSubmitProjectPlan,
 } from "@/hooks/use-projects";
 import { flattenActivityPages, formatActivityAction } from "@/lib/activity-timeline";
+import { calculateProjectMilestoneProgress } from "@/lib/project-milestone-progress";
 import { useDocumentDownloadUrl, useDocuments } from "@/hooks/use-documents";
 import { useProjectIntake, useProjectIntakeDownloadUrl } from "@/hooks/use-project-intake";
 import {
@@ -120,9 +120,10 @@ export default function ProjectDetailPage() {
   const router = useRouter();
   const { user } = useAuth();
   const { data: project, isLoading: projectLoading, isError } = useProject(id, { includeActivity: false });
-  const { data: milestones = [], isLoading: milestonesLoading } = useProjectMilestones(id);
+  const { data: milestoneData, isLoading: milestonesLoading, isError: milestonesError, refetch: refetchMilestones } = useProjectMilestones(id);
+  const milestones = milestoneData ?? [];
   const outputReadiness = useOutputDocuments(id);
-  const { data: progress } = useProjectProgress(id);
+  const progress = !milestonesError && milestoneData ? calculateProjectMilestoneProgress(milestoneData) : null;
   const { data: planApproval } = useProjectPlanApproval(id);
   const approvalQueries = useMilestoneApprovalStates(milestones, Boolean(milestones.length));
   const submitProjectPlan = useSubmitProjectPlan(id);
@@ -670,16 +671,22 @@ export default function ProjectDetailPage() {
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div className="space-y-1">
               <h2 id="delivery-progress-heading" className="text-base font-semibold text-foreground">{translateI18n("copy.workProgress")}</h2>
-              <p className="text-sm text-muted-foreground">{translateI18n("projectDetail.stagesFinished", { done: progress?.completed || 0, total: progress?.total || milestones.length })}</p>
+              {progress && <p className="text-sm text-muted-foreground">{translateI18n("projectDetail.stagesFinished", { done: progress.completed, total: progress.total })}</p>}
             </div>
-            <span className="text-sm font-medium text-primary">{translateI18n("projectDetail.percentComplete", { percent: progress?.percentage || 0 })}</span>
+            {progress && <span className="text-sm font-medium text-primary">{translateI18n("projectDetail.percentComplete", { percent: progress.percentage })}</span>}
           </div>
-          <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-secondary/80">
-            <div
-              className="h-full rounded-full bg-primary transition-all duration-500"
-              style={{ width: `${progress?.percentage || 0}%` }}
-            />
-          </div>
+          {milestonesError ? (
+            <div className="mt-3 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+              <span>{translateI18n("dashboardPage.stageUnavailable")}</span>
+              <Button type="button" variant="outline" size="sm" onClick={() => void refetchMilestones()}>{translateI18n("common.retry")}</Button>
+            </div>
+          ) : progress ? (
+            <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-secondary/80">
+              <div className="h-full rounded-full bg-primary transition-all duration-500" style={{ width: `${progress.percentage}%` }} />
+            </div>
+          ) : (
+            <p className="mt-3 text-sm text-muted-foreground">{translateI18n("milestone.loading")}</p>
+          )}
         </section>
       )}
 
