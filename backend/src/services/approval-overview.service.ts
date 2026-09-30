@@ -1,4 +1,5 @@
 import { supabaseAdmin } from '../config/supabase';
+import { RequestTiming, timeOperation } from '../utils/request-timing';
 
 type ApprovalOverviewActor = {
     userId: string;
@@ -84,7 +85,7 @@ function userPayload(user?: UserRow) {
 }
 
 export class ApprovalOverviewService {
-    static async getOverview(actor: ApprovalOverviewActor) {
+    static async getOverview(actor: ApprovalOverviewActor, trace?: RequestTiming) {
         if (!['HEAD_SA', 'SUPER_ADMIN'].includes(actor.role)) {
             throw new Error('Forbidden');
         }
@@ -96,10 +97,10 @@ export class ApprovalOverviewService {
          * Approval Center is only accessible to HEAD_SA / SUPER_ADMIN,
          * therefore both roles use global project visibility here.
          */
-        const { data: projectData, error: projectError } = await supabaseAdmin
+        const { data: projectData, error: projectError } = await timeOperation(trace, 'approval.projects', () => supabaseAdmin
             .from('projects')
             .select('id,name,customer')
-            .order('updated_at', { ascending: false });
+            .order('updated_at', { ascending: false }));
 
         if (projectError) {
             throw safeError(projectError, 'projects');
@@ -124,7 +125,7 @@ export class ApprovalOverviewService {
          * Step 2
          * Fetch milestones and project-plan approval history in batch.
          */
-        const [milestoneResult, planResult] = await Promise.all([
+        const [milestoneResult, planResult] = await timeOperation(trace, 'approval.milestones_and_plans', () => Promise.all([
             supabaseAdmin
                 .from('project_milestones')
                 .select(
@@ -139,7 +140,7 @@ export class ApprovalOverviewService {
                 )
                 .in('project_id', projectIds)
                 .order('submitted_at', { ascending: false }),
-        ]);
+        ]));
 
         if (milestoneResult.error) {
             throw safeError(milestoneResult.error, 'project_milestones');
@@ -159,10 +160,10 @@ export class ApprovalOverviewService {
          * Fetch all milestone approval sources in batch.
          */
         const deadlineResult = milestoneIds.length
-            ? await supabaseAdmin.from('milestone_deadline_approvals')
+            ? await timeOperation(trace, 'approval.deadline_approvals', () => supabaseAdmin.from('milestone_deadline_approvals')
                 .select('id,milestone_id,deadline_history_id,status,requested_by,reviewed_by,review_note,requested_at,reviewed_at')
                 .in('milestone_id', milestoneIds)
-                .order('requested_at', { ascending: false })
+                .order('requested_at', { ascending: false }))
             : { data: [], error: null };
         if (deadlineResult.error) throw safeError(deadlineResult.error, 'milestone_deadline_approvals');
 
@@ -193,7 +194,7 @@ export class ApprovalOverviewService {
             ),
         ];
 
-        const [deadlineHistoryResult, userResult] = await Promise.all([
+        const [deadlineHistoryResult, userResult] = await timeOperation(trace, 'approval.history_and_users', () => Promise.all([
             deadlineHistoryIds.length
                 ? supabaseAdmin
                     .from('milestone_deadline_history')
@@ -209,7 +210,7 @@ export class ApprovalOverviewService {
                     .select('id,full_name,role')
                     .in('id', userIds)
                 : Promise.resolve({ data: [], error: null }),
-        ]);
+        ]));
 
         if (deadlineHistoryResult.error) {
             throw safeError(

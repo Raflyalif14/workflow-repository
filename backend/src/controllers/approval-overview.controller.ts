@@ -2,6 +2,7 @@ import { Response } from 'express';
 import { AuthenticatedRequest } from '../middlewares/auth.middleware';
 import { ApprovalOverviewService } from '../services/approval-overview.service';
 import { sendError, sendSuccess } from '../utils/response.util';
+import { getRequestTiming } from '../utils/request-timing';
 
 export class ApprovalOverviewController {
     static async getOverview(
@@ -9,7 +10,7 @@ export class ApprovalOverviewController {
         res: Response
     ): Promise<void> {
         try {
-            const result = await ApprovalOverviewService.getOverview(req.user!);
+            const result = await ApprovalOverviewService.getOverview(req.user!, getRequestTiming(req));
 
             sendSuccess(
                 res,

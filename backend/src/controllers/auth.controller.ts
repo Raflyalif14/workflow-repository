@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import { AuthService } from '../services/auth.service';
 import { sendSuccess, sendError } from '../utils/response.util';
-import { AuthenticatedRequest } from '../middlewares/auth.middleware';
+import { AuthenticatedRequest, getVerifiedProfile } from '../middlewares/auth.middleware';
 import { resetLoginRateLimit } from '../middlewares/auth-rate-limit.middleware';
 
 export class AuthController {
@@ -57,8 +57,9 @@ export class AuthController {
   }
 
   static async getMe(req: AuthenticatedRequest, res: Response): Promise<void> {
-    try { sendSuccess(res, 'Profile retrieved successfully', await AuthService.getProfile(req.user!.userId)); }
-    catch (error: any) { sendError(res, error.message || 'Failed to retrieve profile', null, 404); }
+    const profile = getVerifiedProfile(req);
+    if (!profile) { sendError(res, 'User profile not found', null, 401); return; }
+    sendSuccess(res, 'Profile retrieved successfully', AuthService.profileFromVerifiedRow(profile));
   }
 
   static async getLanguagePreference(req: AuthenticatedRequest, res: Response): Promise<void> {

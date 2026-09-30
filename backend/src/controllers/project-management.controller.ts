@@ -5,6 +5,7 @@ import { getRouteParam } from '../utils/request.util';
 import { ProjectCreationError, ProjectManagementService } from '../services/project-management.service';
 import { MilestoneService } from '../services/milestone.service';
 import { createProjectManagementSchema, projectDetailQuerySchema, projectOutcomeSchema, projectQuerySchema, updateProjectManagementSchema, postponeManagementSchema } from '../validators/project-management.validator';
+import { getRequestTiming } from '../utils/request-timing';
 
 const actor = (req: AuthenticatedRequest) => req.user!;
 const run = async (res: Response, action: () => Promise<unknown>, message: string, status = 200) => {
@@ -22,7 +23,7 @@ const run = async (res: Response, action: () => Promise<unknown>, message: strin
 };
 
 export class ProjectManagementController {
-  static list = (req: AuthenticatedRequest, res: Response) => run(res, () => ProjectManagementService.list(projectQuerySchema.parse(req.query), actor(req)), 'Projects retrieved successfully');
+  static list = (req: AuthenticatedRequest, res: Response) => run(res, () => ProjectManagementService.list(projectQuerySchema.parse(req.query), actor(req), getRequestTiming(req)), 'Projects retrieved successfully');
   static get = (req: AuthenticatedRequest, res: Response) => run(res, () => ProjectManagementService.get(getRouteParam(req, 'id'), actor(req), { includeActivity: projectDetailQuerySchema.parse(req.query).include_activity === 'true' }), 'Project retrieved successfully');
   static create = (req: AuthenticatedRequest, res: Response) => run(res, () => {
     const uploaded = (req.files || {}) as Record<string, Express.Multer.File[]>;

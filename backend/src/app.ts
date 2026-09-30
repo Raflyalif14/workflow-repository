@@ -4,6 +4,7 @@ import helmet from 'helmet';
 import { ENV } from './config/env';
 import apiRoutes from './routes';
 import { errorHandler } from './middlewares/error.middleware';
+import { requestTiming } from './utils/request-timing';
 
 const app: Application = express();
 app.set('trust proxy', ENV.TRUST_PROXY);
@@ -28,6 +29,7 @@ app.use(
 );
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(requestTiming);
 
 // API Routes
 app.use('/api', apiRoutes);

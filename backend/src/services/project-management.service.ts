@@ -13,6 +13,7 @@ import { applyProjectAccessScope, canAccessProject } from './project-access.serv
 import { logWorkflowActivityBestEffort } from './workflow-progression.service';
 import { getMandatoryDocumentKeys, getScenarioDocuments, resolveScenarioKey } from '../constants/scenarios';
 import { OutputDocumentService } from './output-document.service';
+import { RequestTiming, timeOperation } from '../utils/request-timing';
 
 type Actor = { userId: string; role: string; fullName: string };
 type ResumeProjectState = { status: string; is_postponed: boolean | null };
@@ -162,7 +163,7 @@ export function assertProjectOutcomeCanBeRecorded(project: ProjectOutcomeState, 
 }
 
 export class ProjectManagementService {
-  static async list(query: ProjectQuery, actor: Actor) {
+  static async list(query: ProjectQuery, actor: Actor, trace?: RequestTiming) {
     const page = query.page;
     const limit = query.limit;
     let request: any = supabaseAdmin.from('projects').select(projectSelect, { count: 'exact' }).range((page - 1) * limit, page * limit - 1).order('created_at', { ascending: false });
@@ -171,18 +172,18 @@ export class ProjectManagementService {
     if (query.scenario_id) request = request.eq('scenario_id', query.scenario_id);
     if (query.status) request = request.eq('status', query.status);
     if (query.search) request = request.or(`name.ilike.%${query.search}%,customer.ilike.%${query.search}%`);
-    const { data, error, count } = await request;
+    const { data, error, count } = await timeOperation(trace, 'projects.list.rows', () => request);
     if (error) throw new Error(error.message);
     const total = count || 0;
     const projects = (data || []).map(mapProject);
     const projectIds = projects.map((p: any) => p.id);
 
     if (projectIds.length > 0) {
-      const { data: milestonesData } = await supabaseAdmin
+      const { data: milestonesData } = await timeOperation(trace, 'projects.list.milestones', () => supabaseAdmin
         .from('project_milestones')
         .select('id,project_id,step_order,name,status,pic_id,start_date,due_date,workflow_stage:workflow_stages!project_milestones_workflow_stage_id_fkey(id,default_role),pic:users!project_milestones_pic_id_fkey(id,full_name)')
         .in('project_id', projectIds)
-        .order('step_order', { ascending: true });
+        .order('step_order', { ascending: true }));
 
       const milestonesByProject = new Map<string, any[]>();
       for (const m of (milestonesData || [])) {

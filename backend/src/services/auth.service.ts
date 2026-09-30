@@ -12,6 +12,7 @@ import {
   UserRole,
 } from '../validators/auth.validator';
 import { EmailService, InitialPasswordEmailInput, PasswordResetEmailInput } from './email.service';
+import type { VerifiedProfileRow } from '../middlewares/auth.middleware';
 
 const toProfile = (row: any) => ({
   id: row.id,
@@ -514,10 +515,8 @@ export class AuthService {
     });
   }
 
-  static async getProfile(userId: string) {
-    const { data, error } = await supabaseAdmin.from('users').select('*').eq('id', userId).single();
-    if (error || !data) throw new Error('User not found');
-    return toProfile(data);
+  static profileFromVerifiedRow(row: VerifiedProfileRow) {
+    return toProfile(row);
   }
 
   static async getLanguagePreference(userId: string): Promise<{ language: PreferredLanguage }> {

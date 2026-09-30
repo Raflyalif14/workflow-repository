@@ -1,6 +1,7 @@
 import { supabaseAdmin } from '../config/supabase';
 import { getDateOnlyKeyInTimeZone } from '../utils/dates';
 import { UserRole } from '../validators/auth.validator';
+import { RequestTiming, timeOperation } from '../utils/request-timing';
 
 export type DashboardActor = {
   userId: string;
@@ -476,7 +477,7 @@ async function getActiveSolutionArchitects() {
   return (data || []) as DashboardSaUserRow[];
 }
 
-async function getRowsByProjectIds(projectIds: string[]) {
+async function getRowsByProjectIds(projectIds: string[], trace?: RequestTiming) {
   if (!projectIds.length) {
     return {
       milestones: [],
@@ -489,7 +490,7 @@ async function getRowsByProjectIds(projectIds: string[]) {
     };
   }
 
-  const [milestoneResult, scenarioResult, activityResult, outputDocumentResult] = await Promise.all([
+  const [milestoneResult, scenarioResult, activityResult, outputDocumentResult] = await timeOperation(trace, 'dashboard.base_queries', () => Promise.all([
     supabaseAdmin
       .from('project_milestones')
       .select('id,project_id,pic_id,status,due_date')
@@ -507,7 +508,7 @@ async function getRowsByProjectIds(projectIds: string[]) {
       .from('project_output_documents')
       .select('project_id,milestone_id,status,is_required,is_selected')
       .in('project_id', projectIds),
-  ]);
+  ]));
 
   if (milestoneResult.error) throw toSafeDashboardError(milestoneResult.error, 'project_milestones');
   if (scenarioResult.error) throw toSafeDashboardError(scenarioResult.error, 'scenarios');
@@ -524,7 +525,7 @@ async function getRowsByProjectIds(projectIds: string[]) {
     ),
   ];
 
-  const [deadlineResult, projectPlanResult, userResult] = await Promise.all([
+  const [deadlineResult, projectPlanResult, userResult] = await timeOperation(trace, 'dashboard.approvals_and_users', () => Promise.all([
     milestoneIds.length
       ? supabaseAdmin
           .from('milestone_deadline_approvals')
@@ -543,7 +544,7 @@ async function getRowsByProjectIds(projectIds: string[]) {
           .select('id,full_name,role')
           .in('id', userIds)
       : Promise.resolve({ data: [], error: null }),
-  ]);
+  ]));
 
   if (deadlineResult.error) throw toSafeDashboardError(deadlineResult.error, 'milestone_deadline_approvals');
   if (projectPlanResult.error) throw toSafeDashboardError(projectPlanResult.error, 'project_plan_approvals');
@@ -561,11 +562,11 @@ async function getRowsByProjectIds(projectIds: string[]) {
 }
 
 export class DashboardService {
-  static async getOverview(actor: DashboardActor) {
-    const projects = await getScopedProjects(actor);
+  static async getOverview(actor: DashboardActor, trace?: RequestTiming) {
+    const projects = await timeOperation(trace, 'dashboard.projects', () => getScopedProjects(actor));
     const [scopedRows, saUsers] = await Promise.all([
-      getRowsByProjectIds(projects.map((project) => project.id)),
-      actor.role === 'HEAD_SA' ? getActiveSolutionArchitects() : Promise.resolve([]),
+      getRowsByProjectIds(projects.map((project) => project.id), trace),
+      actor.role === 'HEAD_SA' ? timeOperation(trace, 'dashboard.sa_users', () => getActiveSolutionArchitects()) : Promise.resolve([]),
     ]);
 
     return buildDashboardOverviewFromRows(

@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { UserRole } from '../validators/auth.validator';
 import { supabaseAdmin } from '../config/supabase';
 import { sendError } from '../utils/response.util';
+import { getRequestTiming, timeOperation } from '../utils/request-timing';
 
 export interface AuthenticatedRequest extends Request {
   user?: {
@@ -14,6 +15,21 @@ export interface AuthenticatedRequest extends Request {
     mustChangePassword: boolean;
   };
 }
+
+export type VerifiedProfileRow = {
+  id: string;
+  email: string;
+  full_name: string;
+  role: UserRole;
+  is_active: boolean;
+  must_change_password: boolean | null;
+  created_at: string;
+  updated_at: string;
+  preferred_language: string | null;
+};
+
+const verifiedProfiles = new WeakMap<Request, VerifiedProfileRow>();
+export const getVerifiedProfile = (req: Request): VerifiedProfileRow | undefined => verifiedProfiles.get(req);
 
 const passwordChangeExemptPaths = [
   '/api/auth/login',
@@ -36,10 +52,12 @@ export const requirePasswordChanged = (req: AuthenticatedRequest, res: Response,
 export const authenticateUser = async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
   const authHeader = req.headers.authorization;
   if (!authHeader?.startsWith('Bearer ')) { sendError(res, 'Access denied. Missing or malformed Authorization header', null, 401); return; }
-  const { data, error } = await supabaseAdmin.auth.getUser(authHeader.slice(7).trim());
+  const trace = getRequestTiming(req);
+  const { data, error } = await timeOperation(trace, 'auth.verify', () => supabaseAdmin.auth.getUser(authHeader.slice(7).trim()));
   if (error || !data.user) { sendError(res, 'Invalid or expired access token', null, 401); return; }
-  const { data: profile, error: profileError } = await supabaseAdmin.from('users').select('id, email, full_name, role, is_active, must_change_password').eq('id', data.user.id).single();
+  const { data: profile, error: profileError } = await timeOperation(trace, 'auth.profile', () => supabaseAdmin.from('users').select('id, email, full_name, role, is_active, must_change_password, created_at, updated_at, preferred_language').eq('id', data.user.id).single());
   if (profileError || !profile || !profile.is_active) { sendError(res, profile ? 'User account is inactive' : 'User profile not found', null, 401); return; }
+  verifiedProfiles.set(req, profile as VerifiedProfileRow);
   req.user = {
     userId: profile.id,
     email: profile.email,
