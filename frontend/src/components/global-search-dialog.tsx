@@ -1,6 +1,7 @@
 "use client";
 
-import { translate as translateI18n } from "@/i18n";
+import { translate as translateI18n, translateOutputStatus } from "@/i18n";
+import { useLanguage } from "@/components/i18n/language-provider";
 
 import { KeyboardEvent, useEffect, useMemo, useRef, useState } from "react";
 import { FileText, FolderKanban, Milestone, Search, X } from "lucide-react";
@@ -16,7 +17,6 @@ import {
 } from "@/lib/global-search";
 import {
   formatMilestoneStatusLabel,
-  formatHumanReadableLabel,
   formatProjectStatusLabel,
 } from "@/lib/workflow-ux-helpers";
 
@@ -25,14 +25,15 @@ type GlobalSearchDialogProps = {
   onOpenChange: (open: boolean) => void;
 };
 
-const resultGroups: Array<{ key: "projects" | "documents" | "milestones" | "outputDocuments"; label: string; icon: typeof FolderKanban }> = [
-  { key: "projects", label: "Projects", icon: FolderKanban },
-  { key: "documents", label: "Documents", icon: FileText },
-  { key: "milestones", label: "Milestones", icon: Milestone },
-  { key: "outputDocuments", label: "Output dokumen", icon: FileText },
+const resultGroups: Array<{ key: "projects" | "documents" | "milestones" | "outputDocuments"; labelKey: "nav.projects" | "nav.documents" | "nav.milestones" | "search.outputDocuments"; icon: typeof FolderKanban }> = [
+  { key: "projects", labelKey: "nav.projects", icon: FolderKanban },
+  { key: "documents", labelKey: "nav.documents", icon: FileText },
+  { key: "milestones", labelKey: "nav.milestones", icon: Milestone },
+  { key: "outputDocuments", labelKey: "search.outputDocuments", icon: FileText },
 ];
 
 export function GlobalSearchDialog({ open, onOpenChange }: GlobalSearchDialogProps) {
+  useLanguage();
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
   const [query, setQuery] = useState("");
@@ -100,8 +101,8 @@ export function GlobalSearchDialog({ open, onOpenChange }: GlobalSearchDialogPro
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Search projects, documents, milestones, outputs..."
-            aria-label="Search projects, documents, milestones, and outputs"
+            placeholder={translateI18n("search.allPlaceholder")}
+            aria-label={translateI18n("search.allLabel")}
             className="h-11 bg-background"
           />
         </div>
@@ -123,7 +124,7 @@ export function GlobalSearchDialog({ open, onOpenChange }: GlobalSearchDialogPro
                 <section key={group.key} className="py-1">
                   <div className="flex items-center gap-2 px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
                     <Icon className="h-3.5 w-3.5" />
-                    {group.label}
+                    {translateI18n(group.labelKey)}
                   </div>
                   {groupResults.map((result) => {
                     const index = flattenedIndex++;
@@ -145,7 +146,7 @@ export function GlobalSearchDialog({ open, onOpenChange }: GlobalSearchDialogPro
                             {result.type === "PROJECT"
                               ? formatProjectStatusLabel(result.status)
                               : result.type === "OUTPUT_DOCUMENT"
-                                ? formatHumanReadableLabel(result.status)
+                                ? translateOutputStatus(result.status)
                                 : formatMilestoneStatusLabel(result.status)}
                           </span>
                         )}

@@ -8,14 +8,14 @@ export const userRoleSchema = z.enum([
 ]);
 
 export const createUserFormSchema = z.object({
-  email: z.string().trim().email("Invalid email address format"),
-  fullName: z.string().trim().min(2, "Full name is required"),
+  email: z.string().trim().email("userForm.invalidEmail"),
+  fullName: z.string().trim().min(2, "userForm.fullNameRequired"),
   role: userRoleSchema,
   isActive: z.boolean().default(true),
 });
 
 export const updateUserFormSchema = z.object({
-  fullName: z.string().trim().min(2, "Full name is required"),
+  fullName: z.string().trim().min(2, "userForm.fullNameRequired"),
   role: userRoleSchema,
   isActive: z.boolean().default(true),
 });

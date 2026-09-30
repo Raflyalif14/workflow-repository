@@ -1,4 +1,5 @@
 "use client";
+import { useLanguage } from "@/components/i18n/language-provider";
 
 import { translate as translateI18n, getIntlLocale, type TranslationKey } from "@/i18n";
 
@@ -819,15 +820,12 @@ function SolutionArchitectWorkloadPanel({
 }
 
 export default function DashboardPage() {
+  useLanguage();
   const { user } = useAuth();
-  const [greeting, setGreeting] = useState(() => translateI18n("dashboardCopy.hello"));
+  const greeting = getDashboardGreeting(new Date().getHours());
   const userRole = user?.role || "GUEST";
   const isHeadSa = userRole === "HEAD_SA";
   const isSa = userRole === "SA";
-
-  useEffect(() => {
-    setGreeting(getDashboardGreeting(new Date().getHours()));
-  }, []);
 
   const dashboardQuery = useDashboard();
   const approvalStatsQuery = useApprovalStats();

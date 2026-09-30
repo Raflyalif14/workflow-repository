@@ -2,14 +2,16 @@
 
 import { useEffect, useState } from "react";
 import { useAuth } from "@/components/auth/auth-provider";
+import { useLanguage } from "@/components/i18n/language-provider";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useOutputDocuments, useUpdateOutputChecklist } from "@/hooks/use-output-documents";
-import { translate } from "@/i18n";
+import { translate, translateOutputName } from "@/i18n";
 import type { Project } from "@/types/project";
 
 export function OutputScopeSection({ project }: { project: Project }) {
+  useLanguage();
   const { user } = useAuth();
   const output = useOutputDocuments(project.id);
   const update = useUpdateOutputChecklist(project.id);
@@ -31,7 +33,7 @@ export function OutputScopeSection({ project }: { project: Project }) {
       await update.mutateAsync(selected);
       setSaved(true);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : translate("outputScope.saveFailed"));
+      setError("outputScope.saveFailed");
     }
   };
 
@@ -49,13 +51,13 @@ export function OutputScopeSection({ project }: { project: Project }) {
             disabled={!editable || item.isRequired || update.isPending}
             onChange={() => setSelected((current) => current.includes(item.key)
               ? current.filter((key) => key !== item.key) : [...current, item.key])}
-            aria-label={item.name} className="h-4 w-4 accent-primary" />
-          <span className="min-w-0 flex-1">{item.name}</span>
+            aria-label={translateOutputName(item.key, item.name)} className="h-4 w-4 accent-primary" />
+          <span className="min-w-0 flex-1">{translateOutputName(item.key, item.name)}</span>
           <Badge variant="secondary">{translate(item.isRequired ? "outputScope.required" : "outputScope.optional")}</Badge>
         </label>)}
       </div>}
       {output.data?.isScopeLocked && <p className="text-sm text-muted-foreground">{translate("outputScope.locked")}</p>}
-      {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
+      {error && <p role="alert" className="text-sm text-destructive">{translate("outputScope.saveFailed")}</p>}
       {saved && <p role="status" className="text-sm text-emerald-500">{translate("outputScope.saved")}</p>}
       {editable && <Button type="button" disabled={update.isPending || output.isLoading || output.isError}
         onClick={() => void save()}>{translate("outputScope.save")}</Button>}

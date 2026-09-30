@@ -1,6 +1,7 @@
 "use client";
 
-import { translate as translateI18n, getIntlLocale, translateOutputStatus, translateProjectStatus } from "@/i18n";
+import { translate as translateI18n, getIntlLocale, translateOutputStatus, translateProjectStatus, translateOutputName, translateStoredError, translateStoredMessage } from "@/i18n";
+import { useLanguage } from "@/components/i18n/language-provider";
 
 import { useMemo, useRef, useState, type DragEvent, type FormEvent } from "react";
 import { AlertCircle, AlertTriangle, CheckCircle2, Download, History, Loader2, RotateCcw, Send, UploadCloud } from "lucide-react";
@@ -83,9 +84,9 @@ function BatchResultNotice({ results, documents, action }: { results: OutputDocu
   return (
     <div className={`rounded-md border p-3 text-xs ${failed.length ? "border-amber-500/30 bg-amber-500/10 text-amber-200" : "border-emerald-500/30 bg-emerald-500/10 text-emerald-300"}`}>
       <p className="font-semibold">{translateI18n(action === "submit" ? "outputUi.submitSummary" : action === "approve" ? "outputUi.approveSummary" : "outputUi.reviseSummary", { success: succeeded, failed: failed.length })}</p>
-      {successful.map((result) => <p key={result.documentKey} className="mt-1">{translateI18n("outputUi.itemSuccess", { name: documents.find((document) => document.key === result.documentKey)?.name || translateI18n("documents.output") })}</p>)}
+      {successful.map((result) => { const item = documents.find((document) => document.key === result.documentKey); return <p key={result.documentKey} className="mt-1">{translateI18n("outputUi.itemSuccess", { name: item ? translateOutputName(item.key, item.name) : translateI18n("documents.output") })}</p>; })}
       {failed.length > 0 && <p className="mt-1">{translateI18n("copy.retryFailed")}</p>}
-      {failed.map((result) => <p key={result.documentKey} className="mt-1">{documents.find((document) => document.key === result.documentKey)?.name || translateI18n("documents.output")}: {result.message || translateI18n("outputUi.actionFailed")}</p>)}
+      {failed.map((result) => { const item = documents.find((document) => document.key === result.documentKey); return <p key={result.documentKey} className="mt-1">{item ? translateOutputName(item.key, item.name) : translateI18n("documents.output")}: {translateStoredError(result.message || "outputUi.actionFailed")}</p>; })}
     </div>
   );
 }
@@ -146,7 +147,7 @@ function OutputDocumentRow({ projectId, document, canUpload, canReview, canReadH
   const uploadFile = async (file?: File) => {
     if (!file) return;
     if (file.size > MAX_FILE_SIZE) {
-      setError("Ukuran berkas melebihi batas 50 MB.");
+      setError("outputUi.fileTooLarge");
       return;
     }
     setError(null);
@@ -155,7 +156,7 @@ function OutputDocumentRow({ projectId, document, canUpload, canReview, canReadH
       await upload.mutateAsync(file);
       setUploadSuccess(true);
     } catch (uploadError) {
-      setError(uploadError instanceof Error ? uploadError.message : translateI18n("outputUi.uploadFailed"));
+      setError("outputUi.uploadFailed");
     } finally {
       if (inputRef.current) inputRef.current.value = "";
     }
@@ -173,7 +174,7 @@ function OutputDocumentRow({ projectId, document, canUpload, canReview, canReadH
       const result = await download.mutateAsync(document.key);
       window.open(result.url, "_blank", "noopener,noreferrer");
     } catch {
-      setError(translateI18n("outputUi.openFailed"));
+      setError("outputUi.openFailed");
     }
   };
 
@@ -183,9 +184,9 @@ function OutputDocumentRow({ projectId, document, canUpload, canReview, canReadH
       className={`flex min-w-0 flex-col gap-2 py-3 first:pt-0 last:pb-0 sm:flex-row sm:items-start sm:justify-between sm:gap-4 ${dragging ? "rounded-md bg-primary/10 ring-1 ring-primary" : ""}`}>
       <div className="min-w-0 flex-1 space-y-1.5">
         <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-          {submittable && submissionSelectionMode && <input type="checkbox" checked={submitChecked} onChange={onToggleSubmit} aria-label={getOutputDocumentSubmissionSelectionLabel(document.name)} className="h-4 w-4 accent-primary" />}
-          {reviewable && approvalSelectionMode && <input type="checkbox" checked={approveChecked} onChange={onToggleApprove} aria-label={getOutputDocumentApprovalSelectionLabel(document.name)} className="h-4 w-4 accent-primary" />}
-          <p className="min-w-0 break-words text-sm font-medium text-foreground">{document.name}</p>
+          {submittable && submissionSelectionMode && <input type="checkbox" checked={submitChecked} onChange={onToggleSubmit} aria-label={getOutputDocumentSubmissionSelectionLabel(translateOutputName(document.key, document.name))} className="h-4 w-4 accent-primary" />}
+          {reviewable && approvalSelectionMode && <input type="checkbox" checked={approveChecked} onChange={onToggleApprove} aria-label={getOutputDocumentApprovalSelectionLabel(translateOutputName(document.key, document.name))} className="h-4 w-4 accent-primary" />}
+          <p className="min-w-0 break-words text-sm font-medium text-foreground">{translateOutputName(document.key, document.name)}</p>
           <OutputStatusBadge status={document.status} />
         </div>
         {document.fileName ? (
@@ -206,7 +207,7 @@ function OutputDocumentRow({ projectId, document, canUpload, canReview, canReadH
             </span>
           </div>
         )}
-        {error && <p className="text-xs text-destructive">{error}</p>}
+        {error && <p className="text-xs text-destructive">{translateStoredError(error)}</p>}
         {uploadSuccess && !error && <p role="status" className="text-xs text-emerald-400">{translateI18n("copy.uploadSuccess")}</p>}
         {uploadable && <p className="text-xs text-muted-foreground">{translateI18n(document.fileName ? "outputUi.dropReplacement" : "outputUi.dropFile")}</p>}
         {contextMessage && !uploadable && <p className="text-xs text-muted-foreground">{contextMessage}</p>}
@@ -238,13 +239,13 @@ function VersionHistoryDialog({ projectId, document, onClose }: { projectId: str
       const result = await download.mutateAsync(versionId);
       window.open(result.url, "_blank", "noopener,noreferrer");
     } catch {
-      setError(translateI18n("outputUi.versionOpenFailed"));
+      setError("outputUi.versionOpenFailed");
     }
   };
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogHeader><DialogTitle>{translateI18n("copy.versionHistory")}</DialogTitle><DialogDescription>{translateI18n("outputUi.oldFiles", { name: document.name })}</DialogDescription></DialogHeader>
+      <DialogHeader><DialogTitle>{translateI18n("copy.versionHistory")}</DialogTitle><DialogDescription>{translateI18n("outputUi.oldFiles", { name: translateOutputName(document.key, document.name) })}</DialogDescription></DialogHeader>
       <div className="max-h-[60vh] space-y-2 overflow-y-auto pr-1">
         {versions.isLoading && <p className="py-6 text-center text-sm text-muted-foreground">{translateI18n("copy.loadingHistory")}</p>}
         {versions.isError && <p className="py-6 text-center text-sm text-destructive">{translateI18n("copy.versionHistoryError")}</p>}
@@ -258,7 +259,7 @@ function VersionHistoryDialog({ projectId, document, onClose }: { projectId: str
             {version.reviewFeedback && <p className="mt-2 text-xs text-destructive"><strong>{translateI18n("copy.reviewFeedback")}</strong> {version.reviewFeedback}</p>}
           </div>
         ))}
-        {error && <p className="text-xs text-destructive">{error}</p>}
+        {error && <p className="text-xs text-destructive">{translateStoredError(error)}</p>}
       </div>
       <DialogFooter><Button type="button" variant="outline" onClick={onClose}>{translateI18n("common.close")}</Button></DialogFooter>
     </Dialog>
@@ -311,10 +312,11 @@ export function OutputDocumentsSection({ project, milestoneId, milestoneStatus, 
     [activeDocuments, isHeadSa]
   );
 
+  const { locale } = useLanguage();
   const groups = useMemo(() => ([
     { key: "PRA_TENDER" as const, title: "Pra-Tender", documents: activeDocuments.filter((document) => document.group === "PRA_TENDER") },
     { key: "ON_SUBMISSION_TENDER" as const, title: "On Submission Tender", documents: activeDocuments.filter((document) => document.group === "ON_SUBMISSION_TENDER") },
-  ]).filter((group) => group.documents.length > 0), [activeDocuments]);
+  ]).filter((group) => group.documents.length > 0), [activeDocuments, locale]);
   const canSeeFullScope = isHeadSa || isAssignedPic;
   const summaryParts = canSeeFullScope
     ? [translateI18n("outputUi.outputCount", { count: activeDocuments.length }),
@@ -358,7 +360,7 @@ export function OutputDocumentsSection({ project, milestoneId, milestoneStatus, 
       setSubmitSelection(failedKeys);
       setSubmissionSelectionMode(failedKeys.length > 0);
     } catch (error) {
-      setBatchResults(keys.map((documentKey) => ({ documentKey, success: false, message: error instanceof Error ? error.message : translateI18n("outputUi.submissionFailed") })));
+      setBatchResults(keys.map((documentKey) => ({ documentKey, success: false, message: "outputUi.submissionFailed" })));
       setSubmitSelection(keys);
       setSubmissionSelectionMode(true);
     } finally {
@@ -379,10 +381,10 @@ export function OutputDocumentsSection({ project, milestoneId, milestoneStatus, 
       setApproveSelection(operation.kind === "batch" ? failedKeys : []);
       setApprovalSelectionMode(operation.kind === "batch" && failedKeys.length > 0);
       if (response.completionRetryRequired) {
-        setCompletionRetryMessage(translateI18n("outputUi.completionRetry"));
+        setCompletionRetryMessage("outputUi.completionRetry");
       }
     } catch (error) {
-      setBatchResults(keys.map((documentKey) => ({ documentKey, success: false, message: error instanceof Error ? error.message : translateI18n("outputUi.approvalFailed") })));
+      setBatchResults(keys.map((documentKey) => ({ documentKey, success: false, message: "outputUi.approvalFailed" })));
       setApproveSelection(operation.kind === "batch" ? keys : []);
       setApprovalSelectionMode(operation.kind === "batch");
     } finally {
@@ -405,7 +407,7 @@ export function OutputDocumentsSection({ project, milestoneId, milestoneStatus, 
         setRevisionFeedback("");
       }
     } catch (error) {
-      setBatchResults([{ documentKey: revisionTarget.key, success: false, message: error instanceof Error ? error.message : translateI18n("outputUi.revisionFailed") }]);
+      setBatchResults([{ documentKey: revisionTarget.key, success: false, message: "outputUi.revisionFailed" }]);
     }
   };
 
@@ -434,7 +436,7 @@ export function OutputDocumentsSection({ project, milestoneId, milestoneStatus, 
       anchor.remove();
       URL.revokeObjectURL(blobUrl);
     } catch (error) {
-      setDownloadError(error instanceof Error ? error.message : translateI18n("outputUi.approvedDownloadFailed"));
+      setDownloadError("outputUi.approvedDownloadFailed");
     } finally {
       setDownloadingAll(false);
     }
@@ -448,7 +450,7 @@ export function OutputDocumentsSection({ project, milestoneId, milestoneStatus, 
         ? translateI18n("outputUi.waitingResult")
         : translateI18n("outputUi.projectStatusNow", { status: translateProjectStatus(result.status) }));
     } catch (error) {
-      setCompletionRetryMessage(error instanceof Error ? error.message : translateI18n("outputUi.retryFailed"));
+      setCompletionRetryMessage("outputUi.retryFailed");
     }
   };
 
@@ -471,8 +473,8 @@ export function OutputDocumentsSection({ project, milestoneId, milestoneStatus, 
         {submissionSelectionMode && canUpload && <div className="flex flex-col gap-3 rounded-md border border-primary/30 bg-primary/5 p-3 sm:flex-row sm:items-center sm:justify-between"><p className="text-sm">{translateI18n("outputUi.draftsSelected", { count: submitSelection.length })}</p><div className="flex flex-wrap gap-2"><Button type="button" size="sm" variant="outline" disabled={submissionOperation !== null} onClick={() => setSubmitSelection(submittableDocuments.map((document) => document.key))}>{translateI18n("outputUi.selectAllDrafts")}</Button><Button type="button" size="sm" variant="outline" disabled={submissionOperation !== null || submitSelection.length === 0} onClick={() => setSubmitSelection([])}>{translateI18n("outputUi.clearSelection")}</Button><Button type="button" size="sm" variant="outline" disabled={submissionOperation !== null} onClick={() => { setSubmitSelection([]); setSubmissionSelectionMode(false); }}>{translateI18n("copy.cancelSelection")}</Button><Button type="button" size="sm" aria-busy={isBatchSubmissionOperation(submissionOperation) || undefined} disabled={submissionOperation !== null || submitSelection.length === 0} onClick={() => void submitSelected()}>{isBatchSubmissionOperation(submissionOperation) ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Send className="mr-1.5 h-3.5 w-3.5" />}{isBatchSubmissionOperation(submissionOperation) ? translateI18n("outputUi.submittingSelected") : translateI18n("outputUi.submitSelected", { count: submitSelection.length })}</Button></div></div>}
         {approvalSelectionMode && isHeadSa && <div className="flex flex-col gap-3 rounded-md border border-emerald-500/30 bg-emerald-500/5 p-3 sm:flex-row sm:items-center sm:justify-between"><p className="text-sm">{translateI18n("outputUi.documentsSelected", { count: approveSelection.length })}</p><div className="flex flex-wrap gap-2"><Button type="button" size="sm" variant="outline" disabled={review.isPending || reviewOperation !== null} onClick={() => setApproveSelection(getOutputDocumentApprovalSelection(reviewableDocuments, true))}>{translateI18n("outputUi.selectAllReviewed")}</Button><Button type="button" size="sm" variant="outline" disabled={review.isPending || reviewOperation !== null || approveSelection.length === 0} onClick={() => setApproveSelection(getOutputDocumentApprovalSelection(reviewableDocuments, false))}>{translateI18n("outputUi.clearSelection")}</Button><Button type="button" size="sm" variant="outline" disabled={review.isPending || reviewOperation !== null} onClick={() => { setApproveSelection(getOutputDocumentApprovalSelection(reviewableDocuments, false)); setApprovalSelectionMode(false); }}>{translateI18n("copy.cancelSelection")}</Button>{approveSelection.length > 0 && <Button type="button" size="sm" aria-busy={isBatchReviewOperation(reviewOperation) || undefined} disabled={review.isPending || reviewOperation !== null} onClick={() => void approveSelected()}>{isBatchReviewOperation(reviewOperation) ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" />}{isBatchReviewOperation(reviewOperation) ? translateI18n("outputUi.approving") : translateI18n("outputUi.approveSelected", { count: approveSelection.length })}</Button>}</div></div>}
         <BatchResultNotice results={batchResults} documents={documents} action={batchAction} />
-        {completionRetryMessage && <p className="text-xs text-muted-foreground">{completionRetryMessage}</p>}
-        {downloadError && <p className="text-xs text-destructive">{downloadError}</p>}
+        {completionRetryMessage && <p className="text-xs text-muted-foreground">{translateStoredMessage(completionRetryMessage)}</p>}
+        {downloadError && <p className="text-xs text-destructive">{translateStoredError(downloadError)}</p>}
         {milestoneId && isBeforeStart && <p className="text-xs text-muted-foreground">{translateI18n("outputUi.opensOn", { date: milestoneStartDate?.slice(0, 10) || "" })}</p>}
       </div>
 
@@ -490,9 +492,9 @@ export function OutputDocumentsSection({ project, milestoneId, milestoneStatus, 
         ))}
       </div>
 
-      {revisionTarget && <Dialog open onOpenChange={(open) => !open && !review.isPending && setRevisionTarget(null)}><DialogHeader><DialogTitle>{translateI18n("copy.requestRevision")}</DialogTitle><DialogDescription>{revisionTarget.name}</DialogDescription></DialogHeader><form onSubmit={requestRevision} className="space-y-4"><div><label htmlFor="output-revision-feedback" className="mb-1 block text-xs font-medium">{translateI18n("copy.reason")}</label><textarea id="output-revision-feedback" required maxLength={2000} value={revisionFeedback} onChange={(event) => setRevisionFeedback(event.target.value)} className="min-h-24 w-full rounded-md border border-input bg-background p-3 text-sm" /></div><DialogFooter><Button type="button" variant="outline" disabled={review.isPending} onClick={() => setRevisionTarget(null)}>{translateI18n("common.cancel")}</Button><Button type="submit" variant="destructive" disabled={review.isPending || !revisionFeedback.trim()}>{review.isPending ? translateI18n("outputUi.saving") : translateI18n("outputUi.requestRevision")}</Button></DialogFooter></form></Dialog>}
+      {revisionTarget && <Dialog open onOpenChange={(open) => !open && !review.isPending && setRevisionTarget(null)}><DialogHeader><DialogTitle>{translateI18n("copy.requestRevision")}</DialogTitle><DialogDescription>{translateOutputName(revisionTarget.key, revisionTarget.name)}</DialogDescription></DialogHeader><form onSubmit={requestRevision} className="space-y-4"><div><label htmlFor="output-revision-feedback" className="mb-1 block text-xs font-medium">{translateI18n("copy.reason")}</label><textarea id="output-revision-feedback" required maxLength={2000} value={revisionFeedback} onChange={(event) => setRevisionFeedback(event.target.value)} className="min-h-24 w-full rounded-md border border-input bg-background p-3 text-sm" /></div><DialogFooter><Button type="button" variant="outline" disabled={review.isPending} onClick={() => setRevisionTarget(null)}>{translateI18n("common.cancel")}</Button><Button type="submit" variant="destructive" disabled={review.isPending || !revisionFeedback.trim()}>{review.isPending ? translateI18n("outputUi.saving") : translateI18n("outputUi.requestRevision")}</Button></DialogFooter></form></Dialog>}
       {historyDocument && <VersionHistoryDialog projectId={project.id} document={historyDocument} onClose={() => setHistoryDocument(null)} />}
-      <Dialog open={checklistOpen} onOpenChange={(open) => !updateChecklist.isPending && setChecklistOpen(open)}><DialogHeader><DialogTitle>{translateI18n("copy.optionalOutputs")}</DialogTitle><DialogDescription>{translateI18n("copy.outputLockHelp")}</DialogDescription></DialogHeader><div className="max-h-[55vh] space-y-2 overflow-y-auto">{documents.map((document) => <label key={document.key} className="flex items-center justify-between gap-3 rounded-md border border-border/50 p-3 text-sm"><span className="flex min-w-0 items-center gap-2"><input type="checkbox" disabled={document.isRequired} checked={document.isRequired || checklistSelection.includes(document.key)} onChange={() => setChecklistSelection((current) => current.includes(document.key) ? current.filter((key) => key !== document.key) : [...current, document.key])} className="h-4 w-4 accent-primary" /><span>{document.name}</span></span><Badge variant="secondary" className="text-[10px]">{document.isRequired ? translateI18n("outputUi.required") : translateI18n("outputUi.optional")}</Badge></label>)}</div><DialogFooter><Button type="button" variant="outline" disabled={updateChecklist.isPending} onClick={() => setChecklistOpen(false)}>{translateI18n("common.cancel")}</Button><Button type="button" disabled={updateChecklist.isPending} onClick={() => void saveChecklist()}>{updateChecklist.isPending ? translateI18n("outputUi.saving") : translateI18n("outputUi.savingList")}</Button></DialogFooter></Dialog>
+      <Dialog open={checklistOpen} onOpenChange={(open) => !updateChecklist.isPending && setChecklistOpen(open)}><DialogHeader><DialogTitle>{translateI18n("copy.optionalOutputs")}</DialogTitle><DialogDescription>{translateI18n("copy.outputLockHelp")}</DialogDescription></DialogHeader><div className="max-h-[55vh] space-y-2 overflow-y-auto">{documents.map((document) => <label key={document.key} className="flex items-center justify-between gap-3 rounded-md border border-border/50 p-3 text-sm"><span className="flex min-w-0 items-center gap-2"><input type="checkbox" disabled={document.isRequired} checked={document.isRequired || checklistSelection.includes(document.key)} onChange={() => setChecklistSelection((current) => current.includes(document.key) ? current.filter((key) => key !== document.key) : [...current, document.key])} className="h-4 w-4 accent-primary" /><span>{translateOutputName(document.key, document.name)}</span></span><Badge variant="secondary" className="text-[10px]">{document.isRequired ? translateI18n("outputUi.required") : translateI18n("outputUi.optional")}</Badge></label>)}</div><DialogFooter><Button type="button" variant="outline" disabled={updateChecklist.isPending} onClick={() => setChecklistOpen(false)}>{translateI18n("common.cancel")}</Button><Button type="button" disabled={updateChecklist.isPending} onClick={() => void saveChecklist()}>{updateChecklist.isPending ? translateI18n("outputUi.saving") : translateI18n("outputUi.savingList")}</Button></DialogFooter></Dialog>
     </section>
   );
 }

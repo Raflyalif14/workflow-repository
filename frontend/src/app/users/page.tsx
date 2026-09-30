@@ -1,4 +1,5 @@
 "use client";
+import { useLanguage } from "@/components/i18n/language-provider";
 
 import { translate as translateI18n, getIntlLocale } from "@/i18n";
 
@@ -28,6 +29,7 @@ import { UserFormDialog } from "@/components/users/user-form-dialog";
 import { RoleGuard } from "@/components/auth/role-guard";
 
 export default function UsersPage() {
+  useLanguage();
   return (
     <RoleGuard allowedRoles={["SUPER_ADMIN"]}>
       <UsersPageContent />
@@ -122,7 +124,7 @@ function UsersPageContent() {
           </div>
           <h1 className="text-3xl font-bold tracking-tight">{translateI18n("users.management")}</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Manage organization team members, assign access roles, and perform credential maintenance.
+            {translateI18n("userPage.description")}
           </p>
         </div>
 
@@ -139,7 +141,7 @@ function UsersPageContent() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             type="text"
-            placeholder="Search by full name, email, or username..."
+            placeholder={translateI18n("userPage.searchPlaceholder")}
             value={search}
             onChange={(e) => {
               setSearch(e.target.value);
@@ -163,7 +165,7 @@ function UsersPageContent() {
             <option value="SUPER_ADMIN">{translateI18n("role.SUPER_ADMIN")}</option>
             <option value="SALES">{translateI18n("role.SALES")}</option>
             <option value="HEAD_SA">{translateI18n("role.HEAD_SA")}</option>
-            <option value="SA">SA</option>
+            <option value="SA">{translateI18n("role.SA")}</option>
           </select>
         </div>
 
@@ -201,19 +203,19 @@ function UsersPageContent() {
               {isLoading ? (
                 <tr>
                   <td colSpan={5} className="px-6 py-12 text-center text-muted-foreground">
-                    Loading users list...
+                    {translateI18n("userPage.loading")}
                   </td>
                 </tr>
               ) : isError ? (
                 <tr>
                   <td colSpan={5} className="px-6 py-12 text-center text-destructive">
-                    Failed to load users. Ensure backend is running.
+                    {translateI18n("userPage.loadFailed")}
                   </td>
                 </tr>
               ) : users.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="px-6 py-12 text-center text-muted-foreground">
-                    No users found matching current filters.
+                    {translateI18n("userPage.empty")}
                   </td>
                 </tr>
               ) : (
@@ -236,7 +238,7 @@ function UsersPageContent() {
                         variant={user.isActive ? "success" : "destructive"}
                         className="text-[10px]"
                       >
-                        {user.isActive ? "Active" : "Inactive"}
+                        {translateI18n(user.isActive ? "common.active" : "common.inactive")}
                       </Badge>
                     </td>
                     <td className="px-6 py-4 text-xs text-muted-foreground">
@@ -248,7 +250,7 @@ function UsersPageContent() {
                           variant="ghost"
                           size="icon"
                           className="h-8 w-8 text-muted-foreground hover:text-foreground"
-                          title="Edit User"
+                          title={translateI18n("userPage.edit")}
                           onClick={() => handleOpenEdit(user)}
                         >
                           <Pencil className="h-4 w-4" />
@@ -257,7 +259,7 @@ function UsersPageContent() {
                           variant="ghost"
                           size="icon"
                           className="h-8 w-8 text-muted-foreground hover:text-foreground"
-                          title={user.isActive ? "Deactivate user" : "Activate user"}
+                          title={translateI18n(user.isActive ? "userPage.deactivate" : "userPage.activate")}
                           disabled={updateStatus.isPending}
                           onClick={() => updateStatus.mutate({ id: user.id, isActive: !user.isActive })}
                         >
@@ -275,13 +277,12 @@ function UsersPageContent() {
         {/* Pagination Footer */}
         <div className="flex items-center justify-between px-6 py-4 border-t border-border bg-muted/20 text-xs text-muted-foreground">
           <div>
-            Showing <strong className="text-foreground">{users.length}</strong> of{" "}
-            <strong className="text-foreground">{pagination.total}</strong> users
+            {translateI18n("userPage.showing", { shown: users.length, total: pagination.total })}
           </div>
 
           <div className="flex items-center gap-2">
             <span className="mr-2">
-              Page {pagination.page} of {pagination.totalPages || 1}
+              {translateI18n("userPage.page", { page: pagination.page, total: pagination.totalPages || 1 })}
             </span>
             <Button
               variant="outline"

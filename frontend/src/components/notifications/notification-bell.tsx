@@ -1,6 +1,7 @@
 "use client";
 
 import { translate as translateI18n, getIntlLocale } from "@/i18n";
+import { useLanguage } from "@/components/i18n/language-provider";
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -19,10 +20,10 @@ const formatCreatedAt = (value: string): string => {
   if (Number.isNaN(timestamp)) return "";
 
   const elapsedSeconds = Math.max(0, Math.floor((Date.now() - timestamp) / 1_000));
-  if (elapsedSeconds < 60) return "Just now";
-  if (elapsedSeconds < 3_600) return `${Math.floor(elapsedSeconds / 60)}m ago`;
-  if (elapsedSeconds < 86_400) return `${Math.floor(elapsedSeconds / 3_600)}h ago`;
-  if (elapsedSeconds < 604_800) return `${Math.floor(elapsedSeconds / 86_400)}d ago`;
+  if (elapsedSeconds < 60) return translateI18n("notificationUi.justNow");
+  if (elapsedSeconds < 3_600) return translateI18n("notificationUi.minutesAgo", { count: Math.floor(elapsedSeconds / 60) });
+  if (elapsedSeconds < 86_400) return translateI18n("notificationUi.hoursAgo", { count: Math.floor(elapsedSeconds / 3_600) });
+  if (elapsedSeconds < 604_800) return translateI18n("notificationUi.daysAgo", { count: Math.floor(elapsedSeconds / 86_400) });
 
   return new Intl.DateTimeFormat(getIntlLocale(), { month: "short", day: "numeric" }).format(createdAt);
 };
@@ -36,6 +37,7 @@ const isInternalActionUrl = (actionUrl: string | null): actionUrl is string =>
   );
 
 export function NotificationBell({ enabled }: { enabled: boolean }) {
+  useLanguage();
   const router = useRouter();
   const containerRef = useRef<HTMLDivElement>(null);
   const [isOpen, setIsOpen] = useState(false);
@@ -76,7 +78,7 @@ export function NotificationBell({ enabled }: { enabled: boolean }) {
       try {
         await markAsRead.mutateAsync(notification.id);
       } catch {
-        setActionError("Unable to update this notification. Please try again.");
+        setActionError("notificationUi.updateFailed");
         return;
       }
     }
@@ -92,7 +94,7 @@ export function NotificationBell({ enabled }: { enabled: boolean }) {
     try {
       await markAllAsRead.mutateAsync();
     } catch {
-      setActionError("Unable to mark notifications as read. Please try again.");
+      setActionError("notificationUi.markAllFailed");
     }
   };
 
@@ -115,7 +117,7 @@ export function NotificationBell({ enabled }: { enabled: boolean }) {
       <button
         type="button"
         onClick={handleToggle}
-        aria-label={hasUnread ? `Notifications, ${unreadCount} unread` : "Notifications"}
+        aria-label={hasUnread ? translateI18n("notificationUi.unreadCount", { count: unreadCount }) : translateI18n("notifications.title")}
         aria-expanded={isOpen}
         aria-haspopup="dialog"
         className="relative flex h-9 w-9 items-center justify-center rounded-xl border border-transparent text-muted-foreground transition-all hover:border-border/60 hover:bg-muted/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
@@ -151,7 +153,7 @@ export function NotificationBell({ enabled }: { enabled: boolean }) {
                 ) : (
                   <CheckCheck className="h-3.5 w-3.5" aria-hidden="true" />
                 )}
-                Mark all as read
+                {translateI18n("notificationUi.markAllRead")}
               </button>
             )}
           </div>
@@ -159,7 +161,7 @@ export function NotificationBell({ enabled }: { enabled: boolean }) {
           {actionError && (
             <div className="mx-3 mt-3 flex items-start gap-2 rounded-lg border border-destructive/20 bg-destructive/5 px-3 py-2 text-xs text-destructive">
               <CircleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-              <p>{actionError}</p>
+              <p>{translateI18n(actionError as "notificationUi.updateFailed" | "notificationUi.markAllFailed")}</p>
             </div>
           )}
 
@@ -167,7 +169,7 @@ export function NotificationBell({ enabled }: { enabled: boolean }) {
             {isLoading ? (
               <div className="flex min-h-32 items-center justify-center gap-2 text-xs text-muted-foreground">
                 <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" />
-                Loading notifications...
+                {translateI18n("notificationUi.loading")}
               </div>
             ) : isError ? (
               <div className="flex min-h-32 flex-col items-center justify-center gap-2 px-5 text-center text-xs text-muted-foreground">

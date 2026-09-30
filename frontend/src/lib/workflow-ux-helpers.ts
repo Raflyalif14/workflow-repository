@@ -7,6 +7,7 @@ import {
   ProjectPlanApproval,
   ProjectStatus,
 } from "@/types/project";
+import { translate } from "@/i18n";
 import { isMilestoneCompleted } from "./milestone-ui-state";
 import { formatMilestoneDate, isInitialSubmissionBeforeEffectiveStart } from "./dates";
 import { translateMilestoneStatus, translateProjectStatus, translateRole } from "@/i18n";
@@ -222,17 +223,17 @@ export function resolveNextAction(
   if (project.status === "POSTPONED" || project.is_postponed) {
     if (isSalesOwner) {
       return {
-        title: "Project Postponed",
-        description: "Workflow actions are paused. You can resume this project when ready.",
-        actionLabel: "Resume Project",
+        title: translate("nextAction.postponed"),
+        description: translate("nextAction.postponedHelp"),
+        actionLabel: translate("nextAction.resume"),
         actionType: "RESUME_PROJECT",
         isWaiting: false,
         canPerformAction: true,
       };
     }
       return {
-        title: "Project is paused",
-        description: "Sales can resume the project when work is ready to continue.",
+        title: translate("nextAction.paused"),
+        description: translate("nextAction.pausedHelp"),
       isWaiting: true,
       waitingForRole: "SALES",
       canPerformAction: false,
@@ -242,8 +243,8 @@ export function resolveNextAction(
   // ─── 2. COMPLETED Project ───
   if (project.status === "COMPLETED") {
     return {
-      title: "Workflow Completed",
-      description: "All project milestones and stages have been successfully finished.",
+      title: translate("nextAction.workflowComplete"),
+      description: translate("nextAction.workflowCompleteHelp"),
       actionType: "NONE",
       isWaiting: false,
       canPerformAction: false,
@@ -253,8 +254,8 @@ export function resolveNextAction(
   // ─── 3. CANCELLED Project ───
   if (project.status === "CANCELLED") {
     return {
-      title: "Project Cancelled",
-      description: "This project has been cancelled.",
+      title: translate("nextAction.cancelled"),
+      description: translate("nextAction.cancelledHelp"),
       actionType: "NONE",
       isWaiting: false,
       canPerformAction: false,
@@ -273,19 +274,19 @@ export function resolveNextAction(
       );
       if (isSalesOwner) {
         return {
-          title: isComplete ? "Submit the plan for review" : "Set up the project plan",
+          title: translate(isComplete ? "nextAction.submitPlan" : "nextAction.setupPlan"),
           description: isComplete
-            ? "Timeline setup is complete. Submit the project plan for Head SA review."
-            : `Add a start date and duration for each required stage, beginning with ${incompleteMilestoneNames.slice(0, 2).join(", ")}${incompleteMilestoneNames.length > 2 ? "..." : ""}.`,
-          actionLabel: isComplete ? "Submit Project Plan" : "Set up timeline",
+            ? translate("nextAction.timelineReady")
+            : translate("nextAction.timelineIncomplete", { names: `${incompleteMilestoneNames.slice(0, 2).join(", ")}${incompleteMilestoneNames.length > 2 ? "..." : ""}` }),
+          actionLabel: translate(isComplete ? "nextAction.submitPlanAction" : "nextAction.setupTimeline"),
           actionType: isComplete ? "SUBMIT_PLAN" : "SETUP_TIMELINE",
           isWaiting: false,
           canPerformAction: true,
         };
       }
       return {
-        title: "Project plan is being prepared",
-        description: "Sales is setting up the timeline before submitting it for review.",
+        title: translate("nextAction.planPreparing"),
+        description: translate("nextAction.planPreparingHelp"),
         isWaiting: true,
         waitingForRole: "SALES",
         canPerformAction: false,
@@ -295,17 +296,17 @@ export function resolveNextAction(
     if (planStatus === "PENDING") {
       if (isHeadSa) {
         return {
-          title: "Review the project plan",
-          description: `Review the proposed timeline submitted by ${planApproval.requested_by?.full_name || "Sales"}.`,
-          actionLabel: "Approve / Reject Plan",
+          title: translate("nextAction.reviewPlan"),
+          description: translate("nextAction.reviewPlanHelp", { name: planApproval.requested_by?.full_name || "Sales" }),
+          actionLabel: translate("nextAction.reviewPlanAction"),
           actionType: "REVIEW_PLAN",
           isWaiting: false,
           canPerformAction: true,
         };
       }
       return {
-        title: "Plan under review",
-        description: "Head SA is reviewing the proposed timeline and will share the next decision.",
+        title: translate("nextAction.planUnderReview"),
+        description: translate("nextAction.planUnderReviewHelp"),
         isWaiting: true,
         waitingForRole: "HEAD_SA",
         canPerformAction: false,
@@ -315,19 +316,19 @@ export function resolveNextAction(
     if (planStatus === "REJECTED") {
       if (isSalesOwner) {
         return {
-          title: "Revise the project plan",
+          title: translate("nextAction.revisePlan"),
           description: planApproval.review_note
-            ? `Head SA Feedback: "${planApproval.review_note}". Please update timeline and resubmit.`
-            : "Project plan was rejected. Please adjust the timeline and resubmit.",
-          actionLabel: "Resubmit Project Plan",
+            ? translate("nextAction.reviseFeedback", { feedback: planApproval.review_note })
+            : translate("nextAction.reviseHelp"),
+          actionLabel: translate("nextAction.resubmitPlan"),
           actionType: "RESUBMIT_PLAN",
           isWaiting: false,
           canPerformAction: true,
         };
       }
       return {
-        title: "Plan revision in progress",
-        description: "Sales is updating the timeline before resubmitting the project plan.",
+        title: translate("nextAction.revisionProgress"),
+        description: translate("nextAction.revisionProgressHelp"),
         isWaiting: true,
         waitingForRole: "SALES",
         canPerformAction: false,
@@ -340,8 +341,8 @@ export function resolveNextAction(
     const currentMilestone = resolveCurrentStage(milestones);
     if (!currentMilestone) {
       return {
-        title: "Project completed",
-        description: "All milestones completed.",
+        title: translate("nextAction.projectComplete"),
+        description: translate("nextAction.projectCompleteHelp"),
         actionType: "NONE",
         isWaiting: false,
         canPerformAction: false,
@@ -357,9 +358,9 @@ export function resolveNextAction(
     if (isAssignPic && currentMilestone.status === "IN_PROGRESS") {
       if (isHeadSa) {
         return {
-          title: "Assign the project lead",
-          description: `Assign an eligible Solution Architect to project '${project.name}'.`,
-          actionLabel: "Assign PIC",
+          title: translate("nextAction.assignLead"),
+          description: translate("nextAction.assignLeadHelp", { name: project.name }),
+          actionLabel: translate("projectAction.assignPic"),
           actionType: "ASSIGN_PIC",
           isWaiting: false,
           canPerformAction: true,
@@ -368,8 +369,8 @@ export function resolveNextAction(
         };
       }
       return {
-        title: "Project lead assignment is pending",
-        description: "Head SA needs to assign a Solution Architect before work can begin.",
+        title: translate("nextAction.assignmentPending"),
+        description: translate("nextAction.assignmentPendingHelp"),
         isWaiting: true,
         waitingForRole: "HEAD_SA",
         canPerformAction: false,
@@ -383,9 +384,9 @@ export function resolveNextAction(
       if (stageRole === "SALES") {
         if (isSalesOwner) {
           return {
-            title: `Complete this stage: ${currentMilestone.name}`,
-            description: `Complete the requirements for '${currentMilestone.name}' and mark as complete.`,
-            actionLabel: "Mark Complete",
+            title: translate("nextAction.completeStage", { name: currentMilestone.name }),
+            description: translate("nextAction.completeSalesHelp", { name: currentMilestone.name }),
+            actionLabel: translate("nextAction.markComplete"),
             actionType: "MARK_COMPLETE",
             isWaiting: false,
             canPerformAction: true,
@@ -394,8 +395,8 @@ export function resolveNextAction(
           };
         }
         return {
-          title: `Current work: ${currentMilestone.name}`,
-          description: "Sales is completing the current stage.",
+          title: translate("nextAction.currentWork", { name: currentMilestone.name }),
+          description: translate("nextAction.salesWorking"),
           isWaiting: true,
           waitingForRole: "SALES",
           canPerformAction: false,
@@ -407,9 +408,9 @@ export function resolveNextAction(
       if (stageRole === "HEAD_SA") {
         if (isHeadSa) {
           return {
-            title: `Complete this stage: ${currentMilestone.name}`,
-            description: `Perform required actions for '${currentMilestone.name}'.`,
-            actionLabel: "Mark Complete",
+            title: translate("nextAction.completeStage", { name: currentMilestone.name }),
+            description: translate("nextAction.completeHeadHelp", { name: currentMilestone.name }),
+            actionLabel: translate("nextAction.markComplete"),
             actionType: "MARK_COMPLETE",
             isWaiting: false,
             canPerformAction: true,
@@ -418,8 +419,8 @@ export function resolveNextAction(
           };
         }
         return {
-          title: `Current work: ${currentMilestone.name}`,
-          description: "Head SA is completing the current stage.",
+          title: translate("nextAction.currentWork", { name: currentMilestone.name }),
+          description: translate("nextAction.headWorking"),
           isWaiting: true,
           waitingForRole: "HEAD_SA",
           canPerformAction: false,
@@ -437,9 +438,9 @@ export function resolveNextAction(
 
           if (isBeforeStart) {
             return {
-              title: `Upcoming stage: ${currentMilestone.name}`,
-              description: `Upcoming — Starts ${formatMilestoneDate(currentMilestone.start_date)}`,
-              actionLabel: "View milestone outputs",
+              title: translate("nextAction.upcomingStage", { name: currentMilestone.name }),
+              description: translate("nextAction.startsOn", { date: formatMilestoneDate(currentMilestone.start_date) }),
+              actionLabel: translate("nextAction.viewOutputs"),
               actionType: "SUBMIT_WORK",
               isWaiting: true,
               waitingForRole: "SA",
@@ -450,9 +451,9 @@ export function resolveNextAction(
           }
 
           return {
-            title: `Work on outputs: ${currentMilestone.name}`,
-            description: `Upload and submit the selected outputs within this milestone.`,
-            actionLabel: "Open outputs",
+            title: translate("nextAction.workOutputs", { name: currentMilestone.name }),
+            description: translate("nextAction.workOutputsHelp"),
+            actionLabel: translate("nextAction.openOutputs"),
             actionType: "SUBMIT_WORK",
             isWaiting: false,
             canPerformAction: true,
@@ -461,8 +462,8 @@ export function resolveNextAction(
           };
         }
       return {
-        title: `Current work: ${currentMilestone.name}`,
-        description: `The assigned Solution Architect (${currentMilestone.pic?.full_name || currentMilestone.pic?.fullName || "Solution Architect"}) is working on the selected outputs.`,
+        title: translate("nextAction.currentWork", { name: currentMilestone.name }),
+        description: translate("nextAction.picWorking", { name: currentMilestone.pic?.full_name || currentMilestone.pic?.fullName || translate("role.SA") }),
           isWaiting: true,
           waitingForRole: "SA",
           canPerformAction: false,
@@ -475,8 +476,8 @@ export function resolveNextAction(
     // Case 5e: Upcoming stage awaiting automatic progression.
     if (currentMilestone.status === "CREATED") {
       return {
-        title: `Waiting for the previous milestone: ${currentMilestone.name}`,
-        description: "This stage starts automatically after the previous work is completed.",
+        title: translate("nextAction.waitingPrevious", { name: currentMilestone.name }),
+        description: translate("nextAction.waitingPreviousHelp"),
         isWaiting: true,
         waitingForRole: stageRole || "responsible role",
         canPerformAction: false,
@@ -487,8 +488,8 @@ export function resolveNextAction(
   }
 
   return {
-    title: "Workflow Overview",
-    description: "Review project milestones and documents.",
+    title: translate("nextAction.overview"),
+    description: translate("nextAction.overviewHelp"),
     actionType: "NONE",
     isWaiting: false,
     canPerformAction: false,

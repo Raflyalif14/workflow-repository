@@ -1,6 +1,7 @@
 "use client";
+import { useLanguage } from "@/components/i18n/language-provider";
 
-import { translate as translateI18n, getIntlLocale } from "@/i18n";
+import { translate as translateI18n, getIntlLocale, type TranslationKey } from "@/i18n";
 
 import type { ReactNode } from "react";
 import Link from "next/link";
@@ -37,20 +38,17 @@ const formatTimestamp = (value: string | null, emptyLabel = "-"): string => {
   }).format(date);
 };
 
-const failureKindDetails: Record<TelegramDeliveryFailureKind, { title: string; description: string; className: string }> = {
+const failureKindDetails: Record<TelegramDeliveryFailureKind, { title: TranslationKey; description: TranslationKey; className: string }> = {
   RETRYABLE: {
-    title: "Retryable",
-    description: "A definite safe retry condition. The worker may retry it automatically.",
+    title: "telegramHealth.retryable", description: "telegramHealth.retryableHelp",
     className: "border-primary/20 text-primary",
   },
   AMBIGUOUS: {
-    title: "Ambiguous",
-    description: "The delivery outcome is uncertain, so it is not retried automatically to avoid duplicate messages.",
+    title: "telegramHealth.ambiguous", description: "telegramHealth.ambiguousHelp",
     className: "border-amber-400/20 text-amber-400",
   },
   TERMINAL: {
-    title: "Terminal",
-    description: "This delivery will not be retried automatically.",
+    title: "telegramHealth.terminal", description: "telegramHealth.terminalHelp",
     className: "border-destructive/30 text-destructive",
   },
 };
@@ -125,6 +123,7 @@ function FailureField({ label, value }: { label: string; value: string }) {
 }
 
 export default function TelegramDeliveryHealthPage() {
+  useLanguage();
   return (
     <RoleGuard allowedRoles={["SUPER_ADMIN"]}>
       <TelegramDeliveryHealthContent />
@@ -133,6 +132,7 @@ export default function TelegramDeliveryHealthPage() {
 }
 
 function TelegramDeliveryHealthContent() {
+  useLanguage();
   const { user } = useAuth();
   const isSuperAdmin = user?.role === "SUPER_ADMIN";
   const { data: health, isLoading, isError, isFetching, refetch } = useTelegramDeliveryHealth(isSuperAdmin);
@@ -145,7 +145,7 @@ function TelegramDeliveryHealthContent() {
           <Link href="/settings">
             <Button variant="ghost" size="sm" className="mb-4 -ml-2 gap-2 text-muted-foreground hover:text-foreground">
               <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-              Back to Settings
+              {translateI18n("telegramHealth.backSettings")}
             </Button>
           </Link>
           <div className="mb-3 flex items-center gap-3">
@@ -156,19 +156,19 @@ function TelegramDeliveryHealthContent() {
           </div>
           <h1 className="text-3xl font-bold tracking-tight">{translateI18n("settings.telegramHealth")}</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Review delivery status, retry backlog, and recent Telegram delivery failures.
+            {translateI18n("telegramHealth.intro")}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
           {health && (
             <div className="text-right text-xs text-muted-foreground" aria-live="polite">
-              <p className="font-medium text-foreground">{isFetching ? "Refreshing..." : "Last generated"}</p>
+              <p className="font-medium text-foreground">{translateI18n(isFetching ? "telegramHealth.refreshing" : "telegramHealth.lastGenerated")}</p>
               <p className="mt-0.5">{formatTimestamp(health.generatedAt)}</p>
             </div>
           )}
           <Button variant="outline" className="gap-2" disabled={!isSuperAdmin || isFetching} onClick={() => void refetch()}>
             <RefreshCw className={`h-4 w-4 ${isFetching ? "animate-spin" : ""}`} aria-hidden="true" />
-            Refresh
+            {translateI18n("telegramHealth.refresh")}
           </Button>
         </div>
       </div>
@@ -196,7 +196,7 @@ function TelegramDeliveryHealthContent() {
             </div>
             <Button variant="outline" className="gap-2" onClick={() => void refetch()}>
               <RefreshCw className="h-4 w-4" aria-hidden="true" />
-              Try Again
+              {translateI18n("common.retry")}
             </Button>
           </CardContent>
         </Card>
@@ -208,13 +208,13 @@ function TelegramDeliveryHealthContent() {
                 {needsAttention ? <AlertTriangle className="h-4 w-4" aria-hidden="true" /> : <CheckCircle2 className="h-4 w-4" aria-hidden="true" />}
               </span>
               <div>
-                <p className="text-sm font-semibold text-foreground">{needsAttention ? "Needs Attention" : "Operational"}</p>
+                <p className="text-sm font-semibold text-foreground">{translateI18n(needsAttention ? "telegramHealth.needsAttention" : "telegramHealth.operational")}</p>
                 <p className="mt-0.5 text-xs text-muted-foreground">
-                  {needsAttention ? "Review failed deliveries and the retry backlog." : "No failed or due retryable Telegram deliveries."}
+                  {translateI18n(needsAttention ? "telegramHealth.reviewFailures" : "telegramHealth.noFailures")}
                 </p>
               </div>
             </div>
-            <Badge variant={needsAttention ? "warning" : "success"}>{needsAttention ? "Attention" : "Operational"}</Badge>
+            <Badge variant={needsAttention ? "warning" : "success"}>{translateI18n(needsAttention ? "telegramHealth.attention" : "telegramHealth.operational")}</Badge>
           </div>
 
           <section className="space-y-3" aria-labelledby="telegram-delivery-summary">
@@ -223,10 +223,10 @@ function TelegramDeliveryHealthContent() {
               <p className="mt-1 text-xs text-muted-foreground">{translateI18n("copy.deliveryAggregate")}</p>
             </div>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-              <MetricCard label="Total" value={health.summary.total} description="All Telegram deliveries" icon={<Activity className="h-4 w-4 text-primary" />} iconClassName="border-primary/15 bg-primary/10" />
-              <MetricCard label="Sent" value={health.summary.sent} description="Recorded as delivered" icon={<Send className="h-4 w-4 text-emerald-400" />} iconClassName="border-emerald-400/15 bg-emerald-400/10" valueClassName="text-emerald-400" />
-              <MetricCard label="Pending" value={health.summary.pending} description="Awaiting a result" icon={<Clock3 className="h-4 w-4 text-amber-400" />} iconClassName="border-amber-400/15 bg-amber-400/10" valueClassName="text-amber-400" />
-              <MetricCard label="Failed" value={health.summary.failed} description="All failed deliveries" icon={<AlertTriangle className="h-4 w-4 text-destructive" />} iconClassName="border-destructive/30 bg-destructive/10" valueClassName="text-destructive" />
+              <MetricCard label={translateI18n("telegramHealth.total")} value={health.summary.total} description={translateI18n("telegramHealth.allDeliveries")} icon={<Activity className="h-4 w-4 text-primary" />} iconClassName="border-primary/15 bg-primary/10" />
+              <MetricCard label={translateI18n("telegramHealth.sent")} value={health.summary.sent} description={translateI18n("telegramHealth.delivered")} icon={<Send className="h-4 w-4 text-emerald-400" />} iconClassName="border-emerald-400/15 bg-emerald-400/10" valueClassName="text-emerald-400" />
+              <MetricCard label={translateI18n("telegramHealth.pending")} value={health.summary.pending} description={translateI18n("telegramHealth.awaitingResult")} icon={<Clock3 className="h-4 w-4 text-amber-400" />} iconClassName="border-amber-400/15 bg-amber-400/10" valueClassName="text-amber-400" />
+              <MetricCard label={translateI18n("telegramHealth.failed")} value={health.summary.failed} description={translateI18n("telegramHealth.failedDeliveries")} icon={<AlertTriangle className="h-4 w-4 text-destructive" />} iconClassName="border-destructive/30 bg-destructive/10" valueClassName="text-destructive" />
             </div>
           </section>
 
@@ -236,10 +236,10 @@ function TelegramDeliveryHealthContent() {
               <p className="mt-1 text-xs text-muted-foreground">{translateI18n("copy.classificationHelp")}</p>
             </div>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-              <MetricCard label="Retryable" value={health.summary.retryable} description="Eligible retry classification" icon={<RefreshCw className="h-4 w-4 text-primary" />} iconClassName="border-primary/15 bg-primary/10" valueClassName="text-primary" />
-              <MetricCard label="Ambiguous" value={health.summary.ambiguous} description="Outcome cannot be confirmed" icon={<CircleAlert className="h-4 w-4 text-amber-400" />} iconClassName="border-amber-400/15 bg-amber-400/10" valueClassName="text-amber-400" />
-              <MetricCard label="Terminal" value={health.summary.terminal} description="No automatic retry" icon={<ShieldAlert className="h-4 w-4 text-destructive" />} iconClassName="border-destructive/30 bg-destructive/10" valueClassName="text-destructive" />
-              <MetricCard label="Due Retry" value={health.summary.dueRetryable} description="Retryable records now due" icon={<Clock3 className="h-4 w-4 text-destructive" />} iconClassName="border-destructive/30 bg-destructive/10" valueClassName="text-destructive" />
+              <MetricCard label={translateI18n("telegramHealth.retryable")} value={health.summary.retryable} description={translateI18n("telegramHealth.retryEligible")} icon={<RefreshCw className="h-4 w-4 text-primary" />} iconClassName="border-primary/15 bg-primary/10" valueClassName="text-primary" />
+              <MetricCard label={translateI18n("telegramHealth.ambiguous")} value={health.summary.ambiguous} description={translateI18n("telegramHealth.outcomeUncertain")} icon={<CircleAlert className="h-4 w-4 text-amber-400" />} iconClassName="border-amber-400/15 bg-amber-400/10" valueClassName="text-amber-400" />
+              <MetricCard label={translateI18n("telegramHealth.terminal")} value={health.summary.terminal} description={translateI18n("telegramHealth.noAutoRetry")} icon={<ShieldAlert className="h-4 w-4 text-destructive" />} iconClassName="border-destructive/30 bg-destructive/10" valueClassName="text-destructive" />
+              <MetricCard label={translateI18n("telegramHealth.dueRetry")} value={health.summary.dueRetryable} description={translateI18n("telegramHealth.retryNow")} icon={<Clock3 className="h-4 w-4 text-destructive" />} iconClassName="border-destructive/30 bg-destructive/10" valueClassName="text-destructive" />
             </div>
           </section>
 
@@ -260,8 +260,8 @@ function TelegramDeliveryHealthContent() {
                 const detail = failureKindDetails[kind];
                 return (
                   <div key={kind} className="space-y-2 border-l-2 pl-3 first:border-primary/20 md:first:border-primary/20" >
-                    <p className={`text-xs font-semibold uppercase tracking-[0.12em] ${detail.className}`}>{detail.title}</p>
-                    <p className="text-xs leading-relaxed text-muted-foreground">{detail.description}</p>
+                    <p className={`text-xs font-semibold uppercase tracking-[0.12em] ${detail.className}`}>{translateI18n(detail.title)}</p>
+                    <p className="text-xs leading-relaxed text-muted-foreground">{translateI18n(detail.description)}</p>
                   </div>
                 );
               })}
@@ -279,7 +279,7 @@ function TelegramDeliveryHealthContent() {
                   <CardDescription className="mt-1 text-xs">{translateI18n("copy.recentFailureHelp")}</CardDescription>
                 </div>
               </div>
-              <Badge variant="outline">{health.recentFailures.length} shown</Badge>
+              <Badge variant="outline">{translateI18n("telegramHealth.shown", { count: health.recentFailures.length })}</Badge>
             </CardHeader>
             {health.recentFailures.length === 0 ? (
               <CardContent className="space-y-3 py-14 text-center">

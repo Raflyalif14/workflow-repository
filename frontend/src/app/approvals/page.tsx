@@ -1,4 +1,5 @@
 "use client";
+import { useLanguage } from "@/components/i18n/language-provider";
 
 import { translate as translateI18n, getIntlLocale } from "@/i18n";
 
@@ -22,18 +23,18 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useApprovals, useApprovalStats } from "@/hooks/use-approvals";
-import { getApprovalTypeDisplay } from "@/lib/workflow-ux-helpers";
 import { ApprovalCategory, ApprovalItem, ApprovalStatus } from "@/types/approval";
 
-const categoryOptions: Array<{ key: ApprovalCategory; label: string }> = [
-  { key: "ALL", label: "All requests" },
-  { key: "PROJECT_PLAN", label: "Project plans" },
-  { key: "DEADLINE", label: "Deadline changes" },
+const categoryOptions: Array<{ key: ApprovalCategory; label: "approvalUi.allRequests" | "approvalUi.projectPlans" | "approvalUi.deadlineChanges" }> = [
+  { key: "ALL", label: "approvalUi.allRequests" },
+  { key: "PROJECT_PLAN", label: "approvalUi.projectPlans" },
+  { key: "DEADLINE", label: "approvalUi.deadlineChanges" },
 ];
 
 const categoryOrder: ApprovalItem["category"][] = ["PROJECT_PLAN", "DEADLINE"];
 
 export default function ApprovalCenterPage() {
+  useLanguage();
   return (
     <RoleGuard allowedRoles={["SUPER_ADMIN", "HEAD_SA"]}>
       <ApprovalCenterPageContent />
@@ -83,9 +84,9 @@ function ApprovalCenterPageContent() {
     [displayedApprovals]
   );
   const snapshot = [
-    { label: "Total pending", value: stats?.totalPending || 0 },
-    { label: "Project plans", value: stats?.pendingProjectPlans || 0 },
-    { label: "Deadline changes", value: stats?.pendingDeadlines || 0 },
+    { label: translateI18n("approvalUi.totalPending"), value: stats?.totalPending || 0 },
+    { label: translateI18n("approvalUi.projectPlans"), value: stats?.pendingProjectPlans || 0 },
+    { label: translateI18n("approvalUi.deadlineChanges"), value: stats?.pendingDeadlines || 0 },
   ];
 
   const openAction = (item: ApprovalItem, action: "APPROVE" | "REJECT") => {
@@ -98,20 +99,20 @@ function ApprovalCenterPageContent() {
     <div className="mx-auto w-full max-w-[1280px] space-y-5 px-4 py-6 sm:px-6 lg:px-8">
       <header className="border-b border-border/60 pb-5">
         <p className="text-xs font-semibold uppercase text-primary">
-          {canReview ? "Head SA review workspace" : "Approval oversight"}
+          {translateI18n(canReview ? "approvalUi.headWorkspace" : "approvalUi.oversight")}
         </p>
         <h1 className="mt-1 text-2xl font-semibold text-foreground sm:text-3xl">
-          {canReview ? "Review queue" : "Approval center"}
+          {translateI18n(canReview ? "approvalUi.reviewQueue" : "approvalUi.approvalCenter")}
         </h1>
         <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
           {canReview
-            ? "Review project plans, deadline changes, and submitted milestone work."
-            : "Inspect current and historical workflow approval decisions."}
+            ? translateI18n("approvalUi.headDescription")
+            : translateI18n("approvalUi.oversightDescription")}
         </p>
       </header>
 
       <section
-        aria-label="Approval snapshot"
+        aria-label={translateI18n("approvalUi.snapshot")}
         className="grid grid-cols-2 overflow-hidden rounded-lg border border-border/60 bg-card lg:grid-cols-4"
       >
         {snapshot.map((item, index) => (
@@ -143,7 +144,7 @@ function ApprovalCenterPageContent() {
                 }}
               >
                 <Inbox className="h-4 w-4" />
-                Needs review
+                {translateI18n("approvalUi.needsReview")}
                 {(stats?.totalPending || 0) > 0 && (
                   <span className="text-[11px] text-muted-foreground">{stats?.totalPending}</span>
                 )}
@@ -155,12 +156,12 @@ function ApprovalCenterPageContent() {
                 onClick={() => setViewMode("HISTORY")}
               >
                 <History className="h-4 w-4" />
-                History
+                {translateI18n("approvalUi.history")}
               </Button>
             </div>
             {isHistory && (
               <select
-                aria-label="Filter approval history by status"
+                aria-label={translateI18n("approvalUi.historyFilter")}
                 value={historyStatusFilter}
                 onChange={(event) =>
                   setHistoryStatusFilter(event.target.value as ApprovalStatus)
@@ -184,7 +185,7 @@ function ApprovalCenterPageContent() {
                 className="shrink-0"
                 onClick={() => setCategoryTab(option.key)}
               >
-                {option.label}
+                {translateI18n(option.label)}
               </Button>
             ))}
           </div>
@@ -192,8 +193,8 @@ function ApprovalCenterPageContent() {
           <div className="relative">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
-              placeholder="Search project, customer, milestone, or requester"
-              aria-label="Search approvals"
+              placeholder={translateI18n("approvalUi.searchPlaceholder")}
+              aria-label={translateI18n("approvalUi.search")}
               value={search}
               onChange={(event) => setSearch(event.target.value)}
               className="pl-9"
@@ -220,12 +221,12 @@ function ApprovalCenterPageContent() {
               <CheckCircle2 className="mx-auto h-8 w-8 text-muted-foreground" />
             )}
             <p className="mt-3 font-medium text-foreground">
-              {isHistory ? "No matching review history" : "Review queue is clear"}
+              {translateI18n(isHistory ? "approvalUi.noHistory" : "approvalUi.queueClear")}
             </p>
             <p className="mt-1 text-xs text-muted-foreground">
               {isHistory
-                ? "Adjust the filters to find another approval record."
-                : "New workflow decisions will appear here when they are submitted."}
+                ? translateI18n("approvalUi.adjustFilters")
+                : translateI18n("approvalUi.newDecisions")}
             </p>
           </div>
         ) : (
@@ -235,7 +236,7 @@ function ApprovalCenterPageContent() {
                 <div className="flex items-center gap-2 bg-muted/20 px-4 py-2.5 sm:px-5">
                   <ApprovalCategoryIcon category={group.category} />
                   <h2 className="text-xs font-semibold uppercase text-muted-foreground">
-                    {getApprovalTypeDisplay(group.category)}
+                    {translateI18n(group.category === "PROJECT_PLAN" ? "approvalUi.projectPlans" : "approvalUi.deadlineChanges")}
                   </h2>
                   <span className="text-xs text-muted-foreground">{group.items.length}</span>
                 </div>
@@ -284,7 +285,7 @@ function ApprovalRow({
       className={`border-t border-border/60 px-4 py-4 first:border-t-0 sm:px-5 ${isClickable ? "cursor-pointer transition-colors hover:bg-muted/15" : ""}`}
       role={isClickable ? "link" : undefined}
       tabIndex={isClickable ? 0 : undefined}
-      aria-label={isClickable ? `Open project ${item.projectName}` : undefined}
+      aria-label={isClickable ? translateI18n("approvalUi.openProject", { name: item.projectName }) : undefined}
       onClick={() => {
         if (isClickable) onOpenProject();
       }}
@@ -305,12 +306,12 @@ function ApprovalRow({
           <div className="flex flex-wrap items-center gap-2">
             <StatusBadge status={item.status} />
             {item.stepOrder != null && (
-              <Badge variant="outline">Step {item.stepOrder}</Badge>
+              <Badge variant="outline">{translateI18n("approvalUi.step", { number: item.stepOrder })}</Badge>
             )}
           </div>
           <h3 className="mt-2 font-semibold text-foreground">{item.title}</h3>
           <p className="mt-1 text-xs text-muted-foreground">
-            {item.projectName} | {item.clientName} | Requested by {item.submittedBy || "Unknown"}
+            {translateI18n("approvalUi.requestedSummary", { project: item.projectName, customer: item.clientName, name: item.submittedBy || translateI18n("approvalUi.unknown") })}
           </p>
           <p className="mt-1 text-xs text-muted-foreground">
             {formatDate(item.requestedAt || item.submittedAt)}
@@ -352,7 +353,7 @@ function ApprovalRow({
               onClick={() => onOpenAction(item, "APPROVE")}
             >
               <Eye className="h-3.5 w-3.5" />
-              View details
+              {translateI18n("approvalUi.viewDetails")}
             </Button>
           )}
         </div>
@@ -381,7 +382,7 @@ function ApprovalSummary({ item }: { item: ApprovalItem }) {
         <p>
           {item.requestNote
             ? <>{translateI18n("copy.planNote")} <strong className="font-medium text-foreground">&quot;{item.requestNote}&quot;</strong></>
-            : "Initial project timeline submitted for sign-off."}
+            : translateI18n("approvalUi.initialTimeline")}
         </p>
         {item.reviewNote && (
           <p className="mt-1">
@@ -395,8 +396,8 @@ function ApprovalSummary({ item }: { item: ApprovalItem }) {
   if (item.category === "DEADLINE") {
     return (
       <div className="mt-3 grid gap-3 border-l-2 border-border pl-3 text-xs sm:grid-cols-2">
-        <DeadlineMini title="Current timeline" deadline={item.currentDeadline} />
-        <DeadlineMini title="Proposed change" deadline={item.proposedDeadline} />
+        <DeadlineMini title={translateI18n("approvalUi.currentTimeline")} deadline={item.currentDeadline} />
+        <DeadlineMini title={translateI18n("approvalUi.proposedChange")} deadline={item.proposedDeadline} />
       </div>
     );
   }
@@ -420,18 +421,17 @@ function DeadlineMini({
     <div>
       <p className="font-medium text-foreground">{title}</p>
       <p className="mt-0.5 text-muted-foreground">
-        {formatDate(deadline?.start_date)} | {deadline?.duration_working_days || "-"} days | Due{" "}
-        {formatDate(deadline?.due_date)}
+        {translateI18n("approvalUi.deadlineSummary", { start: formatDate(deadline?.start_date), days: deadline?.duration_working_days || "-", due: formatDate(deadline?.due_date) })}
       </p>
       {deadline?.change_reason && (
-        <p className="mt-1 text-muted-foreground">Reason: &quot;{deadline.change_reason}&quot;</p>
+        <p className="mt-1 text-muted-foreground">{translateI18n("approvalUi.reason", { reason: deadline.change_reason })}</p>
       )}
     </div>
   );
 }
 
 function formatDate(value?: string | null) {
-  if (!value) return "Date unavailable";
+  if (!value) return translateI18n("approvalUi.dateUnavailable");
   return new Date(value).toLocaleDateString(getIntlLocale(), { dateStyle: "medium" });
 }
 

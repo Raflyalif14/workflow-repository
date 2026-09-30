@@ -1,17 +1,19 @@
 "use client";
+import { useLanguage } from "@/components/i18n/language-provider";
 
 
-import { translate as translateI18n } from "@/i18n";
+import { translate as translateI18n, translateStoredError, translateStoredMessage } from "@/i18n";
 import React, { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AlertCircle, CheckCircle2, Eye, EyeOff, LockKeyhole } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
-import { validatePasswordPolicy } from "@/lib/auth";
+import { validatePasswordPolicyKey } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 
 export default function ChangePasswordPage() {
+  useLanguage();
   const router = useRouter();
   const { changeInitialPassword } = useAuth();
   const [newPassword, setNewPassword] = useState("");
@@ -32,23 +34,23 @@ export default function ChangePasswordPage() {
     event.preventDefault();
     setError("");
 
-    const passwordError = validatePasswordPolicy(newPassword);
+    const passwordError = validatePasswordPolicyKey(newPassword);
     if (passwordError) {
       setError(passwordError);
       return;
     }
 
     if (newPassword !== confirmPassword) {
-      setError("Konfirmasi password tidak sama.");
+      setError("auth.passwordMismatch");
       return;
     }
 
     setIsSubmitting(true);
     try {
       await changeInitialPassword(newPassword);
-      setSuccess("Password berhasil diubah. Silakan login kembali.");
+      setSuccess("auth.passwordChanged");
     } catch (err) {
-      setError(err instanceof Error ? err.message : translateI18n("ui.passwordChangeFailed"));
+      setError("ui.passwordChangeFailed");
     } finally {
       setIsSubmitting(false);
     }
@@ -63,14 +65,14 @@ export default function ChangePasswordPage() {
           </div>
           <CardTitle className="text-xl">{translateI18n("copy.changePassword")}</CardTitle>
           <p className="text-sm text-muted-foreground">
-            Set a new password before accessing the workspace.
+            {translateI18n("auth.setNewPasswordHelp")}
           </p>
         </CardHeader>
         <CardContent>
           <form className="space-y-4" onSubmit={handleSubmit}>
             <PasswordField
               id="new_password"
-              label="New Password"
+              label={translateI18n("auth.newPassword")}
               autoComplete="new-password"
               value={newPassword}
               show={showNewPassword}
@@ -79,7 +81,7 @@ export default function ChangePasswordPage() {
             />
             <PasswordField
               id="confirm_password"
-              label="Confirm Password"
+              label={translateI18n("auth.confirmPassword")}
               autoComplete="new-password"
               value={confirmPassword}
               show={showConfirmPassword}
@@ -90,19 +92,19 @@ export default function ChangePasswordPage() {
             {error && (
               <div className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
                 <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-                <span>{error}</span>
+                <span>{translateStoredError(error)}</span>
               </div>
             )}
 
             {success && (
               <div className="flex items-start gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-300">
                 <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
-                <span>{success}</span>
+                <span>{translateStoredMessage(success)}</span>
               </div>
             )}
 
             <Button type="submit" className="w-full" disabled={isSubmitting || Boolean(success)}>
-              {isSubmitting ? "Saving..." : "Change Password"}
+              {translateI18n(isSubmitting ? "common.saving" : "copy.changePassword")}
             </Button>
           </form>
         </CardContent>

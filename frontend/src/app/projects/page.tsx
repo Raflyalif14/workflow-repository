@@ -1,6 +1,7 @@
 "use client";
+import { useLanguage } from "@/components/i18n/language-provider";
 
-import { translate as translateI18n } from "@/i18n";
+import { translate as translateI18n, translateRole, translateProjectStatus, type TranslationKey } from "@/i18n";
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
@@ -10,40 +11,36 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useProjects, useScenarios } from "@/hooks/use-projects";
-import {
-  formatActorRoleLabel,
-  formatProjectStatusLabel,
-} from "@/lib/workflow-ux-helpers";
 import { Project, ProjectStatus } from "@/types/project";
 
-const statuses: Array<{ key: ProjectStatus | "ALL"; label: string }> = [
-  { key: "ALL", label: "All projects" },
-  { key: "ACTIVE", label: "Active" },
-  { key: "DRAFT", label: "Planning" },
-  { key: "POSTPONED", label: "Postponed" },
-  { key: "COMPLETED", label: "Completed" },
+const statuses: Array<{ key: ProjectStatus | "ALL"; label: TranslationKey }> = [
+  { key: "ALL", label: "projectsList.allProjects" },
+  { key: "ACTIVE", label: "common.active" },
+  { key: "DRAFT", label: "projectStatus.DRAFT" },
+  { key: "POSTPONED", label: "projectStatus.POSTPONED" },
+  { key: "COMPLETED", label: "projectStatus.COMPLETED" },
 ];
 
-const rolePageCopy: Record<string, { eyebrow: string; title: string; description: string }> = {
+const rolePageCopy: Record<string, { eyebrow: TranslationKey; title: TranslationKey; description: TranslationKey }> = {
   SALES: {
-    eyebrow: "Sales workspace",
-    title: "Your projects",
-    description: "Move customer projects from planning into active delivery.",
+    eyebrow: "projectsList.salesWorkspace",
+    title: "projectsList.yourProjects",
+    description: "projectsList.salesDescription",
   },
   HEAD_SA: {
-    eyebrow: "Delivery oversight",
-    title: "Project oversight",
-    description: "Review planning progress, ownership, and delivery health across projects.",
+    eyebrow: "projectsList.deliveryOversight",
+    title: "projectsList.projectOversight",
+    description: "projectsList.headDescription",
   },
   SA: {
-    eyebrow: "Delivery workspace",
-    title: "Assigned projects",
-    description: "Open your assigned projects and continue the work that is ready for you.",
+    eyebrow: "projectsList.deliveryWorkspace",
+    title: "projectsList.assignedProjects",
+    description: "projectsList.saDescription",
   },
   SUPER_ADMIN: {
-    eyebrow: "Operations overview",
-    title: "Project portfolio",
-    description: "Monitor planning and delivery activity across the organization.",
+    eyebrow: "projectsList.operationsOverview",
+    title: "projectsList.projectPortfolio",
+    description: "projectsList.adminDescription",
   },
 };
 
@@ -66,52 +63,52 @@ function getStatusBadge(projectStatus: ProjectStatus) {
     case "CANCELLED":
       return <Badge variant="destructive">{translateI18n("projectStatus.CANCELLED")}</Badge>;
     default:
-      return <Badge variant="outline">{formatProjectStatusLabel(projectStatus)}</Badge>;
+      return <Badge variant="outline">{translateProjectStatus(projectStatus)}</Badge>;
   }
 }
 
 function getProjectState(project: Project, role: string) {
   if (project.status === "DRAFT") {
-    return project.currentRole === "HEAD_SA" ? "Awaiting plan approval" : "Planning in progress";
+    return translateI18n(project.currentRole === "HEAD_SA" ? "projectsList.awaitingPlan" : "projectsList.planningProgress");
   }
   if (project.status === "ACTIVE" && !project.pic && role === "HEAD_SA") {
-    return "Waiting for project assignment";
+    return translateI18n("projectsList.waitingAssignment");
   }
-  if (project.status === "ACTIVE") return "Delivery in progress";
-  return formatProjectStatusLabel(project.status);
+  if (project.status === "ACTIVE") return translateI18n("projectsList.deliveryProgress");
+  return translateProjectStatus(project.status);
 }
 
 function getProgressPresentation(project: Project) {
   if (project.status === "DRAFT") {
     return project.currentRole === "HEAD_SA"
       ? {
-          label: "Awaiting plan approval",
-          detail: "Head SA is reviewing the project plan",
+          label: translateI18n("projectsList.awaitingPlan"),
+          detail: translateI18n("projectsList.headReviewing"),
           showDeliveryProgress: false,
         }
       : {
-          label: "Project planning",
-          detail: "Delivery begins after plan approval",
+          label: translateI18n("projectsList.projectPlanning"),
+          detail: translateI18n("projectsList.afterApproval"),
           showDeliveryProgress: false,
         };
   }
   if (project.status === "POSTPONED" || project.status === "ON_HOLD") {
     return {
-      label: "Delivery paused",
-      detail: "Resume the project to continue delivery",
+      label: translateI18n("projectsList.deliveryPaused"),
+      detail: translateI18n("projectsList.resumeHelp"),
       showDeliveryProgress: false,
     };
   }
   if (["ACTIVE", "COMPLETED", "WAITING_RESULT", "WON", "LOST"].includes(project.status)) {
     return {
-      label: project.status === "ACTIVE" ? "Delivery progress" : "Delivery complete",
+      label: translateI18n(project.status === "ACTIVE" ? "projectsList.deliveryProgress" : "projectsList.deliveryComplete"),
       detail: null,
       showDeliveryProgress: true,
     };
   }
   return {
-    label: "Project progress",
-    detail: "Progress is not available for this project state",
+    label: translateI18n("projectsList.projectProgress"),
+    detail: translateI18n("projectsList.progressUnavailable"),
     showDeliveryProgress: false,
   };
 }
@@ -147,19 +144,19 @@ function getProjectPriority(project: Project, role: string) {
 function getResponsibleLabel(project: Project) {
   if (project.pic) {
     return {
-      role: formatActorRoleLabel(project.pic.role || "SA"),
-      name: project.pic.fullName || project.pic.full_name || "Assigned architect",
+      role: translateRole(project.pic.role || "SA"),
+      name: project.pic.fullName || project.pic.full_name || translateI18n("projectsList.assignedArchitect"),
     };
   }
 
   if (project.sales) {
     return {
-      role: formatActorRoleLabel(project.sales.role || "SALES"),
-      name: project.sales.fullName || project.sales.full_name || "Project owner",
+      role: translateRole(project.sales.role || "SALES"),
+      name: project.sales.fullName || project.sales.full_name || translateI18n("projectsList.projectOwner"),
     };
   }
 
-  return { role: "Responsibility", name: "Not assigned" };
+  return { role: translateI18n("copy.responsible"), name: translateI18n("ui.noOwner") };
 }
 
 function ProjectRow({ project, role }: { project: Project; role: string }) {
@@ -197,7 +194,7 @@ function ProjectRow({ project, role }: { project: Project; role: string }) {
           <span className="text-muted-foreground">{progressPresentation.label}</span>
           {progressPresentation.showDeliveryProgress && (
             <span className="font-medium text-foreground">
-              {progress === null ? "Not available" : `${progress}%`}
+              {progress === null ? translateI18n("common.notAvailable") : `${progress}%`}
             </span>
           )}
         </div>
@@ -213,7 +210,7 @@ function ProjectRow({ project, role }: { project: Project; role: string }) {
           typeof project.totalMilestones === "number" &&
           typeof project.completedMilestones === "number" && (
           <p className="mt-1.5 text-[11px] text-muted-foreground">
-            {project.completedMilestones} of {project.totalMilestones} stages completed
+            {translateI18n("projectDetail.stagesFinished", { done: project.completedMilestones, total: project.totalMilestones })}
           </p>
         )}
         {progressPresentation.detail && (
@@ -242,6 +239,7 @@ function ProjectRow({ project, role }: { project: Project; role: string }) {
 }
 
 export default function ProjectsPage() {
+  const { locale } = useLanguage();
   const { user } = useAuth();
   const userRole = user?.role || "GUEST";
   const pageCopy = rolePageCopy[userRole] || rolePageCopy.SUPER_ADMIN;
@@ -276,12 +274,12 @@ export default function ProjectsPage() {
   );
   const snapshot = useMemo(
     () => [
-      { label: "Matching projects", value: pagination?.total || 0 },
-      { label: "Active on this page", value: projects.filter((item) => item.status === "ACTIVE").length },
-      { label: "Planning on this page", value: projects.filter((item) => item.status === "DRAFT").length },
-      { label: "Completed on this page", value: projects.filter((item) => item.status === "COMPLETED").length },
+      { label: translateI18n("projectsList.matching"), value: pagination?.total || 0 },
+      { label: translateI18n("projectsList.activePage"), value: projects.filter((item) => item.status === "ACTIVE").length },
+      { label: translateI18n("projectsList.planningPage"), value: projects.filter((item) => item.status === "DRAFT").length },
+      { label: translateI18n("projectsList.completedPage"), value: projects.filter((item) => item.status === "COMPLETED").length },
     ],
-    [pagination?.total, projects]
+    [pagination?.total, projects, locale]
   );
   const hasFilters = Boolean(search || scenarioId || status !== "ALL");
 
@@ -296,9 +294,9 @@ export default function ProjectsPage() {
     <div className="mx-auto w-full max-w-[1280px] space-y-5 px-4 py-6 sm:px-6 lg:px-8">
       <header className="flex flex-col gap-4 border-b border-border/60 pb-5 sm:flex-row sm:items-end sm:justify-between">
         <div className="max-w-2xl">
-          <p className="text-xs font-semibold uppercase text-primary">{pageCopy.eyebrow}</p>
-          <h1 className="mt-1 text-2xl font-semibold text-foreground sm:text-3xl">{pageCopy.title}</h1>
-          <p className="mt-1 text-sm text-muted-foreground">{pageCopy.description}</p>
+          <p className="text-xs font-semibold uppercase text-primary">{translateI18n(pageCopy.eyebrow)}</p>
+          <h1 className="mt-1 text-2xl font-semibold text-foreground sm:text-3xl">{translateI18n(pageCopy.title)}</h1>
+          <p className="mt-1 text-sm text-muted-foreground">{translateI18n(pageCopy.description)}</p>
         </div>
         {userRole === "SALES" && (
           <Link href="/projects/new" className="self-start sm:self-auto">
@@ -311,7 +309,7 @@ export default function ProjectsPage() {
       </header>
 
       <section
-        aria-label="Project snapshot"
+        aria-label={translateI18n("projectsList.snapshot")}
         className="grid grid-cols-2 overflow-hidden rounded-lg border border-border/60 bg-card lg:grid-cols-4"
       >
         {snapshot.map((item, index) => (
@@ -335,7 +333,7 @@ export default function ProjectsPage() {
             <div>
               <h2 className="text-base font-semibold text-foreground">{translateI18n("nav.projects")}</h2>
               <p className="text-xs text-muted-foreground">
-                {pagination?.total || 0} projects match the current view
+                {translateI18n("projectsList.matches", { count: pagination?.total || 0 })}
               </p>
             </div>
             <div className="flex gap-2 overflow-x-auto pb-1 lg:pb-0">
@@ -350,7 +348,7 @@ export default function ProjectsPage() {
                     setPage(1);
                   }}
                 >
-                  {item.label}
+                  {translateI18n(item.label)}
                 </Button>
               ))}
             </div>
@@ -361,8 +359,8 @@ export default function ProjectsPage() {
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 className="pl-9"
-                placeholder="Search project or customer"
-                aria-label="Search projects"
+                placeholder={translateI18n("projectsList.searchPlaceholder")}
+                aria-label={translateI18n("projectsList.search")}
                 value={search}
                 onChange={(event) => {
                   setSearch(event.target.value);
@@ -371,7 +369,7 @@ export default function ProjectsPage() {
               />
             </div>
             <select
-              aria-label="Filter projects by scenario"
+              aria-label={translateI18n("projectsList.scenarioFilter")}
               className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
               value={scenarioId}
               onChange={(event) => {
@@ -394,7 +392,7 @@ export default function ProjectsPage() {
               onClick={resetFilters}
             >
               <X className="h-3.5 w-3.5" />
-              Reset
+              {translateI18n("projectsList.reset")}
             </Button>
           </div>
         </div>
@@ -425,7 +423,7 @@ export default function ProjectsPage() {
             <FolderKanban className="mx-auto h-8 w-8 text-muted-foreground" />
             <p className="mt-3 font-medium text-foreground">{translateI18n("project.noProjects")}</p>
             <p className="mt-1 text-xs text-muted-foreground">
-              {hasFilters ? "Adjust the current filters to broaden the results." : "No projects are available in this workspace yet."}
+              {translateI18n(hasFilters ? "projectsList.adjustFilters" : "projectsList.empty")}
             </p>
           </div>
         ) : (
@@ -439,7 +437,7 @@ export default function ProjectsPage() {
         {!isLoading && !isError && projects.length > 0 && (
           <div className="flex flex-col gap-3 border-t border-border/60 px-4 py-3 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between sm:px-5">
             <span>
-              Showing {projects.length} of {pagination?.total || 0} projects
+              {translateI18n("projectsList.showing", { shown: projects.length, total: pagination?.total || 0 })}
             </span>
             <div className="flex gap-2 self-end sm:self-auto">
               <Button
@@ -448,7 +446,7 @@ export default function ProjectsPage() {
                 disabled={!pagination?.hasPrevPage}
                 onClick={() => setPage((current) => Math.max(1, current - 1))}
               >
-                Previous
+                {translateI18n("projectsList.previous")}
               </Button>
               <Button
                 variant="outline"

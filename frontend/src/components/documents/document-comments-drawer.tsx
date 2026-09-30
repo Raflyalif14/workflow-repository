@@ -1,6 +1,7 @@
 "use client";
 
-import { translate as translateI18n } from "@/i18n";
+import { translate as translateI18n, translateStoredError } from "@/i18n";
+import { useLanguage } from "@/components/i18n/language-provider";
 
 import Link from "next/link";
 import { type FormEvent, useEffect, useState } from "react";
@@ -40,7 +41,6 @@ import {
   getLatestVersionLabel,
   getVersionLabel,
 } from "@/lib/document-surface-ux";
-import { formatHumanReadableLabel } from "@/lib/workflow-ux-helpers";
 import type {
   DocumentCategory,
   DocumentItem,
@@ -66,9 +66,13 @@ function getStatusVariant(
 }
 
 function getCategoryLabel(category: DocumentCategory): string {
-  if (category === "MOM") return "MoM";
-  if (category === "BOQ") return "Bill of Quantity";
-  return formatHumanReadableLabel(category);
+  const keys = {
+    PROPOSAL: "documentCategory.proposal", ARCHITECTURE_DESIGN: "documentCategory.architecture",
+    SIZING_SHEET: "documentCategory.sizing", MOM: "documentCategory.mom",
+    ASSESSMENT_REPORT: "documentCategory.assessment", BOQ: "documentCategory.boq",
+    DELIVERABLE: "documentCategory.deliverable", OTHER: "documentCategory.other",
+  } as const;
+  return translateI18n(keys[category]);
 }
 
 export function DocumentCommentsDrawer({
@@ -78,6 +82,7 @@ export function DocumentCommentsDrawer({
   canUploadVersion,
   onUploadVersion,
 }: DocumentCommentsDrawerProps) {
+  useLanguage();
   const documentId = documentSummary?.id || "";
   const documentQuery = useDocument(documentId);
   const addCommentMutation = useAddComment();
@@ -113,7 +118,7 @@ export function DocumentCommentsDrawer({
       link.rel = "noopener noreferrer";
       link.click();
     } catch {
-      setDownloadError("Unable to download this document version.");
+      setDownloadError("documentDialog.downloadFailed");
     }
   };
 
@@ -129,7 +134,7 @@ export function DocumentCommentsDrawer({
       });
       setContent("");
     } catch {
-      setCommentError("Unable to post your comment.");
+      setCommentError("documentDialog.commentFailed");
     }
   };
 
@@ -175,11 +180,11 @@ export function DocumentCommentsDrawer({
                       {currentDocument.project.name}
                     </Link>
                     {currentDocument.milestone
-                      ? ` · Stage ${currentDocument.milestone.orderIndex}: ${currentDocument.milestone.name}`
+                      ? ` · ${translateI18n("documentPage.stage", { number: currentDocument.milestone.orderIndex })}: ${currentDocument.milestone.name}`
                       : ""}
                   </>
                 ) : (
-                  "Project context not available"
+                  translateI18n("documentDialog.projectUnavailable")
                 )}
               </DialogDescription>
             </div>
@@ -224,7 +229,7 @@ export function DocumentCommentsDrawer({
                   ) : (
                     <Download className="h-4 w-4" />
                   )}
-                  Download latest
+                  {translateI18n("documentSurface.downloadLatest")}
                 </Button>
               )}
             </div>
@@ -237,7 +242,7 @@ export function DocumentCommentsDrawer({
             role="alert"
           >
             <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-            <span>{downloadError}</span>
+            <span>{translateStoredError(downloadError)}</span>
           </div>
         )}
 
@@ -278,12 +283,7 @@ export function DocumentCommentsDrawer({
                   {formatDocumentFileSize(latestVersion.fileSize)}
                 </p>
                 <p className="mt-1 text-muted-foreground">
-                  Uploaded by{" "}
-                  <span className="font-medium text-foreground">
-                    {formatDocumentParticipant(
-                      latestVersion.uploadedBy?.fullName
-                    )}
-                  </span>{" "}
+                  {translateI18n("projectDetail.uploadedBy", { name: formatDocumentParticipant(latestVersion.uploadedBy?.fullName) })}{" "}
                   · {formatDocumentDateTime(latestVersion.createdAt)}
                 </p>
                 {latestVersion.changelog && (
@@ -306,7 +306,7 @@ export function DocumentCommentsDrawer({
             </div>
           ) : (
             <p className="text-xs text-muted-foreground">
-              No version is available for this document.
+              {translateI18n("documentDialog.noVersion")}
             </p>
           )}
         </section>
@@ -320,14 +320,14 @@ export function DocumentCommentsDrawer({
               {translateI18n("copy.versionHistory")}
             </h3>
             <span className="text-xs text-muted-foreground">
-              {currentDocument._count?.versions ?? versions.length} total
+              {translateI18n("documentDialog.totalVersions", { count: currentDocument._count?.versions ?? versions.length })}
             </span>
           </div>
 
           {documentQuery.isLoading ? (
             <p className="flex items-center gap-2 py-3 text-xs text-muted-foreground">
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              Loading version history...
+              {translateI18n("copy.loadingHistory")}
             </p>
           ) : documentQuery.isError ? (
             <p
@@ -335,11 +335,11 @@ export function DocumentCommentsDrawer({
               role="alert"
             >
               <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-              Unable to load version history.
+              {translateI18n("copy.versionHistoryError")}
             </p>
           ) : versions.length === 0 ? (
             <p className="text-xs text-muted-foreground">
-              No version history available.
+              {translateI18n("documentDialog.noVersionHistory")}
             </p>
           ) : (
             <div className="divide-y divide-border/50 border-y border-border/60">
@@ -391,7 +391,7 @@ export function DocumentCommentsDrawer({
                       ) : (
                         <Download className="h-3.5 w-3.5" />
                       )}
-                      Download
+                      {translateI18n("common.download")}
                     </Button>
                   </div>
                 );
@@ -407,7 +407,7 @@ export function DocumentCommentsDrawer({
               id="document-discussion"
               className="text-sm font-semibold text-foreground"
             >
-              Discussion
+              {translateI18n("documents.comments")}
             </h3>
             {!documentQuery.isLoading && !documentQuery.isError && (
               <span className="text-xs text-muted-foreground">
@@ -419,7 +419,7 @@ export function DocumentCommentsDrawer({
           {documentQuery.isLoading ? (
             <p className="flex items-center gap-2 py-2 text-xs text-muted-foreground">
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              Loading discussion...
+              {translateI18n("documentDialog.loadingDiscussion")}
             </p>
           ) : documentQuery.isError ? (
             <p
@@ -427,7 +427,7 @@ export function DocumentCommentsDrawer({
               role="alert"
             >
               <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-              Unable to load discussion.
+              {translateI18n("documentDialog.discussionFailed")}
             </p>
           ) : comments.length === 0 ? (
             <p className="text-xs text-muted-foreground">
@@ -461,12 +461,12 @@ export function DocumentCommentsDrawer({
               htmlFor="document-comment"
               className="block text-sm font-medium text-foreground"
             >
-              Add a comment
+              {translateI18n("documentDialog.addComment")}
             </label>
             <textarea
               id="document-comment"
               rows={2}
-              placeholder="Write a comment or feedback..."
+              placeholder={translateI18n("documentDialog.commentPlaceholder")}
               value={content}
               onChange={(event) => {
                 setContent(event.target.value);
@@ -485,7 +485,7 @@ export function DocumentCommentsDrawer({
                 className="text-xs text-destructive"
                 role="alert"
               >
-                {commentError}
+                {translateStoredError(commentError)}
               </p>
             )}
             <Button
@@ -500,7 +500,7 @@ export function DocumentCommentsDrawer({
               ) : (
                 <Send className="h-3.5 w-3.5" />
               )}
-              {addCommentMutation.isPending ? "Posting..." : "Post comment"}
+              {translateI18n(addCommentMutation.isPending ? "documentDialog.posting" : "documentDialog.postComment")}
             </Button>
           </form>
         </section>

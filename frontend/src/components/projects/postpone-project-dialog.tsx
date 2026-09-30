@@ -1,6 +1,7 @@
 "use client";
 
 import { translate as translateI18n } from "@/i18n";
+import { useLanguage } from "@/components/i18n/language-provider";
 
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -20,6 +21,7 @@ export function PostponeProjectDialog({
   onOpenChange: (open: boolean) => void;
   project: Project | null;
 }) {
+  useLanguage();
   const postponeProject = usePostponeProject();
   const {
     register,
@@ -37,8 +39,8 @@ export function PostponeProjectDialog({
       await postponeProject.mutateAsync({ projectId: project.id, reason: data.reason });
       reset();
       onOpenChange(false);
-    } catch (error) {
-      alert(error instanceof Error ? error.message : "Failed to postpone project.");
+    } catch {
+      alert(translateI18n("projectAction.postponeFailed"));
     }
   };
 
@@ -56,7 +58,7 @@ export function PostponeProjectDialog({
       <form className="space-y-4" onSubmit={handleSubmit(submit)}>
         <div>
           <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            Reason for Postponement *
+            {translateI18n("projectAction.postponeReason")} *
           </label>
           <textarea
             rows={3}
@@ -64,12 +66,12 @@ export function PostponeProjectDialog({
             className="flex w-full rounded-md border border-input bg-card px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-primary"
             disabled={isSubmitting}
           />
-          {errors.reason && <p className="mt-1 text-xs text-destructive">{errors.reason.message}</p>}
+          {errors.reason && <p className="mt-1 text-xs text-destructive">{translateI18n("projectAction.postponeReasonMin")}</p>}
         </div>
         <DialogFooter>
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isSubmitting}>{translateI18n("common.cancel")}</Button>
           <Button type="submit" disabled={isSubmitting} className="bg-amber-500 text-black hover:bg-amber-600">
-            {isSubmitting ? "Saving..." : "Confirm Postpone"}
+            {translateI18n(isSubmitting ? "common.saving" : "projectAction.confirmPostpone")}
           </Button>
         </DialogFooter>
       </form>

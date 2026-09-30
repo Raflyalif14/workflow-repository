@@ -1,4 +1,5 @@
 "use client";
+import { useLanguage } from "@/components/i18n/language-provider";
 
 import { translate as translateI18n, getIntlLocale } from "@/i18n";
 
@@ -15,6 +16,7 @@ import { useCreateScenario, useScenarios, useUpdateScenario, useUpdateScenarioSt
 import { SYSTEM_SETTINGS_ALLOWED_ROLES } from "@/lib/settings-access";
 
 export default function WorkflowManagementPage() {
+  useLanguage();
   return <RoleGuard allowedRoles={SYSTEM_SETTINGS_ALLOWED_ROLES}><WorkflowManagement /></RoleGuard>;
 }
 

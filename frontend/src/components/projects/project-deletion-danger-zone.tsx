@@ -1,6 +1,7 @@
 "use client";
 
-import { translate as translateI18n } from "@/i18n";
+import { translate as translateI18n, translateStoredError, translateStoredMessage } from "@/i18n";
+import { useLanguage } from "@/components/i18n/language-provider";
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
@@ -13,6 +14,7 @@ import { useDeleteProject, useProjectDeletionPreview } from "@/hooks/use-project
 import { Project } from "@/types/project";
 
 export function ProjectDeletionDangerZone({ project }: { project: Project }) {
+  useLanguage();
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [confirmation, setConfirmation] = useState("");
@@ -37,13 +39,13 @@ export function ProjectDeletionDangerZone({ project }: { project: Project }) {
     try {
       const result = await deletion.mutateAsync(confirmation);
       if (result.cleanup.status !== "COMPLETED") {
-        setCleanupWarning("Project data was deleted, but document storage cleanup is pending. An administrator must retry the recorded cleanup job.");
+        setCleanupWarning("projectAction.cleanupPending");
         window.setTimeout(() => router.push("/projects"), 1800);
         return;
       }
       router.push("/projects");
     } catch (deleteError) {
-      setError(deleteError instanceof Error ? deleteError.message : "Unable to delete project.");
+      setError("projectAction.deleteFailed");
     }
   };
 
@@ -73,8 +75,8 @@ export function ProjectDeletionDangerZone({ project }: { project: Project }) {
               <span>{translateI18n("copy.notificationsCount")} <strong className="text-foreground">{preview.data.notification_count}</strong></span><span>{translateI18n("copy.storageObjects")} <strong className="text-foreground">{preview.data.storage_object_count}</strong></span>
             </div>
           )}
-          <div><label htmlFor="delete-project-confirmation" className="mb-1 block text-xs font-semibold">{translateI18n("copy.type")} <strong>{project.name}</strong> to confirm</label><Input id="delete-project-confirmation" value={confirmation} onChange={(event) => setConfirmation(event.target.value)} disabled={deletion.isPending} /></div>
-          {error && <p className="text-xs text-destructive">{error}</p>}{cleanupWarning && <p className="text-xs text-amber-500">{cleanupWarning}</p>}
+          <div><label htmlFor="delete-project-confirmation" className="mb-1 block text-xs font-semibold">{translateI18n("projectAction.typeName", { name: project.name })}</label><Input id="delete-project-confirmation" value={confirmation} onChange={(event) => setConfirmation(event.target.value)} disabled={deletion.isPending} /></div>
+          {error && <p className="text-xs text-destructive">{translateStoredError(error)}</p>}{cleanupWarning && <p className="text-xs text-amber-500">{translateStoredMessage(cleanupWarning)}</p>}
         </div>
         <DialogFooter><Button variant="outline" onClick={() => close(false)} disabled={deletion.isPending}>{translateI18n("common.cancel")}</Button><Button variant="destructive" onClick={() => void submit()} disabled={!canDelete}>{deletion.isPending ? "Deleting..." : "Delete Project"}</Button></DialogFooter>
       </Dialog>

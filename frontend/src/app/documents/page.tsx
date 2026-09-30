@@ -1,6 +1,7 @@
 "use client";
+import { useLanguage } from "@/components/i18n/language-provider";
 
-import { translate as translateI18n, getIntlLocale, translateOutputStatus, type TranslationKey } from "@/i18n";
+import { translate as translateI18n, getIntlLocale, translateOutputStatus, translateOutputName, translateStoredError, type TranslationKey } from "@/i18n";
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
@@ -23,7 +24,6 @@ import { Input } from "@/components/ui/input";
 import { useDocumentDownloadUrl, useDocuments } from "@/hooks/use-documents";
 import { OutputRepositoryItem, useOutputRepository, useOutputRepositoryDownload } from "@/hooks/use-output-documents";
 import { buildRepositoryItems, filterRepositoryItems, paginateRepositoryItems } from "@/lib/document-repository";
-import { formatHumanReadableLabel } from "@/lib/workflow-ux-helpers";
 import { DocumentCategory, DocumentItem, DocumentStatus } from "@/types/document";
 
 const rolePageCopy: Record<string, { eyebrow: TranslationKey; title: TranslationKey; description: TranslationKey }> = {
@@ -66,17 +66,17 @@ function getStatusBadge(status: DocumentStatus) {
 }
 
 function getCategoryLabel(category: DocumentCategory) {
-  switch (category) {
-    case "MOM":
-      return "MoM";
-    case "BOQ":
-      return "Bill of Quantity";
-    default:
-      return formatHumanReadableLabel(category);
-  }
+  const keys: Record<DocumentCategory, TranslationKey> = {
+    PROPOSAL: "documentCategory.proposal", ARCHITECTURE_DESIGN: "documentCategory.architecture",
+    SIZING_SHEET: "documentCategory.sizing", MOM: "documentCategory.mom",
+    ASSESSMENT_REPORT: "documentCategory.assessment", BOQ: "documentCategory.boq",
+    DELIVERABLE: "documentCategory.deliverable", OTHER: "documentCategory.other",
+  };
+  return translateI18n(keys[category]);
 }
 
 export default function DocumentsPage() {
+  const { locale } = useLanguage();
   const { user } = useAuth();
   const pageCopy = rolePageCopy[user?.role || ""] || rolePageCopy.SUPER_ADMIN;
   const [search, setSearch] = useState("");
@@ -107,7 +107,7 @@ export default function DocumentsPage() {
       { label: translateI18n("documentPage.relatedMilestone"), value: visibleItems.filter((item) => item.sourceType === "OUTPUT" || Boolean(item.document.milestoneId)).length },
       { label: translateI18n("documentPage.projectOutputs"), value: visibleItems.filter((item) => item.sourceType === "OUTPUT").length },
     ],
-    [visibleItems]
+    [visibleItems, locale]
   );
   const hasFilters = Boolean(search || categoryFilter !== "ALL" || statusFilter !== "ALL");
 
@@ -121,9 +121,7 @@ export default function DocumentsPage() {
       link.rel = "noopener noreferrer";
       link.click();
     } catch (error) {
-      setDownloadError(
-        error instanceof Error ? error.message : translateI18n("documentPage.downloadFailed")
-      );
+      setDownloadError("documentPage.downloadFailed");
     }
   };
 
@@ -137,7 +135,7 @@ export default function DocumentsPage() {
       link.rel = "noopener noreferrer";
       link.click();
     } catch (error) {
-      setDownloadError(error instanceof Error ? error.message : translateI18n("documentPage.outputDownloadFailed"));
+      setDownloadError("documentPage.outputDownloadFailed");
     }
   };
 
@@ -213,12 +211,12 @@ export default function DocumentsPage() {
             >
               <option value="ALL">{translateI18n("copy.allCategories")}</option>
               <option value="OUTPUT">{translateI18n("documents.output")}</option>
-              <option value="PROPOSAL">Proposal</option>
-              <option value="ARCHITECTURE_DESIGN">Architecture Design</option>
-              <option value="SIZING_SHEET">Sizing Sheet</option>
-              <option value="MOM">Minutes of Meeting</option>
-              <option value="ASSESSMENT_REPORT">Assessment Report</option>
-              <option value="BOQ">Bill of Quantity</option>
+              <option value="PROPOSAL">{getCategoryLabel("PROPOSAL")}</option>
+              <option value="ARCHITECTURE_DESIGN">{getCategoryLabel("ARCHITECTURE_DESIGN")}</option>
+              <option value="SIZING_SHEET">{getCategoryLabel("SIZING_SHEET")}</option>
+              <option value="MOM">{getCategoryLabel("MOM")}</option>
+              <option value="ASSESSMENT_REPORT">{getCategoryLabel("ASSESSMENT_REPORT")}</option>
+              <option value="BOQ">{getCategoryLabel("BOQ")}</option>
               <option value="DELIVERABLE">{translateI18n("copy.deliverables")}</option>
               <option value="OTHER">{translateI18n("copy.other")}</option>
             </select>
@@ -249,7 +247,7 @@ export default function DocumentsPage() {
           </div>
           {downloadError && (
             <div className="flex flex-col gap-2 rounded-md border border-destructive/40 bg-destructive/10 p-3 text-xs text-destructive sm:flex-row sm:items-center sm:justify-between">
-              <span>{downloadError}</span>
+              <span>{translateStoredError(downloadError)}</span>
               <Button
                 variant="ghost"
                 size="sm"
@@ -348,8 +346,8 @@ function OutputRepositoryRow({ item, downloadPending, onDownload }: {
   return <div className="grid gap-4 border-t border-border/60 px-4 py-4 first:border-t-0 sm:px-5 lg:grid-cols-[minmax(240px,1.7fr)_minmax(180px,1fr)_minmax(230px,1.3fr)_auto] lg:items-center">
     <div className="min-w-0">
       <div className="flex flex-wrap items-center gap-2"><Badge variant="outline">{translateI18n("documents.output")}</Badge><Badge variant="success">{translateOutputStatus(item.status)}</Badge></div>
-      <h3 className="mt-2 break-words font-semibold text-foreground">{item.name}</h3>
-      <p className="mt-1 text-xs text-muted-foreground">{item.group === "PRA_TENDER" ? "Pra-Tender" : "On Submission Tender"}</p>
+      <h3 className="mt-2 break-words font-semibold text-foreground">{translateOutputName(item.documentKey, item.name)}</h3>
+      <p className="mt-1 text-xs text-muted-foreground">{translateI18n(item.group === "PRA_TENDER" ? "projectCreate.praTender" : "projectCreate.onSubmissionTender")}</p>
     </div>
     <Link href={`/projects/${item.projectId}`} className="min-w-0 text-sm font-medium text-foreground hover:text-primary">
       <span className="break-words">{item.projectName}</span>
@@ -364,6 +362,7 @@ function OutputRepositoryRow({ item, downloadPending, onDownload }: {
 }
 
 function OutputDocumentsTab({ outputs, isLoading, isError }: { outputs: OutputRepositoryItem[]; isLoading: boolean; isError: boolean }) {
+  const { locale } = useLanguage();
   const download = useOutputRepositoryDownload();
   const [search, setSearch] = useState("");
   const [group, setGroup] = useState<"ALL" | OutputRepositoryItem["group"]>("ALL");
@@ -373,8 +372,8 @@ function OutputDocumentsTab({ outputs, isLoading, isError }: { outputs: OutputRe
     const query = search.trim().toLocaleLowerCase();
     return (group === "ALL" || item.group === group)
       && (status === "ALL" || item.status === status)
-      && (!query || `${item.name} ${item.projectName}`.toLocaleLowerCase().includes(query));
-  }), [outputs, search, group, status]);
+      && (!query || `${item.name} ${translateOutputName(item.documentKey, item.name)} ${item.projectName}`.toLocaleLowerCase().includes(query));
+  }), [outputs, search, group, status, locale]);
 
   const handleDownload = async (item: OutputRepositoryItem) => {
     setDownloadError("");
@@ -386,7 +385,7 @@ function OutputDocumentsTab({ outputs, isLoading, isError }: { outputs: OutputRe
       link.rel = "noopener noreferrer";
       link.click();
     } catch (error) {
-      setDownloadError(error instanceof Error ? error.message : translateI18n("documentPage.outputDownloadFailed"));
+      setDownloadError("documentPage.outputDownloadFailed");
     }
   };
 
@@ -404,8 +403,8 @@ function OutputDocumentsTab({ outputs, isLoading, isError }: { outputs: OutputRe
           </div>
           <select aria-label={translateI18n("documentPage.filterOutputGroup")} value={group} onChange={(event) => setGroup(event.target.value as typeof group)} className="h-10 min-w-0 rounded-md border border-border bg-background px-3 text-sm text-foreground">
             <option value="ALL">{translateI18n("copy.allGroups")}</option>
-            <option value="PRA_TENDER">Pra-Tender</option>
-            <option value="ON_SUBMISSION_TENDER">On Submission Tender</option>
+            <option value="PRA_TENDER">{translateI18n("projectCreate.praTender")}</option>
+            <option value="ON_SUBMISSION_TENDER">{translateI18n("projectCreate.onSubmissionTender")}</option>
           </select>
           <select aria-label={translateI18n("documentPage.filterOutputStatus")} value={status} onChange={(event) => setStatus(event.target.value as typeof status)} className="h-10 min-w-0 rounded-md border border-border bg-background px-3 text-sm text-foreground">
             <option value="ALL">{translateI18n("copy.allStatuses")}</option>
@@ -415,7 +414,7 @@ function OutputDocumentsTab({ outputs, isLoading, isError }: { outputs: OutputRe
           </select>
         </div>
         {!isLoading && !isError && <p className="text-xs text-muted-foreground">{translateI18n("documentPage.outputAvailable", { visible: visible.length, total: outputs.length })}</p>}
-        {downloadError && <p role="alert" className="text-xs text-destructive">{downloadError}</p>}
+        {downloadError && <p role="alert" className="text-xs text-destructive">{translateStoredError(downloadError)}</p>}
       </div>
       {isLoading ? (
         <div className="space-y-3 p-5" aria-label={translateI18n("ui.loadingOutputsAria")}><div className="h-16 animate-pulse rounded bg-muted/30" /><div className="h-16 animate-pulse rounded bg-muted/30" /></div>
@@ -428,10 +427,10 @@ function OutputDocumentsTab({ outputs, isLoading, isError }: { outputs: OutputRe
           {visible.map((item) => (
             <div key={`${item.projectId}-${item.documentKey}`} className="grid gap-3 border-t border-border/60 p-4 first:border-t-0 sm:p-5 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)_minmax(0,1fr)_auto] lg:items-center">
               <div className="min-w-0">
-                <p className="break-words text-sm font-semibold text-foreground">{item.name}</p>
+                <p className="break-words text-sm font-semibold text-foreground">{translateOutputName(item.documentKey, item.name)}</p>
                 <p className="mt-1 break-all text-xs text-muted-foreground">{item.fileName} | v{item.versionNumber}</p>
               </div>
-              <p className="min-w-0 break-words text-xs text-muted-foreground">{item.group === "PRA_TENDER" ? "Pra-Tender" : "On Submission Tender"}</p>
+              <p className="min-w-0 break-words text-xs text-muted-foreground">{translateI18n(item.group === "PRA_TENDER" ? "projectCreate.praTender" : "projectCreate.onSubmissionTender")}</p>
               <div className="min-w-0">
                 <p className="break-words text-sm text-foreground">{item.projectName}</p>
                 <Badge variant={item.status === "APPROVED" ? "success" : item.status === "REVISION_REQUIRED" ? "destructive" : "warning"}>{translateOutputStatus(item.status)}</Badge>
@@ -549,12 +548,12 @@ function DocumentRow({
         )}
         <Button size="sm" variant="ghost" className="gap-1.5" onClick={onOpenDetails}>
           <MessageSquare className="h-3.5 w-3.5" />
-          {document._count?.comments || 0} komentar
+          {translateI18n("documentPage.commentsCount", { count: document._count?.comments || 0 })}
         </Button>
         {document.canUploadVersion && (
           <Button size="sm" variant="outline" className="gap-1.5" onClick={onUploadVersion}>
             <FileUp className="h-3.5 w-3.5" />
-            Versi baru
+            {translateI18n("documentPage.newVersion")}
           </Button>
         )}
         {document.project && (

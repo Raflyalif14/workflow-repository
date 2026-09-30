@@ -1,6 +1,7 @@
 "use client";
+import { useLanguage } from "@/components/i18n/language-provider";
 
-import { translate as translateI18n, getIntlLocale } from "@/i18n";
+import { translate as translateI18n, getIntlLocale, translateOutputName, translateRole, translateStoredError, translateStoredMessage } from "@/i18n";
 
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
@@ -54,7 +55,6 @@ import {
   isMilestoneCompleted,
 } from "@/lib/milestone-ui-state";
 import {
-  formatActorRoleLabel,
   formatHumanReadableLabel,
   formatMilestoneStatusLabel,
   formatProjectStatusLabel,
@@ -115,6 +115,7 @@ function formatIdr(value: number | null | undefined): string {
 }
 
 export default function ProjectDetailPage() {
+  useLanguage();
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const { user } = useAuth();
@@ -218,7 +219,7 @@ export default function ProjectDetailPage() {
   const unapprovedOutputCount = outputReadiness.data?.unapprovedCount ?? 0;
   const canSeeOutputNames = isHeadSa || ((user?.role === "SA" || user?.role === "HEAD_SA") && project.pic?.id === user?.id);
   const pendingOutputNames = canSeeOutputNames
-    ? outputReadiness.data?.documents.filter((item) => (item.isRequired || item.isSelected) && item.status !== "APPROVED").map((item) => item.name) || []
+    ? outputReadiness.data?.documents.filter((item) => (item.isRequired || item.isSelected) && item.status !== "APPROVED").map((item) => translateOutputName(item.key, item.name)) || []
     : [];
   const isHeadSaPlanReviewWorkspace =
     isHeadSa && isDraft && planApproval?.status === "PENDING";
@@ -245,8 +246,8 @@ export default function ProjectDetailPage() {
   const projectPicNotice =
     !project.pic && (isActive || isCompleted)
       ? isActive && assignPicIsCurrent
-        ? { message: "Assign a delivery lead to begin the next stage.", tone: "neutral" as const }
-        : { message: "A solution architect has not been assigned to this delivery project.", tone: "warning" as const }
+        ? { message: translateI18n("projectDetail.assignLead"), tone: "neutral" as const }
+        : { message: translateI18n("projectDetail.leadMissing"), tone: "warning" as const }
       : undefined;
   const shouldShowProjectPic = Boolean(project.pic) || isActive || isCompleted;
 
@@ -255,9 +256,9 @@ export default function ProjectDetailPage() {
     setMessage("");
     try {
       await submitProjectPlan.mutateAsync();
-      setMessage("Project plan submitted for Head SA review.");
+      setMessage("projectDetail.planSubmitted");
     } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : "Failed to submit project plan.");
+      setError("projectDetail.planSubmitFailed");
     }
   };
 
@@ -266,9 +267,9 @@ export default function ProjectDetailPage() {
     setMessage("");
     try {
       await resumeProject.mutateAsync(project.id);
-      setMessage("Project resumed successfully.");
+      setMessage("projectDetail.resumed");
     } catch (resumeError) {
-      setError(resumeError instanceof Error ? resumeError.message : "Failed to resume project.");
+      setError("projectDetail.resumeFailed");
     }
   };
 
@@ -278,11 +279,11 @@ export default function ProjectDetailPage() {
     setMessage("");
     const parsedFinalContractValue = Number(finalContractValue);
     if (outcomeDecision === "WON" && (!finalContractValue.trim() || !Number.isFinite(parsedFinalContractValue) || parsedFinalContractValue <= 0)) {
-      setError("Final contract value is required for a won project.");
+      setError("projectDetail.wonValueRequired");
       return;
     }
     if (outcomeDecision === "LOST" && !lossReason.trim()) {
-      setError("Loss reason is required for a lost project.");
+      setError("projectDetail.lossReasonRequired");
       return;
     }
     try {
@@ -291,12 +292,12 @@ export default function ProjectDetailPage() {
         finalContractValue: outcomeDecision === "WON" ? parsedFinalContractValue : undefined,
         lossReason: outcomeDecision === "LOST" ? lossReason : undefined,
       });
-      setMessage(`Project result recorded as ${outcomeDecision}.`);
+      setMessage(outcomeDecision === "WON" ? "projectDetail.resultWon" : "projectDetail.resultLost");
       setOutcomeDecision(null);
       setFinalContractValue("");
       setLossReason("");
     } catch (outcomeError) {
-      setError(outcomeError instanceof Error ? outcomeError.message : "Failed to record project result.");
+      setError("projectDetail.resultFailed");
     }
   };
 
@@ -340,14 +341,14 @@ export default function ProjectDetailPage() {
           </div>
           <h1 className="text-2xl font-semibold text-foreground sm:text-3xl">{project.name}</h1>
           <p className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-sm text-muted-foreground">
-            Pelanggan: <strong className="text-foreground">{project.customer}</strong> • Skenario:{" "}
+            {translateI18n("projectDetail.customer")} <strong className="text-foreground">{project.customer}</strong> · {translateI18n("projectDetail.scenario")}{" "}
             <strong className="text-foreground">{project.scenario?.name || translateI18n("ui.noScenario")}</strong>
           </p>
           <p className="text-sm text-muted-foreground">
             {translateI18n("ui.salesOwner")} <strong className="text-foreground">{project.sales?.full_name || project.sales?.fullName || translateI18n("ui.noOwner")}</strong>
           </p>
           <p className="text-sm text-muted-foreground">
-            Estimasi pendapatan: <strong className="text-foreground">{formatIdr(project.estimated_revenue)}</strong>
+            {translateI18n("projectDetail.estimatedRevenue")} <strong className="text-foreground">{formatIdr(project.estimated_revenue)}</strong>
           </p>
         </div>
 
@@ -355,7 +356,7 @@ export default function ProjectDetailPage() {
           {isActive && isSalesOwner && (
             <Button size="sm" variant="outline" className="h-9 gap-1.5 rounded-lg" onClick={() => setPostponeOpen(true)}>
               <PauseCircle className="h-4 w-4 text-amber-400" />
-              <span>Tunda proyek</span>
+              <span>{translateI18n("projectDetail.postpone")}</span>
             </Button>
           )}
         </div>
@@ -365,13 +366,13 @@ export default function ProjectDetailPage() {
       {error && (
         <div className="flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
           <AlertCircle className="h-4 w-4 shrink-0" />
-          <span>{error}</span>
+          <span>{translateStoredError(error)}</span>
         </div>
       )}
       {message && (
         <div className="flex items-start gap-2 rounded-md border border-emerald-500/40 bg-emerald-500/10 p-3 text-sm text-emerald-400">
           <CheckCircle2 className="h-4 w-4 shrink-0" />
-          <span>{message}</span>
+          <span>{translateStoredMessage(message)}</span>
         </div>
       )}
 
@@ -392,9 +393,9 @@ export default function ProjectDetailPage() {
             <p className="mt-2 text-muted-foreground">{translateI18n("copy.outputStatusError")}</p>
           ) : (
             <div className="mt-2 space-y-1 text-muted-foreground">
-              {unfinishedMilestones.length > 0 && <p>{unfinishedMilestones.length} milestone belum selesai. Lanjutkan tugas pada tahap aktif.</p>}
-              {unapprovedOutputCount > 0 && <p>{unapprovedOutputCount} output yang disepakati belum disetujui. {canSeeOutputNames ? "Selesaikan unggah, pengajuan, atau peninjauan output berikutnya." : "Tunggu penyelesaian dan peninjauan oleh tim SA."}</p>}
-              {pendingOutputNames.length > 0 && <p className="break-words">Output yang perlu ditindaklanjuti: {pendingOutputNames.join(", ")}.</p>}
+              {unfinishedMilestones.length > 0 && <p>{translateI18n(unfinishedMilestones.length === 1 ? "projectDetail.milestoneRemainingOne" : "projectDetail.milestonesRemaining", { count: unfinishedMilestones.length })}</p>}
+              {unapprovedOutputCount > 0 && <p>{translateI18n(unapprovedOutputCount === 1 ? "projectDetail.outputRemainingOne" : "projectDetail.outputsRemaining", { count: unapprovedOutputCount })} {translateI18n(canSeeOutputNames ? "projectDetail.outputNextAction" : "projectDetail.outputWait")}</p>}
+              {pendingOutputNames.length > 0 && <p className="break-words">{translateI18n("projectDetail.outputsNeedingAction", { names: pendingOutputNames.join(", ") })}</p>}
               {unfinishedMilestones.length === 0 && unapprovedOutputCount === 0 && <p>{translateI18n("copy.allComplete")}</p>}
               {isPostponed && <p>{translateI18n("copy.pausedBanner")}</p>}
             </div>
@@ -413,11 +414,11 @@ export default function ProjectDetailPage() {
             {project.postpone_reason
               ? translateI18n("ui.reasonValue", { reason: project.postpone_reason })
               : translateI18n("ui.postponedByOwner")}
-            {" "}Aksi pekerjaan dan pengajuan milestone tidak tersedia sementara proyek ditunda.
+            {" "}{translateI18n("projectDetail.pausedActions")}
           </p>
           {project.postponed_at && (
             <p className="text-[11px] font-mono text-muted-foreground">
-              Ditunda pada: {formatDateTime(project.postponed_at)}
+              {translateI18n("projectDetail.postponedAt", { date: formatDateTime(project.postponed_at) })}
             </p>
           )}
         </div>
@@ -432,7 +433,7 @@ export default function ProjectDetailPage() {
               <span>{translateI18n("copy.waitingTender")}</span>
             </div>
             <p className="text-xs leading-5 text-muted-foreground">
-              Semua milestone selesai. Sales pemilik perlu mencatat apakah proyek menang atau kalah.
+              {translateI18n("projectDetail.waitingResult")}
             </p>
           </div>
           {isSalesOwner && (
@@ -447,7 +448,7 @@ export default function ProjectDetailPage() {
                   setOutcomeDecision("WON");
                 }}
               >
-                Catat menang
+                {translateI18n("projectDetail.recordWon")}
               </Button>
               <Button
                 type="button"
@@ -460,7 +461,7 @@ export default function ProjectDetailPage() {
                   setOutcomeDecision("LOST");
                 }}
               >
-                Catat kalah
+                {translateI18n("projectDetail.recordLost")}
               </Button>
             </div>
           )}
@@ -474,11 +475,11 @@ export default function ProjectDetailPage() {
         }}
       >
         <DialogHeader>
-          <DialogTitle>{outcomeDecision === "WON" ? "Catat proyek menang" : "Catat proyek kalah"}</DialogTitle>
+          <DialogTitle>{translateI18n(outcomeDecision === "WON" ? "projectDetail.recordWon" : "projectDetail.recordLost")}</DialogTitle>
           <DialogDescription>
             {outcomeDecision === "WON"
-              ? "Isi nilai kontrak final sebelum mencatat hasil."
-              : "Isi alasan kekalahan sebelum mencatat hasil."}
+              ? translateI18n("projectDetail.wonValueRequired")
+              : translateI18n("projectDetail.lossReasonRequired")}
           </DialogDescription>
         </DialogHeader>
         <form
@@ -491,7 +492,7 @@ export default function ProjectDetailPage() {
           {outcomeDecision === "WON" ? (
             <div>
               <label htmlFor="final-contract-value" className="mb-1 block text-xs font-semibold text-muted-foreground">
-                Nilai kontrak final (IDR)
+                {translateI18n("projectDetail.finalContractValue")}
               </label>
               <Input
                 id="final-contract-value"
@@ -526,7 +527,7 @@ export default function ProjectDetailPage() {
               {translateI18n("common.cancel")}
             </Button>
             <Button type="submit" disabled={setProjectOutcome.isPending}>
-              {setProjectOutcome.isPending ? "Menyimpan..." : outcomeDecision === "WON" ? "Catat menang" : "Catat kalah"}
+              {setProjectOutcome.isPending ? translateI18n("common.saving") : translateI18n(outcomeDecision === "WON" ? "projectDetail.recordWon" : "projectDetail.recordLost")}
             </Button>
           </DialogFooter>
         </form>
@@ -540,13 +541,13 @@ export default function ProjectDetailPage() {
               <span>{translateI18n(project.status === "COMPLETED" ? "ui.projectCompleted" : project.status === "WON" ? "ui.projectWon" : "ui.projectLost")} - 100%</span>
             </div>
             <p className="text-xs text-muted-foreground">
-              Semua milestone telah selesai dan hasil proyek telah dicatat.
+              {translateI18n("projectDetail.resultComplete")}
             </p>
             {project.status === "WON" && (
-              <p className="text-xs text-muted-foreground">Nilai kontrak final: <strong className="text-foreground">{formatIdr(project.final_contract_value)}</strong></p>
+              <p className="text-xs text-muted-foreground">{translateI18n("projectDetail.finalValueShown", { value: formatIdr(project.final_contract_value) })}</p>
             )}
             {project.status === "LOST" && project.loss_reason && (
-              <p className="text-xs text-muted-foreground">Alasan kekalahan: <strong className="text-foreground">{project.loss_reason}</strong></p>
+              <p className="text-xs text-muted-foreground">{translateI18n("projectDetail.lossReasonShown", { reason: project.loss_reason })}</p>
             )}
           </div>
           <Badge variant="success" className="self-start px-3 py-1 text-xs sm:self-auto">
@@ -572,10 +573,10 @@ export default function ProjectDetailPage() {
         >
           <div className="max-w-2xl space-y-1 border-b border-border/60 pb-4">
             <h2 id="project-plan-review-heading" className="text-xl font-semibold text-foreground">
-              Tinjau rencana proyek
+              {translateI18n("projectDetail.reviewPlan")}
             </h2>
             <p className="text-sm leading-6 text-muted-foreground">
-              Tinjau bukti awal dan linimasa yang diajukan sebelum memutuskan.
+              {translateI18n("projectDetail.reviewPlanHelp")}
             </p>
           </div>
 
@@ -668,9 +669,9 @@ export default function ProjectDetailPage() {
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div className="space-y-1">
               <h2 id="delivery-progress-heading" className="text-base font-semibold text-foreground">{translateI18n("copy.workProgress")}</h2>
-              <p className="text-sm text-muted-foreground">{progress?.completed || 0} dari {progress?.total || milestones.length} tahap selesai</p>
+              <p className="text-sm text-muted-foreground">{translateI18n("projectDetail.stagesFinished", { done: progress?.completed || 0, total: progress?.total || milestones.length })}</p>
             </div>
-            <span className="text-sm font-medium text-primary">{progress?.percentage || 0}% selesai</span>
+            <span className="text-sm font-medium text-primary">{translateI18n("projectDetail.percentComplete", { percent: progress?.percentage || 0 })}</span>
           </div>
           <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-secondary/80">
             <div
@@ -698,7 +699,7 @@ export default function ProjectDetailPage() {
                 </CardDescription>
               </div>
               <Badge variant="outline" className="self-start text-xs sm:self-auto">
-                {milestones.length} tahap
+                {translateI18n("projectDetail.stageCount", { count: milestones.length })}
               </Badge>
             </div>
           </CardHeader>
@@ -767,7 +768,7 @@ function ActivityTimeline({ projectId }: { projectId: string }) {
       </CardHeader>
       <CardContent className="space-y-2.5">
         {isLoading ? (
-          <div className="space-y-2 py-1" aria-label="Loading project activities">
+          <div className="space-y-2 py-1" aria-label={translateI18n("projectDetail.loadingActivity")}>
             {[0, 1, 2].map((index) => <div key={index} className="h-12 rounded-lg bg-muted/30 animate-pulse" />)}
           </div>
         ) : isError ? (
@@ -792,7 +793,7 @@ function ActivityTimeline({ projectId }: { projectId: string }) {
                           <>
                             <span className="font-medium text-foreground/80">{activity.actor.name}</span>
                             <span aria-hidden="true">•</span>
-                            <span>{formatActorRoleLabel(activity.actor.role)}</span>
+                            <span>{translateRole(activity.actor.role)}</span>
                           </>
                         ) : (
                           <span>{translateI18n("copy.unknownActor")}</span>
@@ -814,7 +815,7 @@ function ActivityTimeline({ projectId }: { projectId: string }) {
                 onClick={() => void fetchNextPage()}
                 disabled={isFetchingNextPage}
               >
-                {isFetchingNextPage ? "Loading..." : "Load more"}
+                {translateI18n(isFetchingNextPage ? "common.loading" : "projectDetail.loadMore")}
               </Button>
             )}
           </>
@@ -836,14 +837,14 @@ function ProjectIntakeSection({ projectId }: { projectId: string }) {
       const { url } = await intakeDownload.mutateAsync(attachmentId);
       window.open(url, "_blank", "noopener,noreferrer");
     } catch {
-      setDownloadError("Unable to create a project intake download link.");
+      setDownloadError("projectDetail.intakeDownloadFailed");
     }
   };
 
   const sections: Array<{ kind: "MOM" | "PHOTO" | "DOCUMENT"; label: string }> = [
     { kind: "MOM", label: "MoM" },
-    { kind: "PHOTO", label: "Project Photos" },
-    { kind: "DOCUMENT", label: "Optional Documents" },
+    { kind: "PHOTO", label: translateI18n("projectCreate.projectPhotos") },
+    { kind: "DOCUMENT", label: translateI18n("ui.supportingDocuments") },
   ];
 
   return (
@@ -852,14 +853,14 @@ function ProjectIntakeSection({ projectId }: { projectId: string }) {
         <div className="space-y-1">
           <CardTitle className="text-base font-semibold tracking-tight">{translateI18n("copy.projectIntake")}</CardTitle>
           <CardDescription className="text-xs">
-            Initial MoM, photos, and supporting files. These are intake evidence, not official repository documents.
+            {translateI18n("projectDetail.intakeDescription")}
           </CardDescription>
         </div>
       </CardHeader>
       <CardContent className="space-y-3">
         {downloadError && (
           <p className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
-            {downloadError}
+            {translateStoredError(downloadError)}
           </p>
         )}
         {isLoading ? (
@@ -892,7 +893,7 @@ function ProjectIntakeSection({ projectId }: { projectId: string }) {
                           <Badge variant="secondary" className="text-[10px]">{translateI18n("copy.intakeEvidence")}</Badge>
                         </div>
                         <p className="text-xs text-muted-foreground">
-                          {attachment.mime_type} - {formatFileSize(attachment.size_bytes)} - Added {formatDate(attachment.created_at)}
+                          {attachment.mime_type} - {formatFileSize(attachment.size_bytes)} - {translateI18n("projectDetail.addedOn", { date: formatDate(attachment.created_at) })}
                         </p>
                       </div>
                       <Button
@@ -928,7 +929,7 @@ function ProjectDocumentsSection({ projectId }: { projectId: string }) {
       const { url } = await documentDownload.mutateAsync(versionId);
       window.open(url, "_blank", "noopener,noreferrer");
     } catch {
-      setDownloadError("Unable to create a document download link.");
+      setDownloadError("projectDetail.documentDownloadFailed");
     }
   };
 
@@ -938,14 +939,14 @@ function ProjectDocumentsSection({ projectId }: { projectId: string }) {
         <div className="space-y-1">
           <CardTitle className="text-base font-semibold tracking-tight">{translateI18n("documents.official")}</CardTitle>
           <CardDescription className="text-xs">
-            Final project and milestone documents available in the repository.
+            {translateI18n("projectDetail.officialDescription")}
           </CardDescription>
         </div>
       </CardHeader>
       <CardContent className="space-y-3">
         {downloadError && (
           <p className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
-            {downloadError}
+            {translateStoredError(downloadError)}
           </p>
         )}
         {isLoading ? (
@@ -966,9 +967,9 @@ function ProjectDocumentsSection({ projectId }: { projectId: string }) {
                 document.category === "MOM"
                   ? "MoM"
                   : document.milestoneId
-                  ? document.milestone?.name || "Milestone document"
+                  ? document.milestone?.name || translateI18n("documentSurface.milestoneDeliverable")
                   : document.category === "OTHER"
-                  ? "Project document"
+                  ? translateI18n("documentSurface.projectDocument")
                   : formatHumanReadableLabel(document.category);
 
               return (
@@ -981,14 +982,14 @@ function ProjectDocumentsSection({ projectId }: { projectId: string }) {
                       <p className="truncate text-sm font-semibold text-foreground">{document.title}</p>
                       <Badge variant="secondary" className="text-[10px] uppercase">{sourceLabel}</Badge>
                       {latestVersion && (
-                        <Badge variant="outline" className="text-[10px]">Version {latestVersion.versionNumber}</Badge>
+                        <Badge variant="outline" className="text-[10px]">{translateI18n("projectDetail.version", { number: latestVersion.versionNumber })}</Badge>
                       )}
                     </div>
                     <p className="truncate text-xs text-muted-foreground">
-                      {latestVersion?.fileName || "No file version available"}
+                      {latestVersion?.fileName || translateI18n("projectDetail.noFileVersion")}
                     </p>
                     <p className="text-[11px] text-muted-foreground">
-                      {latestVersion?.uploadedBy?.fullName && <>Uploaded by {latestVersion.uploadedBy.fullName} - </>}
+                      {latestVersion?.uploadedBy?.fullName && <>{translateI18n("projectDetail.uploadedBy", { name: latestVersion.uploadedBy.fullName })} - </>}
                       {formatDate(latestVersion?.createdAt || document.createdAt)}
                     </p>
                   </div>
@@ -1032,13 +1033,13 @@ function NextActionCard({
     (nextAction.actionType === "SUBMIT_PLAN" || nextAction.actionType === "RESUBMIT_PLAN")
       ? isSubmittingPlan
       : nextAction.actionType === "RESUME_PROJECT" && isResuming;
-  const actionLabel = usesActionLabel ? nextAction.actionLabel || "Open task" : "Open task";
+  const actionLabel = usesActionLabel ? nextAction.actionLabel || translateI18n("projectDetail.openTask") : translateI18n("projectDetail.openTask");
   const pendingLabel =
     nextAction.actionType === "RESUBMIT_PLAN"
-      ? "Resubmitting..."
+      ? translateI18n("projectDetail.resubmitting")
       : nextAction.actionType === "RESUME_PROJECT"
-      ? "Resuming..."
-      : "Submitting...";
+      ? translateI18n("projectDetail.resuming")
+      : translateI18n("projectDetail.submitting");
 
   return (
     <section aria-labelledby="next-step-title" className="border-b border-border/60 pb-5">
@@ -1047,10 +1048,10 @@ function NextActionCard({
           <p className={`flex items-center gap-2 text-sm font-medium ${nextAction.canPerformAction ? "text-primary" : "text-muted-foreground"}`}>
             {nextAction.isWaiting && <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-muted-foreground/70" aria-hidden="true" />}
             {nextAction.isWaiting && nextAction.waitingForRole
-              ? `Waiting on ${formatActorRoleLabel(nextAction.waitingForRole)}`
+              ? translateI18n("projectDetail.waitingOn", { role: translateRole(nextAction.waitingForRole) })
               : nextAction.canPerformAction
-              ? "Your next task"
-              : "Project status"}
+              ? translateI18n("projectDetail.yourNextTask")
+              : translateI18n("projectDetail.projectStatus")}
           </p>
           <h2 id="next-step-title" className="text-lg font-semibold text-foreground">{nextAction.title}</h2>
           <p className="max-w-2xl text-sm leading-6 text-muted-foreground">{nextAction.description}</p>
@@ -1061,7 +1062,7 @@ function NextActionCard({
             size="sm"
             onClick={onAction}
             disabled={isPending}
-            aria-label={usesActionLabel ? actionLabel : `Open task: ${nextAction.title}`}
+            aria-label={usesActionLabel ? actionLabel : translateI18n("projectDetail.openTaskNamed", { name: nextAction.title })}
             className="h-10 w-full shrink-0 shadow-none sm:w-auto"
           >
             {isPending ? pendingLabel : actionLabel}
@@ -1086,18 +1087,18 @@ function DraftProgressionTracker({
   const isPlanRejected = planApproval?.status === "REJECTED";
 
   const steps = [
-    { number: 1, label: "Timeline setup", status: isPlanSubmitted ? "COMPLETED" : "CURRENT" },
+    { number: 1, label: translateI18n("projectDetail.timelineSetup"), status: isPlanSubmitted ? "COMPLETED" : "CURRENT" },
     {
       number: 2,
-      label: "Plan submitted",
+      label: translateI18n("projectDetail.planSubmittedStep"),
       status: isPlanApproved ? "COMPLETED" : isPlanPending ? "COMPLETED" : isPlanRejected ? "CURRENT" : "UPCOMING",
     },
     {
       number: 3,
-      label: "Head SA Review",
+      label: translateI18n("projectDetail.headReviewStep"),
       status: isPlanApproved ? "COMPLETED" : isPlanPending ? "CURRENT" : isPlanRejected ? "REJECTED" : "UPCOMING",
     },
-    { number: 4, label: "Project active", status: isPlanApproved ? "COMPLETED" : "UPCOMING" },
+    { number: 4, label: translateI18n("projectDetail.projectActiveStep"), status: isPlanApproved ? "COMPLETED" : "UPCOMING" },
   ];
 
   return (
@@ -1107,12 +1108,12 @@ function DraftProgressionTracker({
         {steps.map((step, index) => {
           const stateLabel =
             step.status === "COMPLETED"
-              ? "Complete"
+              ? translateI18n("projectStatus.COMPLETED")
               : step.status === "CURRENT"
-              ? "In progress"
+              ? translateI18n("milestoneStatus.IN_PROGRESS")
               : step.status === "REJECTED"
-              ? "Needs revision"
-              : "Waiting";
+              ? translateI18n("milestoneStatus.REVISION_REQUIRED")
+              : translateI18n("projectDetail.waiting");
 
           return (
             <li key={step.number} className={`flex min-w-0 items-start gap-2.5 ${index > 0 ? "sm:border-l sm:border-border/60 sm:pl-4" : ""}`}>
@@ -1173,12 +1174,12 @@ function ProjectPlanCard({
         <CardHeader className="flex flex-col gap-3 pb-3 sm:flex-row sm:items-start sm:justify-between">
           <div className="space-y-1">
             <CardTitle className="text-base font-semibold tracking-tight">
-              {reviewWorkspace ? "Review decision" : "Project Plan Sign-Off"}
+              {translateI18n(reviewWorkspace ? "projectDetail.reviewDecision" : "projectDetail.planSignOff")}
             </CardTitle>
             <CardDescription className="text-xs">
               {reviewWorkspace
-                ? "Approve the plan to assign a PIC and activate the project, or return it to Sales with feedback."
-                : "Single gatekeeper approval by Head SA before project execution starts"}
+                ? translateI18n("projectDetail.reviewDecisionHelp")
+                : translateI18n("projectDetail.planSignOffHelp")}
             </CardDescription>
           </div>
           {approval ? <PlanApprovalBadge status={approval.status} /> : <Badge variant="outline" className="self-start sm:self-auto">{translateI18n("copy.notSubmitted")}</Badge>}
@@ -1193,7 +1194,7 @@ function ProjectPlanCard({
               </div>
               {approval.request_note && (
                 <div className="rounded-lg border border-border/40 bg-muted/20 p-2.5 text-xs">
-                  <p className="font-semibold text-foreground">Submission Note:</p>
+                  <p className="font-semibold text-foreground">{translateI18n("projectDetail.submissionNote")}</p>
                   <p className="text-muted-foreground">{approval.request_note}</p>
                 </div>
               )}
@@ -1209,7 +1210,7 @@ function ProjectPlanCard({
             </div>
           ) : (
             <p className="text-xs text-muted-foreground">
-              Once you have saved the project timeline start dates and working-day durations, submit the project plan for Head SA review.
+              {translateI18n("projectDetail.planTimelineHelp")}
             </p>
           )}
 
@@ -1217,7 +1218,7 @@ function ProjectPlanCard({
             {canSubmit && (
               <Button size="sm" className="gap-1.5 shadow-none" onClick={onSubmit} disabled={isSubmitting}>
                 <Send className="h-3.5 w-3.5" />
-                <span>{isSubmitting ? "Submitting..." : approval?.status === "REJECTED" ? "Resubmit Project Plan" : "Submit Project Plan"}</span>
+                <span>{translateI18n(isSubmitting ? "projectDetail.submitting" : approval?.status === "REJECTED" ? "nextAction.resubmitPlan" : "nextAction.submitPlanAction")}</span>
               </Button>
             )}
             {canReview && (
@@ -1289,6 +1290,7 @@ function MilestoneRow({
   const [review, setReview] = useState<null | { type: "DEADLINE"; decision: "APPROVE" | "REJECT" }>(null);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+  const [uploadedDocumentCount, setUploadedDocumentCount] = useState(0);
 
   const deadlineApproval = approvalState?.deadlineApproval || null;
   const deadlineStatusQuery = useMilestoneDeadlineStatus(milestone.id);
@@ -1373,15 +1375,15 @@ function MilestoneRow({
     setMessage("");
     const value = Number(finalValue);
     if (!finalOutcome) {
-      setError("Choose Won or Lost before completing this milestone.");
+      setError("projectDetail.chooseOutcome");
       return;
     }
     if (finalOutcome === "WON" && (!finalValue.trim() || !Number.isFinite(value) || value <= 0)) {
-      setError("Final contract value must be greater than zero.");
+      setError("projectDetail.finalValuePositive");
       return;
     }
     if (finalOutcome === "LOST" && !finalLossReason.trim()) {
-      setError("Loss reason is required.");
+      setError("projectDetail.lossRequired");
       return;
     }
     try {
@@ -1393,9 +1395,9 @@ function MilestoneRow({
       setFinalOutcome(null);
       setFinalValue("");
       setFinalLossReason("");
-      setMessage("Milestone completed and project result recorded.");
+      setMessage("projectDetail.finalMilestoneComplete");
     } catch (completionError) {
-      setError(completionError instanceof Error ? completionError.message : "Unable to complete the milestone and record the result.");
+      setError("projectDetail.finalCompletionFailed");
     }
   };
 
@@ -1406,7 +1408,7 @@ function MilestoneRow({
       await action();
       setMessage(success);
     } catch (actionError) {
-      setError(actionError instanceof Error ? actionError.message : fallback);
+      setError(fallback);
     }
   };
 
@@ -1495,7 +1497,7 @@ function MilestoneRow({
               disabled={complete.isPending}
               onClick={() => requiresFinalOutcome
                 ? setFinalOutcomeOpen(true)
-                : void perform(() => complete.mutateAsync(), "Stage marked complete.", "Failed to complete milestone.")}
+                : void perform(() => complete.mutateAsync(), "projectDetail.stageCompleted", "projectDetail.stageCompletionFailed")}
             >
               <CheckCircle2 className="h-3.5 w-3.5" />
               <span>{complete.isPending ? translateI18n("outputScope.completing") : stageRole === "SA" ? translateI18n("outputScope.completeLegacy") : translateI18n("outputScope.markComplete")}</span>
@@ -1504,24 +1506,24 @@ function MilestoneRow({
           {stageRole === "SA" && milestoneStatus === "COMPLETED" && hasNextCreatedMilestone && projectIsActive
             && (isHeadSa || isAssignedPic) && (
             <Button size="sm" variant="outline" disabled={retryProgression.isPending}
-              onClick={() => void perform(() => retryProgression.mutateAsync(), "Workflow checked.", "Unable to continue workflow.")}>
-              <RotateCcw className="h-3.5 w-3.5" /> Continue workflow
+              onClick={() => void perform(() => retryProgression.mutateAsync(), "projectDetail.workflowChecked", "projectDetail.workflowRetryFailed")}>
+              <RotateCcw className="h-3.5 w-3.5" /> {translateI18n("projectDetail.continueWorkflow")}
             </Button>
           )}
           {stageRole === "SA" && milestoneStatus === "IN_PROGRESS" && allSelectedOutputsApproved
             && (isHeadSa || isAssignedPic) && projectIsActive && (
             <Button size="sm" variant="outline" disabled={retryProgression.isPending}
-              onClick={() => void perform(() => retryProgression.mutateAsync(), "Workflow checked.", "Unable to continue workflow.")}>
-              <RotateCcw className="h-3.5 w-3.5" /> Continue workflow
+              onClick={() => void perform(() => retryProgression.mutateAsync(), "projectDetail.workflowChecked", "projectDetail.workflowRetryFailed")}>
+              <RotateCcw className="h-3.5 w-3.5" /> {translateI18n("projectDetail.continueWorkflow")}
             </Button>
           )}
           {canReviewDeadline && (
             <>
               <Button size="sm" variant="outline" className="h-8 text-xs border-destructive/30 text-destructive" onClick={() => setReview({ type: "DEADLINE", decision: "REJECT" })}>
-                Reject request
+                {translateI18n("projectDetail.rejectRequest")}
               </Button>
               <Button size="sm" className="h-8 text-xs" onClick={() => setReview({ type: "DEADLINE", decision: "APPROVE" })}>
-                Approve deadline
+                {translateI18n("projectDetail.approveDeadline")}
               </Button>
             </>
           )}
@@ -1558,15 +1560,15 @@ function MilestoneRow({
         </div>
       )}
 
-      {error && <p className="mt-3 text-xs text-destructive">{error}</p>}
-      {message && <p className="mt-3 text-xs text-emerald-400">{message}</p>}
+      {error && <p className="mt-3 text-xs text-destructive">{translateStoredError(error)}</p>}
+      {message && <p className="mt-3 text-xs text-emerald-400">{message === "projectDetail.documentsUploaded" ? translateI18n("projectDetail.documentsUploaded", { count: uploadedDocumentCount }) : translateStoredMessage(message)}</p>}
       </div>}
 
       {/* Dialogs */}
       <Dialog open={finalOutcomeOpen} onOpenChange={(open) => { if (!complete.isPending) setFinalOutcomeOpen(open); }}>
         <DialogHeader>
           <DialogTitle>{translateI18n("copy.completeSales")}</DialogTitle>
-          <DialogDescription>Record the tender result together with completion of {milestone.name}.</DialogDescription>
+          <DialogDescription>{translateI18n("projectDetail.recordResultWithMilestone", { name: milestone.name })}</DialogDescription>
         </DialogHeader>
         <form className="space-y-4" onSubmit={(event) => { event.preventDefault(); void completeFinalSalesMilestone(); }}>
           <div>
@@ -1596,10 +1598,10 @@ function MilestoneRow({
               <textarea id={`loss-${milestone.id}`} className="min-h-24 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" value={finalLossReason} onChange={(event) => setFinalLossReason(event.target.value)} maxLength={2000} disabled={complete.isPending} required />
             </div>
           )}
-          {error && <p className="text-xs text-destructive">{error}</p>}
+          {error && <p className="text-xs text-destructive">{translateStoredError(error)}</p>}
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => setFinalOutcomeOpen(false)} disabled={complete.isPending}>{translateI18n("common.cancel")}</Button>
-            <Button type="submit" disabled={complete.isPending || !finalOutcome}>{complete.isPending ? "Completing..." : "Complete and record result"}</Button>
+            <Button type="submit" disabled={complete.isPending || !finalOutcome}>{translateI18n(complete.isPending ? "projectDetail.completing" : "projectDetail.completeAndRecord")}</Button>
           </DialogFooter>
         </form>
       </Dialog>
@@ -1612,7 +1614,8 @@ function MilestoneRow({
         milestoneName={milestone.name}
         onSuccess={(uploadedCount) => {
           setError("");
-          setMessage(`${uploadedCount} document${uploadedCount === 1 ? "" : "s"} uploaded.`);
+          setUploadedDocumentCount(uploadedCount);
+          setMessage("projectDetail.documentsUploaded");
         }}
       />
       <ReviewDialog
@@ -1658,11 +1661,11 @@ function DeadlineDialog({
     event.preventDefault();
     const days = Number(duration);
     if (!startDate || !Number.isInteger(days) || days <= 0) {
-      setError("A valid start date and working-day duration are required.");
+      setError("projectDetail.deadlineScheduleRequired");
       return;
     }
     if (hasEffectiveDeadline(milestone) && !reason.trim()) {
-      setError("Reason is required for a deadline change request.");
+      setError("projectDetail.deadlineReasonRequired");
       return;
     }
     setError("");
@@ -1675,7 +1678,7 @@ function DeadlineDialog({
       setReason("");
       onOpenChange(false);
     } catch (saveError) {
-      setError(saveError instanceof Error ? saveError.message : "Failed to request deadline change.");
+      setError("projectDetail.deadlineRequestFailed");
     }
   };
 
@@ -1718,13 +1721,13 @@ function DeadlineDialog({
             rows={3}
             value={reason}
             onChange={(event) => setReason(event.target.value)}
-            placeholder="Explain why the timeline needs to be modified..."
+            placeholder={translateI18n("projectDetail.deadlineReasonPlaceholder")}
             className="flex w-full rounded-md border border-input bg-card px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-primary"
             aria-describedby={error ? "deadline-change-error" : undefined}
             required
           />
         </div>
-        {error && <p id="deadline-change-error" className="text-sm text-destructive" role="alert">{error}</p>}
+        {error && <p id="deadline-change-error" className="text-sm text-destructive" role="alert">{translateStoredError(error)}</p>}
         <DialogFooter>
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
             {translateI18n("common.cancel")}
@@ -1802,7 +1805,7 @@ function ReviewDialog({
     event.preventDefault();
     if (!approvalId) return;
     if (decision === "REJECT" && !note.trim()) {
-      setError("A rejection reason is strictly required so the requester knows what to revise.");
+      setError("projectDetail.reviewReasonRequired");
       return;
     }
     setError("");
@@ -1812,7 +1815,7 @@ function ReviewDialog({
       setNote("");
       onOpenChange(false);
     } catch (reviewError) {
-      setError(reviewError instanceof Error ? reviewError.message : "Failed to process review.");
+      setError("projectDetail.reviewFailed");
     }
   };
 
@@ -1821,7 +1824,7 @@ function ReviewDialog({
       <DialogHeader className="mb-4">
         <DialogTitle>{reviewCopy.title}</DialogTitle>
         <DialogDescription>
-          Compare the current and requested dates before making a decision.
+          {translateI18n("projectDetail.compareDeadline")}
         </DialogDescription>
       </DialogHeader>
       <form className="space-y-4" onSubmit={submit}>
@@ -1844,31 +1847,31 @@ function ReviewDialog({
 
         {type === "DEADLINE" && (
           <div className="space-y-4">
-            <section aria-label="Deadline comparison">
+            <section aria-label={translateI18n("projectDetail.deadlineComparison")}>
               <div className="grid gap-3 sm:grid-cols-2 sm:divide-x sm:divide-border/60">
                 <div className="min-w-0 sm:pr-3">
                   <p className="text-xs text-muted-foreground">
-                    Current deadline
+                    {translateI18n("projectDetail.currentDeadline")}
                   </p>
                   <p className="mt-1 text-sm font-semibold text-foreground">
                     {formatReviewDate(currentDeadline?.due_date)}
                   </p>
                   {currentDeadline?.duration_working_days != null && (
                     <p className="mt-1 text-xs text-muted-foreground">
-                      {currentDeadline.duration_working_days} working days
+                      {translateI18n("projectDetail.workingDays", { count: currentDeadline.duration_working_days })}
                     </p>
                   )}
                 </div>
                 <div className="min-w-0 border-t border-border/60 pt-3 sm:border-t-0 sm:pl-3 sm:pt-0">
                   <p className="text-xs text-muted-foreground">
-                    Requested deadline
+                    {translateI18n("projectDetail.requestedDeadline")}
                   </p>
                   <p className="mt-1 text-sm font-semibold text-foreground">
                     {formatReviewDate(requestedDeadline?.due_date)}
                   </p>
                   {requestedDeadline?.duration_working_days != null && (
                     <p className="mt-1 text-xs text-muted-foreground">
-                      {requestedDeadline.duration_working_days} working days
+                      {translateI18n("projectDetail.workingDays", { count: requestedDeadline.duration_working_days })}
                     </p>
                   )}
                 </div>
@@ -1889,10 +1892,7 @@ function ReviewDialog({
             </section>
 
             <p className="text-xs text-muted-foreground">
-              Requested by{" "}
-              <span className="font-medium text-foreground">
-                {formatReviewParticipant(requestedBy)}
-              </span>
+              {translateI18n("projectDetail.requestedBy", { name: formatReviewParticipant(requestedBy) })}{" "}
               <span aria-hidden="true"> · </span>
               {formatReviewDateTime(requestedAt)}
             </p>
@@ -1929,7 +1929,7 @@ function ReviewDialog({
             className="text-sm text-destructive"
             role="alert"
           >
-            {error}
+            {translateStoredError(error)}
           </p>
         )}
         <DialogFooter>
@@ -2000,11 +2000,11 @@ function PlanReviewDialog({
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (decision === "REJECT" && !note.trim()) {
-      setError("A rejection reason is strictly required so Sales can adjust the timeline.");
+      setError("projectDetail.planReasonRequired");
       return;
     }
     if (requiresPic && !picId) {
-      setError("Select a Solution Architect PIC before approving this project plan.");
+      setError("projectDetail.picBeforeApproval");
       return;
     }
     setError("");
@@ -2013,7 +2013,7 @@ function PlanReviewDialog({
       setNote("");
       setPicId("");
     } catch (reviewError) {
-      setError(reviewError instanceof Error ? reviewError.message : "Failed to review project plan.");
+      setError("projectDetail.planReviewFailed");
     }
   };
 
@@ -2058,15 +2058,15 @@ function PlanReviewDialog({
         {requiresPic && (
           <div className="space-y-2">
             <label htmlFor="project-plan-pic" className="block text-xs font-semibold text-muted-foreground">
-              Solution Architect PIC *
+              {translateI18n("projectDetail.picRequired")}
             </label>
             {picsLoading ? (
               <p className="rounded-lg border border-border/50 bg-muted/20 px-3 py-2 text-sm text-muted-foreground">
-                Loading eligible Solution Architects...
+                {translateI18n("projectDetail.loadingEligible")}
               </p>
             ) : picsError ? (
               <p className="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-                Unable to load eligible Solution Architects.
+                {translateI18n("projectDetail.eligibleFailed")}
               </p>
             ) : (
               <select
@@ -2083,14 +2083,14 @@ function PlanReviewDialog({
                 <option value="">{translateI18n("copy.selectSa")}</option>
                 {pics.map((pic) => (
                   <option key={pic.id} value={pic.id}>
-                    {pic.full_name} ({formatActorRoleLabel(pic.role)}) - {pic.email}
+                    {pic.full_name} ({translateRole(pic.role)}) - {pic.email}
                   </option>
                 ))}
               </select>
             )}
             {!picsLoading && !picsError && !picId && (
               <p className="text-xs text-muted-foreground">
-                A Solution Architect is required before the project can be activated.
+                {translateI18n("projectDetail.picRequiredActivation")}
               </p>
             )}
           </div>
@@ -2101,7 +2101,7 @@ function PlanReviewDialog({
             className="text-sm text-destructive"
             role="alert"
           >
-            {error}
+            {translateStoredError(error)}
           </p>
         )}
         <DialogFooter>

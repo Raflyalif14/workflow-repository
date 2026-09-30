@@ -1,4 +1,4 @@
-import { getIntlLocale, translate } from "@/i18n";
+import { getIntlLocale, translate, type TranslationKey } from "@/i18n";
 import { formatActivityAction } from "@/lib/activity-timeline";
 import type { DashboardOutputDocuments, DashboardSaWorkload } from "@/types/dashboard";
 import type { Project } from "@/types/project";
@@ -150,28 +150,19 @@ export const getDashboardKpiLabels = (role: DashboardRole): string[] => {
 };
 
 export const formatDashboardLabel = (value?: string | null): string => {
-  if (!value) return "Unknown";
+  if (!value) return translate("projectStatus.UNKNOWN");
 
-  const labels: Record<string, string> = {
-    DRAFT: translate("dashboardWork.planning"),
-    ACTIVE: "Active",
-    POSTPONED: translate("dashboardWork.postponed"),
-    COMPLETED: "Completed",
-    CANCELLED: "Cancelled",
-    WAITING_RESULT: translate("dashboardWork.waitingResult"),
-    WON: "Won",
-    LOST: "Lost",
-    CREATED: "Not started",
-    IN_PROGRESS: translate("dashboardWork.inProgress"),
-    SUBMITTED: translate("dashboardWork.underReview"),
-    REJECTED: translate("dashboardWork.revisionRequired"),
-    APPROVED: "Approved",
-    PENDING: "Pending review",
-    PROJECT_PLAN: "Project plan",
-    DEADLINE: "Deadline change",
+  const labels: Record<string, TranslationKey> = {
+    DRAFT: "projectStatus.DRAFT", ACTIVE: "projectStatus.ACTIVE", POSTPONED: "projectStatus.POSTPONED",
+    COMPLETED: "projectStatus.COMPLETED", CANCELLED: "projectStatus.CANCELLED",
+    WAITING_RESULT: "projectStatus.WAITING_RESULT", WON: "projectStatus.WON", LOST: "projectStatus.LOST",
+    CREATED: "milestoneStatus.CREATED", IN_PROGRESS: "milestoneStatus.IN_PROGRESS",
+    SUBMITTED: "milestoneStatus.SUBMITTED", REJECTED: "milestoneStatus.REJECTED",
+    APPROVED: "approvalStatus.APPROVED", PENDING: "approvalStatus.PENDING",
+    PROJECT_PLAN: "dashboardLabel.projectPlan", DEADLINE: "dashboardLabel.deadlineChange",
   };
 
-  return labels[value] || value
+  return labels[value] ? translate(labels[value]) : value
     .toLowerCase()
     .split(/[_\s-]+/)
     .filter(Boolean)

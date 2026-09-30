@@ -1,6 +1,7 @@
 "use client";
 
-import { translate as translateI18n } from "@/i18n";
+import { translate as translateI18n, translateStoredError } from "@/i18n";
+import { useLanguage } from "@/components/i18n/language-provider";
 
 import React, { useEffect } from "react";
 import { useForm } from "react-hook-form";
@@ -33,6 +34,7 @@ export function UserFormDialog({
   onOpenChange,
   userToEdit,
 }: UserFormDialogProps) {
+  useLanguage();
   const isEditing = !!userToEdit;
   const createUserMutation = useCreateUser();
   const updateUserMutation = useUpdateUser();
@@ -85,41 +87,41 @@ export function UserFormDialog({
         await createUserMutation.mutateAsync(data);
       }
       onOpenChange(false);
-    } catch (err: any) {
-      alert(err.message || "Failed to save user");
+    } catch {
+      alert(translateI18n("userForm.saveFailed"));
     }
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogHeader>
-        <DialogTitle>{isEditing ? "Edit User Account" : "Create New User"}</DialogTitle>
+        <DialogTitle>{translateI18n(isEditing ? "userForm.editTitle" : "userForm.createTitle")}</DialogTitle>
         <DialogDescription>
           {isEditing
-            ? "Update user details, assign roles, and manage account status."
-            : "Create an account with role and access status managed by the system."}
+            ? translateI18n("userForm.editHelp")
+            : translateI18n("userForm.createHelp")}
         </DialogDescription>
       </DialogHeader>
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
         <div>
           <label className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1">
-            Full Name *
+            {translateI18n("userForm.fullName")} *
           </label>
           <Input
-            placeholder="e.g. John Doe"
+            placeholder={translateI18n("userForm.nameExample")}
             {...register("fullName")}
             disabled={isSubmitting}
           />
           {errors.fullName && (
-            <p className="text-xs text-destructive mt-1">{errors.fullName.message}</p>
+            <p className="text-xs text-destructive mt-1">{translateStoredError(errors.fullName.message || "userForm.fullNameRequired")}</p>
           )}
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
             <label className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1">
-              Email Address *
+              {translateI18n("userForm.email")} *
             </label>
             <Input
               type="email"
@@ -128,7 +130,7 @@ export function UserFormDialog({
               disabled={isEditing || isSubmitting}
             />
             {errors.email && (
-              <p className="text-xs text-destructive mt-1">{errors.email.message}</p>
+              <p className="text-xs text-destructive mt-1">{translateStoredError(errors.email.message || "userForm.invalidEmail")}</p>
             )}
           </div>
 
@@ -136,14 +138,14 @@ export function UserFormDialog({
 
         {!isEditing && (
           <p className="rounded-lg border border-primary/20 bg-primary/5 px-3 py-2.5 text-xs leading-relaxed text-muted-foreground">
-            An initial password will be generated securely and sent to the user&apos;s email. The user will be required to change it after first login.
+            {translateI18n("userForm.initialPasswordHelp")}
           </p>
         )}
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
             <label className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1">
-              Role *
+              {translateI18n("copy.role")} *
             </label>
             <select
               {...register("role")}
@@ -153,10 +155,10 @@ export function UserFormDialog({
               <option value="SUPER_ADMIN">{translateI18n("role.SUPER_ADMIN")}</option>
               <option value="SALES">{translateI18n("role.SALES")}</option>
               <option value="HEAD_SA">{translateI18n("role.HEAD_SA")}</option>
-              <option value="SA">SA</option>
+              <option value="SA">{translateI18n("role.SA")}</option>
             </select>
             {errors.role && (
-              <p className="text-xs text-destructive mt-1">{errors.role.message}</p>
+              <p className="text-xs text-destructive mt-1">{translateI18n("userForm.roleRequired")}</p>
             )}
           </div>
 
@@ -170,7 +172,7 @@ export function UserFormDialog({
             className="rounded border-border text-primary focus:ring-primary h-4 w-4 bg-background"
           />
           <label htmlFor="isActive" className="text-sm font-medium cursor-pointer">
-            User is Active
+            {translateI18n("userForm.active")}
           </label>
         </div>
 
@@ -184,7 +186,7 @@ export function UserFormDialog({
             {translateI18n("common.cancel")}
           </Button>
           <Button type="submit" disabled={isSubmitting}>
-            {isSubmitting ? "Saving..." : isEditing ? "Update User" : "Create User"}
+            {translateI18n(isSubmitting ? "common.saving" : isEditing ? "userForm.update" : "userForm.create")}
           </Button>
         </DialogFooter>
       </form>

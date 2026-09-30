@@ -1,6 +1,7 @@
 "use client";
 
-import { translate as translateI18n, getIntlLocale } from "@/i18n";
+import { translate as translateI18n, translateStoredError, translateRole, getIntlLocale } from "@/i18n";
+import { useLanguage } from "@/components/i18n/language-provider";
 
 import { useState, type FormEvent } from "react";
 import { AlertCircle, Download, FileText, MessageSquareText, Paperclip, Plus, UploadCloud, X } from "lucide-react";
@@ -21,7 +22,6 @@ import {
   MAX_DOCUMENT_FILES,
   removeDocumentFile,
 } from "@/lib/document-file-selection";
-import { formatActorRoleLabel } from "@/lib/workflow-ux-helpers";
 
 function formatFileSize(value: number): string {
   if (value < 1024 * 1024) return `${Math.max(1, Math.round(value / 1024))} KB`;
@@ -47,6 +47,7 @@ export function MilestoneContributionsPanel({
   canCreate: boolean;
   canPromote: boolean;
 }) {
+  useLanguage();
   const contributions = useMilestoneContributions(milestoneId, canRead);
   const createContribution = useCreateMilestoneContribution(milestoneId);
   const downloadAttachment = useDownloadMilestoneContributionAttachment(milestoneId);
@@ -96,7 +97,7 @@ export function MilestoneContributionsPanel({
       resetDialog();
       setDialogOpen(false);
     } catch {
-      setSubmitError("Unable to add supporting input. Please try again.");
+      setSubmitError("contribution.addFailed");
     }
   };
 
@@ -106,7 +107,7 @@ export function MilestoneContributionsPanel({
       const result = await downloadAttachment.mutateAsync({ contributionId, attachmentId });
       window.open(result.url, "_blank", "noopener,noreferrer");
     } catch {
-      setDownloadError("Unable to open the supporting attachment.");
+      setDownloadError("contribution.openFailed");
     }
   };
 
@@ -121,7 +122,7 @@ export function MilestoneContributionsPanel({
       });
       setPromotionTarget(null);
     } catch {
-      setPromotionError("Unable to promote the supporting document. Please try again.");
+      setPromotionError("contribution.promoteFailed");
     }
   };
 
@@ -140,19 +141,19 @@ export function MilestoneContributionsPanel({
         {canCreate && (
           <Button size="sm" variant="outline" className="h-8 gap-1.5 self-start text-xs sm:self-auto" onClick={() => setDialogOpen(true)}>
             <Plus className="h-3.5 w-3.5" />
-            Add Input
+            {translateI18n("contribution.addInput")}
           </Button>
         )}
       </div>
 
       {downloadError && (
         <p className="mt-3 rounded-lg border border-destructive/30 bg-destructive/10 p-2.5 text-xs text-destructive" role="alert">
-          {downloadError}
+          {translateStoredError(downloadError)}
         </p>
       )}
       {promotionError && (
         <p className="mt-3 rounded-lg border border-destructive/30 bg-destructive/10 p-2.5 text-xs text-destructive" role="alert">
-          {promotionError}
+          {translateStoredError(promotionError)}
         </p>
       )}
 
@@ -168,9 +169,9 @@ export function MilestoneContributionsPanel({
             <div key={contribution.id} className="rounded-lg border border-border/40 bg-card/50 p-3">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <p className="text-[11px] font-medium text-foreground">
-                  Shared by {contribution.contributed_by?.full_name || "Project Sales"}
+                  {translateI18n("contribution.sharedBy", { name: contribution.contributed_by?.full_name || translateI18n("contribution.projectSales") })}
                   {contribution.contributed_by?.role
-                    ? ` · ${formatActorRoleLabel(contribution.contributed_by.role)}`
+                    ? ` · ${translateRole(contribution.contributed_by.role)}`
                     : ""}
                 </p>
                 <span className="text-[10px] text-muted-foreground">{formatDateTime(contribution.created_at)}</span>
@@ -192,7 +193,7 @@ export function MilestoneContributionsPanel({
                           </p>
                           <div className="mt-1 flex flex-wrap items-center gap-1.5">
                             <Badge variant="outline" className="border-border/60 bg-muted/20 px-1.5 py-0 text-[9px] font-medium text-muted-foreground">
-                              Supporting Document
+                              {translateI18n("contribution.supportingDocument")}
                             </Badge>
                             {attachment.promotion_status === "PROMOTED" && (
                               <Badge variant="outline" className="border-emerald-500/30 bg-emerald-500/10 px-1.5 py-0 text-[9px] font-medium text-emerald-500">
@@ -235,7 +236,7 @@ export function MilestoneContributionsPanel({
                         {canPromote && attachment.promotion_status === "PROMOTING" && (
                           <Button size="sm" variant="outline" className="h-8 gap-1.5 text-xs" disabled>
                             <UploadCloud className="h-3.5 w-3.5" />
-                            Promoting...
+                            {translateI18n("contribution.promoting")}
                           </Button>
                         )}
                       </div>
@@ -257,15 +258,15 @@ export function MilestoneContributionsPanel({
         <DialogHeader className="space-y-2">
           <DialogTitle>{translateI18n("copy.promoteRepository")}</DialogTitle>
           <DialogDescription>
-            Promote <span className="font-semibold text-foreground">&quot;{promotionTarget?.fileName}&quot;</span> to the official Document Repository?
+            {translateI18n("contribution.promoteQuestion", { name: promotionTarget?.fileName || "" })}
           </DialogDescription>
         </DialogHeader>
         <p className="rounded-lg border border-border/50 bg-muted/20 p-3 text-xs text-muted-foreground">
-          The original Supporting Document will remain available here.
+          {translateI18n("contribution.originalRemains")}
         </p>
         {promotionError && (
           <p className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive" role="alert">
-            {promotionError}
+            {translateStoredError(promotionError)}
           </p>
         )}
         <DialogFooter className="border-t border-border/40 pt-4">
@@ -273,7 +274,7 @@ export function MilestoneContributionsPanel({
             {translateI18n("common.cancel")}
           </Button>
           <Button type="button" disabled={promoteAttachment.isPending} onClick={() => void promote()}>
-            {promoteAttachment.isPending ? "Promoting..." : "Promote Document"}
+            {translateI18n(promoteAttachment.isPending ? "contribution.promoting" : "contribution.promoteDocument")}
           </Button>
         </DialogFooter>
       </Dialog>
@@ -286,7 +287,7 @@ export function MilestoneContributionsPanel({
         <form className="space-y-4" onSubmit={submit}>
           <div>
             <label htmlFor={`contribution-note-${milestoneId}`} className="mb-1 block text-xs font-semibold text-foreground">
-              Note <span className="font-normal text-muted-foreground">(optional)</span>
+              {translateI18n("contribution.noteOptional")}
             </label>
             <textarea
               id={`contribution-note-${milestoneId}`}
@@ -299,16 +300,16 @@ export function MilestoneContributionsPanel({
               rows={4}
               disabled={createContribution.isPending}
               className="w-full resize-y rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground outline-none transition-colors placeholder:text-muted-foreground focus:border-primary disabled:cursor-not-allowed disabled:opacity-50"
-              placeholder="Add context for the assigned PIC..."
+              placeholder={translateI18n("contribution.notePlaceholder")}
             />
           </div>
 
           <div>
-            <p className="mb-1 text-xs font-semibold text-foreground">{translateI18n("copy.files")} <span className="font-normal text-muted-foreground">(optional)</span></p>
+            <p className="mb-1 text-xs font-semibold text-foreground">{translateI18n("contribution.filesOptional")}</p>
             <label className="flex min-h-24 cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed border-border/60 bg-muted/15 px-4 text-center transition-colors hover:border-primary/30 hover:bg-muted/25">
               <Paperclip className="mb-2 h-6 w-6 text-muted-foreground" />
               <span className="text-xs font-medium text-foreground">{translateI18n("copy.chooseFiles")}</span>
-              <span className="mt-0.5 text-[11px] text-muted-foreground">Up to {MAX_DOCUMENT_FILES} files, 50 MB each</span>
+              <span className="mt-0.5 text-[11px] text-muted-foreground">{translateI18n("contribution.fileLimit", { count: MAX_DOCUMENT_FILES })}</span>
               <Input
                 type="file"
                 accept={DOCUMENT_ACCEPT}
@@ -342,7 +343,7 @@ export function MilestoneContributionsPanel({
                       setFiles((current) => removeDocumentFile(current, index));
                       setSelectionError(null);
                     }}
-                    aria-label={`Remove ${file.name}`}
+                    aria-label={translateI18n("projectCreate.removeFile", { name: file.name })}
                   >
                     <X className="h-3.5 w-3.5" />
                   </Button>
@@ -354,7 +355,7 @@ export function MilestoneContributionsPanel({
           {(selectionError || submitError) && (
             <div className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive" role="alert">
               <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-              <span>{selectionError || submitError}</span>
+              <span>{selectionError ? translateI18n("projectCreate.invalidFile") : translateStoredError(submitError || "contribution.addFailed")}</span>
             </div>
           )}
 
@@ -363,7 +364,7 @@ export function MilestoneContributionsPanel({
               {translateI18n("common.cancel")}
             </Button>
             <Button type="submit" disabled={!canSubmit}>
-              {createContribution.isPending ? "Adding..." : "Add Input"}
+              {translateI18n(createContribution.isPending ? "contribution.adding" : "contribution.addInput")}
             </Button>
           </DialogFooter>
         </form>

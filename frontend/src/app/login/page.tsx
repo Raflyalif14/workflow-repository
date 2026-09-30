@@ -51,7 +51,7 @@ export default function LoginPage() {
       const loggedInUser = await login({ email, password });
       router.replace(loggedInUser.mustChangePassword ? "/change-password" : nextPath);
     } catch (err) {
-      setError(err instanceof Error ? err.message : t("auth.loginError"));
+      setError("auth.loginError");
     } finally {
       setIsSubmitting(false);
     }
@@ -150,7 +150,7 @@ export default function LoginPage() {
               {error && (
                 <div className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
                   <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-                  <span>{error}</span>
+                  <span>{t("auth.loginError")}</span>
                 </div>
               )}
 

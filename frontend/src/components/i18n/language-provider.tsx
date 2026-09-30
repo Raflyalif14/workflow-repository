@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { apiClient } from "@/lib/api-client";
 import {
@@ -10,11 +10,12 @@ import {
   TranslationParams,
   formatDate,
   formatNumber,
+  getLanguageCacheKey,
+  resolveLanguagePreference,
   setActiveLanguage,
   translate,
 } from "@/i18n";
 
-const LOCALE_STORAGE_KEY = "workflow-locale";
 const isLanguage = (value: unknown): value is AppLanguage => value === "en" || value === "id";
 
 type LanguageContextValue = {
@@ -34,15 +35,14 @@ const LanguageContext = createContext<LanguageContextValue | undefined>(undefine
 
 function readCachedLocale(userId?: string): AppLanguage {
   if (typeof window === "undefined") return DEFAULT_LANGUAGE;
-  const userValue = userId ? window.localStorage.getItem(`${LOCALE_STORAGE_KEY}:${userId}`) : null;
-  const value = userValue || window.localStorage.getItem(LOCALE_STORAGE_KEY);
+  const value = window.localStorage.getItem(getLanguageCacheKey(userId));
   return isLanguage(value) ? value : DEFAULT_LANGUAGE;
 }
 
 function cacheLocale(locale: AppLanguage, userId?: string) {
   if (typeof window === "undefined") return;
-  window.localStorage.setItem(LOCALE_STORAGE_KEY, locale);
-  if (userId) window.localStorage.setItem(`${LOCALE_STORAGE_KEY}:${userId}`, locale);
+  window.localStorage.setItem(getLanguageCacheKey(), locale);
+  if (userId) window.localStorage.setItem(getLanguageCacheKey(userId), locale);
 }
 
 export function LanguageProvider({ children }: { children: React.ReactNode }) {
@@ -51,6 +51,9 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<TranslationKey | null>(null);
+  const changeGeneration = useRef(0);
+  const activeUserId = useRef(user?.id);
+  activeUserId.current = user?.id;
 
   const applyLocale = useCallback((nextLocale: AppLanguage) => {
     setActiveLanguage(nextLocale);
@@ -60,8 +63,9 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     let cancelled = false;
+    const generation = ++changeGeneration.current;
     const cached = readCachedLocale(user?.id);
-    const initial = user?.preferredLanguage || cached || DEFAULT_LANGUAGE;
+    const initial = resolveLanguagePreference(user?.preferredLanguage, cached);
     applyLocale(initial);
     if (!user) return;
 
@@ -69,7 +73,7 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
     setError(null);
     apiClient<{ language: AppLanguage }>("/auth/preferences/language")
       .then((preference) => {
-        if (cancelled) return;
+        if (cancelled || generation !== changeGeneration.current) return;
         applyLocale(preference.language);
         cacheLocale(preference.language, user.id);
       })
@@ -83,6 +87,8 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
   }, [applyLocale, user?.id, user?.preferredLanguage]);
 
   const setLocale = useCallback(async (nextLocale: AppLanguage) => {
+    const generation = ++changeGeneration.current;
+    const userId = user?.id;
     setError(null);
     if (!user) {
       applyLocale(nextLocale);
@@ -95,8 +101,10 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
         method: "PUT",
         body: JSON.stringify({ language: nextLocale }),
       });
-      applyLocale(preference.language);
-      cacheLocale(preference.language, user.id);
+      if (generation === changeGeneration.current && activeUserId.current === userId) {
+        applyLocale(preference.language);
+        cacheLocale(preference.language, userId);
+      }
     } catch {
       setError("language.saveError");
       throw new Error(translate("language.saveError", {}, locale));
@@ -118,7 +126,7 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
     formatNumber: (value, options) => formatNumber(value, options, locale),
   }), [error, isLoading, isSaving, locale, setLocale]);
 
-  return <LanguageContext.Provider value={value}><React.Fragment key={locale}>{children}</React.Fragment></LanguageContext.Provider>;
+  return <LanguageContext.Provider value={value}>{children}</LanguageContext.Provider>;
 }
 
 export function useLanguage() {

@@ -1,4 +1,5 @@
 import { translate as translateI18n } from "@/i18n";
+import { useLanguage } from "@/components/i18n/language-provider";
 import * as React from "react";
 import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -10,6 +11,7 @@ interface DialogProps {
 }
 
 export function Dialog({ open, onOpenChange, children }: DialogProps) {
+  useLanguage();
   if (!open) return null;
 
   return (

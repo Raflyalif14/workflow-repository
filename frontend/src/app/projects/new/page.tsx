@@ -1,6 +1,7 @@
 "use client";
+import { useLanguage } from "@/components/i18n/language-provider";
 
-import { translate as translateI18n } from "@/i18n";
+import { translate as translateI18n, translateOutputName, translateStoredError } from "@/i18n";
 
 import { useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
@@ -65,14 +66,14 @@ function getProjectValidationError({
   photos: File[];
   documents: File[];
 }): string | null {
-  if (!name.trim()) return "Nama proyek wajib diisi.";
-  if (!customer.trim()) return "Pelanggan wajib diisi.";
-  if (!scenarioId) return "Please select an active scenario.";
-  if (!estimatedRevenue.trim()) return "Estimated revenue is required.";
+  if (!name.trim()) return "copy.projectNameRequired";
+  if (!customer.trim()) return "copy.customerRequired";
+  if (!scenarioId) return "copy.selectActiveScenario";
+  if (!estimatedRevenue.trim()) return "projectCreate.revenueRequired";
   const revenueValue = Number(estimatedRevenue);
-  if (!Number.isFinite(revenueValue) || revenueValue < 0) return "Estimated revenue must be a valid non-negative amount.";
-  if (!mom) return "A MoM file is required to create a project.";
-  if (!photos.length) return "At least one project photo is required to create a project.";
+  if (!Number.isFinite(revenueValue) || revenueValue < 0) return "copy.revenueValidation";
+  if (!mom) return "copy.momRequired";
+  if (!photos.length) return "copy.photoRequired";
   return [
     getProjectMomFileValidationError(mom),
     ...photos.map(getProjectPhotoFileValidationError),
@@ -81,13 +82,15 @@ function getProjectValidationError({
 }
 
 function getScenarioDisplayName(scenarioName: string): string {
-  const key = resolveScenarioKey(scenarioName);
-  return SCENARIO_DEFINITIONS[key].label;
+  if (scenarioName === SCENARIO_DEFINITIONS.PRA_TENDER.name) return translateI18n("projectCreate.praTender");
+  if (scenarioName === SCENARIO_DEFINITIONS.ON_SUBMISSION_TENDER.name) return translateI18n("projectCreate.onSubmissionTender");
+  return scenarioName;
 }
 
 function getScenarioContext(name?: string): string {
+  if (name !== SCENARIO_DEFINITIONS.PRA_TENDER.name && name !== SCENARIO_DEFINITIONS.ON_SUBMISSION_TENDER.name) return translateI18n("ui.scenarioContext");
   const key = resolveScenarioKey(name);
-  return SCENARIO_DEFINITIONS[key].description;
+  return translateI18n(key === "PRA_TENDER" ? "projectCreate.praTenderDescription" : "projectCreate.onSubmissionDescription");
 }
 
 function SelectedFileRow({
@@ -119,8 +122,8 @@ function SelectedFileRow({
         className="h-9 w-9 shrink-0"
         onClick={onRemove}
         disabled={disabled}
-        aria-label={`Remove ${file.name}`}
-        title={`Remove ${file.name}`}
+        aria-label={translateI18n("projectCreate.removeFile", { name: file.name })}
+        title={translateI18n("projectCreate.removeFile", { name: file.name })}
       >
         <X className="h-4 w-4" />
       </Button>
@@ -153,7 +156,7 @@ function ChecklistItem({
       <div className="min-w-0">
         <p className="text-sm font-medium text-foreground">
           {label}
-          {optional && <span className="ml-1 font-normal text-muted-foreground">(optional)</span>}
+          {optional && <span className="ml-1 font-normal text-muted-foreground">({translateI18n("common.optional")})</span>}
         </p>
         <p className="mt-0.5 text-xs leading-5 text-muted-foreground">{detail}</p>
       </div>
@@ -162,6 +165,7 @@ function ChecklistItem({
 }
 
 export default function NewProjectPage() {
+  useLanguage();
   const router = useRouter();
   const { user } = useAuth();
   const { data: scenarios = [], isLoading } = useScenarios({ isActive: true });
@@ -259,7 +263,7 @@ export default function NewProjectPage() {
       setFileSelectionError(null);
       router.push(`/projects/${project.id}`);
     } catch (error) {
-      setSubmitError(error instanceof Error ? error.message : translateI18n("ui.projectCreatedFailed"));
+      setSubmitError("ui.projectCreatedFailed");
     }
   };
 
@@ -270,7 +274,7 @@ export default function NewProjectPage() {
           <p className="text-xs font-semibold uppercase text-primary">{translateI18n("copy.salesWorkspace")}</p>
           <h1 className="mt-2 text-2xl font-semibold text-foreground sm:text-3xl">{translateI18n("project.create")}</h1>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
-            Isi data pelanggan dan lampirkan bukti awal untuk memulai perencanaan proyek.
+            {translateI18n("projectCreate.intro")}
           </p>
         </div>
         <Button
@@ -288,14 +292,14 @@ export default function NewProjectPage() {
       <form onSubmit={submit} className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
         <div className="overflow-hidden rounded-lg border border-border bg-card">
           <section className="border-b border-border px-5 py-6 sm:px-7">
-            <SectionHeading number="01" title="Informasi proyek">
-              Tentukan nama proyek dan pelanggan.
+            <SectionHeading number="01" title={translateI18n("projectCreate.projectInfo")}>
+              {translateI18n("projectCreate.projectInfoHelp")}
             </SectionHeading>
 
             <div className="grid gap-5 sm:grid-cols-2">
               <div>
                 <label className="mb-2 block text-sm font-medium" htmlFor="project-name">
-                  Nama proyek <span className="text-destructive" aria-hidden="true">*</span>
+                  {translateI18n("projectCreate.projectName")} <span className="text-destructive" aria-hidden="true">*</span>
                 </label>
                 <Input
                   id="project-name"
@@ -304,7 +308,7 @@ export default function NewProjectPage() {
                     setName(event.target.value);
                     clearError();
                   }}
-                  placeholder="Contoh: Modernisasi layanan pelanggan"
+                  placeholder={translateI18n("projectCreate.projectNameExample")}
                   disabled={create.isPending}
                   aria-invalid={submitAttempted && !name.trim()}
                   aria-describedby={submitAttempted && !name.trim() ? "project-name-error" : undefined}
@@ -325,7 +329,7 @@ export default function NewProjectPage() {
                     setCustomer(event.target.value);
                     clearError();
                   }}
-                  placeholder="Contoh: PT Nusantara"
+                  placeholder={translateI18n("projectCreate.customerExample")}
                   disabled={create.isPending}
                   aria-invalid={submitAttempted && !customer.trim()}
                   aria-describedby={submitAttempted && !customer.trim() ? "project-customer-error" : undefined}
@@ -363,12 +367,12 @@ export default function NewProjectPage() {
           </section>
 
           <section className="border-b border-border px-5 py-6 sm:px-7">
-            <SectionHeading number="02" title="Skenario proyek">
+            <SectionHeading number="02" title={translateI18n("projectCreate.projectScenario")}>
               {translateI18n("ui.scenarioGuidance")}
             </SectionHeading>
 
             <label className="mb-2 block text-sm font-medium" htmlFor="project-scenario">
-              Skenario <span className="text-destructive" aria-hidden="true">*</span>
+              {translateI18n("projectDetail.scenario")} <span className="text-destructive" aria-hidden="true">*</span>
             </label>
             <select
               id="project-scenario"
@@ -443,7 +447,7 @@ export default function NewProjectPage() {
                           />
                           <div className="min-w-0 flex-1">
                             <p className="text-sm font-medium text-foreground flex items-center gap-2 flex-wrap">
-                              <span>{doc.name}</span>
+                              <span>{translateOutputName(doc.key, doc.name)}</span>
                               {doc.isRequired && (
                                 <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
                                   <Lock className="h-3 w-3" /> ({translateI18n("ui.required")})
@@ -471,15 +475,15 @@ export default function NewProjectPage() {
           </section>
 
           <section className="border-b border-border px-5 py-6 sm:px-7">
-            <SectionHeading number="03" title="Bukti awal proyek">
-              Lampirkan notulen dan foto untuk perencanaan serta peninjauan.
+            <SectionHeading number="03" title={translateI18n("projectCreate.intakeEvidence")}>
+              {translateI18n("projectCreate.intakeEvidenceHelp")}
             </SectionHeading>
 
             <div className="grid gap-6 xl:grid-cols-2">
               <div className="min-w-0">
                 <div className="mb-3">
                   <label className="text-sm font-medium" htmlFor="project-mom">
-                    Notulen rapat (MoM) PDF <span className="text-destructive" aria-hidden="true">*</span>
+                    {translateI18n("projectCreate.momPdf")} <span className="text-destructive" aria-hidden="true">*</span>
                   </label>
                   <p className="mt-1 text-xs leading-5 text-muted-foreground">{translateI18n("ui.exactPdf")}</p>
                 </div>
@@ -523,10 +527,10 @@ export default function NewProjectPage() {
               <div className="min-w-0">
                 <div className="mb-3">
                   <label className="text-sm font-medium" htmlFor="project-photos">
-                    Foto proyek <span className="text-destructive" aria-hidden="true">*</span>
+                    {translateI18n("projectCreate.projectPhotos")} <span className="text-destructive" aria-hidden="true">*</span>
                   </label>
                   <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                    JPG, JPEG, atau PNG. Lampirkan 1-{MAX_PROJECT_PHOTOS} foto, maksimal 50 MB per foto.
+                    {translateI18n("projectCreate.photosHelp", { count: MAX_PROJECT_PHOTOS })}
                   </p>
                 </div>
                 <Input
@@ -566,7 +570,7 @@ export default function NewProjectPage() {
             {fileSelectionError && (
               <div role="alert" className="mt-5 flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/10 p-3 text-xs text-destructive">
                 <AlertCircle className="h-4 w-4 shrink-0" />
-                <span>{fileSelectionError}</span>
+                <span>{translateStoredError(fileSelectionError, "projectCreate.invalidFile")}</span>
               </div>
             )}
           </section>
@@ -614,7 +618,7 @@ export default function NewProjectPage() {
             {submitError && (
               <div role="alert" className="mb-4 flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
                 <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-                <span>{submitError}</span>
+                <span>{translateStoredError(submitError)}</span>
               </div>
             )}
             <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
@@ -628,7 +632,7 @@ export default function NewProjectPage() {
                 {translateI18n("common.cancel")}
               </Button>
               <Button type="submit" className="w-full sm:w-auto" disabled={create.isPending || Boolean(fileSelectionError)}>
-                {create.isPending ? "Membuat proyek..." : "Buat proyek"}
+                {translateI18n(create.isPending ? "projectCreate.creating" : "project.create")}
               </Button>
             </div>
           </div>
@@ -638,31 +642,31 @@ export default function NewProjectPage() {
           <h2 className="text-base font-semibold text-foreground">{translateI18n("copy.beforeCreate")}</h2>
           <div className="mt-5 space-y-5">
             <ChecklistItem
-              label="Data proyek"
-              detail={projectDetailsComplete ? "Nama, pelanggan, dan skenario sudah siap." : "Isi nama, pelanggan, dan skenario."}
+              label={translateI18n("projectCreate.projectInfo")}
+              detail={translateI18n(projectDetailsComplete ? "projectCreate.detailsReady" : "projectCreate.detailsMissing")}
               complete={projectDetailsComplete}
             />
             <ChecklistItem
               label="MoM PDF"
-              detail={mom ? mom.name : "Lampirkan notulen rapat wajib."}
+              detail={mom ? mom.name : translateI18n("projectCreate.momMissing")}
               complete={Boolean(mom)}
             />
             <ChecklistItem
-              label="Daftar output dokumen"
+              label={translateI18n("ui.outputDocumentList")}
               detail={
                 scenarioId
-                  ? `${allSelectedDocumentKeys.length} dokumen dipilih (${mandatoryKeys.length} wajib, ${selectedOptionalKeys.length} opsional)`
+                  ? translateI18n("projectCreate.outputSummary", { selected: allSelectedDocumentKeys.length, required: mandatoryKeys.length, optional: selectedOptionalKeys.length })
                   : translateI18n("ui.chooseScenarioFirst")
               }
               complete={Boolean(scenarioId && allSelectedDocumentKeys.length > 0)}
             />
             <ChecklistItem
-              label="Foto proyek"
-              detail={photos.length ? `${photos.length} foto dilampirkan.` : "Lampirkan minimal satu foto JPG atau PNG."}
+              label={translateI18n("projectCreate.projectPhotos")}
+              detail={photos.length ? translateI18n("projectCreate.photosAttached", { count: photos.length }) : translateI18n("projectCreate.photosMissing")}
               complete={photos.length > 0}
             />
             <ChecklistItem
-              label="Berkas pendukung"
+              label={translateI18n("ui.supportingDocuments")}
               detail={documents.length ? translateI18n("ui.attachedFiles", { count: documents.length }) : translateI18n("ui.noAttachedFiles")}
               complete={documents.length > 0}
               optional

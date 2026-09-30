@@ -1,6 +1,7 @@
 "use client";
+import { useLanguage } from "@/components/i18n/language-provider";
 
-import { translate as translateI18n, getIntlLocale } from "@/i18n";
+import { translate as translateI18n, translateStoredMessage, getIntlLocale } from "@/i18n";
 
 import { useEffect, useMemo, useState } from "react";
 import {
@@ -31,8 +32,7 @@ import { PERSONAL_NOTIFICATION_SETTINGS_ALLOWED_ROLES } from "@/lib/settings-acc
 
 const TELEGRAM_POLL_INTERVAL_MS = 2_000;
 const TELEGRAM_POLL_MAX_DURATION_MS = 60_000;
-const TELEGRAM_LINK_FAILURE_MESSAGE =
-  "Telegram connection could not be completed. The account may already be linked, the link may have expired, or the connection was cancelled. Please try again.";
+const TELEGRAM_LINK_FAILURE_MESSAGE = "notificationSettings.linkFailure";
 
 const getValidatedTelegramLink = (linkUrl: string): string | null => {
   try {
@@ -106,6 +106,7 @@ function PreferencesToggle({ id, checked, disabled, label, onCheckedChange }: Pr
 }
 
 export default function NotificationSettingsPage() {
+  useLanguage();
   return (
     <RoleGuard allowedRoles={PERSONAL_NOTIFICATION_SETTINGS_ALLOWED_ROLES}>
       <NotificationSettingsContent />
@@ -114,6 +115,7 @@ export default function NotificationSettingsPage() {
 }
 
 function NotificationSettingsContent() {
+  const { locale } = useLanguage();
   const { user } = useAuth();
   const [isWaitingForTelegram, setIsWaitingForTelegram] = useState(false);
   const [linkExpiresAt, setLinkExpiresAt] = useState<number | null>(null);
@@ -135,7 +137,7 @@ function NotificationSettingsContent() {
 
   const linkedAt = useMemo(
     () => formatLinkedAt(preferences?.telegram_linked_at || null),
-    [preferences?.telegram_linked_at]
+    [preferences?.telegram_linked_at, locale]
   );
   const isAnyMutationPending =
     updatePreferences.isPending ||
@@ -150,7 +152,7 @@ function NotificationSettingsContent() {
       setIsWaitingForTelegram(false);
       setLinkExpiresAt(null);
       setLinkFailure(null);
-      setFeedback("Telegram connected. Enable Telegram Notifications when you are ready.");
+      setFeedback("notificationSettings.connectedHelp");
       return;
     }
 
@@ -193,7 +195,7 @@ function NotificationSettingsContent() {
     try {
       await updatePreferences.mutateAsync({ [field]: value });
     } catch {
-      setActionError("Unable to update notification preferences. Please try again.");
+      setActionError("notificationSettings.updateFailed");
       void refetchPreferences();
     }
   };
@@ -205,7 +207,7 @@ function NotificationSettingsContent() {
 
     const popup = window.open("", "_blank");
     if (!popup) {
-      setActionError("Unable to open Telegram. Allow pop-ups for this site and try again.");
+      setActionError("notificationSettings.popupFailed");
       return;
     }
 
@@ -213,7 +215,7 @@ function NotificationSettingsContent() {
       popup.opener = null;
     } catch {
       popup.close();
-      setActionError("Unable to open Telegram. Allow pop-ups for this site and try again.");
+      setActionError("notificationSettings.popupFailed");
       return;
     }
 
@@ -230,12 +232,12 @@ function NotificationSettingsContent() {
       const validatedLink = getValidatedTelegramLink(result.linkUrl);
       if (!validatedLink) {
         closePopup();
-        setActionError("Unable to create a secure Telegram connection link. Please try again.");
+        setActionError("notificationSettings.linkCreateFailed");
         return;
       }
 
       if (popup.closed) {
-        setFeedback("Telegram window was closed. Waiting briefly for a connection before you try again.");
+        setFeedback("notificationSettings.windowClosed");
         const parsedExpiry = Date.parse(result.expiresAt);
         setLinkExpiresAt(Number.isNaN(parsedExpiry) ? Date.now() + TELEGRAM_POLL_MAX_DURATION_MS : parsedExpiry);
         setIsWaitingForTelegram(true);
@@ -249,7 +251,7 @@ function NotificationSettingsContent() {
       setIsWaitingForTelegram(true);
     } catch {
       closePopup();
-      setActionError("Unable to start Telegram connection. Please try again.");
+      setActionError("notificationSettings.startFailed");
     }
   };
 
@@ -260,9 +262,9 @@ function NotificationSettingsContent() {
       await invalidateTelegramLink.mutateAsync();
       setIsWaitingForTelegram(false);
       setLinkExpiresAt(null);
-      setFeedback("Telegram connection link cancelled.");
+      setFeedback("notificationSettings.linkCancelled");
     } catch {
-      setActionError("Unable to cancel the Telegram connection link. Please try again.");
+      setActionError("notificationSettings.cancelFailed");
     }
   };
 
@@ -273,9 +275,9 @@ function NotificationSettingsContent() {
       setIsWaitingForTelegram(false);
       setLinkExpiresAt(null);
       setDisconnectOpen(false);
-      setFeedback("Telegram has been disconnected.");
+      setFeedback("notificationSettings.disconnected");
     } catch {
-      setActionError("Unable to disconnect Telegram. Please try again.");
+      setActionError("notificationSettings.disconnectFailed");
     }
   };
 
@@ -287,7 +289,7 @@ function NotificationSettingsContent() {
             <Bell className="h-4 w-4" aria-hidden="true" />
           </span>
           <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-primary">
-            Personal Preferences
+            {translateI18n("notificationSettings.personal")}
           </span>
         </div>
         <h1 className="text-3xl font-bold tracking-tight">{translateI18n("notifications.settings")}</h1>
@@ -297,19 +299,19 @@ function NotificationSettingsContent() {
       {actionError && (
         <div className="flex items-start gap-2 rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
           <CircleAlert className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
-          <p>{actionError}</p>
+          <p>{translateStoredMessage(actionError)}</p>
         </div>
       )}
       {linkFailure && (
         <div className="flex items-start gap-2 rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
           <CircleAlert className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
-          <p>{linkFailure}</p>
+          <p>{translateStoredMessage(linkFailure)}</p>
         </div>
       )}
       {feedback && (
         <div className="flex items-start gap-2 rounded-xl border border-primary/20 bg-primary/5 px-4 py-3 text-sm text-muted-foreground">
           <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
-          <p>{feedback}</p>
+          <p>{translateStoredMessage(feedback)}</p>
         </div>
       )}
 
@@ -317,7 +319,7 @@ function NotificationSettingsContent() {
         <Card className="border-border/60 bg-card/70 shadow-sm">
           <CardContent className="flex min-h-48 items-center justify-center gap-2 text-sm text-muted-foreground">
             <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" />
-            Loading notification preferences...
+            {translateI18n("notificationSettings.loading")}
           </CardContent>
         </Card>
       ) : isError || !preferences ? (
@@ -326,7 +328,7 @@ function NotificationSettingsContent() {
             <CircleAlert className="h-5 w-5 text-destructive" aria-hidden="true" />
             <p className="text-sm text-muted-foreground">{translateI18n("copy.notificationPrefsError")}</p>
             <Button variant="outline" size="sm" onClick={() => void refetchPreferences()}>
-              Try Again
+              {translateI18n("common.retry")}
             </Button>
           </CardContent>
         </Card>
@@ -339,13 +341,13 @@ function NotificationSettingsContent() {
                   <Bell className="h-4 w-4" aria-hidden="true" />
                 </span>
                 <Badge variant={preferences.in_app_enabled ? "success" : "outline"}>
-                  {preferences.in_app_enabled ? "Enabled" : "Disabled"}
+                  {translateI18n(preferences.in_app_enabled ? "common.enabled" : "common.disabled")}
                 </Badge>
               </div>
               <div>
                 <CardTitle className="text-base font-semibold tracking-tight">{translateI18n("ui.inAppNotifications")}</CardTitle>
                 <CardDescription className="mt-1 text-xs">
-                  Receive workflow updates in the notification bell.
+                  {translateI18n("notificationSettings.inAppHelp")}
                 </CardDescription>
               </div>
             </CardHeader>
@@ -356,7 +358,7 @@ function NotificationSettingsContent() {
               </div>
               <PreferencesToggle
                 id="in-app-enabled"
-                label="Enable in-app notifications"
+                label={translateI18n("notificationSettings.enableInApp")}
                 checked={preferences.in_app_enabled}
                 disabled={isAnyMutationPending}
                 onCheckedChange={(checked) => void handleUpdatePreference("in_app_enabled", checked)}
@@ -371,13 +373,13 @@ function NotificationSettingsContent() {
                   <Send className="h-4 w-4" aria-hidden="true" />
                 </span>
                 <Badge variant={preferences.telegram_linked ? "success" : "outline"}>
-                  {preferences.telegram_linked ? "Connected" : "Not Connected"}
+                  {translateI18n(preferences.telegram_linked ? "notificationSettings.connected" : "notificationSettings.notConnected")}
                 </Badge>
               </div>
               <div>
                 <CardTitle className="text-base font-semibold tracking-tight">{translateI18n("copy.telegramNotifications")}</CardTitle>
                 <CardDescription className="mt-1 text-xs">
-                  Link Telegram first, then choose whether workflow updates are delivered there.
+                  {translateI18n("notificationSettings.telegramHelp")}
                 </CardDescription>
               </div>
             </CardHeader>
@@ -388,7 +390,7 @@ function NotificationSettingsContent() {
                     {preferences.telegram_username && (
                       <p className="font-medium text-foreground">@{preferences.telegram_username}</p>
                     )}
-                    {linkedAt && <p className="text-muted-foreground">Connected {linkedAt}</p>}
+                    {linkedAt && <p className="text-muted-foreground">{translateI18n("notificationSettings.connectedAt", { date: linkedAt })}</p>}
                   </div>
                   <div className="flex items-center justify-between gap-4">
                     <div>
@@ -397,7 +399,7 @@ function NotificationSettingsContent() {
                     </div>
                     <PreferencesToggle
                       id="telegram-enabled"
-                      label="Enable Telegram notifications"
+                      label={translateI18n("notificationSettings.enableTelegram")}
                       checked={preferences.telegram_enabled}
                       disabled={isAnyMutationPending}
                       onCheckedChange={(checked) => void handleUpdatePreference("telegram_enabled", checked)}
@@ -411,7 +413,7 @@ function NotificationSettingsContent() {
                     onClick={() => setDisconnectOpen(true)}
                   >
                     <Unplug className="h-4 w-4" aria-hidden="true" />
-                    Disconnect Telegram
+                    {translateI18n("notificationSettings.disconnect")}
                   </Button>
                 </>
               ) : isWaitingForTelegram ? (
@@ -421,7 +423,7 @@ function NotificationSettingsContent() {
                     <div>
                       <p className="text-sm font-medium text-foreground">{translateI18n("copy.waitingTelegram")}</p>
                       <p className="mt-1 text-xs text-muted-foreground">
-                        Complete the connection in Telegram. This page will update automatically.
+                        {translateI18n("notificationSettings.completeLink")}
                       </p>
                     </div>
                   </div>
@@ -434,7 +436,7 @@ function NotificationSettingsContent() {
                     onClick={() => void handleCancelTelegramLink()}
                   >
                     {invalidateTelegramLink.isPending ? <LoaderCircle className="h-3.5 w-3.5 animate-spin" /> : <Unplug className="h-3.5 w-3.5" />}
-                    Cancel
+                    {translateI18n("common.cancel")}
                   </Button>
                 </div>
               ) : (
@@ -450,7 +452,7 @@ function NotificationSettingsContent() {
                     onClick={() => void handleConnectTelegram()}
                   >
                     {createTelegramLink.isPending ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Link2 className="h-4 w-4" />}
-                    Connect Telegram
+                    {translateI18n("notificationSettings.connect")}
                     {!createTelegramLink.isPending && <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />}
                   </Button>
                 </div>
@@ -464,7 +466,7 @@ function NotificationSettingsContent() {
         <DialogHeader>
           <DialogTitle>{translateI18n("copy.disconnectTelegram")}</DialogTitle>
           <DialogDescription>
-            Telegram delivery will be disabled and this account will no longer receive workflow updates there.
+            {translateI18n("notificationSettings.disconnectHelp")}
           </DialogDescription>
         </DialogHeader>
         <DialogFooter>
@@ -472,7 +474,7 @@ function NotificationSettingsContent() {
             {translateI18n("common.cancel")}
           </Button>
           <Button variant="destructive" onClick={() => void handleDisconnectTelegram()} disabled={unlinkTelegram.isPending}>
-            {unlinkTelegram.isPending ? "Disconnecting..." : "Disconnect Telegram"}
+            {translateI18n(unlinkTelegram.isPending ? "notificationSettings.disconnectProgress" : "notificationSettings.disconnect")}
           </Button>
         </DialogFooter>
       </Dialog>

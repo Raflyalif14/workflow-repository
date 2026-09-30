@@ -1,6 +1,7 @@
 "use client";
 
-import { translate as translateI18n } from "@/i18n";
+import { translate as translateI18n, translateStoredError } from "@/i18n";
+import { useLanguage } from "@/components/i18n/language-provider";
 
 import { useState, type FormEvent } from "react";
 import { AlertCircle, FileText, Paperclip, UploadCloud, X } from "lucide-react";
@@ -44,6 +45,7 @@ export function SalesMilestoneDocumentUploadDialog({
   milestoneName,
   onSuccess,
 }: SalesMilestoneDocumentUploadDialogProps) {
+  useLanguage();
   const uploadDocuments = useUploadSalesMilestoneDocuments(projectId, milestoneId);
   const [files, setFiles] = useState<File[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -85,7 +87,7 @@ export function SalesMilestoneDocumentUploadDialog({
       reset();
       onOpenChange(false);
     } catch {
-      setError("Unable to upload milestone documents. Please try again.");
+      setError("projectAction.salesUploadFailed");
     }
   };
 
@@ -99,7 +101,7 @@ export function SalesMilestoneDocumentUploadDialog({
           <div className="min-w-0 space-y-1">
             <DialogTitle className="text-base font-semibold tracking-tight">{translateI18n("ui.uploadMilestoneDocuments")}</DialogTitle>
             <DialogDescription className="mt-0 text-xs leading-relaxed">
-              Add official documents for the SALES milestone &ldquo;{milestoneName}&rdquo;.
+              {translateI18n("projectAction.salesUploadHelp", { name: milestoneName })}
             </DialogDescription>
           </div>
         </div>
@@ -114,7 +116,7 @@ export function SalesMilestoneDocumentUploadDialog({
             <Paperclip className="mb-2 h-7 w-7 text-muted-foreground" />
             <span className="text-xs font-medium text-foreground">{translateI18n("copy.chooseFiles")}</span>
             <span className="mt-0.5 text-[11px] text-muted-foreground">
-              Up to {MAX_DOCUMENT_FILES} files, 50 MB each
+              {translateI18n("contribution.fileLimit", { count: MAX_DOCUMENT_FILES })}
             </span>
             <Input
               type="file"
@@ -149,7 +151,7 @@ export function SalesMilestoneDocumentUploadDialog({
                   className="h-7 w-7 shrink-0 text-muted-foreground hover:text-destructive"
                   onClick={() => removeFile(index)}
                   disabled={uploadDocuments.isPending}
-                  aria-label={`Remove ${file.name}`}
+                  aria-label={translateI18n("projectCreate.removeFile", { name: file.name })}
                 >
                   <X className="h-3.5 w-3.5" />
                 </Button>
@@ -161,7 +163,7 @@ export function SalesMilestoneDocumentUploadDialog({
         {(error || selectionError) && (
           <div className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive" role="alert">
             <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-            <span>{error || selectionError}</span>
+            <span>{selectionError ? translateI18n("projectCreate.invalidFile") : translateStoredError(error || "projectAction.salesUploadFailed")}</span>
           </div>
         )}
 
@@ -180,7 +182,7 @@ export function SalesMilestoneDocumentUploadDialog({
             className="h-9 rounded-lg"
             disabled={!canSubmitDocumentFiles(files, selectionError) || uploadDocuments.isPending}
           >
-            {uploadDocuments.isPending ? "Uploading..." : "Upload Documents"}
+            {translateI18n(uploadDocuments.isPending ? "outputUi.uploading" : "projectAction.uploadDocuments")}
           </Button>
         </DialogFooter>
       </form>

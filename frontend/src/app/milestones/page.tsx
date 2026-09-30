@@ -1,6 +1,7 @@
 "use client";
+import { useLanguage } from "@/components/i18n/language-provider";
 
-import { translate as translateI18n, getIntlLocale } from "@/i18n";
+import { translate as translateI18n, getIntlLocale, translateOutputName, translateMilestoneStatus, type TranslationKey } from "@/i18n";
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
@@ -15,31 +16,30 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { AssignedMilestone, useMyAssignedMilestones } from "@/hooks/use-projects";
 import { useOutputRepository, OutputRepositoryItem } from "@/hooks/use-output-documents";
-import { formatMilestoneStatusLabel } from "@/lib/workflow-ux-helpers";
 import { getAssignedMilestonesNeedingAction, isAssignedProjectPaused } from "@/lib/assigned-milestone-ux";
 
 type QueueTab = "ACTION" | "REVIEW" | "PENDING_REVIEW" | "COMPLETED" | "ALL";
 
-const rolePageCopy: Record<string, { eyebrow: string; title: string; description: string }> = {
+const rolePageCopy: Record<string, { eyebrow: TranslationKey; title: TranslationKey; description: TranslationKey }> = {
   SA: {
-    eyebrow: "Delivery workspace",
-    title: "Assigned work",
-    description: "Continue assigned work, submit deliverables, and respond to review feedback.",
+    eyebrow: "milestonePage.deliveryWorkspace",
+    title: "milestonePage.assignedWork",
+    description: "milestonePage.saDescription",
   },
   HEAD_SA: {
-    eyebrow: "Review workspace",
-    title: "Milestone oversight",
-    description: "Review submitted work while keeping your own assigned delivery work visible.",
+    eyebrow: "milestonePage.reviewWorkspace",
+    title: "milestonePage.oversight",
+    description: "milestonePage.headDescription",
   },
   SALES: {
-    eyebrow: "Project delivery",
-    title: "Project milestones",
-    description: "Open a project to manage its customer-facing delivery stages.",
+    eyebrow: "milestonePage.projectDelivery",
+    title: "milestonePage.projectMilestones",
+    description: "milestonePage.salesDescription",
   },
   SUPER_ADMIN: {
-    eyebrow: "Workflow oversight",
-    title: "Milestone operations",
-    description: "Open a project to inspect its complete delivery workflow.",
+    eyebrow: "milestonePage.workflowOversight",
+    title: "milestonePage.operations",
+    description: "milestonePage.adminDescription",
   },
 };
 
@@ -55,11 +55,12 @@ function getMilestoneStatusBadge(status: string) {
     case "REJECTED":
       return <Badge variant="destructive">{translateI18n("milestoneStatus.REVISION_REQUIRED")}</Badge>;
     default:
-      return <Badge variant="outline">{formatMilestoneStatusLabel(status)}</Badge>;
+      return <Badge variant="outline">{translateMilestoneStatus(status)}</Badge>;
   }
 }
 
 export default function MilestonesPage() {
+  useLanguage();
   const { user } = useAuth();
   const userRole = user?.role || "GUEST";
   const pageCopy = rolePageCopy[userRole] || rolePageCopy.SUPER_ADMIN;
@@ -96,25 +97,25 @@ export default function MilestonesPage() {
   }, [activeTab, completed, milestones, needsAction, underReview]);
   const snapshot = isHeadSa
     ? [
-        { label: "Assigned actions", value: needsAction.length },
-        { label: "Pending reviews", value: reviewableOutputs.length },
-        { label: "Own work in review", value: underReview.length },
-        { label: "Completed assignments", value: completed.length },
+        { label: translateI18n("milestonePage.assignedActions"), value: needsAction.length },
+        { label: translateI18n("milestonePage.pendingReviews"), value: reviewableOutputs.length },
+        { label: translateI18n("milestonePage.ownReview"), value: underReview.length },
+        { label: translateI18n("milestonePage.completedAssignments"), value: completed.length },
       ]
     : [
-        { label: "Needs action", value: needsAction.length },
-        { label: "Under review", value: underReview.length },
-        { label: "Completed", value: completed.length },
-        { label: "Total assigned", value: milestones.length },
+        { label: translateI18n("milestonePage.needsAction"), value: needsAction.length },
+        { label: translateI18n("milestonePage.underReview"), value: underReview.length },
+        { label: translateI18n("projectStatus.COMPLETED"), value: completed.length },
+        { label: translateI18n("milestonePage.totalAssigned"), value: milestones.length },
       ];
 
   return (
     <div className="mx-auto w-full max-w-[1280px] space-y-5 px-4 py-6 sm:px-6 lg:px-8">
       <header className="flex flex-col gap-4 border-b border-border/60 pb-5 sm:flex-row sm:items-end sm:justify-between">
         <div className="max-w-2xl">
-          <p className="text-xs font-semibold uppercase text-primary">{pageCopy.eyebrow}</p>
-          <h1 className="mt-1 text-2xl font-semibold text-foreground sm:text-3xl">{pageCopy.title}</h1>
-          <p className="mt-1 text-sm text-muted-foreground">{pageCopy.description}</p>
+          <p className="text-xs font-semibold uppercase text-primary">{translateI18n(pageCopy.eyebrow)}</p>
+          <h1 className="mt-1 text-2xl font-semibold text-foreground sm:text-3xl">{translateI18n(pageCopy.title)}</h1>
+          <p className="mt-1 text-sm text-muted-foreground">{translateI18n(pageCopy.description)}</p>
         </div>
         <Link href="/projects" className="self-start sm:self-auto">
           <Button variant="outline" className="gap-2">
@@ -129,7 +130,7 @@ export default function MilestonesPage() {
           <FolderKanban className="mx-auto h-8 w-8 text-muted-foreground" />
           <h2 className="mt-3 font-semibold text-foreground">{translateI18n("copy.milestoneLocation")}</h2>
           <p className="mx-auto mt-1 max-w-md text-sm text-muted-foreground">
-            Use the Projects workspace to open the delivery timeline available to your role.
+            {translateI18n("milestonePage.openProjectHelp")}
           </p>
           <Link href="/projects" className="mt-4 inline-block">
             <Button size="sm">{translateI18n("copy.openProjects")}</Button>
@@ -138,7 +139,7 @@ export default function MilestonesPage() {
       ) : (
         <>
           <section
-            aria-label="Milestone snapshot"
+            aria-label={translateI18n("milestonePage.snapshot")}
             className="grid grid-cols-2 overflow-hidden rounded-lg border border-border/60 bg-card lg:grid-cols-4"
           >
             {snapshot.map((item, index) => (
@@ -161,33 +162,33 @@ export default function MilestonesPage() {
               <div className="flex items-center gap-2 overflow-x-auto pb-1">
                 <QueueTabButton
                   active={activeTab === "ACTION"}
-                  label="Needs action"
+                  label={translateI18n("milestonePage.needsAction")}
                   count={needsAction.length}
                   onClick={() => setActiveTab("ACTION")}
                 />
                 {isHeadSa && (
                   <QueueTabButton
                     active={activeTab === "PENDING_REVIEW"}
-                    label="Pending review"
+                    label={translateI18n("milestonePage.pendingReview")}
                     count={reviewableOutputs.length}
                     onClick={() => setActiveTab("PENDING_REVIEW")}
                   />
                 )}
                 <QueueTabButton
                   active={activeTab === "REVIEW"}
-                  label="Under review"
+                  label={translateI18n("milestonePage.underReview")}
                   count={underReview.length}
                   onClick={() => setActiveTab("REVIEW")}
                 />
                 <QueueTabButton
                   active={activeTab === "COMPLETED"}
-                  label="Completed"
+                  label={translateI18n("projectStatus.COMPLETED")}
                   count={completed.length}
                   onClick={() => setActiveTab("COMPLETED")}
                 />
                 <QueueTabButton
                   active={activeTab === "ALL"}
-                  label="All assigned"
+                  label={translateI18n("milestonePage.allAssigned")}
                   count={milestones.length}
                   onClick={() => setActiveTab("ALL")}
                 />
@@ -203,14 +204,14 @@ export default function MilestonesPage() {
             ) : isLoading ? (
               <LoadingRows />
             ) : isError ? (
-              <ErrorState message="Unable to load assigned milestones." />
+              <ErrorState message={translateI18n("milestonePage.loadFailed")} />
             ) : filteredMilestones.length === 0 ? (
               <EmptyState
                 actionQueue={activeTab === "ACTION"}
                 message={
                   activeTab === "ACTION"
-                    ? "Nothing needs your action right now."
-                    : "No milestones match this queue."
+                    ? translateI18n("milestonePage.noAction")
+                    : translateI18n("milestonePage.noMatches")
                 }
               />
             ) : (
@@ -281,7 +282,7 @@ function EmptyState({ actionQueue, message }: { actionQueue: boolean; message: s
       <Icon className="mx-auto h-8 w-8 text-muted-foreground" />
       <p className="mt-3 font-medium text-foreground">{message}</p>
       <p className="mt-1 text-xs text-muted-foreground">
-        New work appears here when the project workflow reaches your role.
+        {translateI18n("milestonePage.newWorkHelp")}
       </p>
     </div>
   );
@@ -291,12 +292,12 @@ function HeadSaReviewQueue({ reviewableOutputs, isLoading, isError }: {
   reviewableOutputs: OutputRepositoryItem[]; isLoading: boolean; isError: boolean;
 }) {
   if (isLoading) return <LoadingRows />;
-  if (isError) return <ErrorState message="Unable to load outputs awaiting review." />;
-  if (!reviewableOutputs.length) return <EmptyState actionQueue message="No outputs are waiting for review." />;
+  if (isError) return <ErrorState message={translateI18n("milestonePage.reviewLoadFailed")} />;
+  if (!reviewableOutputs.length) return <EmptyState actionQueue message={translateI18n("milestonePage.noReviewOutputs")} />;
   return <div>{reviewableOutputs.map((item) =>
     <div key={`${item.projectId}:${item.documentKey}`} className="flex items-center justify-between gap-3 border-t border-border/60 px-4 py-4 first:border-t-0 sm:px-5">
-      <div><p className="font-medium">{item.name}</p><p className="text-xs text-muted-foreground">{item.projectName}</p></div>
-      <Link href={`/projects/${item.projectId}#milestone-outputs-${item.milestoneId}`}><Button size="sm" variant="outline">Review output <ArrowRight className="ml-1 h-3.5 w-3.5" /></Button></Link>
+      <div><p className="font-medium">{translateOutputName(item.documentKey, item.name)}</p><p className="text-xs text-muted-foreground">{item.projectName}</p></div>
+      <Link href={`/projects/${item.projectId}#milestone-outputs-${item.milestoneId}`}><Button size="sm" variant="outline">{translateI18n("milestonePage.reviewOutput")} <ArrowRight className="ml-1 h-3.5 w-3.5" /></Button></Link>
     </div>
   )}</div>;
 }
@@ -305,8 +306,8 @@ function AssignedMilestoneRow({ milestone }: { milestone: AssignedMilestone; isH
   const projectId = milestone.project?.id || milestone.project_id;
   return <div className="flex items-center justify-between gap-3 border-t border-border/60 px-4 py-4 first:border-t-0 sm:px-5">
     <div className="min-w-0"><div className="flex items-center gap-2"><p className="font-medium">{milestone.name}</p>{getMilestoneStatusBadge(milestone.status)}</div>
-      <p className="text-xs text-muted-foreground">{milestone.project?.name || "Project"}{isAssignedProjectPaused(milestone) ? " ? Paused" : ""}</p>
+      <p className="text-xs text-muted-foreground">{milestone.project?.name || translateI18n("copy.projectLabel")}{isAssignedProjectPaused(milestone) ? ` · ${translateI18n("projectStatus.POSTPONED")}` : ""}</p>
     </div>
-    {projectId && <Link href={`/projects/${projectId}#project-milestone-${milestone.id}`}><Button size="sm" variant="outline">Open milestone <ArrowRight className="ml-1 h-3.5 w-3.5" /></Button></Link>}
+    {projectId && <Link href={`/projects/${projectId}#project-milestone-${milestone.id}`}><Button size="sm" variant="outline">{translateI18n("milestonePage.openMilestone")} <ArrowRight className="ml-1 h-3.5 w-3.5" /></Button></Link>}
   </div>;
 }

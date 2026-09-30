@@ -4,7 +4,7 @@ import { flattenActivityPages, formatActivityAction } from "./activity-timeline"
 assert.equal(formatActivityAction("PROJECT_PLAN_APPROVED"), "Project Plan Approved", "Test 1: known actions receive readable labels");
 console.log("Test 1 - Known activity action formatting: passed");
 
-assert.equal(formatActivityAction("LEGACY_CUSTOM_EVENT"), "Legacy Custom Event", "Test 2: unknown historical actions remain readable");
+assert.equal(formatActivityAction("LEGACY_CUSTOM_EVENT"), "Other activity", "Test 2: unknown historical actions use a safe fallback");
 console.log("Test 2 - Unknown action fallback formatting: passed");
 
 const flattened = flattenActivityPages([

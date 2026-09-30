@@ -1,6 +1,7 @@
 "use client";
 
-import { translate as translateI18n } from "@/i18n";
+import { translate as translateI18n, translateStoredError } from "@/i18n";
+import { useLanguage } from "@/components/i18n/language-provider";
 
 import React, { useState } from "react";
 import {
@@ -32,6 +33,7 @@ export function UploadVersionDialog({
   onOpenChange,
   document,
 }: UploadVersionDialogProps) {
+  useLanguage();
   const uploadVersionMutation = useUploadNewVersion();
 
   const [changelog, setChangelog] = useState("");
@@ -46,11 +48,11 @@ export function UploadVersionDialog({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedFile) {
-      setError("Please select the updated file version.");
+      setError("documentDialog.fileRequired");
       return;
     }
     if (!changelog.trim()) {
-      setError("Please enter a brief changelog describing the updates.");
+      setError("documentDialog.noteRequired");
       return;
     }
 
@@ -69,8 +71,7 @@ export function UploadVersionDialog({
       setChangelog("");
       setError("");
     } catch (err: unknown) {
-      const errorMsg = err instanceof Error ? err.message : "Failed to upload version";
-      setError(errorMsg);
+      setError("documentDialog.uploadFailed");
     }
   };
 
@@ -106,7 +107,7 @@ export function UploadVersionDialog({
               htmlFor="document-version-file"
               className="mb-2 block text-sm font-medium text-foreground"
             >
-              Revision file <span className="text-destructive">*</span>
+              {translateI18n("documentDialog.revisionFile")} <span className="text-destructive">*</span>
             </label>
             <input
               id="document-version-file"
@@ -140,7 +141,7 @@ export function UploadVersionDialog({
                   htmlFor="document-version-file"
                   className="cursor-pointer rounded-md px-2 py-1 text-xs font-medium text-primary outline-none hover:bg-primary/10 focus-within:ring-2 focus-within:ring-ring"
                 >
-                  Replace
+                  {translateI18n("outputUi.replace")}
                 </label>
                 <Button
                   type="button"
@@ -149,7 +150,7 @@ export function UploadVersionDialog({
                   className="h-8 w-8 shrink-0"
                   onClick={() => setSelectedFile(null)}
                   disabled={uploadVersionMutation.isPending}
-                  aria-label="Remove selected file"
+                  aria-label={translateI18n("documentDialog.removeFile")}
                 >
                   <X className="h-4 w-4" />
                 </Button>
@@ -161,10 +162,10 @@ export function UploadVersionDialog({
               >
                 <FileText className="mb-2 h-7 w-7 text-muted-foreground" />
                 <span className="text-sm font-medium text-foreground">
-                  Choose revision file
+                  {translateI18n("documentDialog.chooseFile")}
                 </span>
                 <span className="mt-1 text-xs text-muted-foreground">
-                  PDF, DOCX, XLSX, images, or ZIP
+                  {translateI18n("documentDialog.fileTypes")}
                 </span>
               </label>
             )}
@@ -175,12 +176,12 @@ export function UploadVersionDialog({
               htmlFor="document-version-note"
               className="mb-2 block text-sm font-medium text-foreground"
             >
-              Version note <span className="text-destructive">*</span>
+              {translateI18n("documentDialog.versionNote")} <span className="text-destructive">*</span>
             </label>
             <textarea
               id="document-version-note"
               rows={3}
-              placeholder="Describe what changed in this version..."
+              placeholder={translateI18n("documentDialog.notePlaceholder")}
               value={changelog}
               onChange={(event) => {
                 setChangelog(event.target.value);
@@ -201,7 +202,7 @@ export function UploadVersionDialog({
               role="alert"
             >
               <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-              <span>{error}</span>
+              <span>{translateStoredError(error)}</span>
             </div>
           )}
 
@@ -215,7 +216,7 @@ export function UploadVersionDialog({
               {translateI18n("common.cancel")}
             </Button>
             <Button type="submit" disabled={uploadVersionMutation.isPending}>
-              {uploadVersionMutation.isPending ? "Uploading..." : "Upload version"}
+              {translateI18n(uploadVersionMutation.isPending ? "outputUi.uploading" : "documents.uploadVersion")}
             </Button>
           </DialogFooter>
         </form>

@@ -13,6 +13,9 @@ import {
 } from "./workflow-ux-helpers";
 import { Project, ProjectMilestonePhase4, ProjectPlanApproval } from "@/types/project";
 import { getLocalDateOnlyKey } from "./dates";
+import { setActiveLanguage, translate } from "@/i18n";
+
+setActiveLanguage("en");
 
 const baseProject: Project = {
   id: "project-1",
@@ -91,10 +94,10 @@ for (const [status, expectedLabel] of projectStatusLabels) {
 if (formatHumanReadableLabel("PENDING_REVIEW") !== "Pending Review") {
   throw new Error("formatHumanReadableLabel failed for underscore values");
 }
-if (formatMilestoneStatusLabel("IN_PROGRESS") !== "In Progress" || formatMilestoneStatusLabel("SUBMITTED") !== "Under Review") {
+if (formatMilestoneStatusLabel("IN_PROGRESS") !== "In progress" || formatMilestoneStatusLabel("SUBMITTED") !== "Under review") {
   throw new Error("formatMilestoneStatusLabel failed");
 }
-if (getApprovalTypeDisplay("PROJECT_PLAN") !== "Project Plan" || getApprovalTypeDisplay("DEADLINE") !== "Deadline Change" || getApprovalTypeDisplay("SUBMISSION") !== "Work Submission" || getApprovalTypeDisplay("MILESTONE_SUBMISSION") !== "Work Submission") {
+if (getApprovalTypeDisplay("PROJECT_PLAN") !== "Project Plan" || getApprovalTypeDisplay("DEADLINE") !== "Deadline Change" || getApprovalTypeDisplay("SUBMISSION") !== "Submission" || getApprovalTypeDisplay("MILESTONE_SUBMISSION") !== "Milestone Submission") {
   throw new Error("getApprovalTypeDisplay failed");
 }
 
@@ -104,7 +107,7 @@ const roleLabels: Array<[string | undefined, string]> = [
   ["SA", "Solution Architect"],
   ["SUPER_ADMIN", "Super Admin"],
   ["GUEST", "Guest"],
-  ["CUSTOM_WORKFLOW_ROLE", "Custom Workflow Role"],
+  ["CUSTOM_WORKFLOW_ROLE", "Unknown role"],
   [undefined, "Guest"],
 ];
 for (const [role, expectedLabel] of roleLabels) {
@@ -270,7 +273,7 @@ if (!draftActionOther.isWaiting || draftActionOther.waitingForRole !== "SALES") 
 }
 if (
   draftActionOther.title !== "Project plan is being prepared" ||
-  draftActionOther.description !== "Sales is setting up the timeline before submitting it for review."
+  draftActionOther.description !== "Sales is setting up the timeline before review."
 ) {
   throw new Error("Waiting guidance should explain the current Sales task");
 }
@@ -430,8 +433,8 @@ const futureStageAction = resolveNextAction(
 if (futureStageAction.canPerformAction || !futureStageAction.isWaiting) {
   throw new Error("Milestone with future start date must not be actionable");
 }
-if (!futureStageAction.description.startsWith("Upcoming — Starts ")) {
-  throw new Error(`Expected description to start with 'Upcoming — Starts ', got '${futureStageAction.description}'`);
+if (!futureStageAction.description.startsWith(translate("nextAction.startsOn", { date: "" }))) {
+  throw new Error(`Expected upcoming stage description, got '${futureStageAction.description}'`);
 }
 
 const currentMilestoneStartToday: ProjectMilestonePhase4 = {
@@ -456,7 +459,7 @@ const activeRevisionAction = resolveNextAction(
   { id: "sa-1", role: "SA" },
   { activeRevisionMilestoneId: futureMilestone.id }
 );
-if (!activeRevisionAction.canPerformAction || activeRevisionAction.actionLabel !== "Submit Work") {
+if (!activeRevisionAction.canPerformAction || activeRevisionAction.actionLabel !== "Open outputs") {
   throw new Error("An active revision must bypass the initial start-date gate");
 }
 
@@ -466,12 +469,26 @@ const historicalRejectionAction = resolveNextAction(
   null,
   { id: "sa-1", role: "SA" }
 );
-if (historicalRejectionAction.canPerformAction || historicalRejectionAction.actionLabel !== "Prepare submission") {
+if (historicalRejectionAction.canPerformAction || historicalRejectionAction.actionLabel !== "View milestone outputs") {
   throw new Error("A historical rejection alone must not bypass the initial start-date gate");
 }
 
 if (getLocalDateOnlyKey(new Date("2026-09-14T17:30:00.000Z")) !== "2026-09-15") {
   throw new Error("Start-date eligibility must use the Asia/Jakarta date boundary");
 }
+
+setActiveLanguage("id");
+if (formatProjectStatusLabel("DRAFT") !== "Perencanaan" || formatMilestoneStatusLabel("IN_PROGRESS") !== "Sedang berjalan" || formatMilestoneStatusLabel("SUBMITTED") !== "Dalam peninjauan") {
+  throw new Error("Indonesian workflow status labels failed");
+}
+const indonesianDraftAction = resolveNextAction(baseProject, [milestone1, milestone2, milestone3], null, { id: "head-1", role: "HEAD_SA" });
+if (indonesianDraftAction.title !== "Rencana proyek sedang disiapkan" || indonesianDraftAction.waitingForRole !== draftActionOther.waitingForRole || indonesianDraftAction.canPerformAction !== draftActionOther.canPerformAction) {
+  throw new Error("Language change must preserve draft workflow guidance and eligibility");
+}
+const indonesianSaAction = resolveNextAction(activeProject, saMilestones, null, { id: "sa-1", role: "SA" });
+if (indonesianSaAction.actionLabel !== "Buka output" || indonesianSaAction.actionType !== saActionAssigned.actionType || indonesianSaAction.canPerformAction !== saActionAssigned.canPerformAction || resolveNextActionTargetId(indonesianSaAction) !== resolveNextActionTargetId(saActionAssigned)) {
+  throw new Error("Language change must preserve SA action and milestone target");
+}
+setActiveLanguage("en");
 
 console.log("All workflow UX helper tests passed successfully!");

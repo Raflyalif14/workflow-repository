@@ -101,19 +101,24 @@ export function normalizeAuthUser(input: unknown): User {
   };
 }
 
-export function validatePasswordPolicy(password: string) {
-  if (!password) return translate("auth.passwordRequired");
+export function validatePasswordPolicyKey(password: string) {
+  if (!password) return "auth.passwordRequired" as const;
   if (password !== password.trim()) {
-    return translate("auth.passwordWhitespace");
+    return "auth.passwordWhitespace" as const;
   }
-  if (password.length < 12) return translate("auth.passwordLength");
-  if (!/[A-Z]/.test(password)) return translate("auth.passwordUppercase");
-  if (!/[a-z]/.test(password)) return translate("auth.passwordLowercase");
-  if (!/\d/.test(password)) return translate("auth.passwordNumber");
+  if (password.length < 12) return "auth.passwordLength" as const;
+  if (!/[A-Z]/.test(password)) return "auth.passwordUppercase" as const;
+  if (!/[a-z]/.test(password)) return "auth.passwordLowercase" as const;
+  if (!/\d/.test(password)) return "auth.passwordNumber" as const;
   if (!/[^A-Za-z0-9]/.test(password)) {
-    return translate("auth.passwordSpecial");
+    return "auth.passwordSpecial" as const;
   }
   return null;
+}
+
+export function validatePasswordPolicy(password: string) {
+  const key = validatePasswordPolicyKey(password);
+  return key ? translate(key) : null;
 }
 
 export const authRoutes = {

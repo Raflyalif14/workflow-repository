@@ -1,17 +1,19 @@
 "use client";
+import { useLanguage } from "@/components/i18n/language-provider";
 
 
-import { translate as translateI18n } from "@/i18n";
+import { translate as translateI18n, translateStoredError, translateStoredMessage } from "@/i18n";
 import React, { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
 import { AlertCircle, ArrowRight, CheckCircle2, Eye, EyeOff, LockKeyhole } from "lucide-react";
 import { apiClient } from "@/lib/api-client";
-import { clearStoredAuth, validatePasswordPolicy } from "@/lib/auth";
+import { clearStoredAuth, validatePasswordPolicyKey } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 
 export default function ResetPasswordPage() {
+  useLanguage();
   const [tokenHash, setTokenHash] = useState("");
   const [isValidLink, setIsValidLink] = useState(false);
   const [newPassword, setNewPassword] = useState("");
@@ -34,14 +36,14 @@ export default function ResetPasswordPage() {
     event.preventDefault();
     setError("");
 
-    const passwordError = validatePasswordPolicy(newPassword);
+    const passwordError = validatePasswordPolicyKey(newPassword);
     if (passwordError) {
       setError(passwordError);
       return;
     }
 
     if (newPassword !== confirmPassword) {
-      setError("Konfirmasi password tidak sama.");
+      setError("auth.passwordMismatch");
       return;
     }
 
@@ -55,9 +57,9 @@ export default function ResetPasswordPage() {
         }),
       });
       clearStoredAuth();
-      setSuccess("Password berhasil direset. Silakan login kembali.");
+      setSuccess("auth.passwordResetSuccess");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Link reset tidak valid atau kedaluwarsa.");
+      setError("ui.invalidResetLink");
     } finally {
       setIsSubmitting(false);
     }
@@ -69,7 +71,7 @@ export default function ResetPasswordPage() {
         <CardHeader className="space-y-2">
           <CardTitle className="text-xl">{translateI18n("copy.resetPassword")}</CardTitle>
           <p className="text-sm text-muted-foreground">
-            Create a new password from your recovery link.
+            {translateI18n("auth.recoveryHelp")}
           </p>
         </CardHeader>
         <CardContent>
@@ -81,7 +83,7 @@ export default function ResetPasswordPage() {
               </div>
               <Link href="/forgot-password">
                 <Button className="w-full" variant="outline">
-                  Request New Link
+                  {translateI18n("auth.requestNewLink")}
                 </Button>
               </Link>
             </div>
@@ -89,11 +91,11 @@ export default function ResetPasswordPage() {
             <div className="space-y-4">
               <div className="flex items-start gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-300">
                 <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
-                <span>{success}</span>
+                <span>{translateStoredMessage(success)}</span>
               </div>
               <Link href="/login">
                 <Button className="w-full gap-2">
-                  Login
+                  {translateI18n("auth.login")}
                   <ArrowRight className="h-4 w-4" />
                 </Button>
               </Link>
@@ -102,7 +104,7 @@ export default function ResetPasswordPage() {
             <form className="space-y-4" onSubmit={handleSubmit}>
               <PasswordField
                 id="new_password"
-                label="New Password"
+                label={translateI18n("auth.newPassword")}
                 value={newPassword}
                 show={showNewPassword}
                 onChange={setNewPassword}
@@ -110,7 +112,7 @@ export default function ResetPasswordPage() {
               />
               <PasswordField
                 id="confirm_password"
-                label="Confirm Password"
+                label={translateI18n("auth.confirmPassword")}
                 value={confirmPassword}
                 show={showConfirmPassword}
                 onChange={setConfirmPassword}
@@ -120,12 +122,12 @@ export default function ResetPasswordPage() {
               {error && (
                 <div className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
                   <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-                  <span>{error}</span>
+                  <span>{translateStoredError(error)}</span>
                 </div>
               )}
 
               <Button type="submit" className="w-full" disabled={isSubmitting}>
-                {isSubmitting ? "Saving..." : "Reset Password"}
+                {translateI18n(isSubmitting ? "common.saving" : "copy.resetPassword")}
               </Button>
             </form>
           )}

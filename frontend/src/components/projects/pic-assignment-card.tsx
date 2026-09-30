@@ -1,6 +1,7 @@
 "use client";
 
-import { translate as translateI18n } from "@/i18n";
+import { translate as translateI18n, translateRole } from "@/i18n";
+import { useLanguage } from "@/components/i18n/language-provider";
 
 import { useEffect, useMemo, useState } from "react";
 import { AlertCircle, CheckCircle2, Search, UserCheck } from "lucide-react";
@@ -8,7 +9,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useAssignPic, useSolutionArchitects } from "@/hooks/use-projects";
-import { formatActorRoleLabel } from "@/lib/workflow-ux-helpers";
 import { Project } from "@/types/project";
 
 export function PicAssignmentCard({
@@ -20,6 +20,7 @@ export function PicAssignmentCard({
   canAssign: boolean;
   unassignedNotice?: { message: string; tone: "neutral" | "warning" };
 }) {
+  useLanguage();
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState("");
@@ -62,7 +63,7 @@ export function PicAssignmentCard({
       await assign.mutateAsync({ pic_id: selected, ...(reason.trim() ? { reason: reason.trim() } : {}) });
       setOpen(false);
     } catch (error) {
-      setSubmitError(error instanceof Error ? error.message : "Unable to update the Solution Architect.");
+      setSubmitError("projectAction.assignFailed");
     }
   };
 
@@ -75,7 +76,7 @@ export function PicAssignmentCard({
             {currentPic ? (
               <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
                 <span className="font-semibold text-foreground">{currentPic.full_name || currentPic.fullName}</span>
-                {currentPic.role && <span className="text-muted-foreground">{formatActorRoleLabel(currentPic.role)}</span>}
+                {currentPic.role && <span className="text-muted-foreground">{translateRole(currentPic.role)}</span>}
                 <span className="truncate text-xs text-muted-foreground">{currentPic.email}</span>
               </div>
             ) : unassignedNotice ? (
@@ -87,7 +88,7 @@ export function PicAssignmentCard({
           {canAssign && (
             <Button className="h-10 w-full gap-2 shadow-none sm:w-auto" variant="outline" onClick={() => setOpen(true)}>
               <UserCheck className="h-4 w-4" />
-              {currentPic ? "Change PIC" : "Assign PIC"}
+              {translateI18n(currentPic ? "projectAction.changePic" : "projectAction.assignPic")}
             </Button>
           )}
         </div>
@@ -95,11 +96,11 @@ export function PicAssignmentCard({
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogHeader>
-          <DialogTitle>{currentPic ? "Reassign Solution Architect" : "Assign Solution Architect"}</DialogTitle>
+          <DialogTitle>{translateI18n(currentPic ? "projectAction.reassignTitle" : "projectAction.assignTitle")}</DialogTitle>
           <DialogDescription>
             {currentPic
-              ? `Choose a new Solution Architect for ${project.name}.`
-              : `Choose a Solution Architect for ${project.name}.`}
+              ? translateI18n("projectAction.chooseNewArchitect", { name: project.name })
+              : translateI18n("projectAction.chooseArchitect", { name: project.name })}
           </DialogDescription>
         </DialogHeader>
 
@@ -114,7 +115,7 @@ export function PicAssignmentCard({
 
           <div className="space-y-2">
             <label htmlFor="solution-architect-search" className="text-sm font-medium text-foreground">
-              Select new Solution Architect
+              {translateI18n("projectAction.selectNewArchitect")}
             </label>
             <div className="relative">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -151,7 +152,7 @@ export function PicAssignmentCard({
                   </span>
                   <span className="min-w-0">
                     <span className="block font-medium text-foreground">{pic.full_name}</span>
-                    <span className="block truncate text-xs text-muted-foreground">{formatActorRoleLabel(pic.role)} | {pic.email}</span>
+                    <span className="block truncate text-xs text-muted-foreground">{translateRole(pic.role)} | {pic.email}</span>
                   </span>
                 </button>
               ))
@@ -180,7 +181,7 @@ export function PicAssignmentCard({
           {submitError && (
             <div role="alert" className="flex items-start gap-2 rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-xs text-destructive">
               <AlertCircle className="h-4 w-4 shrink-0" />
-              <span>{submitError}</span>
+              <span>{translateI18n("projectAction.assignFailed")}</span>
             </div>
           )}
         </div>
@@ -188,7 +189,7 @@ export function PicAssignmentCard({
         <DialogFooter>
           <Button variant="outline" onClick={() => setOpen(false)} disabled={assign.isPending}>{translateI18n("common.cancel")}</Button>
           <Button onClick={() => void submit()} disabled={!canSubmit || assign.isPending}>
-            {assign.isPending ? "Saving..." : currentPic ? "Reassign PIC" : "Assign PIC"}
+            {translateI18n(assign.isPending ? "common.saving" : currentPic ? "projectAction.reassignPic" : "projectAction.assignPic")}
           </Button>
         </DialogFooter>
       </Dialog>

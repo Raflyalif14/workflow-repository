@@ -1,4 +1,5 @@
 "use client";
+import { useLanguage } from "@/components/i18n/language-provider";
 
 import { translate as translateI18n } from "@/i18n";
 
@@ -10,10 +11,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 
-const genericMessage =
-  "Jika akun tersedia, instruksi reset password telah dikirim ke email.";
-
 export default function ForgotPasswordPage() {
+  useLanguage();
   const [email, setEmail] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [message, setMessage] = useState("");
@@ -31,7 +30,7 @@ export default function ForgotPasswordPage() {
     } catch {
       // Keep account enumeration impossible in the UI.
     } finally {
-      setMessage(genericMessage);
+      setMessage("auth.resetInstructionsSent");
       setIsSubmitting(false);
     }
   };
@@ -42,7 +41,7 @@ export default function ForgotPasswordPage() {
         <CardHeader className="space-y-2">
           <CardTitle className="text-xl">{translateI18n("copy.forgotPassword")}</CardTitle>
           <p className="text-sm text-muted-foreground">
-            Enter your email to receive reset instructions.
+            {translateI18n("auth.forgotHelp")}
           </p>
         </CardHeader>
         <CardContent>
@@ -68,17 +67,17 @@ export default function ForgotPasswordPage() {
             {message && (
               <div className="flex items-start gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-300">
                 <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
-                <span>{message}</span>
+                <span>{translateI18n("auth.resetInstructionsSent")}</span>
               </div>
             )}
 
             <Button type="submit" className="w-full" disabled={isSubmitting}>
-              {isSubmitting ? "Processing..." : "Send Reset Instructions"}
+              {translateI18n(isSubmitting ? "auth.processing" : "auth.sendReset")}
             </Button>
 
             <Link className="flex items-center justify-center gap-2 text-xs text-muted-foreground hover:text-foreground" href="/login">
               <ArrowLeft className="h-3.5 w-3.5" />
-              Back to login
+              {translateI18n("auth.backToLogin")}
             </Link>
           </form>
         </CardContent>

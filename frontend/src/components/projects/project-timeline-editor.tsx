@@ -1,6 +1,7 @@
 "use client";
 
-import { translate as translateI18n, getIntlLocale } from "@/i18n";
+import { translate as translateI18n, translateStoredError, translateStoredMessage, getIntlLocale } from "@/i18n";
+import { useLanguage } from "@/components/i18n/language-provider";
 
 import { useEffect, useMemo, useState } from "react";
 import { AlertCircle, CalendarDays, CheckCircle2, Save } from "lucide-react";
@@ -57,12 +58,14 @@ export function ProjectTimelineEditor({
   workflowModel?: string | null;
   workflowVersion?: number | null;
 }) {
+  useLanguage();
   const workflowMode = resolveTimelineWorkflowMode(workflowModel, workflowVersion);
   const [rows, setRows] = useState<TimelineDraftRow[]>(() =>
     toDraftRows(milestones, workflowModel, workflowVersion)
   );
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [missingNames, setMissingNames] = useState("");
   const saveTimeline = useSaveProjectTimeline(projectId);
 
   useEffect(() => {
@@ -109,7 +112,8 @@ export function ProjectTimelineEditor({
   const save = async () => {
     if (!isValid) {
       const missingNames = invalidRows.map((r) => r.name).join(", ");
-      setError(`Please complete start date and working days duration for: ${missingNames}.`);
+      setMissingNames(missingNames);
+      setError("projectAction.timelineIncomplete");
       return;
     }
 
@@ -123,9 +127,9 @@ export function ProjectTimelineEditor({
           durationWorkingDays: Number(row.durationWorkingDays),
         }))
       );
-      setMessage("Project timeline saved successfully. Calculated due dates updated.");
+      setMessage("projectAction.timelineSaved");
     } catch (saveError) {
-      setError(saveError instanceof Error ? saveError.message : "Failed to save timeline.");
+      setError("projectAction.timelineSaveFailed");
     }
   };
 
@@ -155,7 +159,7 @@ export function ProjectTimelineEditor({
             <CardTitle className="text-base font-semibold tracking-tight">{translateI18n("copy.timelineSetup")}</CardTitle>
             <div className="rounded-lg border border-border/50 bg-muted/15 px-3 py-2">
               <CardDescription className="text-xs leading-relaxed">
-                Specify start dates and durations in working days for all executable milestones
+                {translateI18n("projectAction.timelineHelp")}
               </CardDescription>
             </div>
           </div>
@@ -168,7 +172,7 @@ export function ProjectTimelineEditor({
             disabled={!isValid || saveTimeline.isPending || !hasUnsavedChanges}
           >
             <Save className="h-3.5 w-3.5" />
-            <span>{saveTimeline.isPending ? "Saving..." : "Save Timeline"}</span>
+            <span>{translateI18n(saveTimeline.isPending ? "common.saving" : "projectAction.saveTimeline")}</span>
           </Button>
         )}
       </CardHeader>
@@ -246,7 +250,7 @@ export function ProjectTimelineEditor({
                         onChange={(event) => updateRow(row.milestoneId, "durationWorkingDays", event.target.value)}
                       />
                     ) : (
-                      <span className="flex h-9 items-center rounded-lg border border-input bg-muted/20 px-3 font-mono text-xs text-foreground">{row.durationWorkingDays || "-"} days</span>
+                      <span className="flex h-9 items-center rounded-lg border border-input bg-muted/20 px-3 font-mono text-xs text-foreground">{translateI18n("projectDetail.workingDays", { count: row.durationWorkingDays || "-" })}</span>
                     )}
                   </div>
                   <div className="space-y-1">
@@ -268,13 +272,13 @@ export function ProjectTimelineEditor({
         {error && (
           <div className="flex items-start gap-2 rounded-xl border border-destructive/40 bg-destructive/10 p-3 text-xs text-destructive shadow-sm">
             <AlertCircle className="h-4 w-4 shrink-0" />
-            <span>{error}</span>
+            <span>{error === "projectAction.timelineIncomplete" ? translateI18n("projectAction.timelineIncomplete", { names: missingNames }) : translateStoredError(error)}</span>
           </div>
         )}
         {message && (
           <div className="flex items-start gap-2 rounded-xl border border-emerald-500/40 bg-emerald-500/10 p-3 text-xs text-emerald-400 shadow-sm">
             <CheckCircle2 className="h-4 w-4 shrink-0" />
-            <span>{message}</span>
+            <span>{translateStoredMessage(message)}</span>
           </div>
         )}
       </CardContent>

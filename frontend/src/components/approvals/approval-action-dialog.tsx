@@ -1,6 +1,7 @@
 "use client";
 
-import { translate as translateI18n, getIntlLocale } from "@/i18n";
+import { translate as translateI18n, translateStoredError, translateRole, getIntlLocale } from "@/i18n";
+import { useLanguage } from "@/components/i18n/language-provider";
 
 import React, { useState } from "react";
 import {
@@ -22,8 +23,6 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { formatActorRoleLabel, getApprovalTypeDisplay } from "@/lib/workflow-ux-helpers";
-import { formatReviewStatus } from "@/lib/review-surface-ux";
 
 interface ApprovalActionDialogProps {
   open: boolean;
@@ -38,6 +37,7 @@ export function ApprovalActionDialog({
   item,
   initialAction = "APPROVE",
 }: ApprovalActionDialogProps) {
+  useLanguage();
   const processMutation = useProcessApproval();
   const projectQuery = useProject(item?.category === "PROJECT_PLAN" ? item.projectId : "");
 
@@ -83,15 +83,15 @@ export function ApprovalActionDialog({
     if (!canProcess) return;
 
     if (action === "REJECT" && (!feedback.trim() || feedback.trim().length < 5)) {
-      setError("Please provide a specific rejection reason (at least 5 characters) so the requester knows what to fix.");
+      setError("approvalDialog.reasonMin");
       return;
     }
     if (isProjectPlanApproval && projectModelUnavailable) {
-      setError("Unable to verify the project workflow configuration.");
+      setError("approvalDialog.workflowFailed");
       return;
     }
     if (requiresPic && !picId) {
-      setError("Select a Solution Architect PIC before approving this project plan.");
+      setError("projectDetail.picBeforeApproval");
       return;
     }
 
@@ -105,8 +105,8 @@ export function ApprovalActionDialog({
       });
       onOpenChange(false);
       setFeedback("");
-    } catch (err: any) {
-      setError(err.message || "Failed to process decision. Please try again.");
+    } catch {
+      setError("approvalDialog.processFailed");
     }
   };
 
@@ -121,7 +121,7 @@ export function ApprovalActionDialog({
           <div className="min-w-0 space-y-1">
             <DialogTitle className="text-base font-semibold tracking-tight">{translateI18n("copy.headReview")}</DialogTitle>
             <DialogDescription className="mt-0 text-xs leading-relaxed">
-              Review submission for <span className="font-semibold text-foreground">{item.projectName}</span> ({item.clientName}).
+              {translateI18n("approvalDialog.reviewFor", { project: item.projectName, customer: item.clientName })}
             </DialogDescription>
           </div>
         </div>
@@ -132,10 +132,10 @@ export function ApprovalActionDialog({
         <div className="space-y-3 rounded-xl border border-border/60 bg-muted/10 p-4 text-xs shadow-sm">
           <div className="flex items-center justify-between">
             <Badge variant="outline" className="font-semibold">
-              {getApprovalTypeDisplay(item.category)}
+              {translateI18n(item.category === "PROJECT_PLAN" ? "approvalUi.projectPlans" : "approvalUi.deadlineChanges")}
             </Badge>
             <span className="text-muted-foreground">
-              Submitted: {new Date(item.submittedAt).toLocaleString(getIntlLocale(), { dateStyle: "medium", timeStyle: "short" })}
+              {translateI18n("approvalDialog.submittedAt", { date: new Date(item.submittedAt).toLocaleString(getIntlLocale(), { dateStyle: "medium", timeStyle: "short" }) })}
             </span>
           </div>
 
@@ -144,8 +144,8 @@ export function ApprovalActionDialog({
 
           {item.category === "DEADLINE" && (
             <div className="grid gap-2 sm:grid-cols-2">
-              <DeadlineBox title="Effective Deadline" deadline={item.currentDeadline} />
-              <DeadlineBox title="Proposed Deadline" deadline={item.proposedDeadline} />
+              <DeadlineBox title={translateI18n("approvalDialog.effectiveDeadline")} deadline={item.currentDeadline} />
+              <DeadlineBox title={translateI18n("approvalDialog.proposedDeadline")} deadline={item.proposedDeadline} />
             </div>
           )}
 
@@ -201,23 +201,23 @@ export function ApprovalActionDialog({
             {isProjectPlanApproval && (
               <div className="space-y-2">
                 <label htmlFor="approval-project-plan-pic" className="block text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-                  Solution Architect PIC {isOperationalV2 ? "*" : ""}
+                  {translateI18n("approvalDialog.pic")} {isOperationalV2 ? "*" : ""}
                 </label>
                 {projectQuery.isLoading ? (
                   <p className="rounded-lg border border-border/50 bg-muted/20 px-3 py-2 text-sm text-muted-foreground">
-                    Loading project workflow...
+                    {translateI18n("approvalDialog.loadingWorkflow")}
                   </p>
                 ) : projectQuery.isError || (!isLegacy && !isOperationalV2) ? (
                   <p className="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-                    Unable to verify the project workflow configuration.
+                    {translateI18n("approvalDialog.workflowFailed")}
                   </p>
                 ) : isOperationalV2 && picsLoading ? (
                   <p className="rounded-lg border border-border/50 bg-muted/20 px-3 py-2 text-sm text-muted-foreground">
-                    Loading eligible Solution Architects...
+                    {translateI18n("projectDetail.loadingEligible")}
                   </p>
                 ) : isOperationalV2 && picsError ? (
                   <p className="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-                    Unable to load eligible Solution Architects.
+                    {translateI18n("projectDetail.eligibleFailed")}
                   </p>
                 ) : isOperationalV2 ? (
                   <select
@@ -233,13 +233,13 @@ export function ApprovalActionDialog({
                     <option value="">{translateI18n("copy.selectSa")}</option>
                     {pics.map((pic) => (
                       <option key={pic.id} value={pic.id}>
-                        {pic.full_name} ({formatActorRoleLabel(pic.role)}) - {pic.email}
+                        {pic.full_name} ({translateRole(pic.role)}) - {pic.email}
                       </option>
                     ))}
                   </select>
                 ) : (
                   <p className="rounded-lg border border-border/40 bg-muted/15 px-3 py-2 text-xs text-muted-foreground">
-                    Legacy project PIC assignment remains a separate workflow step.
+                    {translateI18n("approvalDialog.legacyPic")}
                   </p>
                 )}
               </div>
@@ -247,15 +247,15 @@ export function ApprovalActionDialog({
 
             <div>
               <label htmlFor="approval-feedback" className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-                {action === "REJECT" ? "Rejection Reason / Revision Notes *" : "Approval Remarks (Optional)"}
+                {translateI18n(action === "REJECT" ? "approvalDialog.rejectionReason" : "approvalDialog.approvalRemarks")}
               </label>
               <textarea
                 id="approval-feedback"
                 rows={3}
                 placeholder={
                   action === "REJECT"
-                    ? "Specify reasons for rejection and required corrections (required)..."
-                    : "Add optional sign-off remarks..."
+                    ? translateI18n("approvalDialog.rejectionPlaceholder")
+                    : translateI18n("approvalDialog.approvalPlaceholder")
                 }
                 value={feedback}
                 onChange={(e) => {
@@ -272,7 +272,7 @@ export function ApprovalActionDialog({
             {error && (
               <div id="approval-action-error" className="flex items-start gap-2 rounded-xl border border-destructive/40 bg-destructive/10 p-3 text-xs text-destructive" role="alert">
                 <AlertCircle className="h-4 w-4 shrink-0" />
-                <span>{error}</span>
+                <span>{translateStoredError(error)}</span>
               </div>
             )}
 
@@ -292,18 +292,14 @@ export function ApprovalActionDialog({
                 variant={action === "REJECT" ? "destructive" : "default"}
                 className={action === "APPROVE" ? "h-9 rounded-lg bg-emerald-500 font-semibold text-black hover:bg-emerald-600" : "h-9 rounded-lg"}
               >
-                {processMutation.isPending
-                  ? "Processing..."
-                  : requiresPic
-                  ? "Confirm Approval, Assign PIC & Activate"
-                  : `Confirm ${action === "APPROVE" ? "Approval" : "Rejection"}`}
+                {translateI18n(processMutation.isPending ? "approvalDialog.processing" : requiresPic ? "approvalDialog.confirmAndAssign" : action === "APPROVE" ? "approvalDialog.confirmApprove" : "approvalDialog.confirmReject")}
               </Button>
             </DialogFooter>
           </form>
         ) : (
           <div className="space-y-3">
             <div className="space-y-1 rounded-xl border border-border/40 bg-muted/15 p-3 text-xs">
-              <p>{translateI18n("copy.statusLabel")} <strong className="text-foreground">{formatReviewStatus(item.status)}</strong></p>
+              <p>{translateI18n("copy.statusLabel")} <strong className="text-foreground">{translateI18n(item.status === "APPROVED" ? "approvalStatus.APPROVED" : item.status === "REJECTED" ? "approvalStatus.REJECTED" : "approvalStatus.PENDING")}</strong></p>
               <p>{translateI18n("copy.reviewedBy")} <strong className="text-foreground">{item.reviewer?.full_name || item.reviewer?.fullName || "-"}</strong></p>
               {item.reviewNote && <p>{translateI18n("copy.reviewNoteLabel")} <strong className="text-foreground">&quot;{item.reviewNote}&quot;</strong></p>}
             </div>
@@ -339,10 +335,10 @@ function DeadlineBox({
   return (
     <div className="space-y-0.5 rounded-xl border border-border/40 bg-card/70 p-3 text-[11px]">
       <p className="font-semibold text-foreground">{title}</p>
-      <p>Start: {formatDate(deadline?.start_date)}</p>
-      <p>Duration: {deadline?.duration_working_days || "-"} working days</p>
-      <p>Due: {formatDate(deadline?.due_date)}</p>
-      {deadline?.change_reason && <p className="text-muted-foreground italic">Reason: &quot;{deadline.change_reason}&quot;</p>}
+      <p>{translateI18n("approvalDialog.startDate", { date: formatDate(deadline?.start_date) })}</p>
+      <p>{translateI18n("approvalDialog.duration", { count: deadline?.duration_working_days || "-" })}</p>
+      <p>{translateI18n("approvalDialog.dueDate", { date: formatDate(deadline?.due_date) })}</p>
+      {deadline?.change_reason && <p className="text-muted-foreground italic">{translateI18n("approvalDialog.reason", { reason: deadline.change_reason })}</p>}
     </div>
   );
 }
