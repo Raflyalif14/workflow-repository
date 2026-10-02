@@ -352,6 +352,7 @@ export const id = {
     retryableHelp: "Kondisi aman untuk diulang. Worker dapat mengulang otomatis.",
     ambiguousHelp: "Hasilnya tidak pasti, sehingga pengulangan otomatis bisa menggandakan pesan.",
     terminalHelp: "Pengiriman ini tidak akan diulang otomatis.",
+    notScheduled: "Belum dijadwalkan",
   },
   operations: {
     intro: "Pantau antrean pengiriman dan pembersihan setelah proyek dihapus. Pemantauan Telegram tetap tersedia di bawah.",

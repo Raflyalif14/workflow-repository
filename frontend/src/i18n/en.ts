@@ -548,6 +548,7 @@ export const en = {
     retryableHelp: "A safe retry condition. The worker may retry automatically.",
     ambiguousHelp: "The outcome is uncertain, so automatic retry could duplicate messages.",
     terminalHelp: "This delivery will not retry automatically.",
+    notScheduled: "Not scheduled",
   },
   operations: {
     intro: "Monitor delivery queues and project deletion cleanup. Telegram delivery remains available below.",

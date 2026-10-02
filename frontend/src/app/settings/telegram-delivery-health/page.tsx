@@ -1,7 +1,7 @@
 "use client";
 import { useLanguage } from "@/components/i18n/language-provider";
 
-import { translate as translateI18n, getIntlLocale, type TranslationKey } from "@/i18n";
+import { translate as translateI18n, formatNumber, getIntlLocale, type TranslationKey } from "@/i18n";
 
 import type { ReactNode } from "react";
 import Link from "next/link";
@@ -91,7 +91,7 @@ function MetricCard({
         </span>
       </CardHeader>
       <CardContent>
-        <div className={`text-4xl font-bold tracking-tight ${valueClassName}`}>{value}</div>
+        <div className={`text-4xl font-bold tracking-tight ${valueClassName}`}>{formatNumber(value)}</div>
       </CardContent>
     </Card>
   );
@@ -99,18 +99,18 @@ function MetricCard({
 
 function RecentFailureRow({ failure }: { failure: TelegramDeliveryRecentFailure }) {
   return (
-    <div className="grid gap-3 rounded-xl border border-border/40 bg-muted/10 p-3.5 transition-colors duration-200 hover:border-primary/30 hover:bg-muted/25 md:grid-cols-[minmax(11rem,1.5fr)_auto_repeat(4,minmax(6.5rem,0.8fr))] md:items-center">
-      <div className="min-w-0">
+    <div className="grid min-w-0 gap-3 rounded-xl border border-border/40 bg-muted/10 p-3.5 transition-colors duration-200 hover:border-primary/30 hover:bg-muted/25 sm:grid-cols-2 xl:grid-cols-[minmax(0,1.5fr)_auto_repeat(4,minmax(0,0.8fr))] xl:items-center">
+      <div className="min-w-0 sm:col-span-2 xl:col-span-1">
         <p className="truncate text-sm font-semibold text-foreground">{failure.notificationType}</p>
         <p className="mt-1 text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground">{translateI18n("copy.telegramFailed")}</p>
       </div>
       <div>
         <FailureKindBadge kind={failure.failureKind} />
       </div>
-      <FailureField label="Attempts" value={String(failure.attemptCount)} />
-      <FailureField label="Last attempt" value={formatTimestamp(failure.lastAttemptAt)} />
-      <FailureField label="Next retry" value={formatTimestamp(failure.nextRetryAt, "Not scheduled")} />
-      <FailureField label="Created" value={formatTimestamp(failure.createdAt)} />
+      <FailureField label={translateI18n("copy.attempts")} value={formatNumber(failure.attemptCount)} />
+      <FailureField label={translateI18n("copy.lastAttempt")} value={formatTimestamp(failure.lastAttemptAt)} />
+      <FailureField label={translateI18n("copy.nextRetry")} value={formatTimestamp(failure.nextRetryAt, translateI18n("telegramHealth.notScheduled"))} />
+      <FailureField label={translateI18n("copy.created")} value={formatTimestamp(failure.createdAt)} />
     </div>
   );
 }
@@ -118,8 +118,8 @@ function RecentFailureRow({ failure }: { failure: TelegramDeliveryRecentFailure 
 function FailureField({ label, value }: { label: string; value: string }) {
   return (
     <div className="min-w-0">
-      <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground md:hidden">{label}</p>
-      <p className="mt-0.5 break-words text-xs text-muted-foreground md:mt-0">{value}</p>
+      <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground xl:hidden">{label}</p>
+      <p className="mt-0.5 break-words text-xs text-muted-foreground xl:mt-0">{value}</p>
     </div>
   );
 }
@@ -294,7 +294,7 @@ function TelegramDeliveryHealthContent() {
               </CardContent>
             ) : (
               <CardContent className="space-y-2 pt-5">
-                <div className="hidden grid-cols-[minmax(11rem,1.5fr)_auto_repeat(4,minmax(6.5rem,0.8fr))] gap-3 px-3.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground md:grid">
+                <div className="hidden grid-cols-[minmax(0,1.5fr)_auto_repeat(4,minmax(0,0.8fr))] gap-3 px-3.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground xl:grid">
                   <span>{translateI18n("copy.notificationType")}</span>
                   <span>{translateI18n("copy.classification")}</span>
                   <span>{translateI18n("copy.attempts")}</span>
