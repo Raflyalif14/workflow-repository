@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
 import { useAuth } from "@/components/auth/auth-provider";
+import { HeadSaProjectValuesPanel } from "@/components/dashboard/head-sa-project-values-panel";
 import { useApprovals, useApprovalStats } from "@/hooks/use-approvals";
 import { canReadApprovalOverview } from "@/lib/approval-overview-access";
 import { useDashboard } from "@/hooks/use-dashboard";
@@ -1065,6 +1066,13 @@ export default function DashboardPage() {
           hasMore={remainingItemCount > quickInsights.length}
         />
       </div>
+
+      <HeadSaProjectValuesPanel
+        role={userRole}
+        values={dashboardQuery.data?.headSaProjectValues}
+        loading={dashboardQuery.isLoading}
+        hasError={dashboardQuery.isError}
+      />
 
       {shouldShowSaWorkload(userRole) && (
         <SolutionArchitectWorkloadPanel

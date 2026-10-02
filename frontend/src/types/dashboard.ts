@@ -70,6 +70,11 @@ export interface DashboardSaWorkload {
   nearestDeadline: string | null;
 }
 
+export interface DashboardHeadSaProjectValues {
+  active: { count: number; estimatedRevenue: number };
+  won: { count: number; finalContractValue: number };
+}
+
 export interface DashboardData {
   summary: DashboardSummary;
   scenarioDistribution: ScenarioDistribution[];
@@ -78,6 +83,7 @@ export interface DashboardData {
   recentActivity: RecentActivity[];
   outputDocuments: DashboardOutputDocuments;
   saWorkload: DashboardSaWorkload[];
+  headSaProjectValues: DashboardHeadSaProjectValues | null;
   salesResults: {
     totalEstimatedRevenue: number;
     finalContractValueTotal: number;

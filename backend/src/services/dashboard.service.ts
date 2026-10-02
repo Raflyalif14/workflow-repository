@@ -87,6 +87,11 @@ export type DashboardSalesResults = {
   lost: { count: number; estimatedRevenue: number };
 };
 
+export type DashboardHeadSaProjectValues = {
+  active: { count: number; estimatedRevenue: number };
+  won: { count: number; finalContractValue: number };
+};
+
 export type DashboardSaUserRow = {
   id: string;
   full_name: string | null;
@@ -404,6 +409,20 @@ export function buildDashboardOverviewFromRows(
         })) as Pick<DashboardSalesResults, 'waitingResult' | 'won' | 'lost'>,
       }
     : null;
+  const headSaProjectValues: DashboardHeadSaProjectValues | null = actor.role === 'HEAD_SA'
+    ? {
+        active: projects.filter((project) => project.status === 'ACTIVE' && project.is_postponed !== true)
+          .reduce((total, project) => ({
+            count: total.count + 1,
+            estimatedRevenue: total.estimatedRevenue + amount(project.estimated_revenue),
+          }), { count: 0, estimatedRevenue: 0 }),
+        won: projects.filter((project) => project.status === 'WON')
+          .reduce((total, project) => ({
+            count: total.count + 1,
+            finalContractValue: total.finalContractValue + amount(project.final_contract_value),
+          }), { count: 0, finalContractValue: 0 }),
+      }
+    : null;
   const saWorkload = actor.role === 'HEAD_SA'
     ? buildSaWorkload(rows, projects, milestones, today)
     : [];
@@ -442,6 +461,7 @@ export function buildDashboardOverviewFromRows(
     } satisfies DashboardOutputDocuments,
     saWorkload,
     salesResults,
+    headSaProjectValues,
   };
 }
 
@@ -452,6 +472,24 @@ export function toSafeDashboardError(error: unknown, context: string) {
 }
 
 async function getScopedProjects(actor: DashboardActor) {
+  // Read every HEAD_SA project page before aggregating values; keep other roles' reads unchanged.
+  if (actor.role === 'HEAD_SA') {
+    const projects: DashboardProjectRow[] = [];
+    const pageSize = 250;
+    for (let offset = 0; ; offset += pageSize) {
+      const { data, error } = await supabaseAdmin
+        .from('projects')
+        .select('id,name,customer,scenario_id,sales_id,pic_id,status,is_postponed,estimated_revenue,final_contract_value,created_at,updated_at')
+        .order('updated_at', { ascending: false })
+        .order('id', { ascending: true })
+        .range(offset, offset + pageSize - 1);
+      if (error) throw toSafeDashboardError(error, 'projects');
+      projects.push(...((data || []) as DashboardProjectRow[]));
+      if (!data || data.length < pageSize) break;
+    }
+    return projects;
+  }
+
   let query = supabaseAdmin
     .from('projects')
     .select('id,name,customer,scenario_id,sales_id,pic_id,status,is_postponed,estimated_revenue,final_contract_value,created_at,updated_at')

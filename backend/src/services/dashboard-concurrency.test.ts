@@ -27,6 +27,7 @@ async function run() {
       select: () => query,
       order: () => query,
       limit: () => query,
+      range: () => query,
       eq: (column: string, value: unknown) => {
         filters.push({ table, column, value });
         return query;
