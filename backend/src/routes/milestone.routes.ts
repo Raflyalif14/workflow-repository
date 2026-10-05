@@ -1,4 +1,4 @@
-import { NextFunction, Request, Response, Router } from 'express';
+import { Router } from 'express';
 import { DeadlineApprovalController } from '../controllers/deadline-approval.controller';
 import { DeadlineController } from '../controllers/deadline.controller';
 import { MilestoneController } from '../controllers/milestone.controller';
@@ -10,36 +10,14 @@ import { validateBody } from '../middlewares/validate.middleware';
 import { saveMilestoneDeadlineSchema } from '../validators/deadline.validator';
 import { createMilestoneContributionSchema } from '../validators/milestone-contribution.validator';
 import { MAX_MILESTONE_FILES, uploadMiddleware } from '../utils/storage.util';
+import { handleMultipartUpload } from '../middlewares/multipart-upload.middleware';
 
 const router = Router();
 const salesMilestoneDocumentsUpload = uploadMiddleware.array('files', MAX_MILESTONE_FILES);
 const milestoneContributionUpload = uploadMiddleware.array('files', MAX_MILESTONE_FILES);
 
-const uploadSalesMilestoneDocuments = (req: Request, res: Response, next: NextFunction): void => {
-  salesMilestoneDocumentsUpload(req, res, (error: unknown) => {
-    if (!error) {
-      next();
-      return;
-    }
-
-    const safeError = new Error('Invalid milestone document upload.') as Error & { statusCode?: number };
-    safeError.statusCode = 400;
-    next(safeError);
-  });
-};
-
-const uploadMilestoneContribution = (req: Request, res: Response, next: NextFunction): void => {
-  milestoneContributionUpload(req, res, (error: unknown) => {
-    if (!error) {
-      next();
-      return;
-    }
-
-    const safeError = new Error('Invalid milestone supporting input upload.') as Error & { statusCode?: number };
-    safeError.statusCode = 400;
-    next(safeError);
-  });
-};
+const uploadSalesMilestoneDocuments = handleMultipartUpload(salesMilestoneDocumentsUpload, 'Invalid milestone document upload.');
+const uploadMilestoneContribution = handleMultipartUpload(milestoneContributionUpload, 'Invalid milestone supporting input upload.');
 
 router.use(authenticateUser);
 

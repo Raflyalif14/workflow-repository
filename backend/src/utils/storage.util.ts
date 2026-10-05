@@ -66,6 +66,10 @@ export const uploadMiddleware = multer({
   storage: multer.memoryStorage(),
   limits: {
     fileSize: MAX_DOCUMENT_FILE_SIZE_BYTES,
+    // Active forms use flat scalar/JSON fields. Bound bracket notation before
+    // append-field can construct deep objects or very large sparse arrays.
+    fieldNestingDepth: 8,
+    fieldArrayIndexLimit: 100,
   },
   fileFilter: (_req, file, cb) => {
     if (isAllowedDocumentFileName(file.originalname)) {

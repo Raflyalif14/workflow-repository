@@ -1,4 +1,4 @@
-import { NextFunction, Request, Response, Router } from 'express';
+import { Request, Response, Router } from 'express';
 import { ProjectManagementController } from '../controllers/project-management.controller';
 import { ProjectActivityController } from '../controllers/project-activity.controller';
 import { ProjectPlanApprovalController } from '../controllers/project-plan-approval.controller';
@@ -19,6 +19,7 @@ import { assignPicSchema } from '../validators/assignment-phase5.validator';
 import { authenticateJwt, AuthenticatedRequest, requireRoles } from '../middlewares/auth.middleware';
 import { validateBody } from '../middlewares/validate.middleware';
 import { uploadMiddleware } from '../utils/storage.util';
+import { handleMultipartUpload } from '../middlewares/multipart-upload.middleware';
 import {
   approveProjectPlanSchema,
   rejectProjectPlanSchema,
@@ -33,18 +34,7 @@ const projectCreationUpload = uploadMiddleware.fields([
   { name: 'documents', maxCount: MAX_PROJECT_CREATION_OPTIONAL_DOCUMENTS },
 ]);
 
-const uploadProjectCreationFiles = (req: Request, res: Response, next: NextFunction): void => {
-  projectCreationUpload(req, res, (error: unknown) => {
-    if (!error) {
-      next();
-      return;
-    }
-
-    const safeError = new Error('Invalid project document upload.') as Error & { statusCode?: number };
-    safeError.statusCode = 400;
-    next(safeError);
-  });
-};
+const uploadProjectCreationFiles = handleMultipartUpload(projectCreationUpload, 'Invalid project document upload.');
 
 // Seluruh endpoint Project diproteksi dengan JWT Authentication
 router.use(authenticateJwt);
@@ -74,7 +64,7 @@ router.get(
 router.post(
   '/:projectId/output-documents/:key/upload',
   requireRoles(['HEAD_SA', 'SA']),
-  uploadMiddleware.single('file'),
+  handleMultipartUpload(uploadMiddleware.single('file'), 'Invalid output document upload.', 500),
   OutputDocumentController.upload
 );
 router.delete(
