@@ -11,6 +11,7 @@ import {
   FileText,
   FileUp,
   FolderArchive,
+  Loader2,
   MessageSquare,
   Search,
   X,
@@ -87,6 +88,7 @@ export default function DocumentsPage() {
   const [isUploadVersionOpen, setIsUploadVersionOpen] = useState(false);
   const [selectedDocForDetail, setSelectedDocForDetail] = useState<DocumentItem | null>(null);
   const [downloadError, setDownloadError] = useState("");
+  const [pendingOutputFiles, setPendingOutputFiles] = useState<Set<string>>(new Set());
 
   const { data: documents = [], isLoading: documentsLoading, isError: documentsError } = useDocuments();
   const { data: outputs = [], isLoading: outputsLoading, isError: outputsError } = useOutputRepository();
@@ -124,10 +126,14 @@ export default function DocumentsPage() {
     }
   };
 
-  const handleOutputDownload = async (item: OutputRepositoryItem) => {
+  const handleOutputDownload = async (item: OutputRepositoryItem, fileId: string) => {
+    const pendingKey = `${item.projectId}:${item.documentKey}:${fileId}`;
+    if (pendingOutputFiles.has(pendingKey)) return;
     setDownloadError("");
+    setPendingOutputFiles((current) => new Set(current).add(pendingKey));
     try {
-      const { url } = await outputDownload.mutateAsync({ projectId: item.projectId, documentKey: item.documentKey });
+      const { url } = await outputDownload.mutateAsync({ projectId: item.projectId, documentKey: item.documentKey,
+        fileId, versionId: item.approvedVersionId });
       const link = window.document.createElement("a");
       link.href = url;
       link.target = "_blank";
@@ -135,6 +141,12 @@ export default function DocumentsPage() {
       link.click();
     } catch (error) {
       setDownloadError("documentPage.outputDownloadFailed");
+    } finally {
+      setPendingOutputFiles((current) => {
+        const next = new Set(current);
+        next.delete(pendingKey);
+        return next;
+      });
     }
   };
 
@@ -290,8 +302,8 @@ export default function DocumentsPage() {
                 onUploadVersion={() => { setSelectedDocForVersion(item.document); setIsUploadVersionOpen(true); }} />
             ) : (
               <OutputRepositoryRow key={`output:${item.sourceId}`} item={item.output}
-                downloadPending={outputDownload.isPending && outputDownload.variables?.projectId === item.output.projectId && outputDownload.variables?.documentKey === item.output.documentKey}
-                onDownload={() => void handleOutputDownload(item.output)} />
+                pendingFiles={pendingOutputFiles}
+                onDownload={(fileId) => void handleOutputDownload(item.output, fileId)} />
             ))}
           </div>
         )}
@@ -327,10 +339,10 @@ export default function DocumentsPage() {
   );
 }
 
-function OutputRepositoryRow({ item, downloadPending, onDownload }: {
+function OutputRepositoryRow({ item, pendingFiles, onDownload }: {
   item: OutputRepositoryItem;
-  downloadPending: boolean;
-  onDownload: () => void;
+  pendingFiles: ReadonlySet<string>;
+  onDownload: (fileId: string) => void;
 }) {
   return <div className="grid gap-4 border-t border-border/60 px-4 py-4 first:border-t-0 sm:px-5 lg:grid-cols-[minmax(240px,1.7fr)_minmax(180px,1fr)_minmax(230px,1.3fr)_auto] lg:items-center">
     <div className="min-w-0">
@@ -342,9 +354,27 @@ function OutputRepositoryRow({ item, downloadPending, onDownload }: {
       <span className="break-words">{item.projectName}</span>
       <span className="block break-words text-xs font-normal text-muted-foreground">{item.customer}</span>
     </Link>
-    <div className="min-w-0"><p className="truncate text-sm font-medium text-foreground" title={item.fileName}><FileText className="mr-1 inline h-4 w-4 text-primary" />{item.fileName}</p><p className="mt-1 text-xs text-muted-foreground">v{item.versionNumber}</p></div>
+    <div className="min-w-0">
+      <p className="mb-1 text-xs text-muted-foreground">v{item.versionNumber}</p>
+      <ul className="divide-y divide-border/40">
+        {item.files.map((file) => {
+          const pending = pendingFiles.has(`${item.projectId}:${item.documentKey}:${file.id}`);
+          return <li key={file.id} className="flex min-w-0 items-center gap-2 py-1.5">
+            <FileText className="h-4 w-4 shrink-0 text-primary" />
+            <div className="min-w-0 flex-1">
+              <p className="break-words text-sm text-foreground" title={file.fileName}>{file.fileName}</p>
+              {typeof file.fileSize === "number" && <p className="text-xs text-muted-foreground">{(file.fileSize / 1024 / 1024).toLocaleString(getIntlLocale(), { maximumFractionDigits: 2 })} MB</p>}
+            </div>
+            <Button type="button" size="sm" variant="ghost" disabled={pending} onClick={() => onDownload(file.id)}
+              aria-label={`${translateI18n("common.download")}: ${file.fileName}`}>
+              {pending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+              <span className="sr-only">{translateI18n("common.download")}</span>
+            </Button>
+          </li>;
+        })}
+      </ul>
+    </div>
     <div className="flex flex-wrap gap-1 lg:justify-end">
-      <Button type="button" size="sm" variant="ghost" disabled={downloadPending} onClick={onDownload}><Download className="mr-1 h-3.5 w-3.5" />{translateI18n("common.download")}</Button>
       <Link href={`/projects/${item.projectId}#milestone-outputs-${item.milestoneId}`}><Button type="button" size="sm" variant="outline"><ArrowRight className="mr-1 h-3.5 w-3.5" />{translateI18n("project.open")}</Button></Link>
     </div>
   </div>;

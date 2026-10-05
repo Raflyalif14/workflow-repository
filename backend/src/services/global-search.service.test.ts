@@ -20,7 +20,8 @@ const salesTwo = { userId: 'sales-2', role: 'SALES', fullName: 'Sales Two' };
 const saOne = { userId: 'sa-1', role: 'SA', fullName: 'SA One' };
 const saTwo = { userId: 'sa-2', role: 'SA', fullName: 'SA Two' };
 
-const makeState = (): SearchState => ({
+const makeState = (): SearchState => {
+  const state: SearchState = {
   projects: Array.from({ length: 6 }, (_, index) => ({
     id: `project-${index + 1}`,
     name: index === 0 ? 'Alpha Platform' : `Alpha Project ${index + 1}`,
@@ -47,7 +48,14 @@ const makeState = (): SearchState => ({
     { project_id: 'project-6', document_key: 'identitas_barang_produk', title: 'Restricted Missing File', is_required: true, is_selected: true, status: 'DRAFT', file_name: null, storage_path: null, current_version_id: null },
   ],
   versions: [1, 2, 3, 4, 5].map((number) => ({ id: `version-${number}`, version_number: number })),
-});
+  };
+  state.outputs.forEach((output, index) => { output.id = `output-${index + 1}`; });
+  state.versions.forEach((version) => {
+    const output = state.outputs.find((row) => row.current_version_id === version.id)!;
+    Object.assign(version, { output_document_id: output.id, project_id: output.project_id, status: output.status, snapshot_kind: 'LEGACY_SUBMITTED' });
+  });
+  return state;
+};
 
 class QueryMock {
   private selection = '';
@@ -80,6 +88,16 @@ class QueryMock {
       : this.table === 'documents' ? this.state.documents
       : this.table === 'project_milestones' ? this.state.milestones
       : this.table === 'project_output_documents' ? this.state.outputs
+      : this.table === 'project_output_document_files' ? this.state.outputs.filter((output) => output.storage_path).map((output) => ({
+        id: `file-${output.id}`, output_document_id: output.id, project_id: output.project_id, file_name: output.file_name,
+        file_size: 100, mime_type: 'application/pdf', uploaded_at: '2026-01-01', storage_path: output.storage_path,
+      }))
+      : this.table === 'project_output_document_version_files' ? this.state.outputs.filter((output) => output.current_version_id).map((output) => ({
+        version_id: output.current_version_id, output_document_id: output.id, project_id: output.project_id, file_id: `file-${output.id}`, position: 1,
+      }))
+      : this.table === 'project_output_document_draft_files' ? this.state.outputs.filter((output) => output.storage_path).map((output) => ({
+        output_document_id: output.id, project_id: output.project_id, file_id: `file-${output.id}`, position: 1,
+      }))
       : this.state.versions;
     const rows = source.filter((row) => {
       if (!this.filters.every(([key, value]) => row[key] === value)) return false;
@@ -90,6 +108,7 @@ class QueryMock {
       if (!term) return true;
       if (this.table === 'projects') return [row.name, row.customer].some((value) => value.toLowerCase().includes(term));
       if (this.table === 'project_output_documents' || this.table === 'project_output_document_versions') return true;
+      if (this.table.startsWith('project_output_document_')) return true;
       return (this.table === 'documents' ? row.title : row.name).toLowerCase().includes(term);
     }).slice(this.start, Math.min(this.end + 1, this.max)).map((row) => ({ ...row }));
     return { data: rows, error: null };
@@ -172,6 +191,9 @@ async function run() {
     assert.equal(byProject.outputDocuments[0].subtitle, 'Alpha Platform | On Submission Tender');
     assert.equal(byProject.outputDocuments[0].status, 'APPROVED');
     assert(!JSON.stringify(byProject).includes('storage_path') && !JSON.stringify(byProject).includes('private/'));
+    const byFile = await GlobalSearchService.search({ q: 'approved.pdf' }, salesOne);
+    assert.deepEqual(byFile.outputDocuments.map((item) => item.title), ['Alpha Approved Output'], 'Approved snapshot file names are searchable within the actor scope');
+    assert.equal((await GlobalSearchService.search({ q: 'internal.pdf' }, salesOne)).outputDocuments.length, 0, 'Non-final filenames never leak to Sales search');
     console.log('Test 6 - Project name/customer, document title, and milestone name search work');
   });
 
@@ -179,10 +201,14 @@ async function run() {
   for (let index = 1; index <= 5; index++) {
     limitedState.outputs.push({
       ...limitedState.outputs[1],
+      id: `additional-${index}`,
+      current_version_id: `additional-version-${index}`,
       project_id: `project-${index}`,
       document_key: 'proposal_teknis',
       title: `Alpha Additional Output ${index}`,
     });
+    limitedState.versions.push({ id: `additional-version-${index}`, output_document_id: `additional-${index}`, project_id: `project-${index}`,
+      version_number: 1, status: 'APPROVED', snapshot_kind: 'SUBMITTED' });
   }
   await withSearchState(limitedState, async () => {
     const result = await GlobalSearchService.search({ q: 'Alpha' }, admin);

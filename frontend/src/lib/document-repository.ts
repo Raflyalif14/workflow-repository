@@ -19,7 +19,8 @@ export function buildRepositoryItems(documents: readonly DocumentItem[], outputs
   }));
   const outputIds = new Set<string>();
   for (const output of outputs) {
-    if (output.status !== "APPROVED" || !output.projectId || !output.documentKey) continue;
+    if (output.status !== "APPROVED" || !output.projectId || !output.documentKey
+      || !output.approvedVersionId || !output.files?.length) continue;
     const sourceId = `${output.projectId}:${output.documentKey}`;
     if (outputIds.has(sourceId)) continue;
     outputIds.add(sourceId);
@@ -44,7 +45,7 @@ export function filterRepositoryItems(items: readonly RepositoryItem[], filters:
     const output = item.output;
     return (filters.category === "ALL" || filters.category === "OUTPUT")
       && (filters.status === "ALL" || filters.status === "APPROVED")
-      && (!query || `${output.name} ${output.projectName} ${output.fileName}`.toLocaleLowerCase().includes(query));
+      && (!query || `${output.name} ${output.projectName} ${output.files.map((file) => file.fileName).join(" ")}`.toLocaleLowerCase().includes(query));
   });
 }
 

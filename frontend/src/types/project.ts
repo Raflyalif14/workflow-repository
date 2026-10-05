@@ -287,6 +287,19 @@ export interface ProjectOutputDocumentItem {
   reviewFeedback?: string | null;
   currentVersionId?: string | null;
   versionCount?: number;
+  legacyVersionCount?: number;
+  draftRevision?: number;
+  draftFiles?: ProjectOutputDocumentFile[];
+  files?: ProjectOutputDocumentFile[];
+}
+
+export interface ProjectOutputDocumentFile {
+  id: string;
+  fileName: string;
+  fileSize?: number | null;
+  mimeType?: string | null;
+  uploadedAt?: string | null;
+  uploadedBy?: { id: string; fullName: string; role: string } | null;
 }
 
 export interface ProjectOutputDocumentVersion {
@@ -303,6 +316,8 @@ export interface ProjectOutputDocumentVersion {
   reviewedAt?: string | null;
   reviewedBy?: { id: string; fullName: string; role: string } | null;
   reviewFeedback?: string | null;
+  files?: ProjectOutputDocumentFile[];
+  versionKind?: "SUBMITTED" | "LEGACY_SUBMITTED" | "LEGACY_UPLOAD_UNCONFIRMED";
 }
 
 

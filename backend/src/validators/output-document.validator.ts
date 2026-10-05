@@ -6,8 +6,28 @@ const outputDocumentBatchItemSchema = z.object({
   expected_version_id: z.string().uuid(),
 });
 
+const revisionSchema = z.union([z.number(), z.string().regex(/^\d+$/)])
+  .pipe(z.coerce.number().int().min(0).max(Number.MAX_SAFE_INTEGER));
+
+export const uploadOutputDocumentFileSchema = z.object({
+  expected_draft_revision: revisionSchema,
+  request_id: z.string().uuid(),
+  replace_file_id: z.string().uuid().optional(),
+});
+
+export const removeOutputDocumentFileSchema = z.object({
+  expected_draft_revision: revisionSchema,
+  request_id: z.string().uuid(),
+});
+
+const submitOutputDocumentItemSchema = z.object({
+  document_key: z.string().trim().min(1).max(100),
+  expected_draft_revision: revisionSchema,
+  request_id: z.string().uuid(),
+});
+
 export const submitOutputDocumentsSchema = z.object({
-  items: z.array(outputDocumentBatchItemSchema).min(1).max(50),
+  items: z.array(submitOutputDocumentItemSchema).min(1).max(50),
   note: z.string().trim().max(1000).optional(),
 }).superRefine((value, context) => {
   if (new Set(value.items.map((item) => item.document_key)).size !== value.items.length) {
@@ -46,3 +66,5 @@ export const updateOutputChecklistSchema = z.object({
 export type SubmitOutputDocumentsInput = z.infer<typeof submitOutputDocumentsSchema>;
 export type ReviewOutputDocumentsInput = z.infer<typeof reviewOutputDocumentsSchema>;
 export type UpdateOutputChecklistInput = z.infer<typeof updateOutputChecklistSchema>;
+export type UploadOutputDocumentFileInput = z.infer<typeof uploadOutputDocumentFileSchema>;
+export type RemoveOutputDocumentFileInput = z.infer<typeof removeOutputDocumentFileSchema>;

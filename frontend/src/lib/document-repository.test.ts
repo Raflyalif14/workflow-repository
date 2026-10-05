@@ -14,13 +14,19 @@ const official: DocumentItem = {
 const output = (key: string, status: OutputRepositoryItem["status"]): OutputRepositoryItem => ({
   projectId: "p1", milestoneId: "m1", projectName: "Tender A", customer: "Customer",
   documentKey: key, name: key, group: "PRA_TENDER", status,
-  fileName: `${key}.pdf`, versionNumber: 2,
+  fileName: `${key}.pdf`, versionNumber: 2, approvedVersionId: `version-${key}`,
+  files: [
+    { id: `file-${key}`, fileName: `${key}.pdf`, fileSize: 100, mimeType: "application/pdf", uploadedAt: "2026-01-01" },
+    { id: `sheet-${key}`, fileName: `${key}-pricing.xlsx`, fileSize: 200, mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", uploadedAt: "2026-01-01" },
+  ],
 });
 const approved = output("same-id", "APPROVED");
 const items = buildRepositoryItems([official], [approved, approved, output("draft", "DRAFT")]);
 assert.equal(items.length, 2, "The approved output and official document should coexist without duplicate output rows");
 assert.notEqual(`${items[0].sourceType}:${items[0].sourceId}`, `${items[1].sourceType}:${items[1].sourceId}`);
 assert.deepEqual(filterRepositoryItems(items, { search: "same-id.pdf", category: "ALL", status: "ALL" }).map((item) => item.sourceType), ["OUTPUT"]);
+assert.deepEqual(filterRepositoryItems(items, { search: "same-id-pricing.xlsx", category: "ALL", status: "ALL" }).map((item) => item.sourceType), ["OUTPUT"], "Search must include every approved snapshot file");
+assert.equal(buildRepositoryItems([], [{ ...approved, files: [] }, { ...approved, approvedVersionId: "" }]).length, 0, "An output requires a valid approved snapshot with files");
 assert.deepEqual(filterRepositoryItems(items, { search: "", category: "OUTPUT", status: "APPROVED" }).map((item) => item.sourceType), ["OUTPUT"]);
 assert.deepEqual(filterRepositoryItems(items, { search: "", category: "PROPOSAL", status: "APPROVED" }).map((item) => item.sourceType), ["OFFICIAL"]);
 assert.equal(filterRepositoryItems(items, { search: "", category: "ALL", status: "DRAFT" }).length, 0);
@@ -42,6 +48,8 @@ assert(!documentsPage.includes('role="tablist"') && !documentsPage.includes("Out
   && !documentsPage.includes('item.status !== "APPROVED"'),
   "Documents must not expose a second non-final output panel");
 const reviewMutation = outputHooks.split("export function useReviewOutputDocuments")[1]?.split("export function useUpdateOutputChecklist")[0] || "";
-assert(reviewMutation.includes("queryClient.invalidateQueries({ queryKey: outputDocumentKeys.repository() })"),
+assert(reviewMutation.includes("queryClient.invalidateQueries({ queryKey: outputDocumentKeys.repository() })")
+  || (reviewMutation.includes("invalidateOutputDocument(queryClient, projectId)")
+    && outputHooks.includes("queryClient.invalidateQueries({ queryKey: outputDocumentKeys.repository() })")),
   "Successful review must invalidate the repository query used by /documents");
 console.log("Combined repository identity, filters, and pagination: passed");

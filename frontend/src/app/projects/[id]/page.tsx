@@ -1537,7 +1537,7 @@ function MilestoneRow({
           )}
         </div>
 
-      {stageRole === "SA" && <div className="mt-3 border-t border-border/50 pt-3"><OutputDocumentsSection project={project} milestoneId={milestone.id} milestoneStatus={milestoneStatus} milestoneStartDate={milestone.start_date} /></div>}
+      {stageRole === "SA" && <div className="mt-3 border-t border-border/50 pt-3"><OutputDocumentsSection project={project} milestoneId={milestone.id} milestoneStatus={milestoneStatus} milestoneStartDate={milestone.start_date} milestonePicId={milestone.pic_id} /></div>}
 
       <details className="mt-3 border-t border-border/50 pt-3 text-sm">
         <summary className="w-fit cursor-pointer rounded-sm font-medium text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-primary">{translateI18n("milestoneCompact.scheduleDetails")}</summary>

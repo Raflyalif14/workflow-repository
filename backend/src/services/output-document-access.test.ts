@@ -76,6 +76,7 @@ const makeState = (): State => {
         file_name: internalOutput.file_name,
         storage_path: internalOutput.storage_path,
         output_document: { project_id: projectId, document_key: nonFinalKey },
+        status: 'IN_REVIEW', version_number: 1, snapshot_kind: 'LEGACY_SUBMITTED',
       },
       {
         id: 'version-approved',
@@ -84,6 +85,7 @@ const makeState = (): State => {
         file_name: approvedOutput.file_name,
         storage_path: approvedOutput.storage_path,
         output_document: { project_id: projectId, document_key: approvedKey },
+        status: 'APPROVED', version_number: 1, snapshot_kind: 'LEGACY_SUBMITTED',
       },
     ],
     signedPaths: [],
@@ -100,6 +102,7 @@ class QueryMock {
   in(column: string, value: unknown[]): this { this.filters.push({ kind: 'in', column, value }); return this; }
   order(): this { return this; }
   limit(): this { return this; }
+  range(): this { return this; }
   maybeSingle(): Promise<{ data: unknown; error: null }> { return Promise.resolve(this.execute(true)); }
   single(): Promise<{ data: unknown; error: null }> { return Promise.resolve(this.execute(true)); }
   then<TResult1 = { data: unknown; error: null }, TResult2 = never>(
@@ -138,6 +141,17 @@ class QueryMock {
     }
     if (this.table === 'project_output_document_versions') {
       const rows = this.state.versions.filter((row) => this.matches(row)).map((row) => ({ ...row }));
+      return { data: single ? (rows[0] || null) : rows, error: null };
+    }
+    if (this.table === 'project_output_document_files') {
+      const rows = this.state.versions.map((version) => ({ ...version, id: `file-${version.id}`, file_size: 256,
+        mime_type: 'application/pdf', uploaded_at: '2026-09-23T08:00:00.000Z' }))
+        .filter((row) => this.matches(row));
+      return { data: single ? (rows[0] || null) : rows, error: null };
+    }
+    if (this.table === 'project_output_document_version_files' || this.table === 'project_output_document_draft_files') {
+      const rows = this.state.versions.map((version) => ({ version_id: version.id, output_document_id: version.output_document_id,
+        file_id: `file-${version.id}`, project_id: projectId, position: 0 })).filter((row) => this.matches(row));
       return { data: single ? (rows[0] || null) : rows, error: null };
     }
     return { data: single ? null : [], error: null };
@@ -181,8 +195,21 @@ async function main(): Promise<void> {
       assert(internal?.fileName === 'internal-draft.pdf', 'Test 1: Head SA and assigned PIC retain non-final metadata');
       assert(internal?.currentVersionId === 'version-internal', 'Test 1: Head SA and assigned PIC retain the version token required for CAS');
       assert(response.missingMandatoryNames.length > 0, 'Test 1: authorized reviewers retain missing output names');
+      assert.equal(internal?.versionCount, 1);
+      assert.equal(internal?.legacyVersionCount, 0);
     }
     console.log('Test 1 - Head SA and assigned PIC can view current non-final output evidence: passed');
+  });
+
+  await withState(async (state) => {
+    const owner = state.versions[0].output_document_id;
+    state.versions.push({ ...state.versions[0], id: 'legacy-upload', snapshot_kind: 'LEGACY_UPLOAD_UNCONFIRMED', status: 'DRAFT' });
+    const response = await OutputDocumentService.list(projectId, actors.assignedSa);
+    const internal = response.documents.find((item) => item.id === owner)!;
+    assert.equal(internal.versionCount, 1, 'An unconfirmed legacy upload is not a review snapshot');
+    assert.equal(internal.legacyVersionCount, 1, 'Legacy history remains discoverable without inflating the review counter');
+    const history = await OutputDocumentService.listVersions(projectId, nonFinalKey, actors.assignedSa);
+    assert(history.versions.some((version) => version.id === 'legacy-upload' && version.versionKind === 'LEGACY_UPLOAD_UNCONFIRMED'));
   });
 
   await withState(async () => {

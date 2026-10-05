@@ -106,35 +106,35 @@ assert(
   "SA must receive the draft-submission-oriented output header copy."
 );
 
-const eligibleDraft = { key: "draft", status: "DRAFT", currentVersionId: "version-draft" };
+const eligibleDraft = { key: "draft", status: "DRAFT", currentVersionId: null, draftRevision: 3, draftFiles: [{ id: "file-1", fileSize: 200 }] };
 assert(
-  getOutputDocumentSubmitAction({ status: eligibleDraft.status, currentVersionId: eligibleDraft.currentVersionId, role: "SA", canUpload: true }) === "Ajukan untuk ditinjau",
+  getOutputDocumentSubmitAction({ status: eligibleDraft.status, draftRevision: eligibleDraft.draftRevision, draftFiles: eligibleDraft.draftFiles, role: "SA", canUpload: true }) === "Ajukan untuk ditinjau",
   "Eligible SA drafts must expose a direct submit action without selection mode."
 );
-for (const status of ["TO_DO", "IN_REVIEW", "REVISION_REQUIRED", "APPROVED"] as const) {
+for (const status of ["TO_DO", "IN_REVIEW", "APPROVED"] as const) {
   assert(
-    getOutputDocumentSubmitAction({ status, currentVersionId: "version-1", role: "SA", canUpload: true }) === null,
+    getOutputDocumentSubmitAction({ status, draftRevision: 3, draftFiles: eligibleDraft.draftFiles, role: "SA", canUpload: true }) === null,
     `${status} must not expose an SA submit action.`
   );
 }
 for (const role of ["HEAD_SA", "SALES", "SUPER_ADMIN"] as const) {
   assert(
-    getOutputDocumentSubmitAction({ status: eligibleDraft.status, currentVersionId: eligibleDraft.currentVersionId, role, canUpload: true }) === null,
+    getOutputDocumentSubmitAction({ status: eligibleDraft.status, draftRevision: eligibleDraft.draftRevision, draftFiles: eligibleDraft.draftFiles, role, canUpload: true }) === null,
     `${role} must not receive the SA submit action.`
   );
 }
 
 const batchCandidates = [
   eligibleDraft,
-  { key: "missing-version", status: "DRAFT", currentVersionId: null },
-  { key: "revision", status: "REVISION_REQUIRED", currentVersionId: "version-revision" },
+  { key: "missing-files", status: "DRAFT", draftRevision: 3, draftFiles: [] },
+  { key: "revision", status: "REVISION_REQUIRED", draftRevision: 4, draftFiles: [{ id: "revision-file", fileSize: 100 }] },
   { key: "review", status: "IN_REVIEW", currentVersionId: "version-review" },
 ];
 const originalBatchCandidates = [...batchCandidates];
 const submittableDocuments = getSubmittableOutputDocuments(batchCandidates, true, "SA");
 assert(
-  submittableDocuments.length === 1 && submittableDocuments[0].key === "draft",
-  "Batch selection must include only SA drafts with a current version."
+  submittableDocuments.map((document) => document.key).join(",") === "draft,revision",
+  "Batch selection must include only editable SA drafts and revisions with persisted files and a CAS revision."
 );
 assert(
   batchCandidates.every((document, index) => document === originalBatchCandidates[index]),

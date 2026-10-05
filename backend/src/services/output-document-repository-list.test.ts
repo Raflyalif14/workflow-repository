@@ -25,7 +25,15 @@ outputs.forEach((row, index) => { row.id = `output-${index + 1}`; });
 const versionOwners = [0, 1, 3, 4, 5, 2, 7];
 const versions = ['v1', 'v2', 'v3', 'v4', 'v5', 'v6', 'v7'].map((id, index) => ({
   id, version_number: index + 1, output_document_id: outputs[versionOwners[index]].id,
+  project_id: outputs[versionOwners[index]].project_id, status: outputs[versionOwners[index]].status, snapshot_kind: 'LEGACY_SUBMITTED',
 }));
+const files = versions.map((version) => {
+  const output = outputs.find((row) => row.id === version.output_document_id)!;
+  return { id: `file-${version.id}`, output_document_id: output.id, project_id: output.project_id,
+    file_name: output.file_name, storage_path: output.storage_path, file_size: 256, mime_type: 'application/pdf', uploaded_at: '2026-10-02T00:00:00Z' };
+});
+const references = versions.map((version) => ({ version_id: version.id, output_document_id: version.output_document_id,
+  project_id: version.project_id, file_id: `file-${version.id}`, position: 0 }));
 
 class QueryMock {
   private filters: Array<(row: Row) => boolean> = [];
@@ -40,7 +48,8 @@ class QueryMock {
   order() { return this; }
   range(start: number, end: number) { this.start = start; this.end = end; return this; }
   then(resolve: (value: { data: Row[]; error: null }) => unknown, reject?: (reason: unknown) => unknown) {
-    const source = this.table === 'projects' ? projects : this.table === 'project_output_documents' ? outputs : versions;
+    const source = this.table === 'projects' ? projects : this.table === 'project_output_documents' ? outputs
+      : this.table === 'project_output_document_versions' ? versions : this.table === 'project_output_document_files' ? files : references;
     return Promise.resolve({ data: source.filter((row) => this.filters.every((filter) => filter(row))).slice(this.start, this.end + 1), error: null }).then(resolve, reject);
   }
 }
@@ -61,35 +70,67 @@ async function main() {
     const secondSales = await OutputDocumentService.listAccessibleFiles(actor('SALES', 'sales-2'));
     assert.deepEqual(secondSales.map((row) => row.name), ['Other approved']);
     const pic = await OutputDocumentService.listAccessibleFiles(actor('SA', 'sa-1'));
-    assert.deepEqual(pic.map((row) => row.name), ['Internal proposal', 'Approved timeline', 'Selected methodology', 'Completed output']);
+    assert.deepEqual(pic.map((row) => row.name), ['Approved timeline', 'Selected methodology', 'Completed output']);
+    const searchPic = await OutputDocumentService.listAccessibleFiles(actor('SA', 'sa-1'), { approvedOnly: false });
+    assert.deepEqual(searchPic.map((row) => row.name), ['Internal proposal', 'Approved timeline', 'Selected methodology', 'Completed output']);
     const otherSa = await OutputDocumentService.listAccessibleFiles(actor('SA', 'sa-3'));
     assert.deepEqual(otherSa, []);
     const secondPic = await OutputDocumentService.listAccessibleFiles(actor('SA', 'sa-2'));
-    assert.deepEqual(secondPic.map((row) => row.name), ['Other internal', 'Other approved']);
+    assert.deepEqual(secondPic.map((row) => row.name), ['Other approved']);
     const head = await OutputDocumentService.listAccessibleFiles(actor('HEAD_SA', 'head-1'));
-    assert.equal(head.length, 6);
+    assert.equal(head.length, 4);
     const admin = await OutputDocumentService.listAccessibleFiles(actor('SUPER_ADMIN', 'admin-1'));
     assert.deepEqual(admin.map((row) => row.name), ['Approved timeline', 'Selected methodology', 'Other approved', 'Completed output']);
     for (const row of [...sales, ...secondSales, ...pic, ...secondPic, ...head, ...admin]) {
       assert(!('storage_path' in row) && !('url' in row));
       assert(row.versionNumber > 0);
+      assert.equal(row.files.length, 1);
+      assert(!JSON.stringify(row.files).includes('storage_path'));
     }
+    files.push({ ...files[1], id: 'file-v2-second' });
+    references.push({ ...references[1], file_id: 'file-v2-second', position: 1 });
+    const multiFile = await OutputDocumentService.listAccessibleFiles(actor('SALES', 'sales-1'));
+    assert.equal(multiFile.length, 3, 'Repository counter counts outputs, not constituent files');
+    const approved = multiFile.find((row) => row.name === 'Approved timeline')!;
+    assert.deepEqual(approved.files.map((file) => file.id), ['file-v2', 'file-v2-second']);
+    assert.equal(approved.approvedVersionId, 'v2');
+    assert(!JSON.stringify(approved).includes('private/approved'), 'Lists never expose Storage paths');
+    files.pop(); references.pop();
+    const originalVersionProject = versions[1].project_id;
+    versions[1].project_id = 'p2';
+    const mismatchedVersion = await OutputDocumentService.listAccessibleFiles(actor('SALES', 'sales-1'));
+    assert(!mismatchedVersion.some((row) => row.name === 'Approved timeline'), 'A snapshot from another project is never listed');
+    versions[1].project_id = originalVersionProject;
+    const originalFileProject = files[1].project_id;
+    files[1].project_id = 'p2';
+    await assert.rejects(() => OutputDocumentService.listAccessibleFiles(actor('SALES', 'sales-1')),
+      (error: any) => error.statusCode === 500, 'A mismatched immutable file reference fails closed');
+    files[1].project_id = originalFileProject;
     const originalOutputCount = outputs.length;
-    for (let index = 0; index < 250; index++) {
-      outputs.push({ ...outputs[1], document_key: `timeline_proyek` });
-    }
-    const paged = await OutputDocumentService.listAccessibleFiles(actor('SALES', 'sales-1'));
-    assert.equal(paged.length, 253, 'Accessible output listing must continue past the first page');
-    outputs.length = originalOutputCount;
     const originalProjectCount = projects.length;
+    const originalVersionCount = versions.length;
+    const originalFileCount = files.length;
+    const originalReferenceCount = references.length;
     for (let index = 0; index < 251; index++) {
       projects.push({ id: `extra-${index}`, name: `Extra ${index}`, customer: 'Customer', sales_id: 'sales-1', pic_id: 'sa-1' });
+      outputs.push({ ...outputs[1], id: `extra-output-${index}`, project_id: `extra-${index}`,
+        current_version_id: `extra-version-${index}`, title: `Output past project page ${index}` });
+      versions.push({ id: `extra-version-${index}`, output_document_id: `extra-output-${index}`,
+        project_id: `extra-${index}`, version_number: 1, status: 'APPROVED', snapshot_kind: 'SUBMITTED' });
+      files.push({ ...files[1], id: `extra-file-${index}`, output_document_id: `extra-output-${index}`, project_id: `extra-${index}` });
+      references.push({ version_id: `extra-version-${index}`, output_document_id: `extra-output-${index}`,
+        project_id: `extra-${index}`, file_id: `extra-file-${index}`, position: 0 });
     }
-    outputs.push({ ...outputs[1], project_id: 'extra-250', document_key: 'timeline_proyek', title: 'Output past project page' });
     const manyProjects = await OutputDocumentService.listAccessibleFiles(actor('SALES', 'sales-1'));
-    assert(manyProjects.some((row) => row.name === 'Output past project page'), 'Accessible project and output pagination must not omit later projects');
+    assert.equal(manyProjects.length, 254, 'Accessible project, output, and file-reference pagination includes every unique persisted output');
+    assert(manyProjects.some((row) => row.name === 'Output past project page 250'), 'Later projects remain included');
+    const globalPages = await OutputDocumentService.listAccessibleFiles(actor('HEAD_SA', 'head-1'));
+    assert.equal(globalPages.length, 255, 'Global output listing must continue past its first page');
     projects.length = originalProjectCount;
     outputs.length = originalOutputCount;
+    versions.length = originalVersionCount;
+    files.length = originalFileCount;
+    references.length = originalReferenceCount;
     assert.equal(signedCalls, 0, 'Listing must never generate signed URLs');
     console.log('Output repository list: role scopes, non-final metadata and URL safety passed');
   } finally {

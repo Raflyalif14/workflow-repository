@@ -29,9 +29,16 @@ const rows = async (table: string, configure: (query: any) => any): Promise<Arra
 };
 
 const storageRows = async (table: string, configure: (query: any) => any): Promise<Array<{ id: string; storage_path: string }>> => {
-  const { data, error } = await configure(supabaseAdmin.from(table).select('id,storage_path'));
-  if (error) throw new ProjectDeletionError('Unable to prepare project deletion preview.', 500);
-  return (data || []) as Array<{ id: string; storage_path: string }>;
+  const result: Array<{ id: string; storage_path: string }> = [];
+  const pageSize = 250;
+  for (let offset = 0; ; offset += pageSize) {
+    const { data, error } = await configure(supabaseAdmin.from(table).select('id,storage_path'))
+      .order('id', { ascending: true }).range(offset, offset + pageSize - 1);
+    if (error) throw new ProjectDeletionError('Unable to prepare project deletion preview.', 500);
+    const page = (data || []) as Array<{ id: string; storage_path: string }>;
+    result.push(...page);
+    if (page.length < pageSize) return result;
+  }
 };
 
 const capturedStoragePaths = (storagePaths: unknown): string[] => {
@@ -75,7 +82,7 @@ export class ProjectDeletionService {
     const documentIds = ids(documents);
     const contributions = await rows('milestone_contributions', (query) => query.eq('project_id', projectId));
     const contributionIds = ids(contributions);
-    const [versions, contributionAttachments, intakeAttachments, outputDocuments, outputVersions] = await Promise.all([
+    const [versions, contributionAttachments, intakeAttachments, outputDocuments, outputVersions, outputFiles] = await Promise.all([
       documentIds.length ? storageRows('document_versions', (query) => query.in('document_id', documentIds)) : [],
       contributionIds.length
         ? storageRows('milestone_contribution_attachments', (query) => query.in('contribution_id', contributionIds))
@@ -83,6 +90,7 @@ export class ProjectDeletionService {
       storageRows('project_intake_attachments', (query) => query.eq('project_id', projectId)),
       storageRows('project_output_documents', (query) => query.eq('project_id', projectId)),
       storageRows('project_output_document_versions', (query) => query.eq('project_id', projectId)),
+      storageRows('project_output_document_files', (query) => query.eq('project_id', projectId)),
     ]);
     const versionIds = ids(versions);
     const projectNotifications = await rows('notifications', (query) => query.eq('project_id', projectId));
@@ -100,7 +108,7 @@ export class ProjectDeletionService {
       documentIds.length ? rows('document_comments', (query) => query.in('document_id', documentIds)) : [],
     ]);
     const storageObjectCount = new Set(
-      [...versions, ...contributionAttachments, ...intakeAttachments, ...outputDocuments, ...outputVersions]
+      [...versions, ...contributionAttachments, ...intakeAttachments, ...outputDocuments, ...outputVersions, ...outputFiles]
         .map((row) => row.storage_path)
         .filter(Boolean)
     ).size;
@@ -118,6 +126,7 @@ export class ProjectDeletionService {
       project_intake_attachment_count: intakeAttachments.length,
       project_output_document_count: outputDocuments.length,
       project_output_document_version_count: outputVersions.length,
+      project_output_document_file_count: outputFiles.length,
       approvals: { deadline: counts[0].length, deadline_history: counts[1].length, project_plan: counts[2].length, document_version: counts[6].length },
       assignment_count: counts[3].length,
       activity_log_count: counts[4].length,

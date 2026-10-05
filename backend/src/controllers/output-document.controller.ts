@@ -8,7 +8,10 @@ import {
   reviewOutputDocumentsSchema,
   submitOutputDocumentsSchema,
   updateOutputChecklistSchema,
+  uploadOutputDocumentFileSchema,
+  removeOutputDocumentFileSchema,
 } from '../validators/output-document.validator';
+import { z } from 'zod';
 
 const actor = (req: AuthenticatedRequest) => req.user!;
 
@@ -51,11 +54,28 @@ export class OutputDocumentController {
           getRouteParam(req, 'projectId'),
           getRouteParam(req, 'key'),
           req.file,
-          actor(req)
+          actor(req),
+          uploadOutputDocumentFileSchema.parse(req.body)
         );
       },
       'Output document uploaded successfully'
     );
+
+  static removeDraftFile = (req: AuthenticatedRequest, res: Response) => run(res,
+    () => OutputDocumentService.removeDraftFile(getRouteParam(req, 'projectId'), getRouteParam(req, 'key'),
+      z.string().uuid().parse(getRouteParam(req, 'fileId')), removeOutputDocumentFileSchema.parse(req.body), actor(req)),
+    'Draft file removed successfully');
+
+  static fileDownloadUrl = (req: AuthenticatedRequest, res: Response) => run(res,
+    () => OutputDocumentService.getFileDownloadUrl(getRouteParam(req, 'projectId'), getRouteParam(req, 'key'),
+      z.string().uuid().parse(getRouteParam(req, 'fileId')), actor(req),
+      req.query.version_id === undefined ? undefined : z.string().uuid().parse(req.query.version_id)),
+    'File download link generated successfully');
+
+  static versionFileDownloadUrl = (req: AuthenticatedRequest, res: Response) => run(res,
+    () => OutputDocumentService.getFileDownloadUrl(getRouteParam(req, 'projectId'), getRouteParam(req, 'key'),
+      z.string().uuid().parse(getRouteParam(req, 'fileId')), actor(req), z.string().uuid().parse(getRouteParam(req, 'versionId'))),
+    'Version file download link generated successfully');
 
   static submit = (req: AuthenticatedRequest, res: Response) =>
     run(

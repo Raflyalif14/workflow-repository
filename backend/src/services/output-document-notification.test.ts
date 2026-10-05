@@ -14,7 +14,7 @@ const actors = {
 
 type OutputRow = Record<string, any>;
 type Notification = Record<string, unknown>;
-type State = { outputs: OutputRow[]; notifications: Notification[]; pending: Notification[]; failedDocumentIds: Set<string>; failDelivery: boolean };
+type State = { outputs: OutputRow[]; notifications: Notification[]; pending: Notification[]; failedDocumentIds: Set<string>; failDelivery: boolean; submissions: Set<string> };
 
 const makeState = (status: 'DRAFT' | 'IN_REVIEW'): State => ({
   outputs: [
@@ -25,6 +25,7 @@ const makeState = (status: 'DRAFT' | 'IN_REVIEW'): State => ({
   pending: [],
   failedDocumentIds: new Set(['output-fail']),
   failDelivery: false,
+  submissions: new Set(),
 });
 
 class QueryMock {
@@ -91,11 +92,15 @@ async function withState<T>(status: 'DRAFT' | 'IN_REVIEW', action: (state: State
       }
       const row = state.outputs.find((item) => item.id === input.p_output_document_id);
       if (!row || state.failedDocumentIds.has(row.id)) return { data: null, error: { code: '40001' } };
-      const action = input.p_action;
+      const action = name === 'submit_project_output_document_draft' ? 'SUBMIT' : input.p_action;
+      if (action === 'SUBMIT' && state.submissions.has(String(input.p_request_id))) {
+        return { data: [{ version_id: row.current_version_id, new_status: row.status, created: false }], error: null };
+      }
       if ((action === 'SUBMIT' && row.status !== 'DRAFT') || (action !== 'SUBMIT' && row.status !== 'IN_REVIEW')) {
         return { data: null, error: { code: '40001' } };
       }
       row.status = action === 'SUBMIT' ? 'IN_REVIEW' : action === 'APPROVE' ? 'APPROVED' : 'REVISION_REQUIRED';
+      if (action === 'SUBMIT') state.submissions.add(String(input.p_request_id));
       const recipients = action === 'SUBMIT' ? [actors.headSa.userId]
         : action === 'APPROVE' ? [actors.pic.userId, actors.sales.userId] : [actors.pic.userId];
       for (const userId of recipients) {
@@ -105,7 +110,7 @@ async function withState<T>(status: 'DRAFT' | 'IN_REVIEW', action: (state: State
           message: row.document_key === 'proposal_teknis' ? 'Proposal Teknis' : 'Timeline Proyek',
         });
       }
-      return { data: null, error: null };
+      return { data: action === 'SUBMIT' ? [{ version_id: row.current_version_id, new_status: row.status, created: true }] : null, error: null };
     };
     return await action(state);
   } finally {
@@ -118,24 +123,26 @@ const batch = [
   { document_key: 'proposal_teknis', expected_version_id: 'version-success' },
   { document_key: 'timeline_proyek', expected_version_id: 'version-fail' },
 ];
+const submitBatch = batch.map((item, index) => ({ document_key: item.document_key, expected_draft_revision: 1,
+  request_id: `11111111-1111-4111-8111-11111111111${index}` }));
 
 async function main(): Promise<void> {
   await withState('DRAFT', async (state) => {
-    const result = await OutputDocumentService.submitOutputDocuments(projectId, { items: batch }, actors.pic);
+    const result = await OutputDocumentService.submitOutputDocuments(projectId, { items: submitBatch }, actors.pic);
     assert.equal(result.success, false, 'Partial submit must report partial failure');
     assert.equal(state.notifications.length, 1, 'Only successful output submission sends one HEAD_SA notification');
     const notification = state.notifications[0];
     assert.equal(notification.userId, actors.headSa.userId, 'Submit notifications go only to HEAD_SA');
     assert.equal(notification.actionUrl, `/projects/${projectId}#milestone-outputs-milestone-output`, 'Submit notifications deep-link to the output milestone');
     assert(String(notification.message).includes('Proposal Teknis') && !String(notification.message).includes('Timeline Proyek'), 'Partial submit notifications name successful outputs only');
-    await OutputDocumentService.submitOutputDocuments(projectId, { items: batch }, actors.pic);
+    await OutputDocumentService.submitOutputDocuments(projectId, { items: submitBatch }, actors.pic);
     assert.equal(state.notifications.length, 1, 'Retrying an already transitioned or failed batch must not duplicate notifications');
     console.log('Test 1 - Partial output submission names only successful files, deep-links, and does not duplicate on retry: passed');
   });
 
   await withState('DRAFT', async (state) => {
     state.failedDocumentIds.add('output-success');
-    const result = await OutputDocumentService.submitOutputDocuments(projectId, { items: batch }, actors.pic);
+    const result = await OutputDocumentService.submitOutputDocuments(projectId, { items: submitBatch }, actors.pic);
     assert.equal(result.success, false, 'An all-failed submit must report failure');
     assert.equal(state.notifications.length, 0, 'An all-failed submit must not notify HEAD_SA');
     console.log('Test 2 - All-failed output submission does not send a notification: passed');
@@ -163,7 +170,7 @@ async function main(): Promise<void> {
 
   await withState('DRAFT', async (state) => {
     state.failDelivery = true;
-    const result = await OutputDocumentService.submitOutputDocuments(projectId, { items: [batch[0]] }, actors.pic);
+    const result = await OutputDocumentService.submitOutputDocuments(projectId, { items: [submitBatch[0]] }, actors.pic);
     assert.equal(result.success, true, 'Notification failure must not falsify a durable output transition');
     assert.equal(state.notifications.length, 0);
     assert.equal(state.pending.length, 1, 'Failed delivery must remain pending');

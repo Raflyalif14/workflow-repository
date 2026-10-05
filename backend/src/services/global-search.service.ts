@@ -85,7 +85,7 @@ export class GlobalSearchService {
 
     let accessibleOutputs: Awaited<ReturnType<typeof OutputDocumentService.listAccessibleFiles>>;
     try {
-      accessibleOutputs = await OutputDocumentService.listAccessibleFiles(actor);
+      accessibleOutputs = await OutputDocumentService.listAccessibleFiles(actor, { approvedOnly: false });
     } catch {
       throw new GlobalSearchError('Failed to search output documents.');
     }
@@ -117,7 +117,8 @@ export class GlobalSearchService {
       })),
       outputDocuments: accessibleOutputs
         .filter((output) => output.name.toLocaleLowerCase().includes(searchText)
-          || output.projectName.toLocaleLowerCase().includes(searchText))
+          || output.projectName.toLocaleLowerCase().includes(searchText)
+          || output.files.some((file) => file.fileName.toLocaleLowerCase().includes(searchText)))
         .slice(0, RESULT_LIMIT)
         .map((output) => ({
           type: 'OUTPUT_DOCUMENT',

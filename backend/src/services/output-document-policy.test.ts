@@ -67,12 +67,14 @@ console.log('Test 4 - Upload and submit require an active, non-postponed project
 
 const versionOne = { document_key: 'proposal_teknis', expected_version_id: '11111111-1111-4111-8111-111111111111' };
 const versionTwo = { document_key: 'timeline_proyek', expected_version_id: '22222222-2222-4222-8222-222222222222' };
-assert(submitOutputDocumentsSchema.safeParse({ items: [versionOne] }).success);
-assert(submitOutputDocumentsSchema.safeParse({ items: [versionOne, versionTwo] }).success);
+const draftOne = { document_key: versionOne.document_key, expected_draft_revision: 1, request_id: versionOne.expected_version_id };
+const draftTwo = { document_key: versionTwo.document_key, expected_draft_revision: 2, request_id: versionTwo.expected_version_id };
+assert(submitOutputDocumentsSchema.safeParse({ items: [draftOne] }).success);
+assert(submitOutputDocumentsSchema.safeParse({ items: [draftOne, draftTwo] }).success);
 assert(!submitOutputDocumentsSchema.safeParse({ items: [{ document_key: 'proposal_teknis', expected_version_id: null }] }).success);
 assert(!submitOutputDocumentsSchema.safeParse({ items: [{ document_key: 'proposal_teknis' }] }).success);
 assert(!submitOutputDocumentsSchema.safeParse({ items: [] }).success);
-assert(!submitOutputDocumentsSchema.safeParse({ items: [versionOne, versionOne] }).success);
+assert(!submitOutputDocumentsSchema.safeParse({ items: [draftOne, draftOne] }).success);
 assert(isCurrentOutputVersion(versionOne.expected_version_id, versionOne.expected_version_id));
 assert(!isCurrentOutputVersion(versionOne.expected_version_id, versionTwo.expected_version_id));
 assert(!isCurrentOutputVersion(versionOne.expected_version_id, null));

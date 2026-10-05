@@ -77,6 +77,21 @@ router.post(
   uploadMiddleware.single('file'),
   OutputDocumentController.upload
 );
+router.delete(
+  '/:projectId/output-documents/:key/files/:fileId',
+  requireRoles(['HEAD_SA', 'SA']),
+  OutputDocumentController.removeDraftFile
+);
+router.get(
+  '/:projectId/output-documents/:key/files/:fileId/download',
+  requireRoles(['SUPER_ADMIN', 'SALES', 'HEAD_SA', 'SA']),
+  OutputDocumentController.fileDownloadUrl
+);
+router.get(
+  '/:projectId/output-documents/:key/versions/:versionId/files/:fileId/download',
+  requireRoles(['HEAD_SA', 'SA']),
+  OutputDocumentController.versionFileDownloadUrl
+);
 router.post(
   '/:projectId/output-documents/submit',
   requireRoles(['HEAD_SA', 'SA']),

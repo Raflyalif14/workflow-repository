@@ -58,15 +58,21 @@ type OutputDocumentSubmissionInput = {
   key: string;
   status: string;
   currentVersionId?: string | null;
+  draftRevision?: number;
+  draftFiles?: readonly { id: string; fileSize?: number | null }[];
 };
 
 export function getOutputDocumentSubmitAction({
   role,
   status,
-  currentVersionId,
+  draftRevision,
+  draftFiles,
   canUpload,
-}: Pick<OutputDocumentSubmissionInput, "status" | "currentVersionId"> & { role?: string; canUpload: boolean }): string | null {
-  return role === "SA" && canUpload && status === "DRAFT" && Boolean(currentVersionId) ? translate("outputCopy.submitForReview") : null;
+}: Pick<OutputDocumentSubmissionInput, "status" | "draftRevision" | "draftFiles"> & { role?: string; canUpload: boolean }): string | null {
+  return role === "SA" && canUpload && ["DRAFT", "REVISION_REQUIRED"].includes(status)
+    && Number.isInteger(draftRevision) && draftRevision! >= 0
+    && Boolean(draftFiles?.length && draftFiles.every((file) => file.id && Number(file.fileSize) > 0))
+    ? translate("outputCopy.submitForReview") : null;
 }
 
 export function getSubmittableOutputDocuments<T extends OutputDocumentSubmissionInput>(
