@@ -4,7 +4,7 @@
   "description": "Backend API for Workflow Repository Management System",
   "main": "dist/server.js",
   "scripts": {
-    "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
+    "dev": "node --watch -r ts-node/register/transpile-only src/server.ts",
     "build": "tsc",
     "start": "node dist/server.js",
     "test": "node -e \"const fs = require('fs'); const { execSync } = require('child_process'); function findTests(dir) { let results = []; for (const file of fs.readdirSync(dir, { withFileTypes: true })) { const full = dir + '/' + file.name; if (file.isDirectory()) results = results.concat(findTests(full)); else if (file.name.endsWith('.test.ts')) results.push(full); } return results; } for (const test of findTests('src')) { console.log('Testing: ' + test); execSync('npx ts-node ' + test, { stdio: 'inherit' }); }\""
@@ -18,7 +18,7 @@
     "express-rate-limit": "^8.7.0",
     "helmet": "^8.3.0",
     "multer": "2.4.0",
-    "nodemailer": "^9.0.5",
+    "nodemailer": "10.0.14",
     "zod": "^3.24.2"
   },
   "devDependencies": {
@@ -28,7 +28,7 @@
     "@types/multer": "2.3.0",
     "@types/node": "^22.13.5",
     "@types/nodemailer": "^8.0.1",
-    "ts-node-dev": "^2.0.0",
+    "ts-node": "10.9.2",
     "typescript": "^5.7.3"
   }
 }
