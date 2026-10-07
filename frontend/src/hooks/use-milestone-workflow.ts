@@ -1,3 +1,4 @@
+import { useBusinessRequest } from "./use-business-request";
 import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "@/lib/api-client";
 import { approvalKeys, assignmentKeys, dashboardKeys, milestoneKeys, projectKeys } from "@/lib/query-keys";
@@ -73,15 +74,14 @@ export function useMilestoneApprovalStates(
 
 export function useSaveMilestoneDeadline(projectId: string, milestoneId: string) {
   const queryClient = useQueryClient();
+  const business = useBusinessRequest();
 
-  return useMutation({
+  const mutation = useMutation({
     mutationFn: (input: DeadlineInput) =>
-      apiClient(`/milestones/${milestoneId}/deadline`, {
-        method: "PATCH",
-        body: JSON.stringify(input),
-      }),
+      business(projectId, "DEADLINE_REQUEST", `/milestones/${milestoneId}/deadline`, "PATCH", input),
     onSuccess: () => invalidateMilestoneWorkflow(queryClient, projectId, milestoneId),
   });
+  return Object.assign(mutation, { prepare: () => { if (projectId) business.prepare(projectId); } });
 }
 
 export function useCompleteMilestone(projectId: string, milestoneId: string) {
@@ -120,14 +120,13 @@ export function useRetryMilestoneProgression(projectId: string, milestoneId: str
 
 export function useReviewDeadlineApproval(projectId?: string, milestoneId?: string) {
   const queryClient = useQueryClient();
+  const business = useBusinessRequest();
 
-  return useMutation({
+  const mutation = useMutation({
     mutationFn: ({ approvalId, decision, note }: { approvalId: string; decision: "APPROVE" | "REJECT"; note?: string }) =>
-      apiClient(`/deadline-approvals/${approvalId}/${decision === "APPROVE" ? "approve" : "reject"}`, {
-        method: "POST",
-        body: JSON.stringify(note?.trim() ? { note: note.trim() } : {}),
-      }),
+      projectId ? business(projectId, "DEADLINE_REVIEW", `/deadline-approvals/${approvalId}/${decision === "APPROVE" ? "approve" : "reject"}`, "POST", note?.trim() ? { note: note.trim() } : {}) : Promise.reject(new Error("Project ID is required.")),
     onSuccess: () => invalidateMilestoneWorkflow(queryClient, projectId, milestoneId),
     onError: () => invalidateMilestoneWorkflow(queryClient, projectId, milestoneId),
   });
+  return Object.assign(mutation, { prepare: () => { if (projectId) business.prepare(projectId); } });
 }

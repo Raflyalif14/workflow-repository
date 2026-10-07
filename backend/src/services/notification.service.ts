@@ -92,6 +92,7 @@ export class NotificationService {
       .from('notifications')
       .select(notificationFields)
       .eq('user_id', userId)
+      .eq('in_app_visible', true)
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1);
 
@@ -107,6 +108,7 @@ export class NotificationService {
       .from('notifications')
       .select('id', { count: 'exact', head: true })
       .eq('user_id', userId)
+      .eq('in_app_visible', true)
       .eq('is_read', false);
 
     if (error) throw databaseError('retrieve unread notification count', error);
@@ -119,6 +121,7 @@ export class NotificationService {
       .update({ is_read: true, read_at: new Date().toISOString() })
       .eq('id', notificationId)
       .eq('user_id', userId)
+      .eq('in_app_visible', true)
       .select(notificationFields)
       .maybeSingle();
 
@@ -132,6 +135,7 @@ export class NotificationService {
       .from('notifications')
       .update({ is_read: true, read_at: new Date().toISOString() })
       .eq('user_id', userId)
+      .eq('in_app_visible', true)
       .eq('is_read', false);
 
     if (error) throw databaseError('mark notifications as read', error);

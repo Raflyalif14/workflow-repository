@@ -13,6 +13,7 @@ import {
   useUnreadNotificationCount,
 } from "@/hooks/use-notifications";
 import { AppNotification } from "@/types/notification";
+import { PERSONAL_NOTIFICATIONS_SETTINGS_HREF } from "@/lib/settings-access";
 
 const formatCreatedAt = (value: string): string => {
   const createdAt = new Date(value);
@@ -109,7 +110,7 @@ export function NotificationBell({ enabled }: { enabled: boolean }) {
 
   const handleOpenNotificationSettings = () => {
     setIsOpen(false);
-    router.push("/settings/notifications");
+    router.push(PERSONAL_NOTIFICATIONS_SETTINGS_HREF);
   };
 
   return (
@@ -199,12 +200,12 @@ export function NotificationBell({ enabled }: { enabled: boolean }) {
                         <span className="absolute bottom-3 left-0 top-3 w-0.5 rounded-r-full bg-primary" aria-hidden="true" />
                       )}
                       <div className="flex items-start justify-between gap-3">
-                        <p className="text-xs font-semibold leading-5 text-foreground">{notification.title}</p>
+                        <p className="text-xs font-semibold leading-5 text-foreground">{notification.type === 'PRA_TENDER_CLOSED' ? translateI18n('projectPhase.closed') : notification.title}</p>
                         <time className="shrink-0 pt-0.5 text-[10px] text-muted-foreground" dateTime={notification.created_at}>
                           {formatCreatedAt(notification.created_at)}
                         </time>
                       </div>
-                      <p className="mt-1 text-xs leading-5 text-muted-foreground">{notification.message}</p>
+                      <p className="mt-1 text-xs leading-5 text-muted-foreground">{notification.type === 'PRA_TENDER_CLOSED' ? translateI18n('projectPhase.closedHelp') : notification.message}</p>
                     </button>
                   </li>
                 ))}

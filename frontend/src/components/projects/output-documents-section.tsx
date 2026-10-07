@@ -1,9 +1,14 @@
 "use client";
+import { BusinessConfirmation } from "./business-confirmation";
+
+import { prepareReviewRequest, reviewRequestKey, validFileRevisionSelection, type FileRevisionInput } from "@/lib/output-file-revisions";
+import { focusOutputReviewLink, outputReviewIsStale, outputReviewTarget } from "@/lib/approval-queue";
+import { captureOutputReview, reviewTargetsAreCurrent, runConfirmedDecision } from "@/lib/phase-review";
 
 import { translate as translateI18n, getIntlLocale, translateOutputStatus, translateProjectStatus, translateOutputName, translateStoredError, translateStoredMessage } from "@/i18n";
 import { useLanguage } from "@/components/i18n/language-provider";
 
-import { useCallback, useMemo, useRef, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { AlertCircle, AlertTriangle, CheckCircle2, Download, History, Loader2, RotateCcw, Send } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { Badge } from "@/components/ui/badge";
@@ -111,6 +116,21 @@ function OutputDocumentRow({ projectId, document, canUpload, canReview, canReadH
   onHistory: () => void;
 }) {
   const [feedbackExpanded, setFeedbackExpanded] = useState(false);
+  const [reviewLink, setReviewLink] = useState<ReturnType<typeof outputReviewTarget>>(null);
+  useEffect(() => {
+    const locate = () => {
+      const target = outputReviewTarget(window.location.hash);
+      setReviewLink(target);
+      if (target?.outputId === document.id) {
+        window.requestAnimationFrame(() => {
+          focusOutputReviewLink(window.location.hash, document.milestoneId, window.document);
+        });
+      }
+    };
+    locate();
+    window.addEventListener("hashchange", locate);
+    return () => window.removeEventListener("hashchange", locate);
+  }, [document.id, document.currentVersionId, document.status]);
   const uploadable = canUpload && ["TO_DO", "DRAFT", "REVISION_REQUIRED"].includes(document.status);
   const submitAction = getOutputDocumentSubmitAction({ ...document, role, canUpload });
   const submittable = Boolean(submitAction);
@@ -121,7 +141,8 @@ function OutputDocumentRow({ projectId, document, canUpload, canReview, canReadH
   const contextMessage = getOutputDocumentContextMessage({ role, status: document.status, canUpload: uploadable, canReview: reviewable, hasAssignedPic });
 
   return (
-    <div className="min-w-0 space-y-2 py-3 first:pt-0 last:pb-0">
+    <div id={`project-output-${document.id}`} tabIndex={-1} className="min-w-0 space-y-2 py-3 first:pt-0 last:pb-0 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary">
+      {outputReviewIsStale(reviewLink, document) && <p role="status" className="text-xs text-amber-400">{translateI18n("outputQueue.noLongerPending")}</p>}
       <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
         <div className="min-w-0 flex-1 space-y-1.5">
           <div className="flex min-w-0 flex-wrap items-center gap-1.5">
@@ -237,7 +258,7 @@ function VersionHistoryDialog({ projectId, document, onClose }: { projectId: str
             </div>
             {version.versionKind && version.versionKind !== "SUBMITTED" && <p className="mt-1 text-xs text-muted-foreground">{translateI18n(version.versionKind === "LEGACY_SUBMITTED" ? "outputFiles.legacySubmitted" : "outputFiles.legacyUnconfirmed")}</p>}
             {version.versionKind === "LEGACY_UPLOAD_UNCONFIRMED" && <p className="mt-1 text-xs text-muted-foreground">{translateI18n("outputFiles.legacyHelp")}</p>}
-            <div className="mt-2 divide-y divide-border/40">{version.files?.map((file) => <div key={file.id} className="flex min-w-0 items-center justify-between gap-2 py-1.5"><div className="min-w-0"><p className="break-words text-xs">{file.fileName}</p><p className="text-xs text-muted-foreground">{formatOutputFileSize(file.fileSize)}</p></div><Button type="button" size="sm" variant="ghost" disabled={downloadingId !== null} onClick={() => void downloadVersion(version.id, file.id)} aria-label={translateI18n("outputFiles.downloadFile", { name: file.fileName })}>{downloadingId === file.id ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : <Download className="mr-1 h-3.5 w-3.5" />}{translateI18n("common.download")}</Button></div>)}</div>
+            <div className="mt-2 divide-y divide-border/40">{version.files?.map((file) => <div key={file.id} className="flex min-w-0 items-center justify-between gap-2 py-1.5"><div className="min-w-0"><p className="break-words text-xs">{file.fileName}</p><p className="text-xs text-muted-foreground">{formatOutputFileSize(file.fileSize)}</p>{version.fileRevisions?.filter(marker => marker.fileId === file.id).map(marker => <p key={marker.fileId} className="whitespace-pre-wrap break-words text-xs text-destructive">{marker.feedback}</p>)}</div><Button type="button" size="sm" variant="ghost" disabled={downloadingId !== null} onClick={() => void downloadVersion(version.id, file.id)} aria-label={translateI18n("outputFiles.downloadFile", { name: file.fileName })}>{downloadingId === file.id ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : <Download className="mr-1 h-3.5 w-3.5" />}{translateI18n("common.download")}</Button></div>)}</div>
             {version.submissionNote && <p className="mt-2 text-xs text-muted-foreground"><strong>{translateI18n("ui.submitNote")}</strong> {version.submissionNote}</p>}
             {version.reviewFeedback && <p className="mt-2 text-xs text-destructive"><strong>{translateI18n("copy.reviewFeedback")}</strong> {version.reviewFeedback}</p>}
           </div>
@@ -255,7 +276,11 @@ export function OutputDocumentsSection({ project, milestoneId, milestoneStatus, 
   const submit = useSubmitOutputDocuments(project.id);
   const review = useReviewOutputDocuments(project.id);
   const updateChecklist = useUpdateOutputChecklist(project.id);
+  const checklistStale = (updateChecklist.error as { status?: number } | null)?.status === 409;
   const retryCompletion = useRetryProjectCompletion(project.id);
+  const [submitConfirmation, setSubmitConfirmation] = useState<{ keys: string[]; operation: Exclude<SubmissionOperation,null>; items: Array<{ document_key: string; expected_draft_revision: number; request_id: string }> } | null>(null);
+  const [checklistConfirming, setChecklistConfirming] = useState(false);
+  const checklistBusy = useRef(false);
   const [submitSelection, setSubmitSelection] = useState<string[]>([]);
   const [submissionSelectionMode, setSubmissionSelectionMode] = useState(false);
   const [submissionOperation, setSubmissionOperation] = useState<SubmissionOperation>(null);
@@ -264,8 +289,15 @@ export function OutputDocumentsSection({ project, milestoneId, milestoneStatus, 
   const [reviewOperation, setReviewOperation] = useState<ReviewOperation>(null);
   const [batchResults, setBatchResults] = useState<OutputDocumentBatchResult[]>([]);
   const [batchAction, setBatchAction] = useState<"submit" | "approve" | "revise">("submit");
+  const [approvalConfirmation, setApprovalConfirmation] = useState<{ targets: ReturnType<typeof captureOutputReview>; operation: Exclude<ReviewOperation, null> } | null>(null);
+  const [confirmationError, setConfirmationError] = useState(false);
+  const [revisionConfirmed, setRevisionConfirmed] = useState(false);
+  const [revisionError, setRevisionError] = useState(false);
   const [revisionTarget, setRevisionTarget] = useState<ProjectOutputDocumentItem | null>(null);
   const [revisionFeedback, setRevisionFeedback] = useState("");
+  const [fileRevisionInputs, setFileRevisionInputs] = useState<FileRevisionInput[]>([]);
+  const reviewRequests = useRef(new Map<string, string>());
+  const reviewInFlight = useRef(false);
   const [historyDocument, setHistoryDocument] = useState<ProjectOutputDocumentItem | null>(null);
   const [checklistOpen, setChecklistOpen] = useState(false);
   const [checklistSelection, setChecklistSelection] = useState<string[]>([]);
@@ -323,14 +355,6 @@ export function OutputDocumentsSection({ project, milestoneId, milestoneStatus, 
       activeDocuments.some((item) => item.status === "REVISION_REQUIRED") && translateI18n("milestoneCompact.needsRevision", { count: activeDocuments.filter((item) => item.status === "REVISION_REQUIRED").length })]
     : [approvedCount > 0 ? translateI18n("outputUi.approvedCount", { count: approvedCount }) : translateI18n("outputUi.noApprovedYet")];
 
-  const batchItems = (keys: string[]) => keys.map((key) => {
-    const document = documents.find((candidate) => candidate.key === key);
-    if (!document?.currentVersionId) {
-      throw new Error(translateI18n("outputUi.versionUnavailable"));
-    }
-    return { document_key: key, expected_version_id: document.currentVersionId };
-  });
-
   const submissionItems = (keys: string[]) => {
     const submittableKeys = new Set(submittableDocuments.map((document) => document.key));
     if (keys.some((key) => !submittableKeys.has(key) || draftBusyRef.current.has(key))) {
@@ -342,44 +366,48 @@ export function OutputDocumentsSection({ project, milestoneId, milestoneStatus, 
     });
   };
 
-  const reviewItems = (keys: string[]) => {
-    const reviewableKeys = new Set(reviewableDocuments.map((document) => document.key));
-    if (keys.some((key) => !reviewableKeys.has(key))) {
-      throw new Error(translateI18n("outputUi.reviewUnavailable"));
-    }
-    return batchItems(keys);
+  const openSubmission = (keys: string[], operation: Exclude<SubmissionOperation,null>) => {
+    try { setSubmitConfirmation({ keys, operation, items: submissionItems(keys) }); }
+    catch { setBatchResults(keys.map(documentKey => ({ documentKey, success: false, message: "outputUi.draftsUnavailable" }))); }
   };
 
-  const submitDocuments = async (keys: string[], operation: Exclude<SubmissionOperation, null>) => {
+  const submitDocuments = async (keys: string[], operation: Exclude<SubmissionOperation, null>, items: NonNullable<typeof submitConfirmation>['items']) => {
     if (submissionInFlight.current || keys.some((key) => draftBusyRef.current.has(key))) return;
     submissionInFlight.current = true;
     setBatchAction("submit");
     setBatchResults([]);
     setSubmissionOperation(operation);
+    let partialFailure = false;
     try {
-      const response = await submit.mutateAsync({ items: submissionItems(keys) });
+      const response = await submit.mutateAsync({ items });
       setBatchResults(response.results);
       const failedKeys = response.results.filter((result) => !result.success).map((result) => result.documentKey);
       setSubmitSelection(failedKeys);
       setSubmissionSelectionMode(failedKeys.length > 0);
+      partialFailure = failedKeys.length > 0;
+      if (partialFailure) setSubmitConfirmation(current => current && ({ ...current, keys: failedKeys, items: current.items.filter(item => failedKeys.includes(item.document_key)) }));
     } catch (error) {
       setBatchResults(keys.map((documentKey) => ({ documentKey, success: false, message: "outputUi.submissionFailed" })));
       setSubmitSelection(keys);
       setSubmissionSelectionMode(true);
+      throw error;
     } finally {
       submissionInFlight.current = false;
       setSubmissionOperation(null);
     }
+    if (partialFailure) throw new Error("Some submissions were not saved.");
   };
 
-  const submitSelected = async () => submitDocuments(submitSelection, { kind: "batch" });
+  const submitSelected = async () => openSubmission(submitSelection, { kind: "batch" });
 
-  const approveDocuments = async (keys: string[], operation: Exclude<ReviewOperation, null>) => {
+  const approveDocuments = async (keys: string[], operation: Exclude<ReviewOperation, null>, targets: ReturnType<typeof captureOutputReview>) => {
+    if (reviewInFlight.current) return false;
+    reviewInFlight.current = true;
     setBatchAction("approve");
     setBatchResults([]);
     setReviewOperation(operation);
     try {
-      const response = await review.mutateAsync({ decision: "APPROVE", items: reviewItems(keys) });
+      const response = await review.mutateAsync({ decision: "APPROVE", items: targets.map(({ document_key, expected_version_id }) => prepareReviewRequest({ document_key, expected_version_id, decision: "APPROVE" }, reviewRequests.current)) });
       setBatchResults(response.results);
       const failedKeys = response.results.filter((result) => !result.success).map((result) => result.documentKey);
       setApproveSelection(operation.kind === "batch" ? failedKeys : []);
@@ -387,42 +415,78 @@ export function OutputDocumentsSection({ project, milestoneId, milestoneStatus, 
       if (response.completionRetryRequired) {
         setCompletionRetryMessage("outputUi.completionRetry");
       }
+      return response.results.length === targets.length && response.results.every(result => result.success);
     } catch (error) {
       setBatchResults(keys.map((documentKey) => ({ documentKey, success: false, message: "outputUi.approvalFailed" })));
       setApproveSelection(operation.kind === "batch" ? keys : []);
       setApprovalSelectionMode(operation.kind === "batch");
+      return false;
     } finally {
+      reviewInFlight.current = false;
       setReviewOperation(null);
     }
   };
 
-  const approveSelected = async () => approveDocuments(approveSelection, { kind: "batch" });
+  const openApproval = (keys: string[], operation: Exclude<ReviewOperation, null>) => {
+    setConfirmationError(false);
+    try { setApprovalConfirmation({ targets: captureOutputReview(keys.map(key => documents.find(item => item.key === key)!)), operation }); }
+    catch { setConfirmationError(true); }
+  };
+  const approveSelected = () => openApproval(approveSelection, { kind: "batch" });
+  const approvalCanRetry = () => Boolean(approvalConfirmation?.targets.every(target => reviewRequests.current.has(reviewRequestKey({ document_key: target.document_key, expected_version_id: target.expected_version_id, decision: "APPROVE" }))));
+  const confirmApproval = async () => {
+    if (!approvalConfirmation || review.isPending || reviewInFlight.current) return;
+    setConfirmationError(false);
+    if (!approvalCanRetry() && !reviewTargetsAreCurrent(approvalConfirmation.targets, documents)) {
+      setConfirmationError(true); await outputQuery.refetch(); return;
+    }
+    const saved = await runConfirmedDecision({ confirmed: true, current: approvalCanRetry() || reviewTargetsAreCurrent(approvalConfirmation.targets, documents) }, () => approveDocuments(approvalConfirmation.targets.map(item => item.document_key), approvalConfirmation.operation, approvalConfirmation.targets));
+    if (saved) setApprovalConfirmation(null);
+    else { setConfirmationError(true); await outputQuery.refetch(); }
+  };
 
   const requestRevision = async (event: FormEvent) => {
     event.preventDefault();
-    if (!revisionTarget || !revisionFeedback.trim()) return;
+    if (!revisionTarget || review.isPending || reviewInFlight.current
+      || !validFileRevisionSelection(revisionTarget.files || [], fileRevisionInputs)) return;
+    setRevisionError(false);
+    if (!revisionConfirmed) { setRevisionConfirmed(true); return; }
+    if (!revisionTarget.currentVersionId) return;
+    const input = { document_key: revisionTarget.key, expected_version_id: revisionTarget.currentVersionId,
+      decision: "REVISE" as const, feedback: revisionFeedback.trim(), file_revisions: fileRevisionInputs };
+    const retry = reviewRequests.current.has(reviewRequestKey(input));
+    if (!retry && !reviewTargetsAreCurrent(captureOutputReview([revisionTarget]), documents)) {
+      setRevisionError(true); await outputQuery.refetch(); return;
+    }
+    reviewInFlight.current = true;
     setBatchAction("revise");
     setBatchResults([]);
     try {
-      const response = await review.mutateAsync({ decision: "REVISE", feedback: revisionFeedback.trim(), items: batchItems([revisionTarget.key]) });
+      const response = await review.mutateAsync({ decision: "REVISE", feedback: input.feedback,
+        items: [prepareReviewRequest(input, reviewRequests.current)] });
       setBatchResults(response.results);
       if (response.results[0]?.success) {
-        setRevisionTarget(null);
-        setRevisionFeedback("");
-      }
-    } catch (error) {
+        setRevisionTarget(null); setRevisionFeedback(""); setFileRevisionInputs([]);
+      } else { setRevisionError(true); await outputQuery.refetch(); }
+    } catch {
+      setRevisionError(true);
       setBatchResults([{ documentKey: revisionTarget.key, success: false, message: "outputUi.revisionFailed" }]);
-    }
+    } finally { reviewInFlight.current = false; }
   };
 
   const openChecklist = () => {
-    setChecklistSelection(documents.filter((document) => document.isSelected).map((document) => document.key));
+    setChecklistSelection(documents.filter((document) => document.isSelected && (!project.active_phase_id || document.group === outputQuery.data?.scenarioKey)).map((document) => document.key));
+    updateChecklist.prepare?.();
+    setChecklistConfirming(false); updateChecklist.reset();
     setChecklistOpen(true);
   };
 
   const saveChecklist = async () => {
-    await updateChecklist.mutateAsync(checklistSelection);
-    setChecklistOpen(false);
+    if (checklistBusy.current || checklistStale) return;
+    if (!checklistConfirming) { setChecklistConfirming(true); return; }
+    checklistBusy.current = true;
+    try { await updateChecklist.mutateAsync(checklistSelection); setChecklistOpen(false); }
+    finally { checklistBusy.current = false; }
   };
 
   const downloadAllApproved = async () => {
@@ -494,15 +558,57 @@ export function OutputDocumentsSection({ project, milestoneId, milestoneStatus, 
           <div key={group.key} className="min-w-0">
             {groups.length > 1 && <h5 className="border-b border-border/50 py-1 text-xs font-medium text-muted-foreground">{group.title}</h5>}
             <div className="min-w-0 divide-y divide-border/50">
-              {group.documents.map((document) => <OutputDocumentRow key={document.key} projectId={project.id} document={document} canUpload={canUpload} canReview={isHeadSa} canReadHistory={canReadHistory} hasAssignedPic={Boolean(project.pic?.id)} role={user?.role} submissionSelectionMode={submissionSelectionMode} submissionOperation={submissionOperation} approvalSelectionMode={approvalSelectionMode} reviewOperation={reviewOperation} reviewPending={review.isPending} draftBusy={draftBusyKeys.includes(document.key)} onDraftBusyChange={onDraftBusyChange} refreshDraft={refreshDraft} submitChecked={submitSelection.includes(document.key)} approveChecked={approveSelection.includes(document.key)} onSubmit={() => void submitDocuments([document.key], { kind: "single", documentKey: document.key })} onApprove={() => void approveDocuments([document.key], { kind: "single", documentKey: document.key })} onToggleSubmit={() => setSubmitSelection((current) => current.includes(document.key) ? current.filter((key) => key !== document.key) : [...current, document.key])} onToggleApprove={() => setApproveSelection((current) => current.includes(document.key) ? current.filter((key) => key !== document.key) : [...current, document.key])} onRevision={() => { setRevisionTarget(document); setRevisionFeedback(""); }} onHistory={() => setHistoryDocument(document)} />)}
+              {group.documents.map((document) => <OutputDocumentRow key={document.key} projectId={project.id} document={document} canUpload={canUpload} canReview={isHeadSa} canReadHistory={canReadHistory} hasAssignedPic={Boolean(project.pic?.id)} role={user?.role} submissionSelectionMode={submissionSelectionMode} submissionOperation={submissionOperation} approvalSelectionMode={approvalSelectionMode} reviewOperation={reviewOperation} reviewPending={review.isPending} draftBusy={draftBusyKeys.includes(document.key)} onDraftBusyChange={onDraftBusyChange} refreshDraft={refreshDraft} submitChecked={submitSelection.includes(document.key)} approveChecked={approveSelection.includes(document.key)} onSubmit={() => openSubmission([document.key], { kind: "single", documentKey: document.key })} onApprove={() => openApproval([document.key], { kind: "single", documentKey: document.key })} onToggleSubmit={() => setSubmitSelection((current) => current.includes(document.key) ? current.filter((key) => key !== document.key) : [...current, document.key])} onToggleApprove={() => setApproveSelection((current) => current.includes(document.key) ? current.filter((key) => key !== document.key) : [...current, document.key])} onRevision={() => { setRevisionTarget(document); setRevisionFeedback(""); setFileRevisionInputs(document.files?.length === 1 ? [{ file_id: document.files[0].id, feedback: "" }] : []); setRevisionConfirmed(false); setRevisionError(false); }} onHistory={() => setHistoryDocument(document)} />)}
             </div>
           </div>
         ))}
       </div>
 
-      {revisionTarget && <Dialog open onOpenChange={(open) => !open && !review.isPending && setRevisionTarget(null)}><DialogHeader><DialogTitle>{translateI18n("copy.requestRevision")}</DialogTitle><DialogDescription>{translateOutputName(revisionTarget.key, revisionTarget.name)}</DialogDescription></DialogHeader><form onSubmit={requestRevision} className="space-y-4"><div><label htmlFor="output-revision-feedback" className="mb-1 block text-xs font-medium">{translateI18n("copy.reason")}</label><textarea id="output-revision-feedback" required maxLength={2000} value={revisionFeedback} onChange={(event) => setRevisionFeedback(event.target.value)} className="min-h-24 w-full rounded-md border border-input bg-background p-3 text-sm" /></div><DialogFooter><Button type="button" variant="outline" disabled={review.isPending} onClick={() => setRevisionTarget(null)}>{translateI18n("common.cancel")}</Button><Button type="submit" variant="destructive" disabled={review.isPending || !revisionFeedback.trim()}>{review.isPending ? translateI18n("outputUi.saving") : translateI18n("outputUi.requestRevision")}</Button></DialogFooter></form></Dialog>}
+      <BusinessConfirmation open={submitConfirmation !== null} onOpenChange={open => !open && setSubmitConfirmation(null)}
+        title={project.name} changes={[translateI18n("businessAudit.submitHelp"), ...(submitConfirmation?.keys || []).map(key => { const output = documents.find(item => item.key === key); return `${translateOutputName(key,output?.name || key)} - ${translateI18n("businessAudit.fileCount",{ count: output?.draftFiles?.length || 0 })}`; })]}
+        action={translateI18n("businessAudit.submit")} onConfirm={() => submitDocuments(submitConfirmation!.keys,submitConfirmation!.operation,submitConfirmation!.items)} />
+      {approvalConfirmation && <Dialog open onOpenChange={value => !value && !review.isPending && setApprovalConfirmation(null)}>
+        <DialogHeader><DialogTitle>{translateI18n("reviewConfirm.approve")}</DialogTitle><DialogDescription>{project.name}. {translateI18n("reviewConfirm.whole")}</DialogDescription></DialogHeader>
+        <div className="max-h-[50vh] space-y-3 overflow-y-auto">{approvalConfirmation.targets.map(target => <div key={target.document_key} className="text-sm">
+          <p className="font-medium">{translateOutputName(target.document_key, target.name)} · {target.group === 'PRA_TENDER' ? 'Pra-Tender' : 'On Submission Tender'}</p>
+          <p>{translateI18n("reviewConfirm.snapshot", { version: target.version || translateI18n("common.notAvailable"), count: target.fileCount })}</p>
+        </div>)}</div>
+        {confirmationError && <p role="alert" className="text-sm text-destructive">{translateI18n(reviewTargetsAreCurrent(approvalConfirmation.targets, documents) ? "reviewConfirm.failed" : "reviewConfirm.stale")}</p>}
+        <DialogFooter><Button variant="outline" disabled={review.isPending} onClick={() => setApprovalConfirmation(null)}>{translateI18n("common.cancel")}</Button>
+          <Button disabled={review.isPending || (!approvalCanRetry() && !reviewTargetsAreCurrent(approvalConfirmation.targets, documents))} onClick={() => void confirmApproval()}>{translateI18n(review.isPending ? "common.saving" : "reviewConfirm.approve")}</Button></DialogFooter>
+      </Dialog>}
+      {revisionTarget && <Dialog open onOpenChange={open => !open && !review.isPending && setRevisionTarget(null)}>
+        <DialogHeader><DialogTitle>{translateI18n("copy.requestRevision")}</DialogTitle><DialogDescription>{translateOutputName(revisionTarget.key, revisionTarget.name)}</DialogDescription></DialogHeader>
+        <form onSubmit={requestRevision} className="space-y-3">
+          <p className="text-sm">{project.name} · {revisionTarget.group === "PRA_TENDER" ? "Pra-Tender" : "On Submission Tender"}</p>
+          <p className="text-sm">{translateI18n("reviewConfirm.snapshot", { version: revisionTarget.currentVersionNumber || translateI18n("common.notAvailable"), count: revisionTarget.files?.length || 0 })}</p>
+          <p className="text-xs text-muted-foreground">{translateI18n("fileRevision.help")}</p>
+          <div className="max-h-[40vh] divide-y divide-border overflow-y-auto">
+            {revisionTarget.files?.map(file => {
+              const marker = fileRevisionInputs.find(item => item.file_id === file.id);
+              return <div key={file.id} className="space-y-2 py-2">
+                <label className="flex items-start gap-2 break-words text-sm"><input type="checkbox" className="mt-1 h-4 w-4 shrink-0 accent-primary" checked={Boolean(marker)} disabled={review.isPending || revisionConfirmed}
+                  onChange={event => { setRevisionConfirmed(false); setFileRevisionInputs(current => event.target.checked ? [...current, { file_id: file.id, feedback: "" }] : current.filter(item => item.file_id !== file.id)); }} />{file.fileName}</label>
+                {marker && <div><label htmlFor={`file-reason-${file.id}`} className="text-xs">{translateI18n("fileRevision.reason", { name: file.fileName })}</label>
+                  {revisionConfirmed ? <p className="whitespace-pre-wrap break-words text-sm">{marker.feedback.trim()}</p> : <textarea id={`file-reason-${file.id}`} required maxLength={2000} value={marker.feedback} disabled={review.isPending}
+                    onChange={event => setFileRevisionInputs(current => current.map(item => item.file_id === file.id ? { ...item, feedback: event.target.value } : item))}
+                    className="min-h-16 w-full rounded-md border border-input bg-background p-2 text-sm" />}</div>}
+              </div>;
+            })}
+          </div>
+          <label htmlFor="output-revision-feedback" className="block text-xs">{translateI18n("fileRevision.general")}</label>
+          <textarea id="output-revision-feedback" maxLength={2000} value={revisionFeedback} disabled={review.isPending || revisionConfirmed} onChange={event => setRevisionFeedback(event.target.value)} className="min-h-16 w-full rounded-md border border-input bg-background p-2 text-sm" />
+          {revisionConfirmed && <p className="text-sm">{translateI18n("fileRevision.confirm", { count: fileRevisionInputs.length })}</p>}
+          {revisionError && <p role="alert" className="text-sm text-destructive">{translateI18n(reviewTargetsAreCurrent(captureOutputReview([revisionTarget]), documents) ? "reviewConfirm.failed" : "reviewConfirm.stale")}</p>}
+          <DialogFooter>
+            <Button type="button" variant="outline" disabled={review.isPending} onClick={() => setRevisionTarget(null)}>{translateI18n("common.cancel")}</Button>
+            {revisionConfirmed && <Button type="button" variant="outline" disabled={review.isPending} onClick={() => setRevisionConfirmed(false)}>{translateI18n("fileRevision.editSelection")}</Button>}
+            <Button type="submit" variant="destructive" disabled={review.isPending || !validFileRevisionSelection(revisionTarget.files || [], fileRevisionInputs)}>{review.isPending ? translateI18n("outputUi.saving") : translateI18n(revisionConfirmed ? "reviewConfirm.revise" : "reviewConfirm.continue")}</Button>
+          </DialogFooter>
+        </form>
+      </Dialog>}
       {historyDocument && <VersionHistoryDialog projectId={project.id} document={historyDocument} onClose={() => setHistoryDocument(null)} />}
-      <Dialog open={checklistOpen} onOpenChange={(open) => !updateChecklist.isPending && setChecklistOpen(open)}><DialogHeader><DialogTitle>{translateI18n("copy.optionalOutputs")}</DialogTitle><DialogDescription>{translateI18n("copy.outputLockHelp")}</DialogDescription></DialogHeader><div className="max-h-[55vh] space-y-2 overflow-y-auto">{documents.map((document) => <label key={document.key} className="flex items-center justify-between gap-3 rounded-md border border-border/50 p-3 text-sm"><span className="flex min-w-0 items-center gap-2"><input type="checkbox" disabled={document.isRequired} checked={document.isRequired || checklistSelection.includes(document.key)} onChange={() => setChecklistSelection((current) => current.includes(document.key) ? current.filter((key) => key !== document.key) : [...current, document.key])} className="h-4 w-4 accent-primary" /><span>{translateOutputName(document.key, document.name)}</span></span><Badge variant="secondary" className="text-[10px]">{document.isRequired ? translateI18n("outputUi.required") : translateI18n("outputUi.optional")}</Badge></label>)}</div><DialogFooter><Button type="button" variant="outline" disabled={updateChecklist.isPending} onClick={() => setChecklistOpen(false)}>{translateI18n("common.cancel")}</Button><Button type="button" disabled={updateChecklist.isPending} onClick={() => void saveChecklist()}>{updateChecklist.isPending ? translateI18n("outputUi.saving") : translateI18n("outputUi.savingList")}</Button></DialogFooter></Dialog>
+      <Dialog open={checklistOpen} onOpenChange={(open) => !updateChecklist.isPending && setChecklistOpen(open)}><DialogHeader><DialogTitle>{translateI18n("copy.optionalOutputs")}</DialogTitle><DialogDescription>{translateI18n("copy.outputLockHelp")}</DialogDescription></DialogHeader><div className="max-h-[55vh] space-y-2 overflow-y-auto">{documents.filter(document => !project.active_phase_id || document.group === outputQuery.data?.scenarioKey).map((document) => <label key={document.key} className="flex items-center justify-between gap-3 rounded-md border border-border/50 p-3 text-sm"><span className="flex min-w-0 items-center gap-2"><input type="checkbox" disabled={document.isRequired || checklistConfirming || updateChecklist.isPending} checked={document.isRequired || checklistSelection.includes(document.key)} onChange={() => setChecklistSelection((current) => current.includes(document.key) ? current.filter((key) => key !== document.key) : [...current, document.key])} className="h-4 w-4 accent-primary" /><span>{translateOutputName(document.key, document.name)}</span></span><Badge variant="secondary" className="text-[10px]">{document.isRequired ? translateI18n("outputUi.required") : translateI18n("outputUi.optional")}</Badge></label>)}</div><p className="mt-3 text-sm">{checklistConfirming && <>{project.name}: {translateI18n("businessAudit.scope")}<span className="block">{documents.filter(item => item.isSelected).map(item => translateOutputName(item.key,item.name)).join(", ")} {" -> "} {documents.filter(item => item.isRequired || checklistSelection.includes(item.key)).map(item => translateOutputName(item.key,item.name)).join(", ")}</span></>}</p>{updateChecklist.isError && <p role="alert" className="text-sm text-destructive">{translateI18n(checklistStale ? "businessAudit.stale" : "businessAudit.failed")}</p>}<DialogFooter><Button type="button" variant="outline" disabled={updateChecklist.isPending} onClick={() => setChecklistOpen(false)}>{translateI18n("common.cancel")}</Button><Button type="button" disabled={updateChecklist.isPending || checklistStale} onClick={() => void saveChecklist().catch(() => {})}>{updateChecklist.isPending ? translateI18n("outputUi.saving") : translateI18n(checklistConfirming ? "businessAudit.save" : "reviewConfirm.continue")}</Button></DialogFooter></Dialog>
     </section>
   );
 }

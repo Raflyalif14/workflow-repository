@@ -1,3 +1,4 @@
+import { installRestrictedRepositoryFixture } from '../test-utils/repository-access.fixture';
 import assert from 'node:assert/strict';
 import { inflateRawSync } from 'node:zlib';
 import { supabaseAdmin } from '../config/supabase';
@@ -12,6 +13,7 @@ async function main() {
   const files = [1, 2].map((n) => ({ id: `f${n}`, project_id: 'p', output_document_id: 'o', file_name: 'same.pdf',
     file_size: 3 as number | null, storage_path: `private-${n}`, mime_type: 'application/pdf' }));
   let signs = 0, fetches = 0, cancelled = false;
+  const restoreAccessFixture = installRestrictedRepositoryFixture({ sales:'SALES',sa:'SA',head:'HEAD_SA',admin:'SUPER_ADMIN' }, () => ({ projects: [project], outputs: docs }));
   let body = 'abc', failFetch = false;
   class Query {
     filters: Array<(row: any) => boolean> = [];
@@ -83,6 +85,7 @@ async function main() {
     assert.equal(fetches, 2, 'Missing later object fails the whole archive, without a partial ZIP');
     console.log('Output archive: size preflight, bounded body, complete snapshots and access passed');
   } finally {
+    restoreAccessFixture();
     supabaseAdmin.from = originals.from; DocumentStorageService.createSignedDownloadUrl = originals.sign; global.fetch = originals.fetch;
   }
 }

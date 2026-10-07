@@ -1,3 +1,4 @@
+import { getProjectMandatoryDocumentKeys } from '../constants/scenarios';
 import { strict as assert } from 'assert';
 import { supabaseAdmin } from '../config/supabase';
 import { NotificationService } from './notification.service';
@@ -36,6 +37,7 @@ class QueryMock {
   }
 
   private execute() {
+    if (this.table === 'scenarios') return { data: { name: 'Pra-Tender' }, error: null };
     if (this.table === 'activity_logs' && this.operation === 'insert') {
       this.state.activityLogs.push(this.payload);
       return { data: null, error: null };
@@ -68,11 +70,11 @@ const salesOwner = { userId: 'sales-1', role: 'SALES', fullName: 'Sales Owner' }
 
 function createState(): State {
   return {
-    project: { id: 'project-1', name: 'Retry Project', sales_id: salesOwner.userId, pic_id: 'sa-1', status: 'ACTIVE', is_postponed: false },
+    project: { id: 'project-1', name: 'Retry Project', sales_id: salesOwner.userId, pic_id: 'sa-1', status: 'ACTIVE', is_postponed: false, scenario_id: 'pra', selected_document_keys: getProjectMandatoryDocumentKeys('Pra-Tender', false) },
     milestones: [
       { id: 'milestone-1', project_id: 'project-1', name: 'Delivery', step_order: 1, status: 'COMPLETED', pic_id: 'sa-1', completed_at: '2026-09-22T00:00:00.000Z', workflow_stage: { default_role: 'SALES' } },
     ],
-    outputDocuments: [{ id: 'output-1', project_id: 'project-1', is_required: true, is_selected: true, status: 'APPROVED' }],
+    outputDocuments: getProjectMandatoryDocumentKeys('Pra-Tender', false).map((document_key, index) => ({ id: `output-${index}`, project_id: 'project-1', document_key, is_required: true, is_selected: true, status: 'APPROVED' })),
     failProjectUpdate: false,
     activityLogs: [],
     notifications: [],

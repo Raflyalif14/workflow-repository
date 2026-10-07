@@ -1,9 +1,11 @@
-export type ApprovalCategory = "ALL" | "PROJECT_PLAN" | "DEADLINE";
+export type ApprovalCategory = "ALL" | "PROJECT_PLAN" | "DEADLINE" | "OUTPUT_DOCUMENT";
 export type ApprovalStatus = "ALL" | "PENDING" | "APPROVED" | "REJECTED" | "SUPERSEDED";
 
 export interface ApprovalItem {
+  phaseId?: string | null;
+  phaseName?: string | null;
   id: string;
-  category: "PROJECT_PLAN" | "DEADLINE";
+  category: "PROJECT_PLAN" | "DEADLINE" | "OUTPUT_DOCUMENT";
   title: string;
   status: "PENDING" | "APPROVED" | "REJECTED" | "SUPERSEDED";
   isCurrentApproval?: boolean;
@@ -13,6 +15,14 @@ export interface ApprovalItem {
   clientName: string;
   targetEntityId: string;
   documentId?: string;
+  outputId?: string;
+  documentKey?: string;
+  snapshotId?: string;
+  versionNumber?: number;
+  fileCount?: number;
+  phaseKey?: string;
+  canReview?: boolean;
+  reviewBlockedReason?: 'POSTPONED' | 'PROJECT_NOT_ACTIVE' | 'PHASE_NOT_ACTIVE' | 'MILESTONE_NOT_ACTIVE' | null;
   submittedBy: string;
   submittedAt: string;
   deadline?: string;

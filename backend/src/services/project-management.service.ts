@@ -1,18 +1,16 @@
-import { randomUUID } from 'crypto';
+import { mutateBusiness, BusinessRequestContext } from './business-audit.service';
+import { phaseRows } from './project-phase.service';
+import { ProjectCreationService, projectCreationRequestId, ProjectCreationRequestError } from './project-creation.service';
+import { ProjectIntakeService } from './project-intake.service';
 import path from 'path';
 import { supabaseAdmin } from '../config/supabase';
 import {
-  buildProjectIntakeStoragePath,
-  DocumentStorageService,
   isAllowedDocumentFileName,
   MAX_DOCUMENT_FILE_SIZE_BYTES,
 } from '../utils/storage.util';
 import { CreateProjectManagementInput, ProjectOutcomeInput, ProjectQuery, UpdateProjectManagementInput } from '../validators/project-management.validator';
 import { MilestoneService, resolveWorkflowInitializationMode } from './milestone.service';
 import { applyProjectAccessScope, canAccessProject } from './project-access.service';
-import { logWorkflowActivityBestEffort } from './workflow-progression.service';
-import { getMandatoryDocumentKeys, getScenarioDocuments, resolveScenarioKey } from '../constants/scenarios';
-import { OutputDocumentService } from './output-document.service';
 import { RequestTiming, timeOperation } from '../utils/request-timing';
 
 type Actor = { userId: string; role: string; fullName: string };
@@ -27,26 +25,19 @@ export type ProjectCreationFiles = {
   documents: Express.Multer.File[];
 };
 
-type CreatedProjectIntakeAttachment = {
-  id: string;
-  kind: 'MOM' | 'PHOTO' | 'DOCUMENT';
-  file_name: string;
-  mime_type: string;
-  size_bytes: number;
-};
-
-type ProjectCreationOperation = {
-  projectId: string | null;
-  intakeAttachmentIds: string[];
-  storagePaths: string[];
-};
-
 export class ProjectCreationError extends Error {
+
   constructor(message: string, readonly statusCode = 400) {
+
     super(message);
+
     this.name = 'ProjectCreationError';
+
   }
+
 }
+
+
 
 export function validateProjectCreationFiles(files: ProjectCreationFiles): void {
   if (files.mom.length !== 1) {
@@ -107,6 +98,11 @@ const mapProject = (row: any) => ({
   name: row.name,
   customer: row.customer,
   scenario_id: row.scenario_id,
+  current_scenario_id: row.current_scenario_id || row.scenario_id,
+  active_phase_id: row.active_phase_id || null,
+  phases: row.phases || [],
+  phase_migration_state: row.phase_migration_state,
+  active_scenario: row.active_scenario || row.scenario,
   scenario: row.scenario || null,
   sales_id: row.sales_id,
   sales: mapUser(row.sales),
@@ -118,6 +114,7 @@ const mapProject = (row: any) => ({
   postpone_reason: row.postpone_reason,
   selected_document_keys: row.selected_document_keys || [],
   estimated_revenue: row.estimated_revenue === null || row.estimated_revenue === undefined ? null : Number(row.estimated_revenue),
+  ...(row.estimated_revenue_exact !== undefined ? { estimated_revenue_exact: row.estimated_revenue_exact } : {}),
   final_contract_value: row.final_contract_value === null || row.final_contract_value === undefined ? null : Number(row.final_contract_value),
   loss_reason: row.loss_reason || null,
   outcome_decided_by: row.outcome_decided_by || null,
@@ -127,15 +124,17 @@ const mapProject = (row: any) => ({
   activity_logs: row.activity_logs || [],
 });
 
-const projectSelect = `*, scenario:scenarios!projects_scenario_id_fkey(id,name,workflow_model,workflow_version), sales:users!projects_sales_id_fkey(id,full_name,email), pic:users!projects_pic_id_fkey(id,full_name,email,role)`;
+const projectSelect = `*, pic_revision_exact:pic_revision::text, estimated_revenue_exact:estimated_revenue::text, phases:project_phases!project_phases_project_id_fkey(*), active_scenario:scenarios!projects_current_scenario_id_fkey(id,name,workflow_model,workflow_version), scenario:scenarios!projects_scenario_id_fkey(id,name,workflow_model,workflow_version), sales:users!projects_sales_id_fkey(id,full_name,email), pic:users!projects_pic_id_fkey(id,full_name,email,role)`;
 
 async function withActivity(project: any) {
-  const { data: logs, error } = await supabaseAdmin
+  let request = supabaseAdmin
     .from('activity_logs')
     .select('id,user_id,action,description,created_at')
     .eq('project_id', project.id)
     .order('created_at', { ascending: false });
-  if (error) throw new Error(error.message);
+  request = request.neq('action', 'DOCUMENT_ACCESS_CHANGED');
+  const { data: logs, error } = await request;
+  if (error) throw new Error('Failed to retrieve project activities.');
   return {
     ...project,
     activity_logs: (logs || []).map((log) => ({
@@ -145,9 +144,7 @@ async function withActivity(project: any) {
   };
 }
 
-async function logProject(actor: Actor, projectId: string, action: string, description: string) {
-  await logWorkflowActivityBestEffort(actor, projectId, action, description);
-}
+
 
 export function assertProjectCanResume(project: ResumeProjectState): void {
   if (project.status !== 'POSTPONED' || project.is_postponed !== true) {
@@ -181,7 +178,7 @@ export class ProjectManagementService {
     if (projectIds.length > 0) {
       const { data: milestonesData } = await timeOperation(trace, 'projects.list.milestones', () => supabaseAdmin
         .from('project_milestones')
-        .select('id,project_id,step_order,name,status,pic_id,start_date,due_date,workflow_stage:workflow_stages!project_milestones_workflow_stage_id_fkey(id,default_role),pic:users!project_milestones_pic_id_fkey(id,full_name)')
+        .select('id,project_id,phase_id,step_order,name,status,pic_id,start_date,due_date,workflow_stage:workflow_stages!project_milestones_workflow_stage_id_fkey(id,default_role),pic:users!project_milestones_pic_id_fkey(id,full_name)')
         .in('project_id', projectIds)
         .order('step_order', { ascending: true }));
 
@@ -193,7 +190,7 @@ export class ProjectManagementService {
       }
 
       for (const p of projects as any[]) {
-        const pMilestones = milestonesByProject.get(p.id) || [];
+        const pMilestones = phaseRows(milestonesByProject.get(p.id) || [], p.active_phase_id);
         const totalMilestones = pMilestones.length;
         const deliveryFinished = ['COMPLETED', 'WAITING_RESULT', 'WON', 'LOST'].includes(p.status);
         const completedMilestones = deliveryFinished
@@ -252,13 +249,27 @@ export class ProjectManagementService {
     return project;
   }
 
+  static async create(input: CreateProjectManagementInput, actor: Actor, files: ProjectCreationFiles, requestId?: string) {
+    if (actor.role !== 'SALES') throw new ProjectCreationRequestError('CREATE_ACCESS_INVALID',403);
+    const id = projectCreationRequestId(requestId);
+    validateProjectCreationFiles(files);
+    const projectId = await ProjectCreationService.create(input,actor,files,id);
+    // Read CURRENT state under the native access policy, never cache a historical receipt response.
+    try {
+      const project = await this.get(projectId,actor,{includeActivity:false});
+      const [milestones,intakeAttachments] = await Promise.all([
+        MilestoneService.list(projectId,actor), ProjectIntakeService.list(projectId,actor),
+      ]);
+      return { ...project, activity_logs: [], milestones, intake_attachments:intakeAttachments };
+    } catch {
+      // Success receipt remains durable even if this read/response fails. No compensation delete.
+      throw new ProjectCreationRequestError('CREATE_RETRYABLE',503);
+    }
+  }
+
   private static async activeScenario(scenarioId: string) {
-    const { data, error } = await supabaseAdmin
-      .from('scenarios')
-      .select('id,name,is_active,workflow_model,workflow_version')
-      .eq('id', scenarioId)
-      .eq('is_active', true)
-      .single();
+    const { data,error } = await supabaseAdmin.from('scenarios').select('id,name,is_active,workflow_model,workflow_version')
+      .eq('id',scenarioId).eq('is_active',true).single();
     if (error || !data) throw new ProjectCreationError('Scenario is not active or does not exist');
     try {
       resolveWorkflowInitializationMode(data);
@@ -268,149 +279,8 @@ export class ProjectManagementService {
     return data;
   }
 
-  private static async createProjectIntakeAttachment(
-    projectId: string,
-    file: Express.Multer.File,
-    kind: 'MOM' | 'PHOTO' | 'DOCUMENT',
-    actor: Actor,
-    operation: ProjectCreationOperation
-  ): Promise<CreatedProjectIntakeAttachment> {
-    const attachmentId = randomUUID();
-    const storagePath = buildProjectIntakeStoragePath(projectId, attachmentId, file.originalname);
-    operation.storagePaths.push(storagePath);
-    await DocumentStorageService.upload(file, storagePath);
-
-    // Track the operation-owned ID before metadata insertion in case the provider response is ambiguous.
-    operation.intakeAttachmentIds.push(attachmentId);
-    const { data: attachment, error } = await supabaseAdmin
-      .from('project_intake_attachments')
-      .insert({
-        id: attachmentId,
-        project_id: projectId,
-        kind,
-        original_filename: file.originalname,
-        mime_type: file.mimetype || 'application/octet-stream',
-        size_bytes: file.size,
-        storage_path: storagePath,
-        created_by: actor.userId,
-      })
-      .select('id')
-      .maybeSingle();
-    if (error || !attachment) throw new ProjectCreationError('Failed to save project intake evidence.', 500);
-
-    return {
-      id: attachmentId,
-      kind,
-      file_name: file.originalname,
-      mime_type: file.mimetype || 'application/octet-stream',
-      size_bytes: file.size,
-    };
-  }
-
-  private static async rollbackProjectCreation(operation: ProjectCreationOperation): Promise<void> {
-    const cleanupFailures: string[] = [];
-
-    try {
-      await DocumentStorageService.removeMany(operation.storagePaths);
-    } catch {
-      cleanupFailures.push('storage');
-    }
-
-    if (operation.intakeAttachmentIds.length) {
-      const { error } = await supabaseAdmin
-        .from('project_intake_attachments')
-        .delete()
-        .in('id', operation.intakeAttachmentIds);
-      if (error) cleanupFailures.push('intakeAttachments');
-    }
-
-    if (operation.projectId) {
-      const { error: outputDocumentsError } = await supabaseAdmin
-        .from('project_output_documents')
-        .delete()
-        .eq('project_id', operation.projectId);
-      if (outputDocumentsError) cleanupFailures.push('outputDocuments');
-
-      const { error: milestonesError } = await supabaseAdmin
-        .from('project_milestones')
-        .delete()
-        .eq('project_id', operation.projectId);
-      if (milestonesError) cleanupFailures.push('milestones');
-
-      const { data: deletedProject, error: projectError } = await supabaseAdmin
-        .from('projects')
-        .delete()
-        .eq('id', operation.projectId)
-        .select('id')
-        .maybeSingle();
-      if (projectError || !deletedProject) cleanupFailures.push('project');
-    }
-
-    if (cleanupFailures.length) {
-      console.error('[ProjectManagement] Project creation rollback did not fully complete.', {
-        projectId: operation.projectId,
-        cleanupFailures,
-      });
-    }
-  }
-
-  static async create(input: CreateProjectManagementInput, actor: Actor, files: ProjectCreationFiles) {
-    if (actor.role !== 'SALES') throw new Error('Forbidden');
-    validateProjectCreationFiles(files);
-    const scenarioData = await this.activeScenario(input.scenario_id);
-    const operation: ProjectCreationOperation = { projectId: null, intakeAttachmentIds: [], storagePaths: [] };
-
-    const rawKeys = input.selectedDocumentKeys || input.selected_document_keys || [];
-    const scenarioKey = resolveScenarioKey(scenarioData.name);
-    const allowedKeys = new Set(getScenarioDocuments(scenarioKey).map((document) => document.key));
-    if (rawKeys.some((key) => !allowedKeys.has(key))) {
-      throw new ProjectCreationError('One or more selected output documents are invalid.', 400);
-    }
-    const mandatoryKeys = getMandatoryDocumentKeys(scenarioKey);
-    const finalKeys = Array.from(new Set([...rawKeys, ...mandatoryKeys]));
-
-    const { data, error } = await supabaseAdmin
-      .from('projects')
-      .insert({
-        name: input.name,
-        customer: input.customer,
-        scenario_id: scenarioData.id,
-        estimated_revenue: input.estimated_revenue,
-        selected_document_keys: finalKeys,
-        sales_id: actor.userId,
-        status: 'DRAFT',
-        is_postponed: false,
-      })
-      .select(projectSelect)
-      .single();
-    if (error || !data) throw new ProjectCreationError('Failed to create project.', 500);
-    operation.projectId = data.id;
-
-    try {
-      await MilestoneService.initialize(data.id, actor);
-      await OutputDocumentService.initializeForProject(data.id, scenarioData.name, finalKeys);
-      const intakeAttachments = [
-        await this.createProjectIntakeAttachment(data.id, files.mom[0], 'MOM', actor, operation),
-      ];
-      for (const file of files.photos) {
-        intakeAttachments.push(await this.createProjectIntakeAttachment(data.id, file, 'PHOTO', actor, operation));
-      }
-      for (const file of files.documents) {
-        intakeAttachments.push(await this.createProjectIntakeAttachment(data.id, file, 'DOCUMENT', actor, operation));
-      }
-      await logProject(actor, data.id, 'PROJECT_CREATED', `${actor.fullName} created project '${data.name}'`);
-      const { data: created, error: createdError } = await supabaseAdmin.from('projects').select(projectSelect).eq('id', data.id).single();
-      if (createdError || !created) throw new ProjectCreationError('Failed to create project.', 500);
-      const milestones = await MilestoneService.list(data.id, actor);
-      return { ...mapProject(created), milestones, intake_attachments: intakeAttachments };
-    } catch (error) {
-      await this.rollbackProjectCreation(operation);
-      if (error instanceof ProjectCreationError) throw error;
-      throw new ProjectCreationError('Failed to create project.', 500);
-    }
-  }
-
-  static async update(id: string, input: UpdateProjectManagementInput, actor: Actor) {
+  static async update(id: string, input: UpdateProjectManagementInput, actor: Actor, context?: BusinessRequestContext) {
+    if (input.estimated_revenue !== undefined) throw new Error("Use the audited estimated value endpoint.");
     const existing = await this.get(id, actor);
     if (!['SUPER_ADMIN', 'SALES'].includes(actor.role) || (actor.role === 'SALES' && existing.sales_id !== actor.userId)) throw new Error('Forbidden');
     if (input.scenario_id && input.scenario_id !== existing.scenario_id) {
@@ -425,69 +295,34 @@ export class ProjectManagementService {
 
     const keysToUpdate = selectedDocumentKeys || selected_document_keys;
     if (keysToUpdate) {
-      await OutputDocumentService.updateChecklist(id, keysToUpdate, actor);
+      updatePayload.selected_keys = keysToUpdate;
     }
 
-    const { data, error } = Object.keys(updatePayload).length
-      ? await supabaseAdmin.from('projects').update(updatePayload).eq('id', id).select(projectSelect).single()
-      : await supabaseAdmin.from('projects').select(projectSelect).eq('id', id).single();
-    if (error || !data) throw new Error('Project not found');
-    await logProject(actor, id, 'UPDATE', `${actor.fullName} updated project '${data.name}'`);
-    return mapProject(data);
+    await mutateBusiness(id, actor.userId, 'INFO', updatePayload, context);
+    return this.get(id, actor, { includeActivity: false });
   }
 
-  static async postpone(id: string, reason: string, actor: Actor) {
+  static async postpone(id: string, reason: string, actor: Actor, context?: BusinessRequestContext) {
     const existing = await this.get(id, actor);
     if (actor.role !== 'SALES' || existing.sales_id !== actor.userId) throw new Error('Forbidden');
-    if (existing.status !== 'ACTIVE' || existing.is_postponed) throw new Error('Only ACTIVE projects can be postponed.');
-    const { data, error } = await supabaseAdmin.from('projects').update({ status: 'POSTPONED', is_postponed: true, postponed_at: new Date().toISOString(), postponed_by: actor.userId, postpone_reason: reason, updated_at: new Date().toISOString() }).eq('id', id).eq('status', 'ACTIVE').select(projectSelect).single();
-    if (error || !data) throw new Error('Project not found');
-    await logProject(actor, id, 'PROJECT_POSTPONED', `${actor.fullName} postponed project '${data.name}'. Reason: ${reason}`);
-    return mapProject(data);
+
+    await mutateBusiness(id, actor.userId, 'POSTPONE', { reason }, context);
+    return this.get(id, actor, { includeActivity: false });
   }
 
-  static async resume(id: string, actor: Actor) {
+  static async resume(id: string, actor: Actor, context?: BusinessRequestContext) {
     const existing = await this.get(id, actor);
     if (actor.role !== 'SALES' || existing.sales_id !== actor.userId) throw new Error('Forbidden');
-    assertProjectCanResume(existing);
-    const { data, error } = await supabaseAdmin
-      .from('projects')
-      .update({ status: 'ACTIVE', is_postponed: false, updated_at: new Date().toISOString() })
-      .eq('id', id)
-      .eq('status', 'POSTPONED')
-      .eq('is_postponed', true)
-      .select(projectSelect)
-      .maybeSingle();
-    if (error) throw new Error('Failed to resume project.');
-    if (!data) throw new Error('Only POSTPONED projects can be resumed.');
-    await logProject(actor, id, 'PROJECT_RESUMED', `${actor.fullName} resumed project '${data.name}'`);
-    return mapProject(data);
+
+    await mutateBusiness(id, actor.userId, 'RESUME', {}, context);
+    return this.get(id, actor, { includeActivity: false });
   }
 
-  static async setOutcome(id: string, input: ProjectOutcomeInput, actor: Actor) {
+  static async setOutcome(id: string, input: ProjectOutcomeInput, actor: Actor, context?: BusinessRequestContext) {
     const existing = await this.get(id, actor);
-    assertProjectOutcomeCanBeRecorded(existing, actor);
+    if (actor.role !== 'SALES' || existing.sales_id !== actor.userId) throw new Error('Forbidden');
 
-    const decidedAt = new Date().toISOString();
-    const { data, error } = await supabaseAdmin
-      .from('projects')
-      .update({
-        status: input.outcome,
-        final_contract_value: input.outcome === 'WON' ? input.final_contract_value : null,
-        loss_reason: input.outcome === 'LOST' ? input.loss_reason : null,
-        outcome_decided_by: actor.userId,
-        outcome_decided_at: decidedAt,
-        updated_at: decidedAt,
-      })
-      .eq('id', id)
-      .eq('sales_id', actor.userId)
-      .eq('status', 'WAITING_RESULT')
-      .select(projectSelect)
-      .maybeSingle();
-
-    if (error) throw new Error('Failed to record project outcome.');
-    if (!data) throw new Error('Project outcome has already been recorded.');
-    await logProject(actor, id, `PROJECT_${input.outcome}`, `${actor.fullName} marked project '${data.name}' as ${input.outcome}`);
-    return mapProject(data);
+    await mutateBusiness(id, actor.userId, 'OUTCOME', input, context);
+    return this.get(id, actor, { includeActivity: false });
   }
 }

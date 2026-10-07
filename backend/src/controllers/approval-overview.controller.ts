@@ -18,10 +18,9 @@ export class ApprovalOverviewController {
                 result
             );
         } catch (error: any) {
-            const message =
-                error?.message || 'Failed to retrieve approval overview';
-
-            const statusCode = message === 'Forbidden' ? 403 : 500;
+            const forbidden = error?.message === 'Forbidden';
+            const message = forbidden ? 'Forbidden' : 'Failed to load approval overview.';
+            const statusCode = forbidden ? 403 : 500;
 
             sendError(res, message, null, statusCode);
         }

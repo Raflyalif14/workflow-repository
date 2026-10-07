@@ -1,9 +1,10 @@
 "use client";
+import { BusinessConfirmation } from "./business-confirmation";
 
 import { translate as translateI18n, translateStoredError, translateStoredMessage, getIntlLocale } from "@/i18n";
 import { useLanguage } from "@/components/i18n/language-provider";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { AlertCircle, CalendarDays, CheckCircle2, Save } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -63,14 +64,19 @@ export function ProjectTimelineEditor({
   const [rows, setRows] = useState<TimelineDraftRow[]>(() =>
     toDraftRows(milestones, workflowModel, workflowVersion)
   );
+  const [confirming, setConfirming] = useState(false);
+  const [dirty, setDirty] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [missingNames, setMissingNames] = useState("");
   const saveTimeline = useSaveProjectTimeline(projectId);
+  const phaseIdentity = `${projectId}/${milestones[0]?.phase_id || "legacy"}`;
+  const previousPhase = useRef(phaseIdentity);
+  useEffect(() => { if (previousPhase.current !== phaseIdentity) { previousPhase.current = phaseIdentity; setDirty(false); setConfirming(false); setError(""); } }, [phaseIdentity]);
 
   useEffect(() => {
-    setRows(toDraftRows(milestones, workflowModel, workflowVersion));
-  }, [milestones, workflowModel, workflowVersion]);
+    if (!dirty) setRows(toDraftRows(milestones, workflowModel, workflowVersion));
+  }, [milestones, workflowModel, workflowVersion, dirty]);
 
   const invalidRows = useMemo(
     () =>
@@ -100,6 +106,8 @@ export function ProjectTimelineEditor({
     field: "startDate" | "durationWorkingDays",
     value: string
   ) => {
+    saveTimeline.prepare?.();
+    setDirty(true);
     setMessage("");
     setError("");
     setRows((currentRows) =>
@@ -127,9 +135,9 @@ export function ProjectTimelineEditor({
           durationWorkingDays: Number(row.durationWorkingDays),
         }))
       );
-      setMessage("projectAction.timelineSaved");
+      setMessage("projectAction.timelineSaved"); setDirty(false);
     } catch (saveError) {
-      setError("projectAction.timelineSaveFailed");
+      setError("projectAction.timelineSaveFailed"); throw saveError;
     }
   };
 
@@ -168,7 +176,7 @@ export function ProjectTimelineEditor({
           <Button
             size="sm"
             className="h-9 self-start gap-1.5 rounded-lg shadow-sm sm:self-auto"
-            onClick={() => void save()}
+            onClick={() => setConfirming(true)}
             disabled={!isValid || saveTimeline.isPending || !hasUnsavedChanges}
           >
             <Save className="h-3.5 w-3.5" />
@@ -245,7 +253,7 @@ export function ProjectTimelineEditor({
                         min="1"
                         step="1"
                         className="h-9 rounded-lg border-input bg-background/50 text-xs"
-                        placeholder="Days"
+                        placeholder={translateI18n("copy.duration")}
                         value={row.durationWorkingDays}
                         onChange={(event) => updateRow(row.milestoneId, "durationWorkingDays", event.target.value)}
                       />
@@ -260,7 +268,7 @@ export function ProjectTimelineEditor({
                         changed ? "italic text-amber-400" : "font-semibold text-foreground"
                       }`}
                     >
-                      {changed ? "Save to calculate" : formatDate(row.dueDate)}
+                      {changed ? translateI18n("projectAction.saveTimeline") : formatDate(row.dueDate)}
                     </span>
                   </div>
                 </div>
@@ -281,6 +289,9 @@ export function ProjectTimelineEditor({
             <span>{translateStoredMessage(message)}</span>
           </div>
         )}
+        <BusinessConfirmation open={confirming} onOpenChange={setConfirming} title={translateI18n("copy.timelineSetup")}
+          changes={[translateI18n("businessAudit.timeline"), ...rows.filter(row => row.startDate !== row.savedStartDate || row.durationWorkingDays !== row.savedDurationWorkingDays).map(row => `${row.name}: ${row.savedStartDate || "?"} / ${row.savedDurationWorkingDays || "?"} ? ${row.startDate} / ${row.durationWorkingDays}`)]}
+          action={translateI18n("businessAudit.save")} onConfirm={save} />
       </CardContent>
     </Card>
   );
@@ -288,5 +299,5 @@ export function ProjectTimelineEditor({
 
 function formatDate(value?: string | null) {
   if (!value) return "-";
-  return new Date(value).toLocaleDateString(getIntlLocale(), { dateStyle: "medium" });
+  return new Date(`${value.slice(0,10)}T00:00:00Z`).toLocaleDateString(getIntlLocale(), { dateStyle: "medium", timeZone: "UTC" });
 }

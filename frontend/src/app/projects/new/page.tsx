@@ -1,4 +1,7 @@
 "use client";
+import { formatEstimatedValue } from "@/lib/project-estimated-value";
+import { projectCreateErrorKey } from "@/lib/project-create-request";
+import { BusinessConfirmation } from "@/components/projects/business-confirmation";
 import { useLanguage } from "@/components/i18n/language-provider";
 
 import { translate as translateI18n, translateOutputName, translateStoredError } from "@/i18n";
@@ -170,6 +173,8 @@ export default function NewProjectPage() {
   const { user } = useAuth();
   const { data: scenarios = [], isLoading } = useScenarios({ isActive: true });
   const create = useCreateProject();
+  const [confirming, setConfirming] = useState(false);
+  const [creationFrozen, setCreationFrozen] = useState(false);
   const momInputRef = useRef<HTMLInputElement>(null);
 
   const [name, setName] = useState("");
@@ -246,6 +251,11 @@ export default function NewProjectPage() {
       return;
     }
 
+    setConfirming(true);
+  };
+
+  const createConfirmed = async () => {
+    setCreationFrozen(true);
     try {
       const project = await create.mutateAsync({
         name: name.trim(),
@@ -263,7 +273,7 @@ export default function NewProjectPage() {
       setFileSelectionError(null);
       router.push(`/projects/${project.id}`);
     } catch (error) {
-      setSubmitError("ui.projectCreatedFailed");
+      setSubmitError(projectCreateErrorKey(error)); throw error;
     }
   };
 
@@ -291,6 +301,7 @@ export default function NewProjectPage() {
 
       <form onSubmit={submit} className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
         <div className="overflow-hidden rounded-lg border border-border bg-card">
+          <fieldset disabled={creationFrozen} className="min-w-0">
           <section className="border-b border-border px-5 py-6 sm:px-7">
             <SectionHeading number="01" title={translateI18n("projectCreate.projectInfo")}>
               {translateI18n("projectCreate.projectInfoHelp")}
@@ -614,7 +625,9 @@ export default function NewProjectPage() {
             )}
           </section>
 
+          </fieldset>
           <div className="border-t border-border bg-muted/15 px-5 py-5 sm:px-7">
+            {creationFrozen && <p className="mb-3 text-sm text-muted-foreground">{translateI18n("createReceipt.locked")}{create.creationRequestId && <span className="mt-1 block break-all font-mono text-xs">{translateI18n("createReceipt.operation",{id:create.creationRequestId})}</span>}</p>}
             {submitError && (
               <div role="alert" className="mb-4 flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
                 <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
@@ -632,7 +645,7 @@ export default function NewProjectPage() {
                 {translateI18n("common.cancel")}
               </Button>
               <Button type="submit" className="w-full sm:w-auto" disabled={create.isPending || Boolean(fileSelectionError)}>
-                {translateI18n(create.isPending ? "projectCreate.creating" : "project.create")}
+                {translateI18n(create.isPending ? "projectCreate.creating" : creationFrozen ? "createReceipt.retry" : "project.create")}
               </Button>
             </div>
           </div>
@@ -681,6 +694,9 @@ export default function NewProjectPage() {
           </div>
         </aside>
       </form>
+      <BusinessConfirmation open={confirming} onOpenChange={setConfirming} title={name.trim()}
+        changes={[customer.trim(), scenarios.find(item => item.id === scenarioId)?.name || scenarioId, formatEstimatedValue(estimatedRevenue), mom?.name || "", ...photos.map(file => file.name), ...documents.map(file => file.name)]}
+        action={translateI18n(creationFrozen ? "createReceipt.retry" : "businessAudit.create")} errorKey={submitError ? projectCreateErrorKey(create.error) : undefined} allowConflictRetry={true} onConfirm={createConfirmed} />
     </div>
   );
 }

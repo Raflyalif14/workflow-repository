@@ -6,6 +6,8 @@ export type GlobalSearchResult = {
   title: string;
   subtitle: string;
   status?: string;
+  canReadProject?: boolean;
+  repositorySourceId?: string;
 };
 
 export type GlobalSearchResponse = {
@@ -30,5 +32,7 @@ export const moveGlobalSearchSelection = (current: number, direction: -1 | 1, to
   return Math.min(total - 1, Math.max(0, current + direction));
 };
 
-export const globalSearchResultHref = (result: Pick<GlobalSearchResult, "projectId" | "type" | "milestoneId">) =>
-  `/projects/${result.projectId}${result.type === "OUTPUT_DOCUMENT" && result.milestoneId ? `#milestone-outputs-${result.milestoneId}` : ""}`;
+export const globalSearchResultHref = (result: Pick<GlobalSearchResult, "projectId" | "type" | "milestoneId" | "canReadProject" | "repositorySourceId">) =>
+  result.canReadProject === false && result.repositorySourceId
+    ? `/documents?source=${result.type === "OUTPUT_DOCUMENT" ? "OUTPUT" : "OFFICIAL"}&id=${encodeURIComponent(result.repositorySourceId)}`
+    : `/projects/${result.projectId}${result.type === "OUTPUT_DOCUMENT" && result.milestoneId ? `#milestone-outputs-${result.milestoneId}` : ""}`;

@@ -3,6 +3,7 @@ import { UserRole } from '../validators/auth.validator';
 import { supabaseAdmin } from '../config/supabase';
 import { sendError } from '../utils/response.util';
 import { getRequestTiming, timeOperation } from '../utils/request-timing';
+import { AuthRequestError, authUnavailable, isInvalidProviderSession } from '../utils/auth-error';
 
 export interface AuthenticatedRequest extends Request {
   user?: {
@@ -50,24 +51,33 @@ export const requirePasswordChanged = (req: AuthenticatedRequest, res: Response,
 };
 
 export const authenticateUser = async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
-  const authHeader = req.headers.authorization;
-  if (!authHeader?.startsWith('Bearer ')) { sendError(res, 'Access denied. Missing or malformed Authorization header', null, 401); return; }
-  const trace = getRequestTiming(req);
-  const { data, error } = await timeOperation(trace, 'auth.verify', () => supabaseAdmin.auth.getUser(authHeader.slice(7).trim()));
-  if (error || !data.user) { sendError(res, 'Invalid or expired access token', null, 401); return; }
-  const { data: profile, error: profileError } = await timeOperation(trace, 'auth.profile', () => supabaseAdmin.from('users').select('id, email, full_name, role, is_active, must_change_password, created_at, updated_at, preferred_language').eq('id', data.user.id).single());
-  if (profileError || !profile || !profile.is_active) { sendError(res, profile ? 'User account is inactive' : 'User profile not found', null, 401); return; }
-  verifiedProfiles.set(req, profile as VerifiedProfileRow);
-  req.user = {
-    userId: profile.id,
-    email: profile.email,
-    fullName: profile.full_name,
-    role: profile.role,
-    isActive: profile.is_active,
-    must_change_password: profile.must_change_password ?? false,
-    mustChangePassword: profile.must_change_password ?? false,
-  };
-  requirePasswordChanged(req, res, next);
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader?.startsWith('Bearer ') || !authHeader.slice(7).trim()) { sendError(res, 'Access denied. Missing or malformed Authorization header', { code: 'AUTH_REQUIRED' }, 401); return; }
+    const trace = getRequestTiming(req);
+    const { data, error } = await timeOperation(trace, 'auth.verify', () => supabaseAdmin.auth.getUser(authHeader.slice(7).trim()));
+    if (error) {
+      if (isInvalidProviderSession(error)) { sendError(res, 'Invalid or expired access token', { code: 'AUTH_TOKEN_INVALID' }, 401); return; }
+      throw authUnavailable();
+    }
+    if (!data.user) { sendError(res, 'Invalid or expired access token', { code: 'AUTH_TOKEN_INVALID' }, 401); return; }
+    const { data: profile, error: profileError } = await timeOperation(trace, 'auth.profile', () => supabaseAdmin.from('users').select('id, email, full_name, role, is_active, must_change_password, created_at, updated_at, preferred_language').eq('id', data.user.id).single());
+    if (profileError && profileError.code !== 'PGRST116') throw authUnavailable();
+    if (!profile || !profile.is_active) { sendError(res, profile ? 'User account is inactive' : 'User profile not found', { code: 'AUTH_ACCOUNT_INACTIVE' }, 401); return; }
+    verifiedProfiles.set(req, profile as VerifiedProfileRow);
+    req.user = {
+      userId: profile.id,
+      email: profile.email,
+      fullName: profile.full_name,
+      role: profile.role,
+      isActive: profile.is_active,
+      must_change_password: profile.must_change_password ?? false,
+      mustChangePassword: profile.must_change_password ?? false,
+    };
+    requirePasswordChanged(req, res, next);
+  } catch (error) {
+    next(error instanceof AuthRequestError ? error : authUnavailable());
+  }
 };
 
 export const authenticateJwt = authenticateUser;

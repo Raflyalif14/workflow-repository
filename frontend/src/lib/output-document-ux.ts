@@ -1,3 +1,4 @@
+import { unresolvedFileRevisions } from "./output-file-revisions";
 type OutputDocumentSelection = {
   isRequired: boolean;
   isSelected: boolean;
@@ -60,6 +61,7 @@ type OutputDocumentSubmissionInput = {
   currentVersionId?: string | null;
   draftRevision?: number;
   draftFiles?: readonly { id: string; fileSize?: number | null }[];
+  fileRevisions?: { fileId: string; feedback: string }[];
 };
 
 export function getOutputDocumentSubmitAction({
@@ -67,10 +69,12 @@ export function getOutputDocumentSubmitAction({
   status,
   draftRevision,
   draftFiles,
+  fileRevisions,
   canUpload,
-}: Pick<OutputDocumentSubmissionInput, "status" | "draftRevision" | "draftFiles"> & { role?: string; canUpload: boolean }): string | null {
+}: Pick<OutputDocumentSubmissionInput, "status" | "draftRevision" | "draftFiles" | "fileRevisions"> & { role?: string; canUpload: boolean }): string | null {
   return role === "SA" && canUpload && ["DRAFT", "REVISION_REQUIRED"].includes(status)
     && Number.isInteger(draftRevision) && draftRevision! >= 0
+    && !unresolvedFileRevisions({ fileRevisions, draftFiles }).length
     && Boolean(draftFiles?.length && draftFiles.every((file) => file.id && Number(file.fileSize) > 0))
     ? translate("outputCopy.submitForReview") : null;
 }

@@ -8,6 +8,8 @@ import { LanguageSwitcher } from "@/components/language-switcher";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { PersonalNotificationSettings } from "@/components/settings/personal-notification-settings";
+import { getAuthSession } from "@/lib/auth";
 
 export default function SettingsPage() {
   const { user } = useAuth();
@@ -22,7 +24,7 @@ export default function SettingsPage() {
           {t("settings.personal")}
         </div>
         <h1 className="text-3xl font-bold tracking-tight">{t("nav.settings")}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">{t("language.description")}</p>
+        <p className="mt-1 text-sm text-muted-foreground">{t("settings.personalDescription")}</p>
       </div>
 
       <Card className="border-primary/20 bg-card/70">
@@ -35,6 +37,8 @@ export default function SettingsPage() {
           {error && <p className="text-sm text-destructive" role="alert">{t(error)}</p>}
         </CardContent>
       </Card>
+
+      <PersonalNotificationSettings key={`${user?.id ?? "anonymous"}:${getAuthSession()?.id ?? "none"}`} />
 
       {isSystemAdmin && (
         <section className="space-y-4" aria-labelledby="system-settings-title">

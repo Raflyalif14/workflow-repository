@@ -1,3 +1,4 @@
+import { installRestrictedRepositoryFixture } from '../test-utils/repository-access.fixture';
 import { strict as assert } from 'assert';
 import { supabaseAdmin } from '../config/supabase';
 import { getScenarioDocuments } from '../constants/scenarios';
@@ -161,6 +162,7 @@ class QueryMock {
 async function withState<T>(action: (state: State) => Promise<T>): Promise<T> {
   const state = makeState();
   const originalFrom = supabaseAdmin.from;
+  const restoreAccessFixture = installRestrictedRepositoryFixture(Object.fromEntries(Object.values(actors).map(actor => [actor.userId, actor.role])), () => ({ projects: [state.project], outputs: state.outputs }));
   const originalSignedUrl = DocumentStorageService.createSignedDownloadUrl;
   try {
     (supabaseAdmin as any).from = (table: string) => new QueryMock(state, table);
@@ -171,6 +173,7 @@ async function withState<T>(action: (state: State) => Promise<T>): Promise<T> {
     };
     return await action(state);
   } finally {
+    restoreAccessFixture();
     (supabaseAdmin as any).from = originalFrom;
     (DocumentStorageService as any).createSignedDownloadUrl = originalSignedUrl;
   }

@@ -1,4 +1,13 @@
 "use client";
+import { ProjectDocumentSharing } from "@/components/projects/project-document-sharing";
+import { BusinessConfirmation } from "@/components/projects/business-confirmation";
+import { focusOutputReviewLink } from "@/lib/approval-queue";
+import { ApiError } from '@/lib/api-client';
+import { picErrorKey, retainPicRequest, type PicRequest } from '@/lib/pic-assignment-request';
+import { EstimatedProjectValue } from "@/components/projects/estimated-project-value";
+import { activePhaseMilestones, runConfirmedDecision } from "@/lib/phase-review";
+import { isPraTenderDecisionPending, isProjectClosedAtPraTender } from "@/lib/phase-review";
+import { ProjectPhasesPanel } from "@/components/projects/project-phases-panel";
 import { useLanguage } from "@/components/i18n/language-provider";
 
 import { translate as translateI18n, getIntlLocale, translateOutputName, translateRole, translateStoredError, translateStoredMessage } from "@/i18n";
@@ -88,7 +97,7 @@ import {
   useSolutionArchitects,
   useSubmitProjectPlan,
 } from "@/hooks/use-projects";
-import { flattenActivityPages, formatActivityAction } from "@/lib/activity-timeline";
+import { flattenActivityPages, formatActivityAction, formatActivityDescription, formatBusinessAudit, formatBusinessAuditValue } from "@/lib/activity-timeline";
 import { calculateProjectMilestoneProgress } from "@/lib/project-milestone-progress";
 import { useDocumentDownloadUrl, useDocuments } from "@/hooks/use-documents";
 import { useProjectIntake, useProjectIntakeDownloadUrl } from "@/hooks/use-project-intake";
@@ -119,14 +128,20 @@ export default function ProjectDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const { user } = useAuth();
-  const { data: project, isLoading: projectLoading, isError } = useProject(id, { includeActivity: false });
+  const { data: project, isLoading: projectLoading, isError, refetch: refetchProject } = useProject(id, { includeActivity: false });
   const { data: milestoneData, isLoading: milestonesLoading, isError: milestonesError, refetch: refetchMilestones } = useProjectMilestones(id);
-  const milestones = milestoneData ?? [];
+  const allMilestones = milestoneData ?? [];
+  const milestones = useMemo(() => activePhaseMilestones(project, milestoneData ?? []), [milestoneData, project?.active_phase_id]);
   const outputReadiness = useOutputDocuments(id);
-  const progress = !milestonesError && milestoneData ? calculateProjectMilestoneProgress(milestoneData) : null;
+  const progress = !milestonesError && milestoneData ? calculateProjectMilestoneProgress(milestones) : null;
   const { data: planApproval } = useProjectPlanApproval(id);
   const approvalQueries = useMilestoneApprovalStates(milestones, Boolean(milestones.length));
+  const [businessConfirmation, setBusinessConfirmation] = useState<"PLAN" | "RESUME" | null>(null);
+  const outcomeSaving = useRef(false);
+  const [outcomeConfirming, setOutcomeConfirming] = useState(false);
   const submitProjectPlan = useSubmitProjectPlan(id);
+  const reviewProjectPlan = useReviewProjectPlan(id);
+  const [planReviewTarget, setPlanReviewTarget] = useState<{ decision: "APPROVE" | "REJECT"; projectName: string; phaseName: string; approvalId?: string } | null>(null);
   const resumeProject = useResumeProject();
   const setProjectOutcome = useSetProjectOutcome(id);
 
@@ -159,13 +174,11 @@ export default function ProjectDetailPage() {
   useEffect(() => {
     if (!project || milestonesLoading || typeof window === "undefined") return;
     const openLinkedMilestone = () => {
-      const milestoneId = milestoneIdFromHash(window.location.hash, milestones.map((milestone) => milestone.id));
+      const milestoneId = milestoneIdFromHash(window.location.hash, allMilestones.map((milestone) => milestone.id));
       if (!milestoneId) return;
       setExpandedMilestones((current) => new Set(current).add(milestoneId));
       window.requestAnimationFrame(() => window.requestAnimationFrame(() => {
-        const target = document.getElementById(window.location.hash.slice(1));
-        target?.scrollIntoView({ block: "start" });
-        target?.focus({ preventScroll: true });
+        focusOutputReviewLink(window.location.hash, milestoneId, document);
       }));
     };
     openLinkedMilestone();
@@ -261,6 +274,7 @@ export default function ProjectDetailPage() {
       setMessage("projectDetail.planSubmitted");
     } catch (submitError) {
       setError("projectDetail.planSubmitFailed");
+      throw submitError;
     }
   };
 
@@ -272,11 +286,12 @@ export default function ProjectDetailPage() {
       setMessage("projectDetail.resumed");
     } catch (resumeError) {
       setError("projectDetail.resumeFailed");
+      throw resumeError;
     }
   };
 
   const recordOutcome = async () => {
-    if (!outcomeDecision) return;
+    if (!outcomeDecision || outcomeSaving.current || error === "businessAudit.stale") return;
     setError("");
     setMessage("");
     const parsedFinalContractValue = Number(finalContractValue);
@@ -288,6 +303,8 @@ export default function ProjectDetailPage() {
       setError("projectDetail.lossReasonRequired");
       return;
     }
+    if (!outcomeConfirming) { setOutcomeConfirming(true); return; }
+    outcomeSaving.current = true;
     try {
       await setProjectOutcome.mutateAsync({
         outcome: outcomeDecision,
@@ -295,22 +312,22 @@ export default function ProjectDetailPage() {
         lossReason: outcomeDecision === "LOST" ? lossReason : undefined,
       });
       setMessage(outcomeDecision === "WON" ? "projectDetail.resultWon" : "projectDetail.resultLost");
-      setOutcomeDecision(null);
+      setOutcomeDecision(null); setOutcomeConfirming(false);
       setFinalContractValue("");
       setLossReason("");
     } catch (outcomeError) {
-      setError("projectDetail.resultFailed");
-    }
+      setError(outcomeError instanceof ApiError && outcomeError.status === 409 ? "businessAudit.stale" : "projectDetail.resultFailed");
+    } finally { outcomeSaving.current = false; }
   };
 
   const handleNextAction = () => {
     switch (nextAction.actionType) {
       case "SUBMIT_PLAN":
       case "RESUBMIT_PLAN":
-        void submitPlan();
+        submitProjectPlan.prepare?.(); setBusinessConfirmation("PLAN");
         return;
       case "RESUME_PROJECT":
-        void resume();
+        resumeProject.prepare?.(project.id); setBusinessConfirmation("RESUME");
         return;
       default: {
         const targetId = resolveNextActionTargetId(nextAction);
@@ -320,6 +337,8 @@ export default function ProjectDetailPage() {
         if (targetMilestoneId) setExpandedMilestones((current) => new Set(current).add(targetMilestoneId));
         window.requestAnimationFrame(() => window.requestAnimationFrame(() => {
           const target = document.getElementById(targetId);
+          const history = target?.closest("details");
+          if (history) history.open = true;
           target?.scrollIntoView({ behavior: "smooth", block: "start" });
           target?.focus({ preventScroll: true });
         }));
@@ -327,6 +346,13 @@ export default function ProjectDetailPage() {
     }
   };
 
+  const openPlanReview = (decision: 'APPROVE' | 'REJECT') => setPlanReviewTarget({ decision,
+    projectName: project.name, phaseName: project.active_scenario?.name || project.scenario?.name || '', approvalId: planApproval?.id });
+  const savePlanReview = async (note?: string, picId?: string, expectedApprovalId?: string, expectedPicRevision?: string, requestId?: string) => {
+    if (!planReviewTarget) return;
+    await reviewProjectPlan.mutateAsync({ decision: planReviewTarget.decision, note, picId, expectedApprovalId, expectedPicRevision, requestId });
+    setPlanReviewTarget(null);
+  };
   return (
     <div className="mx-auto w-full max-w-[1280px] space-y-5 px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
       {/* Back Button */}
@@ -349,9 +375,7 @@ export default function ProjectDetailPage() {
           <p className="text-sm text-muted-foreground">
             {translateI18n("ui.salesOwner")} <strong className="text-foreground">{project.sales?.full_name || project.sales?.fullName || translateI18n("ui.noOwner")}</strong>
           </p>
-          <p className="text-sm text-muted-foreground">
-            {translateI18n("projectDetail.estimatedRevenue")} <strong className="text-foreground">{formatIdr(project.estimated_revenue)}</strong>
-          </p>
+          <EstimatedProjectValue project={project} role={user?.role} userId={user?.id} />
         </div>
 
         <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
@@ -363,6 +387,9 @@ export default function ProjectDetailPage() {
           )}
         </div>
       </header>
+
+      <ProjectPhasesPanel project={project} role={user?.role} userId={user?.id} />
+      <ProjectDocumentSharing project={project} />
 
       {/* Global Alerts */}
       {error && (
@@ -379,14 +406,14 @@ export default function ProjectDetailPage() {
       )}
 
       {/* ─── Next Action Card ─── */}
-      <NextActionCard
+      {!isPraTenderDecisionPending(project) && !isProjectClosedAtPraTender(project) && <NextActionCard
         nextAction={nextAction}
         onAction={handleNextAction}
         isSubmittingPlan={submitProjectPlan.isPending}
         isResuming={resumeProject.isPending}
-      />
+      />}
 
-      {(isActive || isPostponed) && (
+      {(isActive || isPostponed) && !isPraTenderDecisionPending(project) && (
         <section aria-label={translateI18n("copy.pendingItems")} className="rounded-lg border border-border/60 bg-card/70 p-4 text-sm sm:p-5">
           <h2 className="font-semibold text-foreground">{translateI18n("copy.pendingItems")}</h2>
           {milestonesLoading || outputReadiness.isLoading ? (
@@ -470,14 +497,18 @@ export default function ProjectDetailPage() {
         </div>
       )}
 
+      <BusinessConfirmation open={businessConfirmation !== null} onOpenChange={open => !open && setBusinessConfirmation(null)}
+        title={project.name} changes={[project.active_scenario?.name || project.scenario?.name || "", translateI18n(businessConfirmation === "PLAN" ? "businessAudit.plan" : "businessAudit.resume")]}
+        action={translateI18n(businessConfirmation === "PLAN" ? "businessAudit.submit" : "businessAudit.save")}
+        onConfirm={businessConfirmation === "PLAN" ? submitPlan : resume} />
       <Dialog
         open={Boolean(outcomeDecision)}
         onOpenChange={(open) => {
-          if (!open && !setProjectOutcome.isPending) setOutcomeDecision(null);
+          if (!open && !setProjectOutcome.isPending) { setOutcomeDecision(null); setOutcomeConfirming(false); setError(""); }
         }}
       >
         <DialogHeader>
-          <DialogTitle>{translateI18n(outcomeDecision === "WON" ? "projectDetail.recordWon" : "projectDetail.recordLost")}</DialogTitle>
+          <DialogTitle>{translateI18n(!outcomeConfirming ? "reviewConfirm.continue" : outcomeDecision === "WON" ? "projectDetail.recordWon" : "projectDetail.recordLost")}</DialogTitle>
           <DialogDescription>
             {outcomeDecision === "WON"
               ? translateI18n("projectDetail.wonValueRequired")
@@ -503,7 +534,7 @@ export default function ProjectDetailPage() {
                 step="0.01"
                 inputMode="decimal"
                 value={finalContractValue}
-                onChange={(event) => setFinalContractValue(event.target.value)}
+                onChange={(event) => { setProjectOutcome.prepare?.(); setFinalContractValue(event.target.value); setOutcomeConfirming(false); }}
                 disabled={setProjectOutcome.isPending}
                 required
               />
@@ -516,7 +547,7 @@ export default function ProjectDetailPage() {
               <textarea
                 id="loss-reason"
                 value={lossReason}
-                onChange={(event) => setLossReason(event.target.value)}
+                onChange={(event) => { setProjectOutcome.prepare?.(); setLossReason(event.target.value); setOutcomeConfirming(false); }}
                 className="min-h-24 w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-primary"
                 disabled={setProjectOutcome.isPending}
                 maxLength={2000}
@@ -524,12 +555,13 @@ export default function ProjectDetailPage() {
               />
             </div>
           )}
+          {outcomeConfirming && <p className="whitespace-pre-wrap text-sm">{translateI18n("businessAudit.final")} {project.name}: {formatProjectStatusLabel(project.status)} {" -> "} {formatProjectStatusLabel(outcomeDecision || "")} - {outcomeDecision === "WON" ? formatIdr(Number(finalContractValue)) : lossReason}</p>}
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setOutcomeDecision(null)} disabled={setProjectOutcome.isPending}>
+            <Button type="button" variant="outline" onClick={() => { setOutcomeDecision(null); setOutcomeConfirming(false); setError(""); }} disabled={setProjectOutcome.isPending}>
               {translateI18n("common.cancel")}
             </Button>
-            <Button type="submit" disabled={setProjectOutcome.isPending}>
-              {setProjectOutcome.isPending ? translateI18n("common.saving") : translateI18n(outcomeDecision === "WON" ? "projectDetail.recordWon" : "projectDetail.recordLost")}
+            <Button type="submit" disabled={setProjectOutcome.isPending || error === "businessAudit.stale"}>
+              {setProjectOutcome.isPending ? translateI18n("common.saving") : translateI18n(!outcomeConfirming ? "reviewConfirm.continue" : outcomeDecision === "WON" ? "projectDetail.recordWon" : "projectDetail.recordLost")}
             </Button>
           </DialogFooter>
         </form>
@@ -596,6 +628,7 @@ export default function ProjectDetailPage() {
 
             <div className="lg:sticky lg:top-20 lg:self-start">
               <ProjectPlanCard
+                onReviewDecision={openPlanReview}
                 project={project}
                 approval={planApproval}
                 canSubmit={false}
@@ -629,11 +662,12 @@ export default function ProjectDetailPage() {
           </div>
           <div id="project-plan-review" tabIndex={-1} className="scroll-mt-24 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/60 focus:ring-offset-2 focus:ring-offset-background">
             <ProjectPlanCard
+                onReviewDecision={openPlanReview}
               project={project}
               approval={planApproval}
               canSubmit={showPlanCardSubmit}
               canReview={isHeadSa && planApproval?.status === "PENDING"}
-              onSubmit={() => void submitPlan()}
+              onSubmit={() => { submitProjectPlan.prepare?.(); setBusinessConfirmation("PLAN"); }}
               isSubmitting={submitProjectPlan.isPending}
             />
           </div>
@@ -644,6 +678,7 @@ export default function ProjectDetailPage() {
       {!isDraft && planApproval && (
         <div id="project-plan-review" tabIndex={-1} className="scroll-mt-24 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/60 focus:ring-offset-2 focus:ring-offset-background">
           <ProjectPlanCard
+                onReviewDecision={openPlanReview}
             project={project}
             approval={planApproval}
             canSubmit={false}
@@ -697,7 +732,7 @@ export default function ProjectDetailPage() {
       {/* ─── Milestones Execution List & Activity Log ─── */}
       {!isDraft && (
       <div>
-        <Card className="border-border/60 bg-card/70 shadow-none hover:border-border/60">
+<Card className="border-border/60 bg-card/70 shadow-none hover:border-border/60">
           <CardHeader className="pb-3">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div className="space-y-1">
@@ -746,10 +781,25 @@ export default function ProjectDetailPage() {
       </div>
       )}
 
-      <ActivityTimeline projectId={project.id} />
+      {project.phases?.filter(phase => phase.id !== project.active_phase_id).map(phase => <details key={phase.id} className="rounded-md border border-border p-3">
+          <summary className="cursor-pointer text-sm font-medium">{phase.phase_key === 'PRA_TENDER' ? 'Pra-Tender' : 'On Submission Tender'} · {translateI18n('projectPhase.history')}</summary>
+          {allMilestones.filter(milestone => milestone.phase_id === phase.id).map(milestone => <div key={milestone.id} id={`project-milestone-${milestone.id}`} className="mt-3 border-t border-border pt-2">
+            <h4 className="text-sm font-medium">{milestone.name}</h4><p className="text-xs text-muted-foreground">{formatMilestoneDate(milestone.start_date)} · {formatMilestoneDate(milestone.due_date)}</p>
+            <OutputDocumentsSection project={project} milestoneId={milestone.id} milestoneStatus={milestone.status} milestonePicId={milestone.pic_id} milestoneStartDate={milestone.start_date} />
+          </div>)}
+        </details>)}
+        <ActivityTimeline projectId={project.id} />
       <AssignmentHistoryCard projectId={id} />
 
       {user?.role === "SUPER_ADMIN" && <ProjectDeletionDangerZone project={project} />}
+      <PlanReviewDialog open={Boolean(planReviewTarget)} onOpenChange={open => !open && !reviewProjectPlan.isPending && setPlanReviewTarget(null)}
+        decision={planReviewTarget?.decision || 'APPROVE'} projectName={planReviewTarget?.projectName || project.name}
+        picRevision={project.pic_revision} currentPicName={project.pic?.full_name || project.pic?.fullName}
+        phaseName={planReviewTarget?.phaseName || ''} targetApprovalId={planReviewTarget?.approvalId} approvalId={planApproval?.id} approvalStatus={planApproval?.status}
+        workflowModel={project.active_scenario?.workflow_model || project.scenario?.workflow_model}
+        workflowVersion={project.active_scenario?.workflow_version || project.scenario?.workflow_version}
+        onConflictReload={async () => { await refetchProject({ throwOnError: true }); }}
+        isPending={reviewProjectPlan.isPending} onSubmit={savePlanReview} />
       <PostponeProjectDialog open={postponeOpen} onOpenChange={setPostponeOpen} project={project} />
     </div>
   );
@@ -795,7 +845,7 @@ function ActivityTimeline({ projectId }: { projectId: string }) {
                     </span>
                     <div className="rounded-md border border-border/40 bg-muted/15 px-2.5 py-2">
                       <p className="text-xs font-semibold text-foreground">{formatActivityAction(activity.action)}</p>
-                      {activity.description && <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">{activity.description}</p>}
+                      {(activity.businessChange || activity.description || activity.estimatedValueChange || activity.picAssignmentChange) && <p className="mt-0.5 whitespace-pre-wrap break-words text-xs leading-relaxed text-muted-foreground">{activity.businessChange ? formatBusinessAudit(activity.businessChange) : formatActivityDescription(activity.action, activity.description, activity.estimatedValueChange, activity.picAssignmentChange)}</p>}
                       <div className="mt-1.5 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[10px] text-muted-foreground/85">
                         {activity.actor ? (
                           <>
@@ -1036,7 +1086,7 @@ function NextActionCard({
   isResuming: boolean;
 }) {
   const isDirectAction = ["SUBMIT_PLAN", "RESUBMIT_PLAN", "RESUME_PROJECT"].includes(nextAction.actionType || "");
-  const usesActionLabel = isDirectAction || nextAction.actionType === "SETUP_TIMELINE";
+  const usesActionLabel = isDirectAction || ["SETUP_TIMELINE", "CONTINUE_PHASE"].includes(nextAction.actionType || "");
   const isPending =
     (nextAction.actionType === "SUBMIT_PLAN" || nextAction.actionType === "RESUBMIT_PLAN")
       ? isSubmittingPlan
@@ -1158,6 +1208,7 @@ function ProjectPlanCard({
   onSubmit,
   isSubmitting,
   reviewWorkspace = false,
+  onReviewDecision,
 }: {
   project: Project;
   approval: ProjectPlanApproval | null | undefined;
@@ -1166,16 +1217,8 @@ function ProjectPlanCard({
   onSubmit: () => void;
   isSubmitting: boolean;
   reviewWorkspace?: boolean;
+  onReviewDecision: (decision: "APPROVE" | "REJECT") => void;
 }) {
-  const [decision, setDecision] = useState<"APPROVE" | "REJECT" | null>(null);
-  const reviewProjectPlan = useReviewProjectPlan(project.id);
-
-  const review = async (note?: string, picId?: string) => {
-    if (!decision) return;
-    await reviewProjectPlan.mutateAsync({ decision, note, picId });
-    setDecision(null);
-  };
-
   return (
     <>
       <Card className={reviewWorkspace ? "border-border/60 bg-card shadow-none hover:border-border/60" : approval?.status === "REJECTED" ? "border-destructive/40 bg-destructive/5 shadow-none hover:border-destructive/40" : "border-border/60 bg-card/70 shadow-none hover:border-border/60"}>
@@ -1235,7 +1278,7 @@ function ProjectPlanCard({
                   size="sm"
                   variant="outline"
                   className="border-destructive/30 text-destructive hover:bg-destructive/10 gap-1.5"
-                  onClick={() => setDecision("REJECT")}
+                  onClick={() => onReviewDecision("REJECT")}
                 >
                   <X className="h-3.5 w-3.5" />
                   <span>{translateI18n("copy.rejectPlan")}</span>
@@ -1243,7 +1286,7 @@ function ProjectPlanCard({
                 <Button
                   size="sm"
                   className="gap-1.5 shadow-none"
-                  onClick={() => setDecision("APPROVE")}
+                  onClick={() => onReviewDecision("APPROVE")}
                 >
                   <Check className="h-3.5 w-3.5" />
                   <span>{translateI18n("copy.approveActivate")}</span>
@@ -1254,16 +1297,7 @@ function ProjectPlanCard({
         </CardContent>
       </Card>
 
-      <PlanReviewDialog
-        open={Boolean(decision)}
-        onOpenChange={(open) => !open && setDecision(null)}
-        decision={decision || "APPROVE"}
-        projectName={project.name}
-        workflowModel={project.scenario?.workflow_model}
-        workflowVersion={project.scenario?.workflow_version}
-        isPending={reviewProjectPlan.isPending}
-        onSubmit={review}
-      />
+
     </>
   );
 }
@@ -1291,6 +1325,9 @@ function MilestoneRow({
   const { user } = useAuth();
   const [deadlineOpen, setDeadlineOpen] = useState(false);
   const [salesDocumentUploadOpen, setSalesDocumentUploadOpen] = useState(false);
+  const [completionConfirming, setCompletionConfirming] = useState(false);
+  const finalSaving = useRef(false);
+  const [finalConfirming, setFinalConfirming] = useState(false);
   const [finalOutcomeOpen, setFinalOutcomeOpen] = useState(false);
   const [finalOutcome, setFinalOutcome] = useState<"WON" | "LOST" | null>(null);
   const [finalValue, setFinalValue] = useState("");
@@ -1379,6 +1416,7 @@ function MilestoneRow({
   const requiresFinalOutcome = canComplete && stageRole === "SALES" && isFinalMilestone;
 
   const completeFinalSalesMilestone = async () => {
+    if (finalSaving.current) return;
     setError("");
     setMessage("");
     const value = Number(finalValue);
@@ -1394,19 +1432,21 @@ function MilestoneRow({
       setError("projectDetail.lossRequired");
       return;
     }
+    if (!finalConfirming) { setFinalConfirming(true); return; }
+    finalSaving.current = true;
     try {
       await complete.mutateAsync({
         outcome: finalOutcome,
         ...(finalOutcome === "WON" ? { final_contract_value: value } : { loss_reason: finalLossReason.trim() }),
       });
-      setFinalOutcomeOpen(false);
+      setFinalOutcomeOpen(false); setFinalConfirming(false);
       setFinalOutcome(null);
       setFinalValue("");
       setFinalLossReason("");
       setMessage("projectDetail.finalMilestoneComplete");
     } catch (completionError) {
       setError("projectDetail.finalCompletionFailed");
-    }
+    } finally { finalSaving.current = false; }
   };
 
   const perform = async (action: () => Promise<unknown>, success: string, fallback: string) => {
@@ -1505,7 +1545,7 @@ function MilestoneRow({
               disabled={complete.isPending}
               onClick={() => requiresFinalOutcome
                 ? setFinalOutcomeOpen(true)
-                : void perform(() => complete.mutateAsync(), "projectDetail.stageCompleted", "projectDetail.stageCompletionFailed")}
+                : setCompletionConfirming(true)}
             >
               <CheckCircle2 className="h-3.5 w-3.5" />
               <span>{complete.isPending ? translateI18n("outputScope.completing") : stageRole === "SA" ? translateI18n("outputScope.completeLegacy") : translateI18n("outputScope.markComplete")}</span>
@@ -1573,7 +1613,12 @@ function MilestoneRow({
       </div>}
 
       {/* Dialogs */}
-      <Dialog open={finalOutcomeOpen} onOpenChange={(open) => { if (!complete.isPending) setFinalOutcomeOpen(open); }}>
+      <BusinessConfirmation open={completionConfirming} onOpenChange={setCompletionConfirming}
+        title={`${project.name} - ${milestone.name}`} changes={[`${formatMilestoneStatusLabel(milestone.status)} -> ${formatMilestoneStatusLabel("COMPLETED")}`]}
+        action={translateI18n("projectDetail.stageCompleted")} onConfirm={async () => {
+          await complete.mutateAsync(); setMessage("projectDetail.stageCompleted");
+        }} />
+      <Dialog open={finalOutcomeOpen} onOpenChange={(open) => { if (!complete.isPending) { setFinalOutcomeOpen(open); if (!open) setFinalConfirming(false); } }}>
         <DialogHeader>
           <DialogTitle>{translateI18n("copy.completeSales")}</DialogTitle>
           <DialogDescription>{translateI18n("projectDetail.recordResultWithMilestone", { name: milestone.name })}</DialogDescription>
@@ -1585,7 +1630,7 @@ function MilestoneRow({
               id={`outcome-${milestone.id}`}
               className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
               value={finalOutcome || ""}
-              onChange={(event) => setFinalOutcome(event.target.value as "WON" | "LOST" | null)}
+              onChange={(event) => { setFinalOutcome(event.target.value as "WON" | "LOST" | null); setFinalConfirming(false); }}
               disabled={complete.isPending}
               required
             >
@@ -1597,19 +1642,20 @@ function MilestoneRow({
           {finalOutcome === "WON" && (
             <div>
               <label htmlFor={`contract-${milestone.id}`} className="mb-1 block text-xs font-semibold text-muted-foreground">{translateI18n("copy.finalContractIdr")}</label>
-              <Input id={`contract-${milestone.id}`} type="number" min="0.01" step="0.01" value={finalValue} onChange={(event) => setFinalValue(event.target.value)} disabled={complete.isPending} required />
+              <Input id={`contract-${milestone.id}`} type="number" min="0.01" step="0.01" value={finalValue} onChange={(event) => { setFinalValue(event.target.value); setFinalConfirming(false); }} disabled={complete.isPending} required />
             </div>
           )}
           {finalOutcome === "LOST" && (
             <div>
               <label htmlFor={`loss-${milestone.id}`} className="mb-1 block text-xs font-semibold text-muted-foreground">{translateI18n("copy.lossReason")}</label>
-              <textarea id={`loss-${milestone.id}`} className="min-h-24 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" value={finalLossReason} onChange={(event) => setFinalLossReason(event.target.value)} maxLength={2000} disabled={complete.isPending} required />
+              <textarea id={`loss-${milestone.id}`} className="min-h-24 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" value={finalLossReason} onChange={(event) => { setFinalLossReason(event.target.value); setFinalConfirming(false); }} maxLength={2000} disabled={complete.isPending} required />
             </div>
           )}
           {error && <p className="text-xs text-destructive">{translateStoredError(error)}</p>}
+          {finalConfirming && <p className="whitespace-pre-wrap text-sm">{translateI18n("businessAudit.final")} {project.name} - {milestone.name}: {formatProjectStatusLabel(project.status)} {" -> "} {formatProjectStatusLabel(finalOutcome || "")} - {finalOutcome === "WON" ? formatIdr(Number(finalValue)) : finalLossReason}</p>}
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setFinalOutcomeOpen(false)} disabled={complete.isPending}>{translateI18n("common.cancel")}</Button>
-            <Button type="submit" disabled={complete.isPending || !finalOutcome}>{translateI18n(complete.isPending ? "projectDetail.completing" : "projectDetail.completeAndRecord")}</Button>
+            <Button type="button" variant="outline" onClick={() => { setFinalOutcomeOpen(false); setFinalConfirming(false); }} disabled={complete.isPending}>{translateI18n("common.cancel")}</Button>
+            <Button type="submit" disabled={complete.isPending || !finalOutcome}>{translateI18n(complete.isPending ? "projectDetail.completing" : finalConfirming ? "projectDetail.completeAndRecord" : "reviewConfirm.continue")}</Button>
           </DialogFooter>
         </form>
       </Dialog>
@@ -1663,10 +1709,13 @@ function DeadlineDialog({
     milestone.duration_working_days ? String(milestone.duration_working_days) : ""
   );
   const [reason, setReason] = useState("");
+  const [confirming, setConfirming] = useState(false);
+  const busy = useRef(false);
   const [error, setError] = useState("");
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (busy.current || error === "businessAudit.stale") return;
     const days = Number(duration);
     if (!startDate || !Number.isInteger(days) || days <= 0) {
       setError("projectDetail.deadlineScheduleRequired");
@@ -1677,6 +1726,8 @@ function DeadlineDialog({
       return;
     }
     setError("");
+    if (!confirming) { setConfirming(true); return; }
+    busy.current = true;
     try {
       await saveDeadline.mutateAsync({
         start_date: startDate,
@@ -1686,12 +1737,12 @@ function DeadlineDialog({
       setReason("");
       onOpenChange(false);
     } catch (saveError) {
-      setError("projectDetail.deadlineRequestFailed");
-    }
+      setError(saveError instanceof ApiError && saveError.status === 409 ? "businessAudit.stale" : "projectDetail.deadlineRequestFailed");
+    } finally { busy.current = false; }
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={value => { if (!busy.current) { if (!value) { setConfirming(false); setError(""); } onOpenChange(value); } }}>
       <DialogHeader>
         <DialogTitle>{translateI18n("copy.requestDeadline")}</DialogTitle>
         <DialogDescription>{milestone.name}</DialogDescription>
@@ -1703,7 +1754,7 @@ function DeadlineDialog({
             id="deadline-start-date"
             type="date"
             value={startDate}
-            onChange={(event) => setStartDate(event.target.value)}
+            onChange={(event) => { saveDeadline.prepare?.(); setStartDate(event.target.value); setConfirming(false); }}
             aria-describedby={error ? "deadline-change-error" : undefined}
             required
           />
@@ -1716,7 +1767,7 @@ function DeadlineDialog({
             min="1"
             step="1"
             value={duration}
-            onChange={(event) => setDuration(event.target.value)}
+            onChange={(event) => { saveDeadline.prepare?.(); setDuration(event.target.value); setConfirming(false); }}
             placeholder={translateI18n("ui.workingDays")}
             aria-describedby={error ? "deadline-change-error" : undefined}
             required
@@ -1728,7 +1779,7 @@ function DeadlineDialog({
             id="deadline-change-reason"
             rows={3}
             value={reason}
-            onChange={(event) => setReason(event.target.value)}
+            onChange={(event) => { saveDeadline.prepare?.(); setReason(event.target.value); setConfirming(false); }}
             placeholder={translateI18n("projectDetail.deadlineReasonPlaceholder")}
             className="flex w-full rounded-md border border-input bg-card px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-primary"
             aria-describedby={error ? "deadline-change-error" : undefined}
@@ -1736,12 +1787,13 @@ function DeadlineDialog({
           />
         </div>
         {error && <p id="deadline-change-error" className="text-sm text-destructive" role="alert">{translateStoredError(error)}</p>}
+        {confirming && <p className="whitespace-pre-wrap text-sm">{translateI18n("businessAudit.check")} {milestone.name}: {formatBusinessAuditValue("start_date",milestone.start_date)} / {milestone.duration_working_days || "-"} {" -> "} {formatBusinessAuditValue("start_date",startDate)} / {duration}. {reason}</p>}
         <DialogFooter>
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+          <Button type="button" variant="outline" onClick={() => { setConfirming(false); setError(""); onOpenChange(false); }} disabled={saveDeadline.isPending}>
             {translateI18n("common.cancel")}
           </Button>
-          <Button type="submit" disabled={saveDeadline.isPending}>
-            {saveDeadline.isPending ? "Submitting..." : "Submit Change Request"}
+          <Button type="submit" disabled={saveDeadline.isPending || error === "businessAudit.stale"}>
+            {translateI18n(saveDeadline.isPending ? "common.saving" : confirming ? "businessAudit.submit" : "reviewConfirm.continue")}
           </Button>
         </DialogFooter>
       </form>
@@ -1790,6 +1842,8 @@ function ReviewDialog({
 }) {
   const reviewDeadline = useReviewDeadlineApproval(projectId, milestoneId);
   const [note, setNote] = useState("");
+  const [confirming, setConfirming] = useState(false);
+  const busy = useRef(false);
   const [error, setError] = useState("");
   const pending = reviewDeadline.isPending;
   const reviewCopy = getReviewActionCopy(type, decision);
@@ -1811,24 +1865,27 @@ function ReviewDialog({
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (busy.current || error === "businessAudit.stale") return;
     if (!approvalId) return;
     if (decision === "REJECT" && !note.trim()) {
       setError("projectDetail.reviewReasonRequired");
       return;
     }
     setError("");
+    if (!confirming) { reviewDeadline.prepare?.(); setConfirming(true); return; }
+    busy.current = true;
     try {
       const input = { approvalId, decision, note: note.trim() || undefined };
       await reviewDeadline.mutateAsync(input);
       setNote("");
       onOpenChange(false);
     } catch (reviewError) {
-      setError("projectDetail.reviewFailed");
-    }
+      setError(reviewError instanceof ApiError && reviewError.status === 409 ? "businessAudit.stale" : "projectDetail.reviewFailed");
+    } finally { busy.current = false; }
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={value => { if (!busy.current) { if (!value) { setConfirming(false); setError(""); } onOpenChange(value); } }}>
       <DialogHeader className="mb-4">
         <DialogTitle>{reviewCopy.title}</DialogTitle>
         <DialogDescription>
@@ -1920,8 +1977,8 @@ function ReviewDialog({
             rows={4}
             value={note}
             onChange={(event) => {
-              setNote(event.target.value);
-              setError("");
+              setNote(event.target.value); setConfirming(false);
+              if (error !== "businessAudit.stale") setError("");
             }}
             placeholder={reviewCopy.notePlaceholder}
             className="flex w-full rounded-md border border-input bg-card px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-primary"
@@ -1940,18 +1997,19 @@ function ReviewDialog({
             {translateStoredError(error)}
           </p>
         )}
+        {confirming && <p className="whitespace-pre-wrap text-sm">{translateI18n("businessAudit.check")} {milestoneName} - {translateI18n(decision === "APPROVE" ? "reviewConfirm.approve" : "reviewConfirm.reject")}. {note}</p>}
         <DialogFooter>
           <Button
             type="button"
             variant="outline"
-            onClick={() => onOpenChange(false)}
+            onClick={() => { setConfirming(false); setError(""); onOpenChange(false); }}
             disabled={pending}
           >
             {translateI18n("common.cancel")}
           </Button>
           <Button
             type="submit"
-            disabled={!approvalId || pending}
+            disabled={!approvalId || pending || error === "businessAudit.stale"}
             variant={decision === "REJECT" ? "outline" : "default"}
             className={
               decision === "REJECT"
@@ -1959,7 +2017,7 @@ function ReviewDialog({
                 : ""
             }
           >
-            {pending ? reviewCopy.pendingLabel : reviewCopy.submitLabel}
+            {pending ? reviewCopy.pendingLabel : confirming ? reviewCopy.submitLabel : translateI18n("reviewConfirm.continue")}
           </Button>
         </DialogFooter>
       </form>
@@ -1973,6 +2031,11 @@ function PlanReviewDialog({
   onOpenChange,
   decision,
   projectName,
+  phaseName,
+  approvalId,
+  targetApprovalId,
+  picRevision, currentPicName, onConflictReload,
+  approvalStatus,
   workflowModel,
   workflowVersion,
   onSubmit,
@@ -1982,11 +2045,23 @@ function PlanReviewDialog({
   onOpenChange: (open: boolean) => void;
   decision: "APPROVE" | "REJECT";
   projectName: string;
+  phaseName: string;
+  approvalId?: string;
+  targetApprovalId?: string;
+  picRevision?: string; currentPicName?: string; onConflictReload: () => Promise<void>;
+  approvalStatus?: string;
   workflowModel?: string | null;
   workflowVersion?: number | null;
-  onSubmit: (note?: string, picId?: string) => Promise<void>;
+  onSubmit: (note?: string, picId?: string, expectedApprovalId?: string, expectedPicRevision?: string, requestId?: string) => Promise<void>;
   isPending: boolean;
 }) {
+  useLanguage();
+  const [confirming, setConfirming] = useState(false);
+  const [reviewedApprovalId, setReviewedApprovalId] = useState<string | undefined>();
+  const [reviewedPicName, setReviewedPicName] = useState("");
+  const [reviewedRevision, setReviewedRevision] = useState<string | undefined>();
+  const intent = useRef<PicRequest | null>(null);
+  const busy = useRef(false);
   const [note, setNote] = useState("");
   const [picId, setPicId] = useState("");
   const [error, setError] = useState("");
@@ -2000,6 +2075,8 @@ function PlanReviewDialog({
 
   useEffect(() => {
     if (!open) return;
+    setConfirming(false); intent.current = null;
+    setReviewedApprovalId(targetApprovalId);
     setNote("");
     setPicId("");
     setError("");
@@ -2007,6 +2084,7 @@ function PlanReviewDialog({
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (error === "businessAudit.stale" || busy.current || isPending) return;
     if (decision === "REJECT" && !note.trim()) {
       setError("projectDetail.planReasonRequired");
       return;
@@ -2015,30 +2093,37 @@ function PlanReviewDialog({
       setError("projectDetail.picBeforeApproval");
       return;
     }
+    const replayingReceipt = confirming && !!intent.current && error === 'picOperation.failed';
     setError("");
+    if (!confirming) {
+      if (workflowModel === 'OPERATIONAL_V2' && picRevision === undefined) { setError('picOperation.failed'); return; }
+      setReviewedPicName(currentPicName || translateI18n('ui.unassigned')); setReviewedRevision(picRevision); setConfirming(true); return;
+    }
+    busy.current = true;
+    if (reviewedRevision !== undefined) intent.current = retainPicRequest(intent.current, reviewedRevision, { approval: reviewedApprovalId, decision, note: note.trim(), picId });
     try {
-      await onSubmit(note.trim() || undefined, requiresPic ? picId : undefined);
+      await runConfirmedDecision({ confirmed: confirming, current: approvalId === reviewedApprovalId && (approvalStatus === "PENDING" || replayingReceipt), reason: note, reasonRequired: decision === "REJECT" }, () => onSubmit(note.trim() || undefined, requiresPic ? picId : undefined, reviewedApprovalId, intent.current?.revision, intent.current?.id));
       setNote("");
       setPicId("");
     } catch (reviewError) {
-      setError("projectDetail.planReviewFailed");
-    }
+      const code = reviewError instanceof ApiError ? reviewError.code : undefined;
+      setError(reviewError instanceof ApiError && reviewError.status === 409 && !code ? "businessAudit.stale" : picErrorKey(code));
+      if (code === 'PIC_CONFLICT') {
+        setConfirming(false); intent.current = null;
+        try { await onConflictReload(); } catch { setError('picOperation.conflict'); }
+      }
+    } finally { busy.current = false; }
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={value => !busy.current && !isPending && onOpenChange(value)}>
       <DialogHeader className="mb-4">
         <DialogTitle>{reviewCopy.title}</DialogTitle>
-        <DialogDescription>
-          {projectName}.{" "}
-          {requiresPic
-            ? "Choose the Solution Architect who will own delivery before activation."
-            : decision === "REJECT"
-              ? "Return the plan to Sales with clear timeline feedback."
-              : "Confirm this project plan decision."}
-        </DialogDescription>
+        <DialogDescription>{projectName} · {phaseName}. {translateI18n('reviewConfirm.plan')}</DialogDescription>
       </DialogHeader>
       <form className="space-y-4" onSubmit={submit}>
+        {confirming && requiresPic && <p className="text-sm">{translateI18n('picOperation.reviewPic', { before: reviewedPicName, after: pics.find(pic => pic.id === picId)?.full_name || picId })}</p>}
+        {confirming && <p className="text-sm">{translateI18n("reviewConfirm.check")} {note.trim() && <strong className="block whitespace-pre-wrap">{note.trim()}</strong>}</p>}
         <div>
           <label
             htmlFor="project-plan-review-note"
@@ -2060,7 +2145,7 @@ function PlanReviewDialog({
             required={reviewCopy.noteRequired}
             aria-invalid={Boolean(error) && reviewCopy.noteRequired}
             aria-describedby={error ? "project-plan-review-error" : undefined}
-            disabled={isPending}
+            disabled={isPending || confirming}
           />
         </div>
         {requiresPic && (
@@ -2086,7 +2171,7 @@ function PlanReviewDialog({
                 }}
                 className="flex h-10 w-full rounded-md border border-input bg-card px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-primary"
                 required
-                disabled={isPending}
+                disabled={isPending || confirming}
               >
                 <option value="">{translateI18n("copy.selectSa")}</option>
                 {pics.map((pic) => (
@@ -2109,21 +2194,21 @@ function PlanReviewDialog({
             className="text-sm text-destructive"
             role="alert"
           >
-            {translateStoredError(error)}
+            {translateStoredError(error === "reviewConfirm.failed" && (approvalId !== reviewedApprovalId || approvalStatus !== "PENDING") ? "reviewConfirm.stale" : error)}
           </p>
         )}
         <DialogFooter>
           <Button
             type="button"
             variant="outline"
-            onClick={() => onOpenChange(false)}
+            onClick={() => { setConfirming(false); setError(""); onOpenChange(false); }}
             disabled={isPending}
           >
             {translateI18n("common.cancel")}
           </Button>
           <Button
             type="submit"
-            disabled={isPending || (requiresPic && (picsLoading || picsError || !picId))}
+            disabled={error === "businessAudit.stale" || isPending || (requiresPic && (picsLoading || picsError || !picId))}
             variant={decision === "REJECT" ? "outline" : "default"}
             className={
               decision === "REJECT"
@@ -2131,7 +2216,7 @@ function PlanReviewDialog({
                 : ""
             }
           >
-            {isPending ? reviewCopy.pendingLabel : reviewCopy.submitLabel}
+            {isPending ? reviewCopy.pendingLabel : !confirming ? translateI18n("reviewConfirm.continue") : translateI18n(decision === "APPROVE" ? "reviewConfirm.approve" : "reviewConfirm.reject")}
           </Button>
         </DialogFooter>
       </form>

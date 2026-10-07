@@ -40,11 +40,17 @@ export const updateProjectManagementSchema = z.object({
   name: z.string().trim().min(2).optional(),
   customer: z.string().trim().min(2).optional(),
   scenario_id: z.string().uuid().optional(),
-  estimated_revenue: z.coerce.number().finite().nonnegative().optional(),
+  estimated_revenue: z.never().optional(),
   selectedDocumentKeys: selectedDocumentKeysSchema,
   selected_document_keys: selectedDocumentKeysSchema,
 });
 export const postponeManagementSchema = z.object({ reason: z.string().trim().min(1) });
+export const estimatedValueSchema = z.object({
+  estimated_revenue: z.string().trim().regex(/^\d{1,16}(\.\d{1,2})?$/),
+  expected_updated_at: z.string().datetime({ offset: true }),
+  request_id: z.string().uuid(),
+}).strict();
+export type EstimatedValueInput = z.infer<typeof estimatedValueSchema>;
 export const projectOutcomeSchema = z.object({
   outcome: z.enum(['WON', 'LOST']),
   final_contract_value: z.coerce.number().finite().positive().optional(),

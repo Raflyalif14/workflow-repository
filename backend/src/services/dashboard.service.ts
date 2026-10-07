@@ -14,6 +14,10 @@ export type DashboardProjectRow = {
   name: string;
   customer: string | null;
   scenario_id: string | null;
+  current_scenario_id?: string | null;
+  active_phase_id?: string | null;
+  phase_migration_state?: string | null;
+  active_phase?: { id: string; project_id: string; scenario_id: string; phase_key: string } | null;
   sales_id: string | null;
   pic_id: string | null;
   status: string;
@@ -27,6 +31,7 @@ export type DashboardProjectRow = {
 export type DashboardMilestoneRow = {
   id: string;
   project_id: string;
+  phase_id?: string | null;
   pic_id?: string | null;
   status: string;
   due_date: string | null;
@@ -47,6 +52,7 @@ export type DashboardApprovalRow = {
 export type DashboardProjectPlanApprovalRow = {
   id?: string;
   project_id: string;
+  phase_id?: string | null;
   status: string;
 };
 
@@ -67,6 +73,7 @@ export type DashboardUserRow = {
 
 export type DashboardOutputDocumentRow = {
   project_id: string;
+  phase_id?: string | null;
   milestone_id?: string;
   status: string;
   is_required: boolean;
@@ -91,6 +98,97 @@ export type DashboardHeadSaProjectValues = {
   active: { count: number; estimatedRevenue: number };
   won: { count: number; finalContractValue: number };
 };
+
+export type DashboardPhaseWorkStatus = {
+  PRA_TENDER: { active: number; postponed: number };
+  ON_SUBMISSION_TENDER: { won: number; lost: number };
+};
+
+export type DashboardAllWorkStatus = {
+  total: number; planning: number; active: number; postponed: number;
+  completed: number; won: number; lost: number; waitingResult: number; cancelled: number;
+};
+
+// Only statuses supported by the active Supabase schema. WAITING_RESULT is
+// unfinished Sales work, and CANCELLED is distinct from successful completion.
+function getAllWorkStatusCategory(project: DashboardProjectRow): Exclude<keyof DashboardAllWorkStatus, 'total'> | null {
+  if (!['DRAFT', 'ACTIVE', 'POSTPONED', 'WAITING_RESULT', 'COMPLETED', 'WON', 'LOST', 'CANCELLED'].includes(project.status)) return null;
+  if (project.status === 'COMPLETED') return 'completed';
+  if (project.status === 'WON') return 'won';
+  if (project.status === 'LOST') return 'lost';
+  if (project.status === 'CANCELLED') return 'cancelled';
+  if (project.status === 'POSTPONED') return 'postponed';
+  if (project.is_postponed !== null && typeof project.is_postponed !== 'boolean') return null;
+  if (project.is_postponed === true) return 'postponed';
+  if (project.status === 'DRAFT') return 'planning';
+  if (project.status === 'ACTIVE') return 'active';
+  return 'waitingResult';
+}
+
+function buildAllWorkStatus(projects: DashboardProjectRow[]): DashboardAllWorkStatus | null {
+  const counts: DashboardAllWorkStatus = { total: 0, planning: 0, active: 0, postponed: 0,
+    completed: 0, won: 0, lost: 0, waitingResult: 0, cancelled: 0 };
+  const seen = new Map<string, string>();
+  for (const project of projects) {
+    const category = getAllWorkStatusCategory(project);
+    if (!project.id || !category) return null;
+    const previous = seen.get(project.id);
+    if (previous && previous !== category) return null;
+    if (previous) continue;
+    seen.set(project.id, category);
+    counts[category]++; counts.total++;
+  }
+  return counts;
+}
+
+// undefined means incomplete/inconsistent source data; null means a legitimate
+// legacy scenario outside the two phases represented by this panel.
+function getWorkStatusPhase(project: DashboardProjectRow, scenarioMap: Map<string, string>) {
+  if (project.active_phase_id) {
+    const phase = project.active_phase;
+    if (!phase || phase.id !== project.active_phase_id || phase.project_id !== project.id
+      || !project.current_scenario_id || phase.scenario_id !== project.current_scenario_id
+      || !['PRA_TENDER', 'ON_SUBMISSION_TENDER'].includes(phase.phase_key)
+      || scenarioMap.get(phase.scenario_id) !== (phase.phase_key === 'PRA_TENDER' ? 'Pra-Tender' : 'On Submission Tender')) return undefined;
+    return phase.phase_key;
+  }
+  // Unclassified legacy projects retain their original scenario. Never infer a
+  // missing READY phase from output groups or from the original scenario.
+  if (project.phase_migration_state != null && project.phase_migration_state !== 'LEGACY_REVIEW') return undefined;
+  if (project.active_phase || (project.current_scenario_id != null && project.current_scenario_id !== project.scenario_id)) return undefined;
+  if (!project.scenario_id || !scenarioMap.has(project.scenario_id)) return undefined;
+  const name = project.scenario_id ? scenarioMap.get(project.scenario_id) : null;
+  return name === 'Pra-Tender' ? 'PRA_TENDER'
+    : name === 'On Submission Tender' ? 'ON_SUBMISSION_TENDER' : null;
+}
+
+function buildPhaseWorkStatus(projects: DashboardProjectRow[], scenarioMap: Map<string, string>): DashboardPhaseWorkStatus | null {
+  const counts: DashboardPhaseWorkStatus = {
+    PRA_TENDER: { active: 0, postponed: 0 }, ON_SUBMISSION_TENDER: { won: 0, lost: 0 },
+  };
+  const seen = new Map<string, string>();
+  for (const project of projects) {
+    const phase = getWorkStatusPhase(project, scenarioMap);
+    // Do not publish partial counts (including an apparently valid zero) when
+    // one scoped project's phase cannot be determined. Other panels stay usable.
+    const category = getAllWorkStatusCategory(project);
+    if (phase === undefined || !project.id || !category) return null;
+    const identity = `${phase}:${category}`;
+    if (seen.has(project.id)) {
+      if (seen.get(project.id) !== identity) return null;
+      continue;
+    }
+    seen.set(project.id, identity);
+    if (phase === 'PRA_TENDER' && !['COMPLETED', 'CANCELLED', 'WON', 'LOST'].includes(project.status)) {
+      if (project.status === 'POSTPONED' || project.is_postponed === true) counts.PRA_TENDER.postponed++;
+      else if (project.status === 'ACTIVE') counts.PRA_TENDER.active++;
+    } else if (phase === 'ON_SUBMISSION_TENDER') {
+      if (project.status === 'WON') counts.ON_SUBMISSION_TENDER.won++;
+      else if (project.status === 'LOST') counts.ON_SUBMISSION_TENDER.lost++;
+    }
+  }
+  return counts;
+}
 
 export type DashboardSaUserRow = {
   id: string;
@@ -283,7 +381,8 @@ export function buildDashboardOverviewFromRows(
 ) {
   const projects = rows.projects.filter((project) => isProjectVisibleToActor(project, actor));
   const projectIds = new Set(projects.map((project) => project.id));
-  const milestones = rows.milestones.filter((milestone) => projectIds.has(milestone.project_id));
+  const phaseByProject = new Map(projects.map(project => [project.id, project.active_phase_id]));
+  const milestones = rows.milestones.filter((milestone) => projectIds.has(milestone.project_id) && (!phaseByProject.get(milestone.project_id) || milestone.phase_id === phaseByProject.get(milestone.project_id)));
   const milestoneIds = new Set(milestones.map((milestone) => milestone.id));
   const scenarioMap = new Map(rows.scenarios.map((scenario) => [scenario.id, scenario.name]));
   const userMap = new Map(rows.users.map((user) => [user.id, user]));
@@ -362,7 +461,7 @@ export function buildDashboardOverviewFromRows(
       .filter((project) => project.status === 'ACTIVE' && !project.is_postponed)
       .map((project) => project.id)
   );
-  const outputRows = (rows.outputDocuments || []).filter((output) => projectIds.has(output.project_id));
+  const outputRows = (rows.outputDocuments || []).filter((output) => projectIds.has(output.project_id) && (!phaseByProject.get(output.project_id) || output.phase_id === phaseByProject.get(output.project_id)));
   const projectNameFor = (projectId: string) => projectMap.get(projectId)?.name || 'Project';
   const countByMilestone = (status: string) => {
     const groups = new Map<string, { projectId: string; milestoneId: string; projectName: string; count: number }>();
@@ -424,7 +523,7 @@ export function buildDashboardOverviewFromRows(
       }
     : null;
   const saWorkload = actor.role === 'HEAD_SA'
-    ? buildSaWorkload(rows, projects, milestones, today)
+    ? buildSaWorkload({ ...rows, outputDocuments: outputRows }, projects, milestones, today)
     : [];
 
   return {
@@ -452,6 +551,8 @@ export function buildDashboardOverviewFromRows(
       count: statusCounts.get(status) || 0,
       color: PROJECT_STATUS_COLORS[status],
     })).filter((status) => status.count > 0),
+    phaseWorkStatus: buildPhaseWorkStatus(projects, scenarioMap),
+    allWorkStatus: buildAllWorkStatus(projects),
     projectProgress,
     recentActivity,
     outputDocuments: {
@@ -472,35 +573,27 @@ export function toSafeDashboardError(error: unknown, context: string) {
 }
 
 async function getScopedProjects(actor: DashboardActor) {
-  // Read every HEAD_SA project page before aggregating values; keep other roles' reads unchanged.
-  if (actor.role === 'HEAD_SA') {
-    const projects: DashboardProjectRow[] = [];
-    const pageSize = 250;
-    for (let offset = 0; ; offset += pageSize) {
-      const { data, error } = await supabaseAdmin
-        .from('projects')
-        .select('id,name,customer,scenario_id,sales_id,pic_id,status,is_postponed,estimated_revenue,final_contract_value,created_at,updated_at')
-        .order('updated_at', { ascending: false })
-        .order('id', { ascending: true })
-        .range(offset, offset + pageSize - 1);
-      if (error) throw toSafeDashboardError(error, 'projects');
-      projects.push(...((data || []) as DashboardProjectRow[]));
-      if (!data || data.length < pageSize) break;
-    }
-    return projects;
+  // All chart aggregates need the full role scope, not Supabase's default row cap.
+  const projects: DashboardProjectRow[] = [];
+  const pageSize = 250;
+  for (let offset = 0; ; offset += pageSize) {
+    let query = supabaseAdmin
+      .from('projects')
+      .select('id,name,customer,scenario_id,current_scenario_id,active_phase_id,phase_migration_state,active_phase:project_phases!projects_active_phase_id_fkey(id,project_id,scenario_id,phase_key),sales_id,pic_id,status,is_postponed,estimated_revenue,final_contract_value,created_at,updated_at')
+      .order('updated_at', { ascending: false })
+      .order('id', { ascending: true })
+      .range(offset, offset + pageSize - 1);
+    if (actor.role === 'SALES') query = query.eq('sales_id', actor.userId);
+    if (actor.role === 'SA') query = query.eq('pic_id', actor.userId);
+    const { data, error } = await query;
+    if (error) throw toSafeDashboardError(error, 'projects');
+    if (!Array.isArray(data)) throw toSafeDashboardError(new Error('Missing project rows'), 'projects');
+    // This named FK embeds a to-one phase; the untyped Supabase client infers
+    // arrays for all embeds without generated relationship metadata.
+    projects.push(...((data || []) as unknown as DashboardProjectRow[]));
+    if (!data || data.length < pageSize) break;
   }
-
-  let query = supabaseAdmin
-    .from('projects')
-    .select('id,name,customer,scenario_id,sales_id,pic_id,status,is_postponed,estimated_revenue,final_contract_value,created_at,updated_at')
-    .order('updated_at', { ascending: false });
-
-  if (actor.role === 'SALES') query = query.eq('sales_id', actor.userId);
-  if (actor.role === 'SA') query = query.eq('pic_id', actor.userId);
-
-  const { data, error } = await query;
-  if (error) throw toSafeDashboardError(error, 'projects');
-  return (data || []) as DashboardProjectRow[];
+  return projects;
 }
 
 async function getActiveSolutionArchitects() {
@@ -540,7 +633,7 @@ async function getRowsByProjectIds(projectIds: string[], trace?: RequestTiming) 
   const [milestoneResult, scenarioResult, activityResult, outputDocumentResult] = await timeOperation(trace, 'dashboard.base_queries', () => Promise.all([
     supabaseAdmin
       .from('project_milestones')
-      .select('id,project_id,pic_id,status,due_date')
+      .select('id,project_id,phase_id,pic_id,status,due_date')
       .in('project_id', projectIds),
     supabaseAdmin
       .from('scenarios')
@@ -553,7 +646,7 @@ async function getRowsByProjectIds(projectIds: string[], trace?: RequestTiming) 
       .limit(8),
     supabaseAdmin
       .from('project_output_documents')
-      .select('project_id,milestone_id,status,is_required,is_selected')
+      .select('project_id,phase_id,milestone_id,status,is_required,is_selected')
       .in('project_id', projectIds),
   ]));
 

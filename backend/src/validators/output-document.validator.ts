@@ -4,6 +4,11 @@ import { selectedDocumentKeysSchema } from './project-management.validator';
 const outputDocumentBatchItemSchema = z.object({
   document_key: z.string().trim().min(1).max(100),
   expected_version_id: z.string().uuid(),
+  request_id: z.string().uuid(),
+  file_revisions: z.array(z.object({
+    file_id: z.string().uuid(),
+    feedback: z.string().trim().min(1).max(2000),
+  }).strict()).max(10).optional(),
 });
 
 const revisionSchema = z.union([z.number(), z.string().regex(/^\d+$/)])
@@ -40,12 +45,19 @@ export const reviewOutputDocumentsSchema = z.object({
   feedback: z.string().trim().max(2000).optional(),
   items: z.array(outputDocumentBatchItemSchema).min(1).max(50),
 }).superRefine((value, context) => {
-  if (value.decision !== 'APPROVE' && !value.feedback) {
+  if (value.decision !== 'APPROVE' && !value.items[0]?.file_revisions?.length) {
     context.addIssue({
       code: z.ZodIssueCode.custom,
-      path: ['feedback'],
-      message: 'Revision feedback is required.',
+      path: ['items', 0, 'file_revisions'],
+      message: 'Select at least one snapshot file and provide its revision feedback.',
     });
+  }
+  for (const [index, item] of value.items.entries()) {
+    const markers = item.file_revisions || [];
+    if (new Set(markers.map(marker => marker.file_id)).size !== markers.length
+      || (value.decision === 'APPROVE' && markers.length > 0)) {
+      context.addIssue({ code: z.ZodIssueCode.custom, path: ['items', index, 'file_revisions'], message: 'Invalid file revision selection.' });
+    }
   }
   if (value.decision !== 'APPROVE' && value.items.length !== 1) {
     context.addIssue({ code: z.ZodIssueCode.custom, path: ['items'], message: 'Revision must target exactly one output document.' });

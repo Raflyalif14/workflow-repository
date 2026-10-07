@@ -1,8 +1,9 @@
+import { activePhaseProject, phaseRows } from './project-phase.service';
 import { supabaseAdmin } from '../config/supabase';
 import { notifySalesMilestoneStarted } from './milestone-notification.service';
 import { NotificationService } from './notification.service';
 import { runNotificationBestEffort } from './notification-dispatch.service';
-import { getMandatoryDocumentKeys, resolveScenarioKey } from '../constants/scenarios';
+import { getProjectMandatoryDocumentKeys, resolveScenarioKey } from '../constants/scenarios';
 import { projectOutcomeSchema, ProjectOutcomeInput } from '../validators/project-management.validator';
 
 export type WorkflowActor = {
@@ -19,6 +20,8 @@ type WorkflowProject = {
   status: string;
   is_postponed: boolean | null;
   scenario_id: string;
+  current_scenario_id?: string | null;
+  active_phase_id?: string | null;
   selected_document_keys: string[] | null;
 };
 
@@ -33,7 +36,7 @@ type WorkflowMilestone = {
   workflow_stage: { default_role: string } | { default_role: string }[] | null;
 };
 
-const milestoneSelect = 'id,project_id,name,step_order,status,pic_id,completed_at,workflow_stage:workflow_stages!project_milestones_workflow_stage_id_fkey(default_role)';
+const milestoneSelect = 'id,project_id,phase_id,name,step_order,status,pic_id,completed_at,workflow_stage:workflow_stages!project_milestones_workflow_stage_id_fkey(default_role)';
 
 const normalizeRelatedOne = <T>(value: T | T[] | null): T | null =>
   Array.isArray(value) ? value[0] || null : value || null;
@@ -55,9 +58,10 @@ export const areSelectedProjectOutputsApproved = (
 export const areExpectedProjectOutputsApproved = (
   selectedKeys: string[] | null | undefined,
   scenarioName: string,
-  rows: Array<{ document_key: string; is_required: boolean; is_selected: boolean; status: string }>
+  rows: Array<{ document_key: string; is_required: boolean; is_selected: boolean; status: string }>,
+  hasPhases = true
 ): boolean => {
-  const expected = new Set([...(selectedKeys || []), ...getMandatoryDocumentKeys(resolveScenarioKey(scenarioName))]);
+  const expected = new Set([...(selectedKeys || []), ...getProjectMandatoryDocumentKeys(scenarioName, hasPhases)]);
   return expected.size > 0 && [...expected].every((key) => rows.some((row) =>
     row.document_key === key && (row.is_required || row.is_selected) && row.status === 'APPROVED'));
 };
@@ -141,15 +145,15 @@ function existingNextMilestoneResult(next: WorkflowMilestone) {
 async function getProject(projectId: string): Promise<WorkflowProject> {
   const { data, error } = await supabaseAdmin
     .from('projects')
-    .select('id,name,sales_id,pic_id,status,is_postponed,scenario_id,selected_document_keys')
+    .select('id,name,sales_id,pic_id,status,is_postponed,scenario_id,current_scenario_id,active_phase_id,selected_document_keys')
     .eq('id', projectId)
     .single();
 
   if (error || !data) throw new Error('Project not found');
-  return data as WorkflowProject;
+  return activePhaseProject(data as WorkflowProject);
 }
 
-async function getProjectMilestones(projectId: string): Promise<WorkflowMilestone[]> {
+async function getProjectMilestones(projectId: string, phaseId?: string | null): Promise<WorkflowMilestone[]> {
   const { data, error } = await supabaseAdmin
     .from('project_milestones')
     .select(milestoneSelect)
@@ -157,13 +161,13 @@ async function getProjectMilestones(projectId: string): Promise<WorkflowMileston
     .order('step_order', { ascending: true });
 
   if (error) throw new Error(error.message);
-  return (data || []) as WorkflowMilestone[];
+  return phaseRows((data || []) as (WorkflowMilestone & { phase_id?: string })[], phaseId);
 }
 
 async function getMilestoneWithProject(milestoneId: string) {
   const { data, error } = await supabaseAdmin
     .from('project_milestones')
-    .select(`${milestoneSelect},project:projects!project_milestones_project_id_fkey(id,name,sales_id,pic_id,status,is_postponed,scenario_id,selected_document_keys)`)
+    .select(`${milestoneSelect},project:projects!project_milestones_project_id_fkey(id,name,sales_id,pic_id,status,is_postponed,scenario_id,current_scenario_id,active_phase_id,selected_document_keys)`)
     .eq('id', milestoneId)
     .single();
 
@@ -172,7 +176,7 @@ async function getMilestoneWithProject(milestoneId: string) {
   const project = normalizeRelatedOne(data.project as WorkflowProject | WorkflowProject[] | null);
   if (!project) throw new Error('Project not found');
 
-  return { milestone: data as WorkflowMilestone, project };
+  return { milestone: data as WorkflowMilestone, project: activePhaseProject(project) };
 }
 
 export async function advanceToNextMilestone(
@@ -180,11 +184,12 @@ export async function advanceToNextMilestone(
   completedMilestoneId: string,
   actor: WorkflowActor
 ) {
-  const [project, milestones] = await Promise.all([
+  const [project, storedMilestones] = await Promise.all([
     getProject(projectId),
     getProjectMilestones(projectId),
   ]);
 
+  const milestones = phaseRows(storedMilestones as (WorkflowMilestone & { phase_id?: string })[], project.active_phase_id);
   const current = milestones.find((milestone) => milestone.id === completedMilestoneId);
   if (!current || !isMilestoneCompletedLike(current.status)) {
     return { next_milestone: null, started: false, project_completed: false, blocked_reason: 'CURRENT_NOT_COMPLETED' as const };
@@ -213,8 +218,16 @@ export async function advanceToNextMilestone(
     const { data: scenario, error: scenarioError } = await supabaseAdmin.from('scenarios')
       .select('name').eq('id', project.scenario_id).single();
     if (scenarioError || !scenario) throw new Error('Failed to verify project scenario.');
-    if (!areExpectedProjectOutputsApproved(project.selected_document_keys, scenario.name, outputDocuments || [])) {
+    if (!areExpectedProjectOutputsApproved(project.selected_document_keys, scenario.name, outputDocuments || [], Boolean(project.active_phase_id))) {
       return { next_milestone: null, started: false, project_completed: false, blocked_reason: 'OUTPUT_DOCUMENTS_PENDING' as const };
+    }
+
+    if (project.active_phase_id) {
+      const { error } = await supabaseAdmin.rpc('finish_project_phase', {
+        p_project_id: project.id, p_phase_id: project.active_phase_id, p_actor_id: actor.userId,
+      });
+      if (error) throw new Error('Unable to reconcile phase completion.');
+      return { next_milestone: null, started: false, project_completed: false, phase_completed: true, blocked_reason: null };
     }
 
     const { data: completedProject, error } = await supabaseAdmin
@@ -275,7 +288,7 @@ export async function advanceToNextMilestone(
     };
   }
 
-  const { data: startedMilestone, error } = await supabaseAdmin
+  let startRequest = supabaseAdmin
     .from('project_milestones')
     .update({
       status: 'IN_PROGRESS',
@@ -283,9 +296,11 @@ export async function advanceToNextMilestone(
       updated_at: nowIso(),
     })
     .eq('id', next.id)
-    .eq('status', 'CREATED')
-    .select('id,name,step_order,status,pic_id')
-    .maybeSingle();
+    .eq('status', 'CREATED');
+  // Assignment may have populated PIC since this snapshot. Never overwrite it
+  // with an old project PIC while starting the next milestone.
+  if (stageRole === 'SA' && !next.pic_id && picId) startRequest = startRequest.is('pic_id', null);
+  const { data: startedMilestone, error } = await startRequest.select('id,name,step_order,status,pic_id').maybeSingle();
 
   if (error) throw new Error(error.message);
   if (!startedMilestone) {
@@ -296,7 +311,7 @@ export async function advanceToNextMilestone(
     if (latestProject.status !== 'ACTIVE' || latestProject.is_postponed) {
       return { next_milestone: null, started: false, project_completed: false, blocked_reason: 'PROJECT_NOT_ACTIVE' as const };
     }
-    const latestNext = latestMilestones.find((milestone) => milestone.id === next.id);
+    const latestNext = phaseRows(latestMilestones as (WorkflowMilestone & { phase_id?: string })[], latestProject.active_phase_id).find((milestone) => milestone.id === next.id);
     if (latestNext && latestNext.status !== 'CREATED') return existingNextMilestoneResult(latestNext);
     return {
       next_milestone: { id: next.id, name: next.name, step_order: next.step_order, status: next.status },
@@ -347,7 +362,7 @@ export async function completeMilestoneStage(milestoneId: string, actor: Workflo
     if (milestone.pic_id !== actor.userId || !['SA', 'HEAD_SA'].includes(actor.role)) {
       throw new Error('Only the assigned PIC can complete this SA milestone.');
     }
-    const { data, error } = await supabaseAdmin.rpc('complete_sa_output_milestone', {
+    const { data, error } = await supabaseAdmin.rpc(project.active_phase_id ? 'complete_phase_sa_milestone' : 'complete_sa_output_milestone', {
       p_milestone_id: milestone.id,
       p_actor_id: actor.userId,
       p_allow_empty: true,
@@ -363,7 +378,7 @@ export async function completeMilestoneStage(milestoneId: string, actor: Workflo
   let isFinalSalesMilestone = false;
   if (stageRoleOf(milestone) === 'SALES') {
     try {
-      isFinalSalesMilestone = !(await getProjectMilestones(project.id)).some((row) => row.step_order > milestone.step_order);
+      isFinalSalesMilestone = !(await getProjectMilestones(project.id, project.active_phase_id)).some((row) => row.step_order > milestone.step_order);
     } catch {
       console.error('[WorkflowProgression] Failed to identify the final Sales milestone.', { milestoneId, projectId: project.id });
       throw new Error('Unable to verify milestone progression. Please try again.');
@@ -385,8 +400,8 @@ export async function completeMilestoneStage(milestoneId: string, actor: Workflo
     if (scenarioError || !scenario || !['Pra-Tender', 'On Submission Tender', 'Assessment', 'Existing TOR'].includes(scenario.name)) {
       throw new Error('Project scenario is not available for completion.');
     }
-    const mandatoryKeys = getMandatoryDocumentKeys(resolveScenarioKey(scenario.name));
-    const { data, error } = await supabaseAdmin.rpc('complete_final_sales_milestone_with_outcome', {
+    const mandatoryKeys = getProjectMandatoryDocumentKeys(scenario.name, Boolean(project.active_phase_id));
+    const { data, error } = await supabaseAdmin.rpc(project.active_phase_id ? 'complete_phase_final_sales_milestone_with_outcome' : 'complete_final_sales_milestone_with_outcome', {
       p_milestone_id: milestone.id,
       p_sales_id: actor.userId,
       p_outcome: parsed.data.outcome,
@@ -410,10 +425,7 @@ export async function completeMilestoneStage(milestoneId: string, actor: Workflo
     }
     const result = Array.isArray(data) ? data[0] : data;
     if (!result) throw new Error('Unable to verify project completion. Please refresh and try again.');
-    if (result.changed) {
-      await logWorkflowActivityBestEffort(actor, project.id, 'MILESTONE_COMPLETED', `${actor.fullName} completed milestone '${milestone.name}'`);
-      await logWorkflowActivityBestEffort(actor, project.id, `PROJECT_${parsed.data.outcome}`, `${actor.fullName} marked project '${project.name}' as ${parsed.data.outcome}`);
-    }
+    // Phase30 final-outcome RPC owns project and milestone audits in the same transaction.
     return {
       milestone_id: milestone.id,
       name: result.milestone_name,
@@ -429,25 +441,13 @@ export async function completeMilestoneStage(milestoneId: string, actor: Workflo
   assertCanCompleteOrReconcile(milestone, project, actor);
 
   if (milestone.status === 'IN_PROGRESS') {
-    const completedAt = nowIso();
-    const { data: completedMilestone, error } = await supabaseAdmin
-      .from('project_milestones')
-      .update({ status: 'COMPLETED', completed_at: completedAt, updated_at: completedAt })
-      .eq('id', milestone.id)
-      .eq('status', 'IN_PROGRESS')
-      .select('id,project_id,name,step_order,status,completed_at')
-      .maybeSingle();
-
-    if (error) throw new Error(error.message);
-    if (completedMilestone) {
-      milestone = { ...milestone, ...completedMilestone };
-      await logWorkflowActivityBestEffort(actor, project.id, 'MILESTONE_COMPLETED', `${actor.fullName} completed milestone '${milestone.name}'`);
-    } else {
-      ({ milestone, project } = await getMilestoneWithProject(milestoneId));
-      assertCanCompleteOrReconcile(milestone, project, actor);
-      if (milestone.status !== 'COMPLETED') throw new Error('Only IN_PROGRESS milestones can be completed.');
-    }
+    const { data: completedMilestone, error } = await supabaseAdmin.rpc('complete_business_milestone', {
+      p_milestone_id: milestone.id, p_actor_id: actor.userId,
+    });
+    if (error || !completedMilestone) throw new Error('Unable to complete the milestone. Please refresh and try again.');
+    milestone = { ...milestone, ...completedMilestone };
   }
+
 
   const progression = await advanceToNextMilestone(project.id, milestone.id, actor);
 
@@ -470,7 +470,7 @@ export async function retrySaMilestoneProgression(milestoneId: string, actor: Wo
     throw new Error('Only Head SA or the assigned PIC can reconcile this milestone.');
   }
   if (milestone.status === 'IN_PROGRESS') {
-    const { error: completeError } = await supabaseAdmin.rpc('complete_sa_output_milestone', {
+    const { error: completeError } = await supabaseAdmin.rpc(project.active_phase_id ? 'complete_phase_sa_milestone' : 'complete_sa_output_milestone', {
       p_milestone_id: milestoneId, p_actor_id: actor.userId, p_allow_empty: false,
     });
     if (completeError) throw new Error(completeError.message || 'Unable to complete approved SA milestone.');
@@ -479,7 +479,7 @@ export async function retrySaMilestoneProgression(milestoneId: string, actor: Wo
 }
 
 export async function completeAssignPicStageIfCurrent(projectId: string, actor: WorkflowActor) {
-  const [project, milestones] = await Promise.all([
+  const [project, storedMilestones] = await Promise.all([
     getProject(projectId),
     getProjectMilestones(projectId),
   ]);
@@ -488,6 +488,7 @@ export async function completeAssignPicStageIfCurrent(projectId: string, actor: 
     return { completed: false, progression: null };
   }
 
+  const milestones = phaseRows(storedMilestones as (WorkflowMilestone & { phase_id?: string })[], project.active_phase_id);
   const assignPicMilestone = milestones.find(
     (milestone) =>
       milestone.status === 'IN_PROGRESS' &&

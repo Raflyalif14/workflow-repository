@@ -4,6 +4,7 @@ export const userRoleEnum = z.enum(['SUPER_ADMIN', 'SALES', 'HEAD_SA', 'SA']);
 export const preferredLanguageEnum = z.enum(['en', 'id']);
 export const updateLanguagePreferenceSchema = z.object({ language: preferredLanguageEnum });
 export const loginSchema = z.object({ email: z.string().email('Invalid email format'), password: z.string().min(1, 'Password is required') });
+export const refreshSessionSchema = z.object({ refreshToken: z.string().min(1).max(8192) }).strict();
 export const registerSchema = z.object({
   full_name: z.string().trim().min(2, 'Full name is required'),
   email: z.string().trim().email('Invalid email format').transform((value) => value.toLowerCase()),

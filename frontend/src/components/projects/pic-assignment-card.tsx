@@ -3,12 +3,16 @@
 import { translate as translateI18n, translateRole } from "@/i18n";
 import { useLanguage } from "@/components/i18n/language-provider";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import { AlertCircle, CheckCircle2, Search, UserCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useAssignPic, useSolutionArchitects } from "@/hooks/use-projects";
+import { ApiError } from '@/lib/api-client';
+import { picErrorKey, retainPicRequest, type PicRequest } from '@/lib/pic-assignment-request';
+import { useQueryClient } from '@tanstack/react-query';
+import { projectKeys } from '@/lib/query-keys';
 import { Project } from "@/types/project";
 
 export function PicAssignmentCard({
@@ -26,8 +30,14 @@ export function PicAssignmentCard({
   const [selected, setSelected] = useState("");
   const [reason, setReason] = useState("");
   const [submitError, setSubmitError] = useState("");
+  const [confirming, setConfirming] = useState(false);
+  const [baseline, setBaseline] = useState<{ revision?: string; id: string | null; name: string } | null>(null);
+  const [reloading, setReloading] = useState(false);
+  const busy = useRef(false);
+  const intent = useRef<PicRequest | null>(null);
+  const client = useQueryClient();
   const currentPic = project.pic;
-  const { data: pics = [], isLoading } = useSolutionArchitects();
+  const { data: pics = [], isLoading } = useSolutionArchitects(canAssign && open);
   const assign = useAssignPic(project.id);
 
   useEffect(() => {
@@ -35,36 +45,53 @@ export function PicAssignmentCard({
       setSelected("");
       setSearch("");
       setReason("");
-      setSubmitError("");
+      setSubmitError(""); setConfirming(false); intent.current = null;
+      setBaseline({ revision: project.pic_revision, id: project.pic?.id || null, name: project.pic?.full_name || project.pic?.fullName || translateI18n('ui.unassigned') });
     }
   }, [open]);
 
   const options = useMemo(() => {
     const term = search.trim().toLowerCase();
     return pics.filter((pic) => {
-      if (pic.id === currentPic?.id) return false;
+      if (pic.id === (open && baseline ? baseline.id : currentPic?.id)) return false;
       if (!term) return true;
 
       return `${pic.full_name} ${pic.email} ${pic.role}`
         .toLowerCase()
         .includes(term);
     });
-  }, [currentPic?.id, pics, search]);
+  }, [currentPic?.id, open, baseline, pics, search]);
 
-  const isSamePic = Boolean(currentPic && selected === currentPic.id);
-  const isReassignment = Boolean(currentPic);
+  const isSamePic = Boolean(baseline?.id && selected === baseline.id);
+  const isReassignment = Boolean(baseline?.id);
   const canSubmit = Boolean(selected) && !isSamePic && (!isReassignment || Boolean(reason.trim()));
 
   const submit = async () => {
-    if (!canSubmit) return;
+    if (!canSubmit || !canAssign || busy.current || assign.isPending || !baseline?.revision) return;
+    if (!confirming) { setConfirming(true); setSubmitError(''); return; }
+    busy.current = true;
     setSubmitError("");
 
     try {
-      await assign.mutateAsync({ pic_id: selected, ...(reason.trim() ? { reason: reason.trim() } : {}) });
+      intent.current = retainPicRequest(intent.current, baseline.revision, { pic_id: selected, reason: reason.trim() });
+      await assign.mutateAsync({ pic_id: selected, ...(reason.trim() ? { reason: reason.trim() } : {}), expected_pic_revision: intent.current.revision, request_id: intent.current.id });
       setOpen(false);
     } catch (error) {
-      setSubmitError("projectAction.assignFailed");
-    }
+      setSubmitError(picErrorKey(error instanceof ApiError ? error.code : undefined));
+      if (error instanceof ApiError && error.code === 'PIC_CONFLICT') setConfirming(false);
+    } finally { busy.current = false; }
+  };
+  const reload = async () => {
+    if (busy.current) return;
+    busy.current = true; setReloading(true);
+    try {
+      await client.refetchQueries({ queryKey: projectKeys.detail(project.id), type: 'active' }, { throwOnError: true });
+      const latest = client.getQueryData<Project>(projectKeys.detailWithoutActivity(project.id)) || client.getQueryData<Project>(projectKeys.detail(project.id));
+      if (!latest?.pic_revision) throw new Error('Unavailable');
+      setBaseline({ revision: latest.pic_revision, id: latest.pic?.id || null, name: latest.pic?.full_name || latest.pic?.fullName || translateI18n('ui.unassigned') });
+      intent.current = null; setConfirming(false); setSubmitError('');
+    } catch { setSubmitError('picOperation.conflict'); }
+    finally { busy.current = false; setReloading(false); }
   };
 
   return (
@@ -94,7 +121,7 @@ export function PicAssignmentCard({
         </div>
       </section>
 
-      <Dialog open={open} onOpenChange={setOpen}>
+      <Dialog open={open} onOpenChange={value => { if (!busy.current && !assign.isPending) setOpen(value); }}>
         <DialogHeader>
           <DialogTitle>{translateI18n(currentPic ? "projectAction.reassignTitle" : "projectAction.assignTitle")}</DialogTitle>
           <DialogDescription>
@@ -104,6 +131,7 @@ export function PicAssignmentCard({
           </DialogDescription>
         </DialogHeader>
 
+        {confirming && <p className="mb-3 text-sm font-medium">{translateI18n('picOperation.confirm', { before: baseline?.name || translateI18n('ui.unassigned'), after: pics.find(pic => pic.id === selected)?.full_name || selected })}</p>}
         <div className="space-y-4">
           {currentPic && (
             <div className="rounded-xl border border-border/60 bg-muted/20 p-3 text-sm">
@@ -122,7 +150,7 @@ export function PicAssignmentCard({
               <Input
                 id="solution-architect-search"
                 className="pl-9"
-                placeholder="Search by name or email"
+                disabled={confirming || assign.isPending} placeholder={translateI18n("picOperation.search")}
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
               />
@@ -139,7 +167,7 @@ export function PicAssignmentCard({
                 <button
                   type="button"
                   key={pic.id}
-                  onClick={() => setSelected(pic.id)}
+                  disabled={confirming || assign.isPending} onClick={() => setSelected(pic.id)}
                   aria-pressed={selected === pic.id}
                   className={`flex w-full items-center gap-3 rounded-xl border p-3 text-left text-sm transition-colors ${
                     selected === pic.id
@@ -169,7 +197,7 @@ export function PicAssignmentCard({
               <textarea
                 id="pic-reassignment-reason"
                 rows={3}
-                placeholder="Explain why this PIC needs to be reassigned"
+                disabled={confirming || assign.isPending} maxLength={2000} placeholder={translateI18n("picOperation.reason")}
                 value={reason}
                 onChange={(event) => setReason(event.target.value)}
                 className="flex w-full resize-none rounded-lg border border-input bg-card px-3 py-2 text-sm shadow-sm outline-none transition-colors placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-1 focus-visible:ring-ring"
@@ -181,16 +209,18 @@ export function PicAssignmentCard({
           {submitError && (
             <div role="alert" className="flex items-start gap-2 rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-xs text-destructive">
               <AlertCircle className="h-4 w-4 shrink-0" />
-              <span>{translateI18n("projectAction.assignFailed")}</span>
+              <span>{translateI18n(submitError as import("@/i18n").TranslationKey)}</span>
             </div>
           )}
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => setOpen(false)} disabled={assign.isPending}>{translateI18n("common.cancel")}</Button>
-          <Button onClick={() => void submit()} disabled={!canSubmit || assign.isPending}>
-            {translateI18n(assign.isPending ? "common.saving" : currentPic ? "projectAction.reassignPic" : "projectAction.assignPic")}
-          </Button>
+          <Button variant="outline" onClick={() => { if (!busy.current) setOpen(false); }} disabled={assign.isPending || reloading}>{translateI18n("common.cancel")}</Button>
+          {submitError === 'picOperation.conflict' ? <Button disabled={reloading} onClick={() => void reload()}>{translateI18n('picOperation.reload')}</Button> : <>
+          {confirming && <Button variant="ghost" disabled={assign.isPending} onClick={() => setConfirming(false)}>{translateI18n('common.back')}</Button>}
+          <Button onClick={() => void submit()} disabled={!canSubmit || assign.isPending || !baseline?.revision}>
+            {translateI18n(assign.isPending ? "common.saving" : confirming ? "picOperation.save" : currentPic ? "projectAction.reassignPic" : "projectAction.assignPic")}
+          </Button></>}
         </DialogFooter>
       </Dialog>
     </>

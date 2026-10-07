@@ -12,6 +12,8 @@ export const AUTH_RATE_LIMIT_MESSAGE = 'Too many requests. Please try again late
 
 export const AUTH_RATE_LIMITS = {
   login: { windowMs: AUTH_RATE_LIMIT_WINDOW_MS, max: 10 },
+  register: { windowMs: AUTH_RATE_LIMIT_WINDOW_MS, max: 5 },
+  refresh: { windowMs: AUTH_RATE_LIMIT_WINDOW_MS, max: 60 },
   forgotPassword: { windowMs: AUTH_RATE_LIMIT_WINDOW_MS, max: 5 },
   resetPassword: { windowMs: AUTH_RATE_LIMIT_WINDOW_MS, max: 10 },
 } as const;

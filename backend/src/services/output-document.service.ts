@@ -1,5 +1,8 @@
+import { mutateBusiness, BusinessRequestContext } from './business-audit.service';
+import { DocumentAccessService, DocumentAccessError, accessMetadata } from './document-access.service';
+import { activePhaseProject } from './project-phase.service';
 import { supabaseAdmin } from '../config/supabase';
-import { canAccessProject, getAccessibleProjectIds } from './project-access.service';
+import { canAccessProject } from './project-access.service';
 import {
   buildOutputDocumentStoragePath,
   DocumentStorageService,
@@ -7,8 +10,8 @@ import {
   MAX_DOCUMENT_FILE_SIZE_BYTES,
 } from '../utils/storage.util';
 import {
-  getMandatoryDocumentKeys,
-  getScenarioDocuments,
+  getMandatoryDocumentKeys, getProjectMandatoryDocumentKeys,
+  getScenarioDocuments, ALL_OUTPUT_DEFINITIONS, getProjectDocumentDefinitions,
   OutputDocumentStatus,
   resolveScenarioKey,
   ScenarioDocumentDefinition,
@@ -21,7 +24,6 @@ import {
   advanceToNextMilestone,
   areSelectedProjectOutputsApproved,
   isMilestoneCompletedLike,
-  logWorkflowActivityBestEffort,
 } from './workflow-progression.service';
 import { OutputNotificationOutboxWorker } from './output-notification-outbox.worker';
 import zlib from 'zlib';
@@ -151,6 +153,8 @@ type OutputProject = {
   name: string;
   customer: string;
   scenario_id: string;
+  current_scenario_id?: string | null;
+  active_phase_id?: string | null;
   sales_id: string | null;
   pic_id: string | null;
   status: string;
@@ -218,7 +222,9 @@ export interface OutputDocumentItem {
   reviewedAt?: string | null;
   reviewedBy?: { id: string; fullName: string; role: string } | null;
   reviewFeedback?: string | null;
+  fileRevisions?: { fileId: string; feedback: string }[];
   currentVersionId?: string | null;
+  currentVersionNumber?: number | null;
   versionCount?: number;
   legacyVersionCount?: number;
   draftRevision: number;
@@ -295,6 +301,26 @@ export class OutputDocumentService {
     return map;
   }
 
+  private static async loadFileRevisions(versionIds: string[]) {
+    const result = new Map<string, { fileId: string; feedback: string }[]>();
+    const ids = [...new Set(versionIds)];
+    for (let start = 0; start < ids.length; start += 200) {
+      for (let offset = 0; ; offset += 250) {
+        const { data, error } = await supabaseAdmin.from('project_output_file_revisions')
+          .select('version_id,file_id,feedback').in('version_id', ids.slice(start, start + 200))
+          .order('version_id', { ascending: true }).order('file_id', { ascending: true }).range(offset, offset + 249);
+        if (error) throw new OutputDocumentError('Output document feedback is unavailable. Please refresh and try again.', 500);
+        for (const row of data || []) {
+          const markers = result.get(row.version_id) || [];
+          markers.push({ fileId: row.file_id, feedback: row.feedback });
+          result.set(row.version_id, markers);
+        }
+        if (!data || data.length < 250) break;
+      }
+    }
+    return result;
+  }
+
   private static async assertOutputMilestoneIsActive(projectId: string, milestoneId: string, actor: Actor) {
     const { data: milestone, error } = await supabaseAdmin.from('project_milestones')
       .select('id,project_id,pic_id,status,start_date')
@@ -310,13 +336,13 @@ export class OutputDocumentService {
     }
   }
 
-  private static async completeApprovedMilestones(projectId: string, actor: Actor, milestoneIds: string[]) {
+  private static async completeApprovedMilestones(projectId: string, actor: Actor, milestoneIds: string[], hasPhases = false) {
     for (const milestoneId of [...new Set(milestoneIds)]) {
       const { data: outputs, error: outputError } = await supabaseAdmin.from('project_output_documents')
         .select('is_required,is_selected,status').eq('milestone_id', milestoneId);
       if (outputError) throw new OutputDocumentError('Failed to verify SA milestone outputs.', 500);
       if (!areSelectedProjectOutputsApproved(outputs || [])) continue;
-      const { data, error } = await supabaseAdmin.rpc('complete_sa_output_milestone', {
+      const { data, error } = await supabaseAdmin.rpc(hasPhases ? 'complete_phase_sa_milestone' : 'complete_sa_output_milestone', {
         p_milestone_id: milestoneId,
         p_actor_id: actor.userId,
         p_allow_empty: false,
@@ -332,14 +358,13 @@ export class OutputDocumentService {
 
   static async listAccessibleFiles(actor: Actor, options: { approvedOnly?: boolean } = {}) {
     const approvedOnly = options.approvedOnly !== false || !['SA', 'HEAD_SA'].includes(actor.role);
-    const accessibleIds = await getAccessibleProjectIds(actor);
-    if (accessibleIds?.length === 0) return [];
-
+    const authorized = await DocumentAccessService.list(actor, 'OUTPUT', { includeSharing: true });
+    if (!authorized.length) return [];
+    const accesses = new Map(authorized.map(access => [access.source_id, access]));
     const rows: any[] = [];
     const pageSize = 250;
-    const projectScopes = accessibleIds
-      ? Array.from({ length: Math.ceil(accessibleIds.length / pageSize) }, (_, index) => accessibleIds.slice(index * pageSize, (index + 1) * pageSize))
-      : [null];
+    const accessibleIds = authorized.map(access => access.source_id);
+    const projectScopes = Array.from({ length: Math.ceil(accessibleIds.length / pageSize) }, (_, index) => accessibleIds.slice(index * pageSize, (index + 1) * pageSize));
     for (const scope of projectScopes) {
       for (let offset = 0; ; offset += pageSize) {
         let query = supabaseAdmin
@@ -349,7 +374,7 @@ export class OutputDocumentService {
           .order('updated_at', { ascending: false })
           .order('id', { ascending: true })
           .range(offset, offset + pageSize - 1);
-        if (scope) query = query.in('project_id', scope);
+        query = query.in('id', scope);
         if (approvedOnly) query = query.eq('status', 'APPROVED').not('current_version_id', 'is', null);
         const { data, error } = await query;
         if (error) throw new OutputDocumentError('Unable to list output documents.', 500);
@@ -359,7 +384,7 @@ export class OutputDocumentService {
     }
     if (!rows?.length) return [];
 
-    const projectIds = [...new Set(rows.map((row) => row.project_id))];
+    const projectIds = [...new Set(rows.filter(row => accesses.get(row.id)?.project_access).map(row => row.project_id))];
     const versionIds = [...new Set(rows.map((row) => row.current_version_id).filter(Boolean))];
     const projectRows: any[] = [];
     const versionRows: any[] = [];
@@ -380,32 +405,35 @@ export class OutputDocumentService {
     const versions = new Map(versionRows.map((version) => [version.id, version]));
     const versionFiles = await this.loadFileReferences('project_output_document_version_files', versionIds);
     const draftFiles = approvedOnly ? new Map<string, StoredOutputFile[]>()
-      : await this.loadFileReferences('project_output_document_draft_files', rows.map((row) => row.id));
-    const definitions = new Map(getScenarioDocuments('Pra-Tender').map((definition) => [definition.key, definition]));
+      : await this.loadFileReferences('project_output_document_draft_files', rows.filter(row => accesses.get(row.id)?.project_access).map(row => row.id));
+    const definitions = new Map(ALL_OUTPUT_DEFINITIONS.map((definition) => [definition.key, definition]));
 
     return rows.flatMap((row) => {
-      const project = projects.get(row.project_id);
+      const access = accesses.get(row.id);
+      const project = access?.project_access ? projects.get(row.project_id) : { id: row.project_id };
       const definition = definitions.get(row.document_key);
       const currentVersion = versions.get(row.current_version_id);
-      if (!project || !canAccessProject(project, actor) || !definition || !(row.is_required || row.is_selected)
-        || (row.status !== 'APPROVED' && (approvedOnly || !canReadNonFinalOutput(project as OutputProject, actor)))) return [];
+      if (!project || !access || !definition || !(row.is_required || row.is_selected)
+        || (row.status !== 'APPROVED' && (approvedOnly || !access.project_access || !canReadNonFinalOutput(project as OutputProject, actor)))) return [];
       const useDraft = ['TO_DO', 'DRAFT', 'REVISION_REQUIRED'].includes(row.status);
       if (!useDraft && (!currentVersion?.version_number || currentVersion.output_document_id !== row.id
         || currentVersion.project_id !== row.project_id
-        || (row.status === 'APPROVED' && currentVersion.status !== 'APPROVED'))) return [];
+        || (row.status === 'APPROVED' && (currentVersion.status !== 'APPROVED' || currentVersion.snapshot_kind === 'LEGACY_UPLOAD_UNCONFIRMED')))) return [];
       const files = useDraft ? draftFiles.get(row.id) || [] : versionFiles.get(currentVersion.id) || [];
       if (!files.length || files.some((file) => file.outputDocumentId !== row.id || file.projectId !== row.project_id)) return [];
       return [{
+        outputId: row.id,
+        ...accessMetadata(access),
         projectId: project.id,
-        projectName: project.name,
-        customer: project.customer,
+        projectName: access.project_access ? project.name : '',
+        customer: access.project_access ? project.customer : '',
         documentKey: row.document_key,
-        milestoneId: row.milestone_id,
+        milestoneId: access.project_access ? row.milestone_id : '',
         name: row.title,
         group: definition.group,
         status: row.status,
         fileName: files[0].fileName,
-        files: files.map(safeFile),
+        files: files.map(file => access.project_access ? safeFile(file) : ({ id: file.id, fileName: file.fileName, fileSize: file.fileSize, mimeType: file.mimeType, uploadedAt: file.uploadedAt })),
         approvedVersionId: row.status === 'APPROVED' ? currentVersion.id : null,
         versionNumber: currentVersion?.version_number || 0,
         updatedAt: row.updated_at,
@@ -416,22 +444,24 @@ export class OutputDocumentService {
   private static async getProject(projectId: string, actor: Actor) {
     const { data: project, error } = await supabaseAdmin
       .from('projects')
-      .select('id, name, customer, scenario_id, sales_id, pic_id, status, is_postponed, selected_document_keys, scenario:scenarios!projects_scenario_id_fkey(id,name,workflow_model,workflow_version)')
+      .select('id, name, customer, scenario_id, current_scenario_id, active_phase_id, sales_id, pic_id, status, is_postponed, selected_document_keys, phases:project_phases!project_phases_project_id_fkey(id,scenario_id,phase_key,selected_document_keys), active_scenario:scenarios!projects_current_scenario_id_fkey(id,name,workflow_model,workflow_version), scenario:scenarios!projects_scenario_id_fkey(id,name,workflow_model,workflow_version)')
       .eq('id', projectId)
       .single();
 
     if (error || !project) throw new OutputDocumentError('Project not found', 404);
     if (!canAccessProject(project, actor)) throw new OutputDocumentError('Forbidden', 403);
-    return project;
+    return { ...activePhaseProject(project), scenario: project.active_scenario || project.scenario };
   }
 
-  private static async isPlanScopeLocked(projectId: string): Promise<boolean> {
-    const { data, error } = await supabaseAdmin
+  private static async isPlanScopeLocked(projectId: string, phaseId?: string | null): Promise<boolean> {
+    let query = supabaseAdmin
       .from('project_plan_approvals')
       .select('id')
       .eq('project_id', projectId)
       .in('status', ['PENDING', 'APPROVED'])
-      .limit(1);
+      ;
+    if (phaseId) query = query.eq('phase_id', phaseId);
+    const { data, error } = await query.limit(1);
     if (error) throw new OutputDocumentError('Failed to verify project plan scope lock.', 500);
     return Boolean(data?.length);
   }
@@ -484,8 +514,8 @@ export class OutputDocumentService {
     const project = await this.getProject(projectId, actor);
     const scenarioName = (project.scenario as any)?.name || project.scenario_id;
     const scenarioKey = resolveScenarioKey(scenarioName);
-    const definitions = getScenarioDocuments(scenarioKey);
-    const mandatoryKeys = new Set(getMandatoryDocumentKeys(scenarioKey));
+    let definitions = getProjectDocumentDefinitions(scenarioKey, Boolean(project.active_phase_id));
+    const mandatoryKeys = new Set(getProjectMandatoryDocumentKeys(scenarioKey, Boolean(project.active_phase_id)));
 
     // Determine stored selected keys
     const storedSelectedKeys: string[] = Array.isArray(project.selected_document_keys)
@@ -497,7 +527,7 @@ export class OutputDocumentService {
       const { data, error } = await supabaseAdmin
         .from('project_output_documents')
         .select(`
-          id, project_id, document_key, milestone_id, title, is_required, is_selected, status,
+          id, project_id, phase_id, document_key, milestone_id, title, is_required, is_selected, status,
           file_name, file_size, mime_type, uploaded_at, review_feedback, reviewed_at, current_version_id, draft_revision,
           uploaded_by_user:users!project_output_documents_uploaded_by_fkey(id, full_name, role),
           reviewed_by_user:users!project_output_documents_reviewed_by_fkey(id, full_name, role)
@@ -509,10 +539,15 @@ export class OutputDocumentService {
     };
 
     const existingRows = await loadRows();
+    if (project.active_phase_id) definitions = ALL_OUTPUT_DEFINITIONS.filter(def => def.group === scenarioKey || existingRows.some(row => row.document_key === def.key) || (project.phases || []).some((phase: any) => (phase.selected_document_keys || []).includes(def.key)));
 
+    for (const row of existingRows) { if (row.is_selected || row.is_required) activeSelectedKeys.add(row.document_key); }
+    for (const phase of project.phases || []) {
+      for (const key of phase.selected_document_keys || []) activeSelectedKeys.add(key);
+    }
     const rowByKey = new Map<string, any>(existingRows.map((row) => [row.document_key, row]));
     const { data: milestoneRows, error: milestoneError } = await supabaseAdmin.from('project_milestones')
-      .select('id,workflow_stage:workflow_stages!project_milestones_workflow_stage_id_fkey(stage_key,default_role,scenario_id)')
+      .select('id,phase_id,workflow_stage:workflow_stages!project_milestones_workflow_stage_id_fkey(stage_key,default_role,scenario_id)')
       .eq('project_id', projectId);
     if (milestoneError) throw new OutputDocumentError('Failed to verify output milestones.', 500);
     const milestoneById = new Map((milestoneRows || []).map((milestone: any) => [milestone.id,
@@ -521,23 +556,27 @@ export class OutputDocumentService {
       if (!activeSelectedKeys.has(def.key)) return false;
       const row = rowByKey.get(def.key);
       const stage: any = row && milestoneById.get(row.milestone_id);
+      const phase = project.phases?.find((phase: any) => phase.id === row?.phase_id);
+      const milestone = milestoneRows?.find(item => item.id === row?.milestone_id);
       return !row || !stage || row.is_required !== def.isRequired || !row.is_selected
         || stage.stage_key !== def.stageKey || stage.default_role !== 'SA'
-        || stage.scenario_id !== project.scenario_id || row.status === 'NOT_REQUIRED';
+        || (project.active_phase_id ? (!phase || phase.phase_key !== def.group || phase.scenario_id !== stage.scenario_id || milestone?.phase_id !== row?.phase_id) : stage.scenario_id !== project.scenario_id) || row.status === 'NOT_REQUIRED';
     })) throw new OutputDocumentError('Selected output is missing or mapped to the wrong SA milestone.', 409);
     const outputDocumentIds = existingRows.map((row) => row.id);
+    const currentVersionNumbers = new Map<string, number>();
     const versionCounts = new Map<string, number>();
     const legacyVersionCounts = new Map<string, number>();
     if (outputDocumentIds.length > 0) {
       for (let offset = 0; ; offset += 250) {
         const { data: versionRows, error: versionError } = await supabaseAdmin
           .from('project_output_document_versions')
-          .select('id,output_document_id,status,snapshot_kind')
+          .select('id,output_document_id,status,snapshot_kind,version_number')
           .in('output_document_id', outputDocumentIds).order('id', { ascending: true }).range(offset, offset + 249);
         if (versionError) {
           throw new OutputDocumentError('Output document version history is unavailable. Please contact an administrator.', 500);
         }
         for (const version of versionRows || []) {
+          currentVersionNumbers.set(version.id, version.version_number);
           if (version.snapshot_kind !== 'LEGACY_UPLOAD_UNCONFIRMED') {
             versionCounts.set(version.output_document_id, (versionCounts.get(version.output_document_id) || 0) + 1);
           } else legacyVersionCounts.set(version.output_document_id, (legacyVersionCounts.get(version.output_document_id) || 0) + 1);
@@ -547,12 +586,13 @@ export class OutputDocumentService {
     }
     const canReadNonFinal = canReadNonFinalOutput(project as OutputProject, actor);
     const visibleOutputRows = canReadNonFinal ? existingRows : existingRows.filter((row) => row.status === 'APPROVED');
-    const [draftFiles, snapshotFiles] = await Promise.all([
+    const [draftFiles, snapshotFiles, fileRevisions] = await Promise.all([
       canReadNonFinal ? this.loadFileReferences('project_output_document_draft_files', outputDocumentIds) : Promise.resolve(new Map<string, StoredOutputFile[]>()),
       this.loadFileReferences('project_output_document_version_files', visibleOutputRows.map((row) => row.current_version_id).filter(Boolean)),
+      canReadNonFinal ? this.loadFileRevisions(visibleOutputRows.map(row => row.current_version_id).filter(Boolean)) : Promise.resolve(new Map()),
     ]);
 
-    const isScopeLocked = project.status !== 'DRAFT' || (await this.isPlanScopeLocked(projectId));
+    const isScopeLocked = project.status !== 'DRAFT' || (await this.isPlanScopeLocked(projectId, project.active_phase_id));
     let canRetryCompletion = false;
     if ((actor.role === 'HEAD_SA' || (actor.role === 'SALES' && project.sales_id === actor.userId))
       && project.status === 'ACTIVE'
@@ -601,7 +641,9 @@ export class OutputDocumentService {
           reviewedAt: row?.reviewed_at || null,
           reviewedBy: reviewedByUser ? { id: reviewedByUser.id, fullName: reviewedByUser.full_name, role: reviewedByUser.role } : null,
           reviewFeedback: row?.review_feedback || null,
+          fileRevisions: fileRevisions.get(row?.current_version_id) || [],
           currentVersionId: row?.current_version_id || null,
+          currentVersionNumber: row?.current_version_id ? currentVersionNumbers.get(row.current_version_id) || null : null,
           versionCount: row ? (versionCounts.get(row.id) || 0) : 0,
           legacyVersionCount: row ? (legacyVersionCounts.get(row.id) || 0) : 0,
           draftRevision: Number(row?.draft_revision) || 0,
@@ -611,9 +653,9 @@ export class OutputDocumentService {
       });
 
     // A selected optional output becomes part of the agreed checklist too.
-    const selectedItems = items.filter((item) => item.isRequired || item.isSelected);
+    const selectedItems = items.filter((item) => (item.isRequired || item.isSelected) && (!project.active_phase_id || rowByKey.get(item.key)?.phase_id === project.active_phase_id));
     const missingMandatoryKeys = selectedItems.filter((item) => !(item.draftFiles.length || item.files.length)).map((item) => item.name);
-    const canSubmit = selectedItems.some((item) => isOutputReadyForSubmission(item.status, isValidOutputDraftFileSet(item.draftFiles)));
+    const canSubmit = selectedItems.some((item) => isOutputReadyForSubmission(item.status, isValidOutputDraftFileSet(item.draftFiles) && !(item.fileRevisions || []).some(marker => item.draftFiles.some(file => file.id === marker.fileId))));
 
     const salesPlanningView = actor.role === 'SALES' && project.sales_id === actor.userId && !isScopeLocked;
     const visibleItems = canReadNonFinal
@@ -633,13 +675,14 @@ export class OutputDocumentService {
               reviewedBy: null,
               reviewFeedback: null,
               currentVersionId: null,
+              currentVersionNumber: null,
               versionCount: 0,
               legacyVersionCount: 0,
               draftRevision: 0,
               draftFiles: [],
               files: [],
             })
-        : items.filter((item) => item.status === 'APPROVED').map((item) => ({ ...item, draftRevision: 0, draftFiles: [], currentVersionId: null, versionCount: 0, legacyVersionCount: 0 }));
+        : items.filter((item) => item.status === 'APPROVED').map((item) => ({ ...item, draftRevision: 0, draftFiles: [], currentVersionId: null, currentVersionNumber: null, versionCount: 0, legacyVersionCount: 0 }));
 
     return {
       scenarioKey,
@@ -688,12 +731,12 @@ export class OutputDocumentService {
 
     const scenarioName = (project.scenario as any)?.name || project.scenario_id;
     const scenarioKey = resolveScenarioKey(scenarioName);
-    const definitions = getScenarioDocuments(scenarioKey);
+    const definitions = getProjectDocumentDefinitions(scenarioKey, Boolean(project.active_phase_id));
     const def = definitions.find((d) => d.key === documentKey);
     if (!def) {
       throw new OutputDocumentError(`Document key '${documentKey}' is not valid for this scenario.`, 404);
     }
-    const selectedKeys = new Set([...(project.selected_document_keys || []), ...getMandatoryDocumentKeys(scenarioKey)]);
+    const selectedKeys = new Set([...(project.selected_document_keys || []), ...getProjectMandatoryDocumentKeys(scenarioKey, Boolean(project.active_phase_id))]);
     if (!selectedKeys.has(documentKey)) {
       throw new OutputDocumentError('This output document is not selected for the project.', 400);
     }
@@ -785,8 +828,6 @@ export class OutputDocumentService {
       throw new OutputDocumentError('Unable to confirm this upload. Retry with the same request.', 500);
     }
     if (!existingFile && result.applied === false) await this.recordUnusedUpload(projectId, current.id, storagePath, actor, input.request_id, false);
-    if (result.applied) await logWorkflowActivityBestEffort(actor, projectId, 'OUTPUT_DOCUMENT_UPLOADED',
-      `${actor.fullName} uploaded a file to output document '${def.name}' (${file.originalname})`);
     return this.draftReceipt(current.id, documentKey, result.file_id, Number(result.draft_revision));
   }
 
@@ -863,7 +904,7 @@ export class OutputDocumentService {
 
     const scenarioName = (project.scenario as any)?.name || project.scenario_id;
     const scenarioKey = resolveScenarioKey(scenarioName);
-    const selectedKeys = new Set([...(project.selected_document_keys || []), ...getMandatoryDocumentKeys(scenarioKey)]);
+    const selectedKeys = new Set([...(project.selected_document_keys || []), ...getProjectMandatoryDocumentKeys(scenarioKey, Boolean(project.active_phase_id))]);
     const results: BatchItemResult[] = [];
     const newlySubmittedKeys: string[] = [];
 
@@ -920,13 +961,6 @@ export class OutputDocumentService {
     const submittedKeys = newlySubmittedKeys;
 
     if (submittedKeys.length > 0) {
-      await logWorkflowActivityBestEffort(
-        actor,
-        projectId,
-        'OUTPUT_DOCUMENTS_SUBMITTED',
-        `${actor.fullName} submitted ${submittedKeys.length} Output Document(s) for review.${input.note ? ` Note: ${input.note}` : ''}`
-      );
-
       await OutputNotificationOutboxWorker.runOnceBestEffort();
     }
 
@@ -944,10 +978,6 @@ export class OutputDocumentService {
 
     const project = await this.getProject(projectId, actor);
 
-    if (project.status !== 'ACTIVE' || project.is_postponed) {
-      throw new OutputDocumentError('Project is not active for output review.', 409);
-    }
-
     const isApproval = input.decision === 'APPROVE';
     const newStatus: OutputDocumentStatus = isApproval ? 'APPROVED' : 'REVISION_REQUIRED';
     const results: BatchItemResult[] = [];
@@ -964,28 +994,32 @@ export class OutputDocumentService {
         results.push({ documentKey: item.document_key, success: false, message: 'Output document not found.' });
         continue;
       }
-      const { data: milestone, error: milestoneError } = await supabaseAdmin.from('project_milestones')
-        .select('id,project_id,status').eq('id', row.milestone_id).maybeSingle();
-      if (milestoneError || !milestone || milestone.project_id !== projectId || milestone.status !== 'IN_PROGRESS') {
-        results.push({ documentKey: item.document_key, success: false, message: 'The output milestone is not active.' });
+      const { data: previousReview, error: receiptError } = await supabaseAdmin.from('project_output_review_requests')
+        .select('request_id').eq('output_document_id', row.id).eq('request_id', item.request_id).maybeSingle();
+      if (receiptError) {
+        results.push({ documentKey: item.document_key, success: false, message: 'The document changed or the decision could not be saved.' });
         continue;
       }
-      if (!isOutputReadyForReview(row.status) || !row.current_version_id) {
-        results.push({ documentKey: item.document_key, success: false, message: 'This output document is no longer awaiting review.' });
-        continue;
+      if (!previousReview) {
+        if (project.status !== 'ACTIVE' || project.is_postponed) throw new OutputDocumentError('Project is not active for output review.', 409);
+        const { data: milestone, error: milestoneError } = await supabaseAdmin.from('project_milestones')
+          .select('id,project_id,status').eq('id', row.milestone_id).maybeSingle();
+        if (milestoneError || !milestone || milestone.project_id !== projectId || milestone.status !== 'IN_PROGRESS') {
+          results.push({ documentKey: item.document_key, success: false, message: 'The output milestone is not active.' });
+          continue;
+        }
+        if (!isOutputReadyForReview(row.status) || !isCurrentOutputVersion(item.expected_version_id, row.current_version_id)) {
+          results.push({ documentKey: item.document_key, success: false, message: 'The document changed or the decision could not be saved.' });
+          continue;
+        }
       }
-      if (!isCurrentOutputVersion(item.expected_version_id, row.current_version_id)) {
-        results.push({ documentKey: item.document_key, success: false, message: 'The file changed. Refresh before reviewing.' });
-        continue;
-      }
-
-      const { error: transitionError } = await supabaseAdmin.rpc('transition_project_output_document_version', {
-        p_output_document_id: row.id,
-        p_expected_version_id: item.expected_version_id,
-        p_action: isApproval ? 'APPROVE' : 'REVISE',
-        p_actor_id: actor.userId,
-        p_feedback: input.feedback?.trim() || null,
-        p_submission_note: null,
+      // The RPC validates membership/CAS/replay under the project lock and atomically
+      // saves the decision, feedback, audit and existing notification intent.
+      const { error: transitionError } = await supabaseAdmin.rpc('review_project_output_document_snapshot', {
+        p_output_document_id: row.id, p_expected_version_id: item.expected_version_id,
+        p_request_id: item.request_id, p_action: isApproval ? 'APPROVE' : 'REVISE',
+        p_actor_id: actor.userId, p_feedback: input.feedback?.trim() || null,
+        p_file_revisions: item.file_revisions || [],
       });
       if (transitionError) {
         results.push({ documentKey: item.document_key, success: false, message: 'The document changed or the decision could not be saved.' });
@@ -996,15 +1030,7 @@ export class OutputDocumentService {
 
     const reviewedKeys = results.filter((result) => result.success).map((result) => result.documentKey);
 
-    const actionText = isApproval ? 'approved' : 'requested revision for';
     if (reviewedKeys.length > 0) {
-      await logWorkflowActivityBestEffort(
-        actor,
-        projectId,
-        isApproval ? 'OUTPUT_DOCUMENTS_APPROVED' : 'OUTPUT_DOCUMENTS_REVISION_REQUESTED',
-        `${actor.fullName} ${actionText} ${reviewedKeys.length} output document(s).${input.feedback ? ` Feedback: ${input.feedback}` : ''}`
-      );
-
       await OutputNotificationOutboxWorker.runOnceBestEffort();
 
       if (isApproval) {
@@ -1013,7 +1039,7 @@ export class OutputDocumentService {
           .eq('project_id', projectId).in('document_key', reviewedKeys);
         if (reviewedError) throw new OutputDocumentError('Failed to locate reviewed milestone.', 500);
         try {
-          await this.completeApprovedMilestones(projectId, actor, (reviewedRows || []).map((row) => row.milestone_id));
+          await this.completeApprovedMilestones(projectId, actor, (reviewedRows || []).map((row) => row.milestone_id), Boolean(project.active_phase_id));
         } catch {
           console.error('[OutputDocumentService] Failed to reconcile SA milestone after output approval.', { projectId });
           completionRetryRequired = true;
@@ -1024,7 +1050,7 @@ export class OutputDocumentService {
     return { success: results.every((result) => result.success), results, completionRetryRequired };
   }
 
-  static async updateChecklist(projectId: string, selectedKeys: string[], actor: Actor) {
+  static async updateChecklist(projectId: string, selectedKeys: string[], actor: Actor, context?: BusinessRequestContext) {
     const project = await this.getProject(projectId, actor);
     if (actor.role !== 'SALES' || project.sales_id !== actor.userId) {
       throw new OutputDocumentError('Only Sales can modify the output documents checklist.', 403);
@@ -1032,41 +1058,15 @@ export class OutputDocumentService {
 
     const scenarioName = (project.scenario as any)?.name || project.scenario_id;
     const scenarioKey = resolveScenarioKey(scenarioName);
-    const definitions = getScenarioDocuments(scenarioKey);
-    const mandatoryKeys = new Set(getMandatoryDocumentKeys(scenarioKey));
+    const definitions = getProjectDocumentDefinitions(scenarioKey, Boolean(project.active_phase_id));
+    const mandatoryKeys = new Set(getProjectMandatoryDocumentKeys(scenarioKey, Boolean(project.active_phase_id)));
     const allowedKeys = new Set(definitions.map((definition) => definition.key));
     if (selectedKeys.some((key) => !allowedKeys.has(key))) {
       throw new OutputDocumentError('One or more selected output documents are invalid.', 400);
     }
 
     const finalSelectedKeys = Array.from(new Set([...selectedKeys, ...mandatoryKeys]));
-    const { data, error } = await supabaseAdmin.rpc('sync_draft_output_scope', {
-      p_project_id: projectId, p_sales_id: actor.userId, p_selected_keys: finalSelectedKeys,
-    });
-    if (error) {
-      const safeMessages = new Set([
-        'Only the Sales owner may change an unlocked DRAFT scope',
-        'Project plan is pending review or locked',
-        'Invalid output selection for scenario',
-        'DRAFT milestone already contains workflow progress',
-        'An output to be removed has work or version history',
-        'An output with work has an invalid milestone mapping',
-        'An empty milestone has linked work or history',
-        'An empty milestone has legacy submissions',
-        'An empty milestone has legacy approvals',
-        'Selected output has no active SA stage',
-        'Final Sales stage is missing',
-      ]);
-      throw new OutputDocumentError(safeMessages.has(error.message) ? error.message : 'Failed to update output scope.', 409);
-    }
-    const result = Array.isArray(data) ? data[0] : data;
-
-    await logWorkflowActivityBestEffort(
-      actor,
-      projectId,
-      'OUTPUT_CHECKLIST_UPDATED',
-      `${actor.fullName} updated the Output Documents Checklist`
-    );
+    const result = await mutateBusiness(projectId, actor.userId, 'SCOPE', { selected_keys: finalSelectedKeys.sort() }, context);
 
     return { success: true, selectedDocumentKeys: result?.selected_keys || finalSelectedKeys };
   }
@@ -1102,6 +1102,7 @@ export class OutputDocumentService {
       if (!data || data.length < 250) break;
     }
     const files = await this.loadFileReferences('project_output_document_version_files', versions.map((version) => version.id));
+    const fileRevisions = await this.loadFileRevisions(versions.map(version => version.id));
 
     return {
       documentKey,
@@ -1129,13 +1130,28 @@ export class OutputDocumentService {
           role: version.reviewed_by_user.role,
         } : null,
         reviewFeedback: version.review_feedback,
+        fileRevisions: fileRevisions.get(version.id) || [],
       })),
     };
   }
 
+  private static async getOutputReadContext(projectId: string, documentKey: string, actor: Actor) {
+    const { data: output, error } = await supabaseAdmin.from('project_output_documents')
+      .select('id,status,current_version_id').eq('project_id', projectId).eq('document_key', documentKey).maybeSingle();
+    if (error || !output) throw new OutputDocumentError('Output document file not found', 404);
+    const access = await DocumentAccessService.read(actor, 'OUTPUT', output.id).catch(error => {
+      if (error instanceof DocumentAccessError) throw new OutputDocumentError('Output document file not found', error.statusCode);
+      throw error;
+    });
+    if (access.project_id !== projectId) throw new OutputDocumentError('Output document file not found', 404);
+    const canReadWorking = access.project_access && ['SA', 'HEAD_SA'].includes(actor.role);
+    if (!canReadWorking && !access.approved) throw new OutputDocumentError('Output document file not found', 404);
+    return { output, access, canReadWorking };
+  }
+
   static async getVersionDownloadUrl(projectId: string, documentKey: string, versionId: string, actor: Actor) {
-    const project = await this.getProject(projectId, actor);
-    if (!canReadNonFinalOutput(project as OutputProject, actor)) {
+    const { output, canReadWorking } = await this.getOutputReadContext(projectId, documentKey, actor);
+    if (!canReadWorking && (output.status !== 'APPROVED' || versionId !== output.current_version_id)) {
       throw new OutputDocumentError('Output document version not found', 404);
     }
 
@@ -1145,19 +1161,8 @@ export class OutputDocumentService {
   }
 
   static async getDownloadUrl(projectId: string, documentKey: string, actor: Actor) {
-    const project = await this.getProject(projectId, actor);
-
-    const { data: row, error } = await supabaseAdmin
-      .from('project_output_documents')
-      .select('id,current_version_id,status')
-      .eq('project_id', projectId)
-      .eq('document_key', documentKey)
-      .maybeSingle();
-
-    if (error || !row) {
-      throw new OutputDocumentError('Output document file not found', 404);
-    }
-    if (row.status !== 'APPROVED' && !canReadNonFinalOutput(project as OutputProject, actor)) {
+    const { output: row, canReadWorking } = await this.getOutputReadContext(projectId, documentKey, actor);
+    if (row.status !== 'APPROVED' && !canReadWorking) {
       throw new OutputDocumentError('Output document file not found', 404);
     }
 
@@ -1170,11 +1175,7 @@ export class OutputDocumentService {
   }
 
   static async getFileDownloadUrl(projectId: string, documentKey: string, fileId: string, actor: Actor, versionId?: string) {
-    const project = await this.getProject(projectId, actor);
-    const { data: output, error } = await supabaseAdmin.from('project_output_documents')
-      .select('id,status,current_version_id').eq('project_id', projectId).eq('document_key', documentKey).maybeSingle();
-    if (error || !output) throw new OutputDocumentError('Output document file not found', 404);
-    const canReadWorking = canReadNonFinalOutput(project as OutputProject, actor);
+    const { output, canReadWorking } = await this.getOutputReadContext(projectId, documentKey, actor);
     const snapshotId = versionId || (['IN_REVIEW', 'APPROVED'].includes(output.status) ? output.current_version_id : null);
     if (snapshotId) {
       const { data: version, error: versionError } = await supabaseAdmin.from('project_output_document_versions')
@@ -1199,23 +1200,26 @@ export class OutputDocumentService {
 
   static async downloadAllApproved(
     projectId: string,
-    actor: Actor
+    actor: Actor,
+    onlyOutputId?: string
   ): Promise<{ zipBuffer: Buffer; fileName: string }> {
-    const project = await this.getProject(projectId, actor);
-
-    const { data: approvedDocs, error } = await supabaseAdmin
-      .from('project_output_documents')
-      .select('id,document_key,current_version_id,status')
-      .eq('project_id', projectId)
-      .eq('status', 'APPROVED').or('is_required.eq.true,is_selected.eq.true');
-
-    if (error) {
-      throw new OutputDocumentError('Failed to fetch approved documents.', 500);
+    const authorized = (await DocumentAccessService.list(actor, 'OUTPUT'))
+      .filter(access => access.project_id === projectId && (!onlyOutputId || access.source_id === onlyOutputId));
+    if (!authorized.length) throw new OutputDocumentError('Output document not found', 404);
+    const project = authorized.some(access => access.project_access)
+      ? await this.getProject(projectId, actor) : { name: 'approved_outputs' };
+    const approvedDocs: any[] = [];
+    for (let offset = 0; offset < authorized.length; offset += 250) {
+      const { data, error } = await supabaseAdmin.from('project_output_documents')
+        .select('id,document_key,current_version_id,status').eq('project_id', projectId)
+        .in('id', authorized.slice(offset, offset + 250).map(access => access.source_id))
+        .eq('status', 'APPROVED').or('is_required.eq.true,is_selected.eq.true');
+      if (error) throw new OutputDocumentError('Failed to fetch approved documents.', 500);
+      approvedDocs.push(...(data || []));
     }
-
     const versionIds = (approvedDocs || []).map((doc) => doc.current_version_id).filter(Boolean);
     const { data: versions, error: versionError } = versionIds.length
-      ? await supabaseAdmin.from('project_output_document_versions').select('id,output_document_id,project_id,status').in('id', versionIds)
+      ? await supabaseAdmin.from('project_output_document_versions').select('id,output_document_id,project_id,status,snapshot_kind').in('id', versionIds)
       : { data: [], error: null };
     if (versionError) throw new OutputDocumentError('Failed to verify approved documents.', 500);
     const versionById = new Map((versions || []).map((version) => [version.id, version]));
@@ -1226,7 +1230,7 @@ export class OutputDocumentService {
     const validDocs = approvedDocs.flatMap((doc) => {
       const version = versionById.get(doc.current_version_id);
       const snapshot = files.get(doc.current_version_id) || [];
-      if (!version || version.status !== 'APPROVED' || version.output_document_id !== doc.id || version.project_id !== projectId
+      if (!version || version.status !== 'APPROVED' || version.snapshot_kind === 'LEGACY_UPLOAD_UNCONFIRMED' || version.output_document_id !== doc.id || version.project_id !== projectId
         || !snapshot.length || snapshot.some((file) => file.outputDocumentId !== doc.id || file.projectId !== projectId)) {
         throw new OutputDocumentError('The complete archive is unavailable. Download files individually.', 409);
       }

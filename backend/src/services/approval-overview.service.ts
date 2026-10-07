@@ -1,4 +1,6 @@
-import { supabaseAdmin } from '../config/supabase';
+import { readApprovalRows } from './approval-rows';
+import { outputReviewQueue } from './output-review-queue.service';
+import { projectPhaseName } from './project-phase.service';
 import { RequestTiming, timeOperation } from '../utils/request-timing';
 
 type ApprovalOverviewActor = {
@@ -13,11 +15,21 @@ type ProjectRow = {
     id: string;
     name: string;
     customer: string | null;
+    active_phase_id?: string | null;
+    status: string;
+    is_postponed: boolean;
+    scenario_id: string;
+    current_scenario_id?: string | null;
+    sales_id: string | null;
+    pic_id: string | null;
+    scenario?: unknown;
+    phases?: unknown[];
 };
 
 type MilestoneRow = {
     id: string;
     project_id: string;
+    phase_id?: string | null;
     name: string;
     step_order: number;
     status: string;
@@ -28,8 +40,10 @@ type MilestoneRow = {
 };
 
 type ProjectPlanApprovalRow = {
+    phase?: { phase_key: string } | { phase_key: string }[] | null;
     id: string;
     project_id: string;
+    phase_id?: string | null;
     status: ApprovalStatus;
     requested_by: string;
     reviewed_by: string | null;
@@ -66,9 +80,7 @@ type UserRow = {
 };
 
 function safeError(error: unknown, context: string): Error {
-    const message = error instanceof Error ? error.message : String(error);
-
-    console.error(`[ApprovalOverviewService] ${context}: ${message}`);
+    console.error(`[ApprovalOverviewService] source failed: ${context}`);
 
     return new Error('Failed to load approval overview.');
 }
@@ -97,10 +109,8 @@ export class ApprovalOverviewService {
          * Approval Center is only accessible to HEAD_SA / SUPER_ADMIN,
          * therefore both roles use global project visibility here.
          */
-        const { data: projectData, error: projectError } = await timeOperation(trace, 'approval.projects', () => supabaseAdmin
-            .from('projects')
-            .select('id,name,customer')
-            .order('updated_at', { ascending: false }));
+        const { data: projectData, error: projectError } = await timeOperation(trace, 'approval.projects', () => readApprovalRows('projects',
+            'id,name,customer,active_phase_id,status,is_postponed,scenario_id,current_scenario_id,sales_id,pic_id,scenario:scenarios!projects_scenario_id_fkey(name),phases:project_phases!project_phases_project_id_fkey(id,project_id,scenario_id,phase_key)', undefined, 'updated_at'));
 
         if (projectError) {
             throw safeError(projectError, 'projects');
@@ -114,6 +124,7 @@ export class ApprovalOverviewService {
                     totalPending: 0,
                     pendingProjectPlans: 0,
                     pendingDeadlines: 0,
+                    pendingDocs: 0,
                 },
                 items: [],
             };
@@ -126,20 +137,12 @@ export class ApprovalOverviewService {
          * Fetch milestones and project-plan approval history in batch.
          */
         const [milestoneResult, planResult] = await timeOperation(trace, 'approval.milestones_and_plans', () => Promise.all([
-            supabaseAdmin
-                .from('project_milestones')
-                .select(
-                    'id,project_id,name,step_order,status,start_date,duration_working_days,due_date,pic_id'
-                )
-                .in('project_id', projectIds),
-
-            supabaseAdmin
-                .from('project_plan_approvals')
-                .select(
-                    'id,project_id,status,requested_by,reviewed_by,request_note,review_note,submitted_at,reviewed_at'
-                )
-                .in('project_id', projectIds)
-                .order('submitted_at', { ascending: false }),
+            readApprovalRows('project_milestones',
+                'id,project_id,phase_id,name,step_order,status,start_date,duration_working_days,due_date,pic_id,workflow_stage:workflow_stages(stage_key,default_role,scenario_id)',
+                { column: 'project_id', ids: projectIds }),
+            readApprovalRows('project_plan_approvals',
+                'id,project_id,phase_id,status,requested_by,reviewed_by,request_note,review_note,submitted_at,reviewed_at,phase:project_phases!approval_phase_project_fk(phase_key)',
+                { column: 'project_id', ids: projectIds }, 'submitted_at'),
         ]));
 
         if (milestoneResult.error) {
@@ -150,8 +153,10 @@ export class ApprovalOverviewService {
             throw safeError(planResult.error, 'project_plan_approvals');
         }
 
-        const milestones = (milestoneResult.data || []) as MilestoneRow[];
-        const planApprovals = (planResult.data || []) as ProjectPlanApprovalRow[];
+        const outputItems = await timeOperation(trace, 'approval.output_reviews', () => outputReviewQueue(projects, milestoneResult.data, actor));
+        const phases = new Map(projects.map(project => [project.id, project.active_phase_id]));
+        const milestones = ((milestoneResult.data || []) as MilestoneRow[]).filter(row => !phases.get(row.project_id) || row.phase_id === phases.get(row.project_id));
+        const planApprovals = (planResult.data || []).sort((a, b) => b.submitted_at.localeCompare(a.submitted_at) || a.id.localeCompare(b.id)) as ProjectPlanApprovalRow[];
 
         const milestoneIds = milestones.map((milestone) => milestone.id);
 
@@ -160,15 +165,14 @@ export class ApprovalOverviewService {
          * Fetch all milestone approval sources in batch.
          */
         const deadlineResult = milestoneIds.length
-            ? await timeOperation(trace, 'approval.deadline_approvals', () => supabaseAdmin.from('milestone_deadline_approvals')
-                .select('id,milestone_id,deadline_history_id,status,requested_by,reviewed_by,review_note,requested_at,reviewed_at')
-                .in('milestone_id', milestoneIds)
-                .order('requested_at', { ascending: false }))
+            ? await timeOperation(trace, 'approval.deadline_approvals', () => readApprovalRows('milestone_deadline_approvals',
+                'id,milestone_id,deadline_history_id,status,requested_by,reviewed_by,review_note,requested_at,reviewed_at',
+                { column: 'milestone_id', ids: milestoneIds }, 'requested_at'))
             : { data: [], error: null };
         if (deadlineResult.error) throw safeError(deadlineResult.error, 'milestone_deadline_approvals');
 
         const deadlineApprovals =
-            (deadlineResult.data || []) as DeadlineApprovalRow[];
+            (deadlineResult.data || []).sort((a, b) => b.requested_at.localeCompare(a.requested_at) || a.id.localeCompare(b.id)) as DeadlineApprovalRow[];
 
         /*
          * Step 4
@@ -195,21 +199,9 @@ export class ApprovalOverviewService {
         ];
 
         const [deadlineHistoryResult, userResult] = await timeOperation(trace, 'approval.history_and_users', () => Promise.all([
-            deadlineHistoryIds.length
-                ? supabaseAdmin
-                    .from('milestone_deadline_history')
-                    .select(
-                        'id,start_date,duration_working_days,due_date,change_reason'
-                    )
-                    .in('id', deadlineHistoryIds)
-                : Promise.resolve({ data: [], error: null }),
-
-            userIds.length
-                ? supabaseAdmin
-                    .from('users')
-                    .select('id,full_name,role')
-                    .in('id', userIds)
-                : Promise.resolve({ data: [], error: null }),
+            readApprovalRows('milestone_deadline_history', 'id,start_date,duration_working_days,due_date,change_reason',
+                { column: 'id', ids: deadlineHistoryIds }),
+            readApprovalRows('users', 'id,full_name,role', { column: 'id', ids: userIds }),
         ]));
 
         if (deadlineHistoryResult.error) {
@@ -253,7 +245,7 @@ export class ApprovalOverviewService {
         const latestPlanByProject = new Map<string, string>();
 
         for (const approval of planApprovals) {
-            if (!latestPlanByProject.has(approval.project_id)) {
+            if ((!phases.get(approval.project_id) || approval.phase_id === phases.get(approval.project_id)) && !latestPlanByProject.has(approval.project_id)) {
                 latestPlanByProject.set(approval.project_id, approval.id);
             }
         }
@@ -278,6 +270,8 @@ export class ApprovalOverviewService {
             return {
                 id: approval.id,
                 category: 'PROJECT_PLAN' as const,
+                phaseId: approval.phase_id || null,
+                phaseName: projectPhaseName(approval.phase),
                 status: approval.status,
                 isCurrentApproval:
                     latestPlanByProject.get(approval.project_id) === approval.id,
@@ -414,6 +408,7 @@ export class ApprovalOverviewService {
         const items = [
             ...projectPlanItems,
             ...deadlineItems,
+            ...outputItems,
         ].sort((a, b) => {
             const aPending =
                 a.status === 'PENDING' &&
@@ -429,11 +424,11 @@ export class ApprovalOverviewService {
 
             return String(b.requestedAt).localeCompare(
                 String(a.requestedAt)
-            );
+            ) || `${a.category}:${a.id}`.localeCompare(`${b.category}:${b.id}`);
         });
 
         /*
-         * Only CURRENT pending approvals are actionable.
+         * Counters count CURRENT visible pending items, including blocked output reviews.
          */
         const pendingProjectPlans = projectPlanItems.filter(
             (item) =>
@@ -452,10 +447,11 @@ export class ApprovalOverviewService {
             stats: {
                 totalPending:
                     pendingProjectPlans +
-                    pendingDeadlines,
+                    pendingDeadlines + outputItems.length,
 
                 pendingProjectPlans,
                 pendingDeadlines,
+                pendingDocs: outputItems.length,
             },
 
             items,

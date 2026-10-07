@@ -1,3 +1,6 @@
+import { installRestrictedRepositoryFixture } from '../test-utils/repository-access.fixture';
+import { DocumentService } from './document.service';
+import { canAccessProject } from './project-access.service';
 import { strict as assert } from 'assert';
 import { supabaseAdmin } from '../config/supabase';
 import { GlobalSearchError, GlobalSearchService } from './global-search.service';
@@ -123,10 +126,21 @@ class QueryMock {
 
 async function withSearchState<T>(state: SearchState, action: () => Promise<T>): Promise<T> {
   const originalFrom = supabaseAdmin.from;
+  const originalDocuments = DocumentService.listDocuments;
+  const restoreAccessFixture = installRestrictedRepositoryFixture(Object.fromEntries([admin,headSa,salesOne,salesTwo,saOne,saTwo].map(actor => [actor.userId,actor.role])), () => ({ projects:state.projects,documents:state.documents,outputs:state.outputs }));
   try {
     (supabaseAdmin as any).from = (table: string) => new QueryMock(state, table);
+    // This test covers search orchestration; actual repository hydration/privacy
+    // is exercised by document-repository-access.test.ts.
+    (DocumentService as any).listDocuments = async (query: any, actor: any) => {
+      if (state.errorTable === 'documents') throw new Error('Simulated document read failure');
+      return state.documents.filter(row => canAccessProject(state.projects.find(p => p.id === row.project_id)! as any, actor)
+        && (actor.role !== 'SALES' || row.status === 'APPROVED') && row.title.toLowerCase().includes(query.search.toLowerCase()))
+        .map(row => ({ id:row.id,projectId:row.project_id,title:row.title,category:row.category,canReadProject:true }));
+    };
     return await action();
   } finally {
+    restoreAccessFixture(); DocumentService.listDocuments = originalDocuments;
     supabaseAdmin.from = originalFrom;
   }
 }

@@ -38,7 +38,9 @@ assert.equal(resolveScenarioKey('Pre-submission discovery'), 'PRA_TENDER');
 const praTenderKeys = new Set(getScenarioDocuments('Pra-Tender').map((document) => document.key));
 const submissionKeys = new Set(getScenarioDocuments('On Submission Tender').map((document) => document.key));
 assert(praTenderKeys.has('proposal_deck_solusi'), 'Pra-Tender must include its pre-tender checklist.');
-assert(praTenderKeys.has('proposal_teknis'), 'Pra-Tender must also include the submission-tender checklist.');
+assert(!praTenderKeys.has('proposal_teknis'), 'Pra-Tender cannot include future tender-phase outputs.');
+assert.equal(praTenderKeys.size, 10);
+assert.equal(submissionKeys.size, 7);
 assert(!submissionKeys.has('proposal_deck_solusi'), 'On Submission Tender must not inherit pre-tender-only output items.');
 assert(submissionKeys.has('proposal_teknis'), 'On Submission Tender must include its own checklist.');
 console.log('Test 1 - Scenario output checklist mapping: passed');
@@ -65,8 +67,8 @@ assert(!canUploadOutput({ ...project, is_postponed: true }, actor('sa-pic-1', 'S
 assert(!canUploadOutput({ ...project, status: 'DRAFT' }, actor('sa-pic-1', 'SA')));
 console.log('Test 4 - Upload and submit require an active, non-postponed project and assigned PIC: passed');
 
-const versionOne = { document_key: 'proposal_teknis', expected_version_id: '11111111-1111-4111-8111-111111111111' };
-const versionTwo = { document_key: 'timeline_proyek', expected_version_id: '22222222-2222-4222-8222-222222222222' };
+const versionOne = { document_key: 'proposal_teknis', expected_version_id: '11111111-1111-4111-8111-111111111111', request_id: '10000000-0000-4000-8000-000000000090' };
+const versionTwo = { document_key: 'timeline_proyek', expected_version_id: '22222222-2222-4222-8222-222222222222', request_id: '10000000-0000-4000-8000-000000000090' };
 const draftOne = { document_key: versionOne.document_key, expected_draft_revision: 1, request_id: versionOne.expected_version_id };
 const draftTwo = { document_key: versionTwo.document_key, expected_draft_revision: 2, request_id: versionTwo.expected_version_id };
 assert(submitOutputDocumentsSchema.safeParse({ items: [draftOne] }).success);
@@ -86,7 +88,7 @@ console.log('Test 5 - Partial submission accepts selected ready documents and re
 
 assert(reviewOutputDocumentsSchema.safeParse({ decision: 'APPROVE', items: [versionOne, versionTwo] }).success);
 assert(!reviewOutputDocumentsSchema.safeParse({ decision: 'REVISE', items: [versionOne] }).success);
-assert(reviewOutputDocumentsSchema.safeParse({ decision: 'REVISE', feedback: 'Please revise the budget.', items: [versionOne] }).success);
+assert(reviewOutputDocumentsSchema.safeParse({ decision: 'REVISE', feedback: 'Please revise the budget.', items: [{ ...versionOne, file_revisions: [{ file_id: '10000000-0000-4000-8000-000000000091', feedback: 'Please revise the budget.' }] }] }).success);
 assert(!reviewOutputDocumentsSchema.safeParse({ decision: 'REVISE', feedback: 'Revise both.', items: [versionOne, versionTwo] }).success);
 assert(isOutputReadyForReview('IN_REVIEW') && !isOutputReadyForReview('APPROVED'));
 console.log('Test 6 - Batch approval and per-document revision validation are enforced: passed');
@@ -146,10 +148,15 @@ assert(revisionMigration.includes("where id = p_expected_version_id\n    and out
 assert(revisionMigration.includes('\ncommit;'));
 console.log('Test 11 - Phase 13 is transactional, backfills existing file state, and enforces version CAS: passed');
 
-assert(outputDocumentService.includes("'OUTPUT_DOCUMENT_UPLOADED'"));
-assert(outputDocumentService.includes("'OUTPUT_DOCUMENTS_SUBMITTED'"));
-assert(outputDocumentService.includes("'OUTPUT_DOCUMENTS_APPROVED'"));
-assert(outputDocumentService.includes("'OUTPUT_DOCUMENTS_REVISION_REQUESTED'"));
+const phase30 = readFileSync(path.join(__dirname, '../../supabase/phase30-business-mutation-audit.sql'), 'utf8');
+assert(phase30.includes("'OUTPUT_DRAFT_'||p_action"));
+assert(phase30.includes('if v_result.applied then'));
+assert(!outputDocumentService.includes("'OUTPUT_DOCUMENT_UPLOADED'"), 'No duplicate best-effort audit');
+assert(phase30.includes("'OUTPUT_DOCUMENTS_SUBMITTED'"));
+assert(phase30.includes("if v_result.created then"));
+const fileRevisionMigration = readFileSync(path.join(__dirname, "../../supabase/phase28-output-file-revisions.sql"), "utf8");
+assert(fileRevisionMigration.includes("'OUTPUT_DOCUMENTS_APPROVED'"));
+assert(fileRevisionMigration.includes("'OUTPUT_DOCUMENTS_REVISION_REQUESTED'"));
 assert(outputDocumentService.includes('OutputNotificationOutboxWorker.runOnceBestEffort()'));
 const notificationOutboxMigration = readFileSync(path.join(__dirname, '../../supabase/phase15-output-notification-outbox.sql'), 'utf8');
 assert(notificationOutboxMigration.includes("'#output-documents'"));

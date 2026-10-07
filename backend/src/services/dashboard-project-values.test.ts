@@ -129,7 +129,9 @@ async function run() {
       assert.equal(overview.headSaProjectValues, null);
       assert(filters.some(([key, value]) => key === column && value === userId));
       assert.equal(overview.summary.totalProjects, source.filter((row) => row[column] === userId).length);
-      assert.equal(ranges.length, previousRanges, 'other roles keep their existing project read behavior');
+      const scopedCount = source.filter(row => row[column] === userId).length;
+      assert.equal(ranges.length - previousRanges, Math.floor(scopedCount / 250) + 1,
+        'all roles now page their complete existing scope for phase status aggregates');
     }
     assert.equal((await DashboardService.getOverview({ role: 'SUPER_ADMIN', userId: 'admin-1' })).headSaProjectValues, null);
     console.log('HEAD_SA project value aggregation, roles, paused projects and pagination: passed');

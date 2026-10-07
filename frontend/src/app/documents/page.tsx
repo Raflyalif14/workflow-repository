@@ -1,10 +1,13 @@
 "use client";
+import { useRepositorySession } from '@/hooks/use-repository-session';
+import { isCurrentSession } from "@/lib/auth";
+import { authorizedFetch } from "@/lib/api-client";
 import { useLanguage } from "@/components/i18n/language-provider";
 
 import { translate as translateI18n, getIntlLocale, translateOutputStatus, translateOutputName, translateStoredError, type TranslationKey } from "@/i18n";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowRight,
   Download,
@@ -24,7 +27,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useDocumentDownloadUrl, useDocuments } from "@/hooks/use-documents";
 import { OutputRepositoryItem, useOutputRepository, useOutputRepositoryDownload } from "@/hooks/use-output-documents";
-import { buildRepositoryItems, filterRepositoryItems, paginateRepositoryItems } from "@/lib/document-repository";
+import { REPOSITORY_PAGE_SIZE, buildRepositoryItems, filterRepositoryItems, paginateRepositoryItems, repositoryAccessGroups, repositoryLoadState, type RepositoryAccessGroup } from "@/lib/document-repository";
 import { DocumentCategory, DocumentItem, DocumentStatus } from "@/types/document";
 
 const rolePageCopy: Record<string, { eyebrow: TranslationKey; title: TranslationKey; description: TranslationKey }> = {
@@ -77,10 +80,20 @@ function getCategoryLabel(category: DocumentCategory) {
 }
 
 export default function DocumentsPage() {
+  const scope = useRepositorySession();
+  // Reset private selections when the verified account/session changes, never on locale changes.
+  return <DocumentsContent key={scope.key.join(":")} />;
+}
+
+function DocumentsContent() {
   const { locale } = useLanguage();
   const { user } = useAuth();
+  const repositorySession = useRepositorySession();
   const pageCopy = rolePageCopy[user?.role || ""] || rolePageCopy.SUPER_ADMIN;
+  const [archivePending, setArchivePending] = useState<string | null>(null);
+  const deepLinkOpened = useRef(false);
   const [search, setSearch] = useState("");
+  const [accessGroup, setAccessGroup] = useState<RepositoryAccessGroup>("ALL");
   const [categoryFilter, setCategoryFilter] = useState<DocumentCategory | "OUTPUT" | "ALL">("ALL");
   const [statusFilter, setStatusFilter] = useState<DocumentStatus | "ALL">("ALL");
   const [page, setPage] = useState(1);
@@ -90,16 +103,37 @@ export default function DocumentsPage() {
   const [downloadError, setDownloadError] = useState("");
   const [pendingOutputFiles, setPendingOutputFiles] = useState<Set<string>>(new Set());
 
-  const { data: documents = [], isLoading: documentsLoading, isError: documentsError } = useDocuments();
-  const { data: outputs = [], isLoading: outputsLoading, isError: outputsError } = useOutputRepository();
+  const documentsQuery = useDocuments();
+  const outputsQuery = useOutputRepository();
+  const { data: documents = [], isError: documentsError } = documentsQuery;
+  const { data: outputs = [] } = outputsQuery;
+  const loadState = repositoryLoadState(repositorySession.enabled, documentsQuery, outputsQuery);
+  const isLoading = loadState === "loading";
+  const isError = loadState === "error";
+  const accessGroups = repositoryAccessGroups(user?.role);
+  const activeGroup = accessGroups.includes(accessGroup) ? accessGroup : "ALL";
+  const accessLabel = (group: RepositoryAccessGroup): TranslationKey => group === "ALL" ? "documentPage.allAccessible"
+    : user?.role === "SALES" ? "documentPage.myProjects" : "documentPage.assignedProjects";
   const outputDownload = useOutputRepositoryDownload();
   const allItems = useMemo(() => buildRepositoryItems(documents, outputs), [documents, outputs]);
+  const selectedReadableDocument = !documentsError ? documents.find(document => document.id === selectedDocForDetail?.id) ?? null : null;
+  useEffect(() => {
+    if (deepLinkOpened.current) return;
+    const params = new URLSearchParams(window.location.search);
+    const source = params.get('source'); const id = params.get('id');
+    const target = allItems.find(item => item.sourceType === source && (item.sourceType === 'OFFICIAL' ? item.document.id : item.output.outputId) === id);
+    if (!target) return;
+    deepLinkOpened.current = true;
+    if (target.sourceType === 'OFFICIAL') setSelectedDocForDetail(target.document);
+    else {
+      setPage(Math.floor(allItems.indexOf(target) / REPOSITORY_PAGE_SIZE) + 1);
+      window.requestAnimationFrame(() => window.document.getElementById(`repository-output-${id}`)?.scrollIntoView({ block: 'center' }));
+    }
+  }, [allItems]);
   const visibleItems = useMemo(() => filterRepositoryItems(allItems, {
-    search, category: categoryFilter, status: statusFilter,
-  }), [allItems, search, categoryFilter, statusFilter]);
+    search, category: categoryFilter, status: statusFilter, accessGroup: activeGroup,
+  }), [allItems, search, categoryFilter, statusFilter, activeGroup]);
   const paged = useMemo(() => paginateRepositoryItems(visibleItems, page), [visibleItems, page]);
-  const isLoading = documentsLoading || outputsLoading;
-  const isError = documentsError || outputsError;
   const documentDownload = useDocumentDownloadUrl();
   const snapshot = useMemo(
     () => [
@@ -110,7 +144,7 @@ export default function DocumentsPage() {
     ],
     [visibleItems, locale]
   );
-  const hasFilters = Boolean(search || categoryFilter !== "ALL" || statusFilter !== "ALL");
+  const hasFilters = Boolean(search || categoryFilter !== "ALL" || statusFilter !== "ALL" || activeGroup !== "ALL");
 
   const handleDownload = async (versionId: string) => {
     setDownloadError("");
@@ -150,8 +184,22 @@ export default function DocumentsPage() {
     }
   };
 
+  const downloadArchive = async (item: OutputRepositoryItem) => {
+    if (!item.outputId || archivePending) return;
+    setArchivePending(item.outputId); setDownloadError('');
+    try {
+      const response = await authorizedFetch(`/documents/access/OUTPUT/${item.outputId}/archive`);
+      if (!response.ok) throw new Error('Archive unavailable');
+      const url = URL.createObjectURL(await response.blob());
+      const link = window.document.createElement('a'); link.href = url; link.download = 'approved-output-files.zip'; link.click();
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch { setDownloadError('documentPage.outputDownloadFailed'); }
+    finally { setArchivePending(null); }
+  };
+
   const resetFilters = () => {
     setSearch("");
+    setAccessGroup("ALL");
     setCategoryFilter("ALL");
     setStatusFilter("ALL");
     setPage(1);
@@ -178,7 +226,7 @@ export default function DocumentsPage() {
               index > 0 ? "lg:border-l" : ""
             } lg:border-t-0`}
           >
-            <p className="text-2xl font-semibold text-foreground">{item.value}</p>
+            <p className="text-2xl font-semibold text-foreground">{loadState === "ready" ? item.value : "—"}</p>
             <p className="mt-0.5 text-xs text-muted-foreground">{item.label}</p>
           </div>
         ))}
@@ -191,6 +239,22 @@ export default function DocumentsPage() {
             <p className="text-xs text-muted-foreground">
               {translateI18n("documentPage.resultsDescription")}
             </p>
+          </div>
+          <div role="tablist" aria-label={translateI18n("documentPage.accessCategory")} aria-orientation="horizontal"
+            className={`grid min-w-0 gap-1 rounded-md bg-muted/30 p-1 ${accessGroups.length === 2 ? "grid-cols-2" : "grid-cols-1"}`}>
+            {accessGroups.map((group, index) => <Button key={group} id={`repository-tab-${group}`} type="button" role="tab"
+              aria-selected={activeGroup === group} aria-controls="repository-results" tabIndex={activeGroup === group ? 0 : -1}
+              variant="ghost" className={`h-auto min-h-10 min-w-0 whitespace-normal break-words px-3 py-2 text-sm ${activeGroup === group ? "bg-secondary text-secondary-foreground shadow-sm" : "text-muted-foreground"}`}
+              onClick={() => { setAccessGroup(group); setPage(1); }}
+              onKeyDown={event => {
+                const nextIndex = event.key === "Home" ? 0 : event.key === "End" ? accessGroups.length - 1
+                  : event.key === "ArrowRight" ? (index + 1) % accessGroups.length
+                  : event.key === "ArrowLeft" ? (index - 1 + accessGroups.length) % accessGroups.length : null;
+                if (nextIndex === null) return;
+                event.preventDefault();
+                const next = accessGroups[nextIndex]; setAccessGroup(next); setPage(1);
+                event.currentTarget.parentElement?.querySelector<HTMLButtonElement>(`#repository-tab-${next}`)?.focus();
+              }}>{translateI18n(accessLabel(group))}</Button>)}
           </div>
           <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_220px_180px_auto]">
             <div className="relative">
@@ -263,6 +327,8 @@ export default function DocumentsPage() {
           )}
         </div>
 
+        <div id="repository-results" role="tabpanel" aria-labelledby={`repository-tab-${activeGroup}`} tabIndex={0}
+          className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
         {!isLoading && !isError && visibleItems.length > 0 && (
           <div className="hidden grid-cols-[minmax(240px,1.7fr)_minmax(180px,1fr)_minmax(230px,1.3fr)_auto] gap-4 border-b border-border/60 px-5 py-2.5 text-[11px] font-semibold uppercase text-muted-foreground lg:grid">
             <span>{translateI18n("nav.documents")}</span>
@@ -282,15 +348,21 @@ export default function DocumentsPage() {
           <div className="px-5 py-14 text-center">
             <p className="font-medium text-destructive">{translateI18n("ui.documentLoadFailed")}</p>
             <p className="mt-1 text-xs text-muted-foreground">{translateI18n("copy.refreshTryAgain")}</p>
+            <Button className="mt-3" size="sm" variant="outline"
+              disabled={!repositorySession.enabled || documentsQuery.isFetching || outputsQuery.isFetching}
+              onClick={() => { if (repositorySession.enabled && repositorySession.session && isCurrentSession(repositorySession.session)) { void documentsQuery.refetch(); void outputsQuery.refetch(); } }}>
+              {translateI18n("common.retry")}
+            </Button>
           </div>
         ) : visibleItems.length === 0 ? (
           <div className="px-5 py-14 text-center">
             <FolderArchive className="mx-auto h-8 w-8 text-muted-foreground" />
             <p className="mt-3 font-medium text-foreground">{translateI18n("ui.documentNotFound")}</p>
             <p className="mt-1 text-xs text-muted-foreground">
-              {hasFilters
+              {search || categoryFilter !== "ALL" || statusFilter !== "ALL"
                 ? translateI18n("documentPage.expandFilters")
-                 : translateI18n("documentPage.resultsAfterApproval")}
+                : activeGroup === "NATIVE" ? translateI18n(user?.role === "SALES" ? "documentPage.noOwnedProjectResults" : "documentPage.noAssignedProjectResults")
+                : translateI18n(user?.role === "SA" ? "documentPage.noAssignedResults" : user?.role === "SALES" ? "documentPage.noOwnedResults" : "documentPage.resultsAfterApproval")}
             </p>
           </div>
         ) : (
@@ -303,10 +375,12 @@ export default function DocumentsPage() {
             ) : (
               <OutputRepositoryRow key={`output:${item.sourceId}`} item={item.output}
                 pendingFiles={pendingOutputFiles}
+                onArchive={() => void downloadArchive(item.output)} archivePending={archivePending === item.output.outputId}
                 onDownload={(fileId) => void handleOutputDownload(item.output, fileId)} />
             ))}
           </div>
         )}
+        </div>
       </section>
 
       {!isLoading && !isError && visibleItems.length > 0 && <nav className="flex flex-wrap items-center justify-between gap-3 text-sm" aria-label={translateI18n("documentPage.pagination")}>
@@ -322,13 +396,13 @@ export default function DocumentsPage() {
         onOpenChange={setIsUploadVersionOpen}
         document={selectedDocForVersion}
       />
-      <DocumentCommentsDrawer
+      <DocumentCommentsDrawer key={repositorySession.key.join(":")}
         open={Boolean(selectedDocForDetail)}
         onOpenChange={(open) => {
           if (!open) setSelectedDocForDetail(null);
         }}
-        document={selectedDocForDetail}
-        canUploadVersion={Boolean(selectedDocForDetail?.canUploadVersion)}
+        document={selectedReadableDocument}
+        canUploadVersion={Boolean(selectedReadableDocument?.canUploadVersion)}
         onUploadVersion={(document) => {
           setSelectedDocForVersion(document);
           setSelectedDocForDetail(null);
@@ -339,21 +413,22 @@ export default function DocumentsPage() {
   );
 }
 
-function OutputRepositoryRow({ item, pendingFiles, onDownload }: {
+function OutputRepositoryRow({ item, pendingFiles, onDownload, onArchive, archivePending }: {
   item: OutputRepositoryItem;
   pendingFiles: ReadonlySet<string>;
   onDownload: (fileId: string) => void;
+  onArchive: () => void; archivePending: boolean;
 }) {
-  return <div className="grid gap-4 border-t border-border/60 px-4 py-4 first:border-t-0 sm:px-5 lg:grid-cols-[minmax(240px,1.7fr)_minmax(180px,1fr)_minmax(230px,1.3fr)_auto] lg:items-center">
+  return <div id={`repository-output-${item.outputId}`} className="grid gap-4 border-t border-border/60 px-4 py-4 first:border-t-0 sm:px-5 lg:grid-cols-[minmax(240px,1.7fr)_minmax(180px,1fr)_minmax(230px,1.3fr)_auto] lg:items-center">
     <div className="min-w-0">
-      <div className="flex flex-wrap items-center gap-2"><Badge variant="outline">{translateI18n("documents.output")}</Badge><Badge variant="success">{translateOutputStatus(item.status)}</Badge></div>
+      <div className="flex flex-wrap items-center gap-2"><Badge variant="outline">{translateI18n("documents.output")}</Badge><Badge variant="success">{translateOutputStatus(item.status)}</Badge>{item.accessMode && <Badge variant="outline">{translateI18n(item.accessMode === "SHARED_INTERNAL" ? "documentAccess.shared" : "documentAccess.restricted")}</Badge>}</div>
       <h3 className="mt-2 break-words font-semibold text-foreground">{translateOutputName(item.documentKey, item.name)}</h3>
       <p className="mt-1 text-xs text-muted-foreground">{translateI18n(item.group === "PRA_TENDER" ? "projectCreate.praTender" : "projectCreate.onSubmissionTender")}</p>
     </div>
-    <Link href={`/projects/${item.projectId}`} className="min-w-0 text-sm font-medium text-foreground hover:text-primary">
+    {item.canReadProject !== false ? <Link href={`/projects/${item.projectId}`} className="min-w-0 text-sm font-medium text-foreground hover:text-primary">
       <span className="break-words">{item.projectName}</span>
       <span className="block break-words text-xs font-normal text-muted-foreground">{item.customer}</span>
-    </Link>
+    </Link> : <p className="text-xs text-muted-foreground">{translateI18n("documentAccess.projectPrivate")}</p>}
     <div className="min-w-0">
       <p className="mb-1 text-xs text-muted-foreground">v{item.versionNumber}</p>
       <ul className="divide-y divide-border/40">
@@ -375,7 +450,8 @@ function OutputRepositoryRow({ item, pendingFiles, onDownload }: {
       </ul>
     </div>
     <div className="flex flex-wrap gap-1 lg:justify-end">
-      <Link href={`/projects/${item.projectId}#milestone-outputs-${item.milestoneId}`}><Button type="button" size="sm" variant="outline"><ArrowRight className="mr-1 h-3.5 w-3.5" />{translateI18n("project.open")}</Button></Link>
+      {item.canReadProject !== false && <Link href={`/projects/${item.projectId}#milestone-outputs-${item.milestoneId}`}><Button type="button" size="sm" variant="outline"><ArrowRight className="mr-1 h-3.5 w-3.5" />{translateI18n("project.open")}</Button></Link>}
+      {item.outputId && <Button size="sm" variant="outline" disabled={archivePending} onClick={onArchive}>{translateI18n("documentAccess.downloadAll")}</Button>}
     </div>
   </div>;
 }
@@ -400,6 +476,7 @@ function DocumentRow({
       <div className="min-w-0">
         <div className="flex flex-wrap items-center gap-2">
           <Badge variant="outline">{translateI18n("ui.officialDocument")}</Badge>
+          {document.accessMode && <Badge variant="outline">{translateI18n(document.accessMode === "SHARED_INTERNAL" ? "documentAccess.shared" : "documentAccess.restricted")}</Badge>}
           <Badge variant="secondary">{getCategoryLabel(document.category)}</Badge>
           {getStatusBadge(document.status)}
         </div>
@@ -481,7 +558,7 @@ function DocumentRow({
         )}
         <Button size="sm" variant="ghost" className="gap-1.5" onClick={onOpenDetails}>
           <MessageSquare className="h-3.5 w-3.5" />
-          {translateI18n("documentPage.commentsCount", { count: document._count?.comments || 0 })}
+          {document.canReadProject === false ? translateI18n("documentAccess.details") : translateI18n("documentPage.commentsCount", { count: document._count?.comments || 0 })}
         </Button>
         {document.canUploadVersion && (
           <Button size="sm" variant="outline" className="gap-1.5" onClick={onUploadVersion}>

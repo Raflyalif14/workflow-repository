@@ -26,7 +26,7 @@ import { useMyAssignedMilestones } from "@/hooks/use-projects";
 import { NotificationBell } from "@/components/notifications/notification-bell";
 import { LanguageSwitcher } from "@/components/language-switcher";
 import { useLanguage } from "@/components/i18n/language-provider";
-import { PERSONAL_SETTINGS_ALLOWED_ROLES } from "@/lib/settings-access";
+import { PERSONAL_SETTINGS_ALLOWED_ROLES, canShowNavigationItem } from "@/lib/settings-access";
 import type { TranslationKey } from "@/i18n";
 import { GlobalSearchDialog } from "@/components/global-search-dialog";
 import { formatActorRoleLabel } from "@/lib/workflow-ux-helpers";
@@ -72,6 +72,7 @@ const NAV_ITEMS: NavItem[] = [
     labelKey: "nav.milestones",
     href: "/milestones",
     icon: Milestone,
+    allowedRoles: ["SUPER_ADMIN", "HEAD_SA", "SA"],
   },
   {
     labelKey: "nav.approvals",
@@ -107,7 +108,7 @@ export function Sidebar() {
 
   const userRole = user?.role || "GUEST";
   const canLoadApprovalOverview = canReadApprovalOverview(user?.role);
-  const { data: approvalStats } = useApprovalStats(canLoadApprovalOverview);
+  const { data: approvalStats } = useApprovalStats(canLoadApprovalOverview, true);
   const isAssignedMilestoneRole = userRole === "SA" || userRole === "HEAD_SA";
   const { data: assignedMilestones = [] } = useMyAssignedMilestones(isAssignedMilestoneRole);
 
@@ -126,10 +127,7 @@ export function Sidebar() {
   };
 
   // Filter navigation links based on user role
-  const visibleNavItems = NAV_ITEMS.filter((item) => {
-    if (!item.allowedRoles) return true;
-    return item.allowedRoles.includes(userRole);
-  });
+  const visibleNavItems = NAV_ITEMS.filter((item) => canShowNavigationItem(user?.role, item.allowedRoles));
 
   const isActive = (href: string) => {
     if (href === "/") return pathname === "/";

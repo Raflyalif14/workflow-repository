@@ -76,6 +76,14 @@ export interface DashboardHeadSaProjectValues {
 }
 
 export interface DashboardData {
+  allWorkStatus?: {
+    total: number; planning: number; active: number; postponed: number;
+    completed: number; won: number; lost: number; waitingResult: number; cancelled: number;
+  } | null;
+  phaseWorkStatus?: {
+    PRA_TENDER: { active: number; postponed: number };
+    ON_SUBMISSION_TENDER: { won: number; lost: number };
+  } | null;
   summary: DashboardSummary;
   scenarioDistribution: ScenarioDistribution[];
   statusDistribution: StatusDistribution[];

@@ -1,3 +1,4 @@
+import { businessRequestContext } from '../services/business-audit.service';
 import { Response } from 'express';
 import { AuthenticatedRequest } from '../middlewares/auth.middleware';
 import { DeadlineApprovalService } from '../services/deadline-approval.service';
@@ -36,7 +37,7 @@ export class DeadlineApprovalController {
       const result = await DeadlineApprovalService.approveDeadlineApproval(
         getRouteParam(req, 'approvalId'),
         req.body as ApproveDeadlineApprovalInput,
-        req.user!
+        req.user!, businessRequestContext(req.headers)
       );
       sendSuccess(res, 'Deadline approval approved successfully', result);
     } catch (error) {
@@ -49,7 +50,7 @@ export class DeadlineApprovalController {
       const result = await DeadlineApprovalService.rejectDeadlineApproval(
         getRouteParam(req, 'approvalId'),
         req.body as RejectDeadlineApprovalInput,
-        req.user!
+        req.user!, businessRequestContext(req.headers)
       );
       sendSuccess(res, 'Deadline approval rejected successfully', result);
     } catch (error) {

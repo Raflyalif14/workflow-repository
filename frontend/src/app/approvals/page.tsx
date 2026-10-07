@@ -1,7 +1,7 @@
 "use client";
 import { useLanguage } from "@/components/i18n/language-provider";
 
-import { translate as translateI18n, getIntlLocale } from "@/i18n";
+import { translate as translateI18n, getIntlLocale, translateOutputName } from "@/i18n";
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -22,17 +22,18 @@ import { RoleGuard } from "@/components/auth/role-guard";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { useApprovals, useApprovalStats } from "@/hooks/use-approvals";
+import { useApprovalOverview } from "@/hooks/use-approvals";
+import { approvalQueuePage, outputReviewHref } from "@/lib/approval-queue";
 import { canReadApprovalOverview } from "@/lib/approval-overview-access";
 import { ApprovalCategory, ApprovalItem, ApprovalStatus } from "@/types/approval";
 
-const categoryOptions: Array<{ key: ApprovalCategory; label: "approvalUi.allRequests" | "approvalUi.projectPlans" | "approvalUi.deadlineChanges" }> = [
+const categoryOptions: Array<{ key: ApprovalCategory; label: "approvalUi.allRequests" | "approvalUi.projectPlans" | "approvalUi.deadlineChanges" | "outputQueue.category" }> = [
   { key: "ALL", label: "approvalUi.allRequests" },
   { key: "PROJECT_PLAN", label: "approvalUi.projectPlans" },
   { key: "DEADLINE", label: "approvalUi.deadlineChanges" },
+  { key: "OUTPUT_DOCUMENT", label: "outputQueue.category" },
 ];
 
-const categoryOrder: ApprovalItem["category"][] = ["PROJECT_PLAN", "DEADLINE"];
 
 export default function ApprovalCenterPage() {
   useLanguage();
@@ -44,6 +45,7 @@ export default function ApprovalCenterPage() {
 }
 
 function ApprovalCenterPageContent() {
+  const { locale } = useLanguage();
   const router = useRouter();
   const { user } = useAuth();
   const canLoadApprovalOverview = canReadApprovalOverview(user?.role);
@@ -55,40 +57,23 @@ function ApprovalCenterPageContent() {
   const [initialAction, setInitialAction] = useState<"APPROVE" | "REJECT" | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
-  const { data: stats } = useApprovalStats(canLoadApprovalOverview);
+  const [page, setPage] = useState(1);
+  const overview = useApprovalOverview(canLoadApprovalOverview);
+  const stats = overview.data?.stats;
+  const { isLoading, isError, isFetching } = overview;
   const effectiveStatus: ApprovalStatus =
     viewMode === "NEEDS_REVIEW" ? "PENDING" : historyStatusFilter;
-  const { data: approvals = [], isLoading, isError } = useApprovals({
-    type: categoryTab,
-    status: effectiveStatus,
-    search,
-  }, canLoadApprovalOverview);
   const canReview = user?.role === "HEAD_SA";
   const isHistory = viewMode === "HISTORY";
-  const displayedApprovals = useMemo(() => {
-    const filtered = approvals.filter((item) =>
-      isHistory ? item.status !== "PENDING" : item.status === "PENDING"
-    );
-    return [...filtered].sort((left, right) => {
-      const leftTime = new Date(left.requestedAt || left.submittedAt).getTime();
-      const rightTime = new Date(right.requestedAt || right.submittedAt).getTime();
-      return isHistory ? rightTime - leftTime : leftTime - rightTime;
-    });
-  }, [approvals, isHistory]);
-  const groupedApprovals = useMemo(
-    () =>
-      categoryOrder
-        .map((category) => ({
-          category,
-          items: displayedApprovals.filter((item) => item.category === category),
-        }))
-        .filter((group) => group.items.length > 0),
-    [displayedApprovals]
-  );
+  const queuePage = useMemo(() => approvalQueuePage(overview.data?.items || [], {
+    type: categoryTab, status: effectiveStatus, search,
+  }, isHistory, page, 20, locale), [overview.data, categoryTab, effectiveStatus, search, isHistory, page, locale]);
+  const displayedApprovals = queuePage.items;
   const snapshot = [
-    { label: translateI18n("approvalUi.totalPending"), value: stats?.totalPending || 0 },
-    { label: translateI18n("approvalUi.projectPlans"), value: stats?.pendingProjectPlans || 0 },
-    { label: translateI18n("approvalUi.deadlineChanges"), value: stats?.pendingDeadlines || 0 },
+    { label: translateI18n("approvalUi.totalPending"), value: stats?.totalPending ?? "\u2014" },
+    { label: translateI18n("approvalUi.projectPlans"), value: stats?.pendingProjectPlans ?? "\u2014" },
+    { label: translateI18n("approvalUi.deadlineChanges"), value: stats?.pendingDeadlines ?? "\u2014" },
+    { label: translateI18n("outputQueue.category"), value: stats?.pendingDocs ?? "\u2014" },
   ];
 
   const openAction = (item: ApprovalItem, action: "APPROVE" | "REJECT") => {
@@ -108,11 +93,16 @@ function ApprovalCenterPageContent() {
         </h1>
         <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
           {canReview
-            ? translateI18n("approvalUi.headDescription")
+            ? translateI18n("outputQueue.description")
             : translateI18n("approvalUi.oversightDescription")}
         </p>
       </header>
 
+      <p className="text-xs text-muted-foreground">{translateI18n("outputQueue.pendingDefinition")}</p>
+      {isError && <div role="alert" className="flex flex-wrap items-center gap-3 text-sm text-destructive">
+        <span>{translateI18n(overview.data ? "outputQueue.stale" : "approval.loadError")}</span>
+        <Button variant="outline" size="sm" disabled={isFetching || !canLoadApprovalOverview} onClick={() => { if (canLoadApprovalOverview) void overview.refetch(); }}>{translateI18n("outputQueue.retry")}</Button>
+      </div>}
       <section
         aria-label={translateI18n("approvalUi.snapshot")}
         className="grid grid-cols-2 overflow-hidden rounded-lg border border-border/60 bg-card lg:grid-cols-4"
@@ -141,13 +131,14 @@ function ApprovalCenterPageContent() {
                 size="sm"
                 className="gap-2"
                 onClick={() => {
+                  setPage(1);
                   setViewMode("NEEDS_REVIEW");
                   setHistoryStatusFilter("ALL");
                 }}
               >
                 <Inbox className="h-4 w-4" />
                 {translateI18n("approvalUi.needsReview")}
-                {(stats?.totalPending || 0) > 0 && (
+                {(stats?.totalPending ?? 0) > 0 && (
                   <span className="text-[11px] text-muted-foreground">{stats?.totalPending}</span>
                 )}
               </Button>
@@ -155,7 +146,7 @@ function ApprovalCenterPageContent() {
                 variant={isHistory ? "secondary" : "ghost"}
                 size="sm"
                 className="gap-2"
-                onClick={() => setViewMode("HISTORY")}
+                onClick={() => { setPage(1); setViewMode("HISTORY"); }}
               >
                 <History className="h-4 w-4" />
                 {translateI18n("approvalUi.history")}
@@ -165,9 +156,7 @@ function ApprovalCenterPageContent() {
               <select
                 aria-label={translateI18n("approvalUi.historyFilter")}
                 value={historyStatusFilter}
-                onChange={(event) =>
-                  setHistoryStatusFilter(event.target.value as ApprovalStatus)
-                }
+                onChange={(event) => { setPage(1); setHistoryStatusFilter(event.target.value as ApprovalStatus); }}
                 className="h-9 w-full rounded-md border border-border bg-background px-3 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary sm:w-[180px]"
               >
                 <option value="ALL">{translateI18n("copy.allResolved")}</option>
@@ -185,20 +174,24 @@ function ApprovalCenterPageContent() {
                 variant={categoryTab === option.key ? "secondary" : "ghost"}
                 size="sm"
                 className="shrink-0"
-                onClick={() => setCategoryTab(option.key)}
+                onClick={() => { setPage(1); setCategoryTab(option.key); }}
               >
                 {translateI18n(option.label)}
               </Button>
             ))}
           </div>
 
+          <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
+            <span>{isHistory ? translateI18n("outputQueue.historyScope") : null}</span>
+            <Button size="sm" variant="ghost" disabled={isFetching || !canLoadApprovalOverview} onClick={() => { if (canLoadApprovalOverview) void overview.refetch(); }}>{translateI18n("outputQueue.refresh")}</Button>
+          </div>
           <div className="relative">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               placeholder={translateI18n("approvalUi.searchPlaceholder")}
               aria-label={translateI18n("approvalUi.search")}
               value={search}
-              onChange={(event) => setSearch(event.target.value)}
+              onChange={(event) => { setPage(1); setSearch(event.target.value); }}
               className="pl-9"
             />
           </div>
@@ -210,7 +203,7 @@ function ApprovalCenterPageContent() {
               <div key={item} className="h-28 animate-pulse border-t border-border/60 bg-muted/20 first:border-t-0" />
             ))}
           </div>
-        ) : isError ? (
+        ) : isError && !overview.data ? (
           <div className="px-5 py-14 text-center">
             <p className="font-medium text-destructive">{translateI18n("approval.loadError")}</p>
             <p className="mt-1 text-xs text-muted-foreground">{translateI18n("copy.refreshTryAgain")}</p>
@@ -233,30 +226,20 @@ function ApprovalCenterPageContent() {
           </div>
         ) : (
           <div>
-            {groupedApprovals.map((group) => (
-              <div key={group.category} className="border-t border-border/60 first:border-t-0">
-                <div className="flex items-center gap-2 bg-muted/20 px-4 py-2.5 sm:px-5">
-                  <ApprovalCategoryIcon category={group.category} />
-                  <h2 className="text-xs font-semibold uppercase text-muted-foreground">
-                    {translateI18n(group.category === "PROJECT_PLAN" ? "approvalUi.projectPlans" : "approvalUi.deadlineChanges")}
-                  </h2>
-                  <span className="text-xs text-muted-foreground">{group.items.length}</span>
-                </div>
-                {group.items.map((item) => (
-                  <ApprovalRow
-                    key={`${item.category}-${item.id}`}
-                    item={item}
-                    canReview={canReview}
-                    onOpenProject={() => {
-                      if (item.projectId) router.push(`/projects/${item.projectId}`);
-                    }}
-                    onOpenAction={openAction}
-                  />
-                ))}
-              </div>
+            {displayedApprovals.map(item => (
+              <ApprovalRow key={`${item.category}-${item.id}`} item={item} canReview={canReview}
+                onOpenProject={() => { if (item.projectId) router.push(item.category === "OUTPUT_DOCUMENT" ? outputReviewHref(item) : `/projects/${item.projectId}`); }}
+                onOpenAction={openAction} />
             ))}
           </div>
         )}
+        {overview.data && <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border/60 p-4 text-xs text-muted-foreground">
+          <span>{translateI18n("outputQueue.page", { page: queuePage.page, pages: queuePage.pages, count: queuePage.total })}</span>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" disabled={queuePage.page <= 1} onClick={() => setPage(queuePage.page - 1)}>{translateI18n("outputQueue.previous")}</Button>
+            <Button variant="outline" size="sm" disabled={queuePage.page >= queuePage.pages} onClick={() => setPage(queuePage.page + 1)}>{translateI18n("outputQueue.next")}</Button>
+          </div>
+        </div>}
       </section>
 
       <ApprovalActionDialog
@@ -306,18 +289,25 @@ function ApprovalRow({
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
+            <ApprovalCategoryIcon category={item.category} />
+            <span className="text-xs text-muted-foreground">{translateI18n(item.category === "OUTPUT_DOCUMENT" ? "outputQueue.category" : item.category === "PROJECT_PLAN" ? "approvalUi.projectPlans" : "approvalUi.deadlineChanges")}</span>
             <StatusBadge status={item.status} />
             {item.stepOrder != null && (
               <Badge variant="outline">{translateI18n("approvalUi.step", { number: item.stepOrder })}</Badge>
             )}
           </div>
-          <h3 className="mt-2 font-semibold text-foreground">{item.title}</h3>
+          <h3 className="mt-2 font-semibold text-foreground">{item.category === "OUTPUT_DOCUMENT" ? translateOutputName(item.documentKey || "", item.title) : item.title}</h3>
           <p className="mt-1 text-xs text-muted-foreground">
             {translateI18n("approvalUi.requestedSummary", { project: item.projectName, customer: item.clientName, name: item.submittedBy || translateI18n("approvalUi.unknown") })}
           </p>
           <p className="mt-1 text-xs text-muted-foreground">
             {formatDate(item.requestedAt || item.submittedAt)}
           </p>
+          {item.category === "OUTPUT_DOCUMENT" && <div className="mt-2 space-y-1 text-xs text-muted-foreground">
+            <p className="break-words">{item.phaseName}{"\u00b7"} {item.milestoneName}</p>
+            <p>{translateI18n("outputQueue.snapshot", { version: item.versionNumber ?? "\u2014", count: item.fileCount ?? "\u2014" })}</p>
+            {item.reviewBlockedReason && <p className="text-amber-400">{translateI18n(`outputQueue.${item.reviewBlockedReason}`)}</p>}
+          </div>}
           <ApprovalSummary item={item} />
         </div>
 
@@ -326,7 +316,11 @@ function ApprovalRow({
           onClick={(event) => event.stopPropagation()}
           onKeyDown={(event) => event.stopPropagation()}
         >
-          {item.status === "PENDING" && item.isCurrentApproval !== false && canReview ? (
+          {item.category === "OUTPUT_DOCUMENT" ? (
+            <Button size="sm" variant="outline" onClick={onOpenProject}>
+              {translateI18n(item.canReview ? "outputQueue.openReview" : "outputQueue.viewOutput")}
+            </Button>
+          ) : item.status === "PENDING" && item.isCurrentApproval !== false && canReview ? (
             <>
               <Button
                 size="sm"

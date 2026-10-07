@@ -1,5 +1,11 @@
+import { useRef } from "react";
+import { useAuth } from "@/components/auth/auth-provider";
+import { getAuthSession } from "@/lib/auth";
+import { createProjectCreateRequest, type ProjectCreateInput } from "@/lib/project-create-request";
+import { useBusinessRequest } from "./use-business-request";
+import { outputDocumentKeys } from "./use-output-documents";
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { apiClient } from "@/lib/api-client";
+import { apiClient, ApiError } from "@/lib/api-client";
 import { approvalKeys, assignmentKeys, dashboardKeys, milestoneKeys, projectKeys } from "@/lib/query-keys";
 import {
   Project,
@@ -70,6 +76,10 @@ const invalidateProjectRuntime = (queryClient: ReturnType<typeof useQueryClient>
   queryClient.invalidateQueries({ queryKey: approvalKeys.all() });
   queryClient.invalidateQueries({ queryKey: approvalKeys.stats() });
   queryClient.invalidateQueries({ queryKey: dashboardKeys.overview() });
+  queryClient.invalidateQueries({ queryKey: ["documents"] });
+  queryClient.invalidateQueries({ queryKey: ["document"] });
+  queryClient.invalidateQueries({ queryKey: outputDocumentKeys.repository() });
+  queryClient.invalidateQueries({ queryKey: ["global-search"] });
 };
 
 export function useProjects(filters: ProjectFilters = {}) {
@@ -111,101 +121,91 @@ export function useScenarios() {
 
 export function useCreateProject() {
   const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: (data: {
-      name: string;
-      customer?: string;
-      clientName?: string;
-      scenario_id?: string;
-      scenarioId?: string;
-      mom?: File;
-      photos?: File[];
-      documents?: File[];
-      selectedDocumentKeys?: string[];
-      estimated_revenue?: number;
-    }) => {
-      if (!data.mom) throw new Error("A MoM file is required to create a project.");
-      if (!data.photos?.length) throw new Error("At least one project photo is required to create a project.");
-      if (!Number.isFinite(data.estimated_revenue) || (data.estimated_revenue ?? 0) < 0) {
-        throw new Error("Estimated revenue is required and must be a valid non-negative amount.");
-      }
-
-      const formData = new FormData();
-      formData.append("name", data.name);
-      formData.append("customer", data.customer || data.clientName || "");
-      formData.append("scenario_id", data.scenario_id || data.scenarioId || "");
-      formData.append("estimated_revenue", String(data.estimated_revenue));
-      formData.append("mom", data.mom);
-      for (const file of data.photos) formData.append("photos", file);
-      for (const file of data.documents || []) formData.append("documents", file);
-      if (data.selectedDocumentKeys && data.selectedDocumentKeys.length > 0) {
-        formData.append("selectedDocumentKeys", JSON.stringify(data.selectedDocumentKeys));
-      }
-
-      return apiClient<Project>("/projects", { method: "POST", body: formData });
+  const { user } = useAuth();
+  const session = getAuthSession()?.id;
+  const state = useRef({ account:user?.id,session,request:createProjectCreateRequest() });
+  if(state.current.account!==user?.id || state.current.session!==session)
+    state.current={account:user?.id,session,request:createProjectCreateRequest()};
+  const mutation = useMutation({
+    mutationFn: (data:ProjectCreateInput) => {
+      if (!user || user.role!=="SALES") return Promise.reject(new ApiError("Forbidden",403,"CREATE_ACCESS_INVALID"));
+      return state.current.request.run(data,async(body,requestId)=>{
+        const project=await apiClient<Project>("/projects",{
+          method:"POST",body,headers:{"x-project-create-request-id":requestId},
+        });
+        if (!project || typeof project.id!=="string" || !project.id)
+          throw new ApiError("Unable to confirm project creation.",503,"CREATE_RETRYABLE");
+        return project;
+      });
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: projectKeys.all() }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: projectKeys.all() });
+      queryClient.invalidateQueries({ queryKey: dashboardKeys.overview() });
+    },
   });
+  return Object.assign(mutation,{creationRequestId:state.current.request.requestId()});
 }
 
 export function useSetProjectOutcome(projectId: string) {
   const queryClient = useQueryClient();
+  const business = useBusinessRequest();
 
-  return useMutation({
+  const mutation = useMutation({
     mutationFn: (data: { outcome: "WON" | "LOST"; finalContractValue?: number; lossReason?: string }) =>
-      apiClient<Project>(`/projects/${projectId}/outcome`, {
-        method: "POST",
-        body: JSON.stringify({
+      business<Project>(projectId, "OUTCOME", `/projects/${projectId}/outcome`, "POST", {
           outcome: data.outcome,
-          final_contract_value: data.finalContractValue,
-          loss_reason: data.lossReason?.trim() || undefined,
-        }),
+          ...(data.finalContractValue !== undefined ? { final_contract_value: data.finalContractValue } : {}),
+          ...(data.lossReason?.trim() ? { loss_reason: data.lossReason.trim() } : {}),
       }),
     onSuccess: () => invalidateProjectRuntime(queryClient, projectId),
   });
+  return Object.assign(mutation, { prepare: () => { if (projectId) business.prepare(projectId); } });
 }
 
 export function useUpdateProject(id: string) {
   const queryClient = useQueryClient();
+  const business = useBusinessRequest();
 
-  return useMutation({
+  const mutation = useMutation({
     mutationFn: (data: { name?: string; customer?: string; scenario_id?: string; selectedDocumentKeys?: string[] }) =>
-      apiClient<Project>(`/projects/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+      business<Project>(id, "INFO", `/projects/${id}`, "PATCH", data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: projectKeys.all() });
-      queryClient.invalidateQueries({ queryKey: projectKeys.detail(id) });
+      invalidateProjectRuntime(queryClient, id);
+      queryClient.invalidateQueries({ queryKey: outputDocumentKeys.project(id) });
     },
   });
+  return Object.assign(mutation, { prepare: () => { if (id) business.prepare(id); } });
 }
 
 
 export function usePostponeProject() {
   const queryClient = useQueryClient();
+  const business = useBusinessRequest();
 
-  return useMutation({
+  const mutation = useMutation({
     mutationFn: ({ projectId, reason }: { projectId: string; reason: string }) =>
-      apiClient<Project>(`/projects/${projectId}/postpone`, {
-        method: "POST",
-        body: JSON.stringify({ reason }),
-      }),
+      business<Project>(projectId, "POSTPONE", `/projects/${projectId}/postpone`, "POST", { reason }),
     onSuccess: (_, variables) => {
       invalidateProjectRuntime(queryClient, variables.projectId);
       queryClient.invalidateQueries({ queryKey: assignmentKeys.myAssignedMilestones() });
     },
   });
+  return Object.assign(mutation, { prepare: (target: string) => { if (target) business.prepare(target); } });
 }
 
 export function useResumeProject() {
   const queryClient = useQueryClient();
+  const business = useBusinessRequest();
 
-  return useMutation({
-    mutationFn: (projectId: string) => apiClient<Project>(`/projects/${projectId}/resume`, { method: "POST" }),
+  const mutation = useMutation({
+    mutationFn: (projectId: string) => business<Project>(projectId, "RESUME", `/projects/${projectId}/resume`, "POST", {}),
     onSuccess: (_, projectId) => {
       invalidateProjectRuntime(queryClient, projectId);
       queryClient.invalidateQueries({ queryKey: assignmentKeys.myAssignedMilestones() });
     },
   });
+  return Object.assign(mutation, { prepare: (target: string) => { if (target) business.prepare(target); } });
 }
 
 export function useRetryProjectCompletion(projectId: string) {
@@ -246,13 +246,11 @@ export function useProjectPlanApprovalHistory(projectId: string) {
 
 export function useSaveProjectTimeline(projectId: string) {
   const queryClient = useQueryClient();
+  const business = useBusinessRequest();
 
-  return useMutation({
+  const mutation = useMutation({
     mutationFn: (milestones: ProjectTimelineEntry[]) =>
-      apiClient(`/projects/${projectId}/timeline`, {
-        method: "PUT",
-        body: JSON.stringify({ milestones }),
-      }),
+      business(projectId, "TIMELINE", `/projects/${projectId}/timeline`, "PUT", { milestones }),
     onSuccess: (_, milestones) => {
       invalidateProjectRuntime(queryClient, projectId);
       milestones.forEach((milestone) => {
@@ -260,29 +258,32 @@ export function useSaveProjectTimeline(projectId: string) {
       });
     },
   });
+  return Object.assign(mutation, { prepare: () => { if (projectId) business.prepare(projectId); } });
 }
 
 export function useSubmitProjectPlan(projectId: string) {
   const queryClient = useQueryClient();
+  const business = useBusinessRequest();
 
-  return useMutation({
+  const mutation = useMutation({
     mutationFn: (requestNote?: string) =>
-      apiClient(`/projects/${projectId}/plan/submit`, {
-        method: "POST",
-        body: JSON.stringify(requestNote?.trim() ? { request_note: requestNote.trim() } : {}),
-      }),
+      business(projectId, "PLAN_SUBMIT", `/projects/${projectId}/plan/submit`, "POST", requestNote?.trim() ? { request_note: requestNote.trim() } : {}),
     onSuccess: () => invalidateProjectRuntime(queryClient, projectId),
   });
+  return Object.assign(mutation, { prepare: () => { if (projectId) business.prepare(projectId); } });
 }
 
 export function useReviewProjectPlan(projectId?: string) {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ targetProjectId, decision, note, picId }: { targetProjectId?: string; decision: "APPROVE" | "REJECT"; note?: string; picId?: string }) => {
+    mutationFn: ({ targetProjectId, decision, note, picId, expectedApprovalId, expectedPicRevision, requestId }: { targetProjectId?: string; decision: "APPROVE" | "REJECT"; note?: string; picId?: string; expectedApprovalId?: string; expectedPicRevision?: string; requestId?: string }) => {
       const resolvedProjectId = targetProjectId || projectId;
       if (!resolvedProjectId) throw new Error("Project ID is required.");
-      const body: { note?: string; pic_id?: string } = {};
+      const body: { note?: string; pic_id?: string; expected_approval_id?: string; expected_pic_revision?: string; request_id?: string } = {};
+      if (expectedPicRevision !== undefined) body.expected_pic_revision = expectedPicRevision;
+      if (requestId) body.request_id = requestId;
+      if (expectedApprovalId) body.expected_approval_id = expectedApprovalId;
       if (note?.trim()) body.note = note.trim();
       if (decision === "APPROVE" && picId) body.pic_id = picId;
       return apiClient(`/projects/${resolvedProjectId}/plan/${decision === "APPROVE" ? "approve" : "reject"}`, {
@@ -290,6 +291,7 @@ export function useReviewProjectPlan(projectId?: string) {
         body: JSON.stringify(body),
       });
     },
+    onError: (_, variables) => { const target = variables.targetProjectId || projectId; if (target) invalidateProjectRuntime(queryClient, target); },
     onSuccess: (_, variables) => {
       const resolvedProjectId = variables.targetProjectId || projectId;
       if (resolvedProjectId) {
@@ -336,11 +338,15 @@ export function useDeleteProject(projectId: string) {
       apiClient<ProjectDeletionResult>(`/projects/${projectId}`, { method: "DELETE", body: JSON.stringify({ confirmation }) }),
     onSuccess: () => {
       queryClient.removeQueries({ queryKey: projectKeys.detail(projectId) });
+      queryClient.removeQueries({ queryKey: ["project-document-sharing", projectId] });
       queryClient.removeQueries({ queryKey: projectKeys.milestones(projectId) });
       queryClient.removeQueries({ queryKey: projectKeys.progress(projectId) });
       queryClient.invalidateQueries({ queryKey: projectKeys.all() });
       queryClient.invalidateQueries({ queryKey: ["documents"] });
+      queryClient.invalidateQueries({ queryKey: outputDocumentKeys.repository() });
+      queryClient.invalidateQueries({ queryKey: ["global-search"] });
       queryClient.invalidateQueries({ queryKey: approvalKeys.all() });
+      queryClient.invalidateQueries({ queryKey: approvalKeys.stats() });
       queryClient.invalidateQueries({ queryKey: dashboardKeys.overview() });
     },
   });
@@ -358,8 +364,10 @@ export function useAssignPic(projectId: string) {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (data: { pic_id: string; reason?: string }) =>
+    mutationFn: (data: { pic_id: string; reason?: string; expected_pic_revision: string; request_id: string }) =>
       apiClient(`/projects/${projectId}/assign-pic`, { method: "POST", body: JSON.stringify(data) }),
+    retry: false,
+    onError: (error) => { if (error instanceof ApiError && error.code === "PIC_CONFLICT") invalidateProjectRuntime(queryClient, projectId); },
     onSuccess: () => {
       invalidateProjectRuntime(queryClient, projectId);
       queryClient.invalidateQueries({ queryKey: projectKeys.assignmentHistory(projectId) });
@@ -416,5 +424,48 @@ export function useMyAssignedMilestones(enabled = true) {
     enabled,
     staleTime: 0,
     refetchOnWindowFocus: true,
+  });
+}
+
+export function useContinueTenderPhase(projectId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (selected_document_keys: string[]) => apiClient<{ phase_id: string; created: boolean }>(
+      `/projects/${projectId}/phases/on-submission-tender`, { method: 'POST', body: JSON.stringify({ selected_document_keys }) }),
+    onSuccess: () => { invalidateProjectRuntime(queryClient, projectId); queryClient.invalidateQueries({ queryKey: outputDocumentKeys.project(projectId) }); },
+    onError: () => { invalidateProjectRuntime(queryClient, projectId); },
+  });
+}
+
+export function useUpdateEstimatedValue(projectId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (data: { estimated_revenue: string; expected_updated_at: string; request_id: string }) =>
+      apiClient<{ estimated_revenue: string; updated_at: string; changed: boolean; replayed: boolean }>(`/projects/${projectId}/estimated-value`, {
+        method: 'PATCH', body: JSON.stringify(data),
+      }),
+    retry: false,
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: projectKeys.all() }),
+        queryClient.invalidateQueries({ queryKey: projectKeys.detail(projectId) }),
+        queryClient.invalidateQueries({ queryKey: projectKeys.activities(projectId) }),
+        queryClient.invalidateQueries({ queryKey: dashboardKeys.overview() }),
+      ]);
+    },
+  });
+}
+
+export function useClosePraTender(projectId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => apiClient<{ phase_id: string; closed: boolean }>(
+      `/projects/${projectId}/phases/pra-tender/close`, { method: 'POST', body: JSON.stringify({}) }),
+    onSuccess: () => {
+      invalidateProjectRuntime(queryClient, projectId);
+      queryClient.invalidateQueries({ queryKey: outputDocumentKeys.project(projectId) });
+    },
+    // A concurrent Yes/No may have committed elsewhere; re-read rather than assume success.
+    onError: () => { invalidateProjectRuntime(queryClient, projectId); },
   });
 }

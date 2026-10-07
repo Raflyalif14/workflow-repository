@@ -1,9 +1,9 @@
+import { mutateBusiness, BusinessRequestContext } from './business-audit.service';
 import { supabaseAdmin } from '../config/supabase';
 import { HolidayInput, addWorkingDays, calculateWorkingDaysBetween, getRemainingWorkingDays } from '../utils/dates';
 import { SaveMilestoneDeadlineInput } from '../validators/deadline.validator';
 import { notifyDeadlineChangeRequested } from './deadline-notification.service';
 import { HolidayService } from './holiday.service';
-import { logWorkflowActivityBestEffort } from './workflow-progression.service';
 import { DeadlineError } from '../utils/deadline-error.util';
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
@@ -87,11 +87,6 @@ export function buildDeadlineChangeRequestedActivity(actor: Actor, milestone: De
     action: 'DEADLINE_CHANGE_REQUESTED',
     description: `${actor.fullName} requested deadline change for milestone '${milestone.name}' with proposed due date ${dueDate}`,
   };
-}
-
-async function logDeadlineChangeRequested(actor: Actor, milestone: DeadlineMilestone, dueDate: string) {
-  const activity = buildDeadlineChangeRequestedActivity(actor, milestone, dueDate);
-  await logWorkflowActivityBestEffort(actor, milestone.project_id, activity.action, activity.description);
 }
 
 export function buildDeadlineProposalArtifacts(
@@ -244,56 +239,15 @@ export class DeadlineService {
     if (!['SUPER_ADMIN', 'HEAD_SA', 'SALES', 'SA'].includes(actor.role)) throw new Error('Forbidden');
   }
 
-  static async saveMilestoneDeadline(milestoneId: string, input: SaveMilestoneDeadlineInput, actor: Actor) {
+  static async saveMilestoneDeadline(milestoneId: string, input: SaveMilestoneDeadlineInput, actor: Actor, context?: BusinessRequestContext) {
     const milestone = await this.getMilestone(milestoneId);
 
-    const { data: pendingApproval, error: pendingError } = await supabaseAdmin
-      .from('milestone_deadline_approvals')
-      .select('id')
-      .eq('milestone_id', milestoneId)
-      .eq('status', 'PENDING')
-      .maybeSingle();
-
-    if (pendingError) {
-      throw new DeadlineError('Failed to verify the current deadline approval.', 500, pendingError);
-    }
-
+    if (!milestone.project || actor.role !== 'SALES' || milestone.project.sales_id !== actor.userId) throw new Error('Forbidden');
     const calculated = await this.calculateDeadline(input.start_date, input.duration_working_days);
-    const proposal = buildDeadlineProposalArtifacts(milestone, calculated, actor, Boolean(pendingApproval), input.reason);
-
-    const { data: deadlineHistory, error: historyError } = await supabaseAdmin
-      .from('milestone_deadline_history')
-      .insert(proposal.history)
-      .select('id')
-      .single();
-
-    if (historyError || !deadlineHistory) {
-      throw new DeadlineError('Failed to create milestone deadline history.', 500, historyError);
-    }
-
-    const { data: approval, error: approvalError } = await supabaseAdmin
-      .from('milestone_deadline_approvals')
-      .insert({
-        ...proposal.approval,
-        deadline_history_id: deadlineHistory.id,
-      })
-      .select('id')
-      .single();
-
-    if (approvalError || !approval) {
-      const { error: cleanupError } = await supabaseAdmin
-        .from('milestone_deadline_history')
-        .delete()
-        .eq('id', deadlineHistory.id);
-
-      throw new DeadlineError('Failed to create deadline approval.', 500, {
-        approvalError,
-        cleanupError,
-      });
-    }
-
-    await logDeadlineChangeRequested(actor, milestone, calculated.due_date);
-    await notifyDeadlineChangeRequested({
+    const result = await mutateBusiness(milestone.project_id, actor.userId, 'DEADLINE_REQUEST', {
+      milestone_id: milestone.id, ...calculated, reason: input.reason?.trim() || null,
+    }, context);
+    if (!result._businessReplayed) await notifyDeadlineChangeRequested({
       projectId: milestone.project!.id,
       projectName: milestone.project!.name,
       salesId: milestone.project!.sales_id,
@@ -301,14 +255,10 @@ export class DeadlineService {
       milestoneName: milestone.name,
     });
 
-    return {
-      ...proposal.response,
-      approval: {
-        ...proposal.response.approval,
-        id: approval.id,
-        deadline_history_id: deadlineHistory.id,
-      },
-    };
+    return { milestone_id: milestone.id, ...calculated,
+      effective_deadline: result.effective_deadline, approval: {
+        status: result.approval.status, id: result.approval.id, deadline_history_id: result.approval.deadline_history_id,
+      } };
   }
 
   static async getMilestoneDeadlineHistory(milestoneId: string, actor: Actor) {

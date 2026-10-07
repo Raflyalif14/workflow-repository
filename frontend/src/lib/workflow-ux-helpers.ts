@@ -8,6 +8,7 @@ import {
   ProjectStatus,
 } from "@/types/project";
 import { translate } from "@/i18n";
+import { isPraTenderDecisionPending, isProjectClosedAtPraTender } from "./phase-review";
 import { isMilestoneCompleted } from "./milestone-ui-state";
 import { formatMilestoneDate, isInitialSubmissionBeforeEffectiveStart } from "./dates";
 import { translateMilestoneStatus, translateProjectStatus, translateRole } from "@/i18n";
@@ -69,6 +70,7 @@ export interface NextActionInfo {
     | "REVIEW_DEADLINE"
     | "RESUME_PROJECT"
     | "SETUP_TIMELINE"
+    | "CONTINUE_PHASE"
     | "NONE";
   isWaiting: boolean;
   waitingForRole?: string;
@@ -99,6 +101,8 @@ export function formatActorRoleLabel(role?: string): string {
  */
 export function resolveNextActionTargetId(nextAction: NextActionInfo): string | null {
   switch (nextAction.actionType) {
+    case "CONTINUE_PHASE":
+      return "project-phase-panel";
     case "SETUP_TIMELINE":
       return "project-timeline";
     case "REVIEW_PLAN":
@@ -215,6 +219,10 @@ export function resolveNextAction(
   actor?: CurrentActor,
   context?: { activeRevisionMilestoneId?: string | null }
 ): NextActionInfo {
+  if (isPraTenderDecisionPending(project)) {
+    return { title: translate('projectPhase.praCompleted'), description: translate('projectPhase.question'),
+      actionLabel: translate('projectPhase.decisionTask'), actionType: 'CONTINUE_PHASE' as const, isWaiting: actor?.role !== 'SALES' || actor.id !== project.sales_id, canPerformAction: actor?.role === 'SALES' && actor.id === project.sales_id && !project.phases?.some(phase => phase.phase_key === 'ON_SUBMISSION_TENDER') };
+  }
   const role = actor?.role || "GUEST";
   const isSalesOwner = role === "SALES" && project.sales_id === actor?.id;
   const isHeadSa = role === "HEAD_SA";
@@ -243,8 +251,8 @@ export function resolveNextAction(
   // ─── 2. COMPLETED Project ───
   if (project.status === "COMPLETED") {
     return {
-      title: translate("nextAction.workflowComplete"),
-      description: translate("nextAction.workflowCompleteHelp"),
+      title: translate(isProjectClosedAtPraTender(project) ? "projectPhase.closed" : "nextAction.workflowComplete"),
+      description: translate(isProjectClosedAtPraTender(project) ? "projectPhase.closedHelp" : "nextAction.workflowCompleteHelp"),
       actionType: "NONE",
       isWaiting: false,
       canPerformAction: false,

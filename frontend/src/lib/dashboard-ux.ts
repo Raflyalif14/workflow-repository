@@ -1,3 +1,4 @@
+import { canContinueTenderPhase } from "./phase-review";
 import { getIntlLocale, translate, type TranslationKey } from "@/i18n";
 import { formatActivityAction } from "@/lib/activity-timeline";
 import type { DashboardOutputDocuments, DashboardSaWorkload } from "@/types/dashboard";
@@ -339,6 +340,13 @@ export const getSalesDashboardItems = (projects: Project[], userId?: string): Da
     const projectHref = `/projects/${project.id}`;
     const projectMeta = project.customer ? translate("dashboardWork.customer", { name: project.customer }) : undefined;
     const milestone = project.currentMilestone;
+    if (canContinueTenderPhase(project, 'SALES', userId)) {
+      const id = `sales-phase-${project.id}`;
+      items.set(id, { id, priority: 25, group: 'action', title: project.name, meta: projectMeta,
+        label: translate('projectPhase.decisionTask'), description: translate('projectPhase.question'),
+        href: `${projectHref}#project-phase-panel`, actionLabel: translate('projectPhase.decisionTask') });
+      continue;
+    }
 
     if (project.sales_id === userId && project.status === "WAITING_RESULT") {
       const id = `sales-result-${project.id}`;

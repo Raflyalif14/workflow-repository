@@ -49,7 +49,7 @@ const ON_SUBMISSION_TENDER_DOCUMENTS: ScenarioDocumentDefinition[] = [
 ];
 
 export const SCENARIO_DOCUMENTS: Record<ScenarioKey, ScenarioDocumentDefinition[]> = {
-  PRA_TENDER: [...PRE_TENDER_DOCUMENTS, ...ON_SUBMISSION_TENDER_DOCUMENTS],
+  PRA_TENDER: PRE_TENDER_DOCUMENTS,
   ON_SUBMISSION_TENDER: ON_SUBMISSION_TENDER_DOCUMENTS,
 };
 
@@ -86,4 +86,13 @@ export function getMandatoryDocumentKeys(key: ScenarioKey): string[] {
   return (SCENARIO_DOCUMENTS[key] || [])
     .filter((doc) => doc.isRequired)
     .map((doc) => doc.key);
+}
+
+// Explicit legacy compatibility; never used to create a new phase.
+export const ALL_OUTPUT_DEFINITIONS = [...PRE_TENDER_DOCUMENTS, ...ON_SUBMISSION_TENDER_DOCUMENTS];
+export function getProjectDocumentDefinitions(scenario: string, hasPhases: boolean) {
+  return !hasPhases && resolveScenarioKey(scenario) === "PRA_TENDER" ? ALL_OUTPUT_DEFINITIONS : getScenarioDocuments(scenario);
+}
+export function getProjectMandatoryDocumentKeys(scenario: string, hasPhases: boolean) {
+  return getProjectDocumentDefinitions(scenario, hasPhases).filter(document => document.isRequired).map(document => document.key);
 }

@@ -5,7 +5,27 @@ export type RepositoryItem =
   | { sourceType: "OFFICIAL"; sourceId: string; document: DocumentItem }
   | { sourceType: "OUTPUT"; sourceId: string; output: OutputRepositoryItem };
 
+export type RepositoryAccessGroup = "ALL" | "NATIVE";
+
+export function repositoryAccessGroups(role?: string): RepositoryAccessGroup[] {
+  return role === "SALES" || role === "SA" ? ["ALL", "NATIVE"] : ["ALL"];
+}
+
+// Undefined data, disabled queries and failures are not successful empty results.
+export function repositoryLoadState(enabled: boolean, documents: { data?: unknown; isError: boolean },
+  outputs: { data?: unknown; isError: boolean }): "loading" | "error" | "ready" {
+  if (!enabled) return "loading";
+  if (documents.isError || outputs.isError) return "error";
+  return Array.isArray(documents.data) && Array.isArray(outputs.data) ? "ready" : "loading";
+}
+
+export function requireRepositoryArray<T>(data: T[]): T[] {
+  if (!Array.isArray(data)) throw new Error("Document repository response is unavailable.");
+  return data;
+}
+
 export type RepositoryFilters = {
+  accessGroup?: RepositoryAccessGroup;
   search: string;
   category: DocumentCategory | "OUTPUT" | "ALL";
   status: DocumentStatus | "ALL";
@@ -14,7 +34,7 @@ export type RepositoryFilters = {
 export const REPOSITORY_PAGE_SIZE = 20;
 
 export function buildRepositoryItems(documents: readonly DocumentItem[], outputs: readonly OutputRepositoryItem[]): RepositoryItem[] {
-  const items: RepositoryItem[] = documents.map((document) => ({
+  const items: RepositoryItem[] = [...new Map(documents.map(document => [document.id, document])).values()].map((document) => ({
     sourceType: "OFFICIAL", sourceId: document.id, document,
   }));
   const outputIds = new Set<string>();
@@ -36,6 +56,8 @@ export function buildRepositoryItems(documents: readonly DocumentItem[], outputs
 export function filterRepositoryItems(items: readonly RepositoryItem[], filters: RepositoryFilters): RepositoryItem[] {
   const query = filters.search.trim().toLocaleLowerCase();
   return items.filter((item) => {
+    const access = item.sourceType === "OFFICIAL" ? item.document : item.output;
+    if (filters.accessGroup === "NATIVE" && access.canReadProject !== true) return false;
     if (item.sourceType === "OFFICIAL") {
       const document = item.document;
       return (filters.category === "ALL" || document.category === filters.category)

@@ -1,3 +1,4 @@
+import { DocumentAccessError } from '../services/document-access.service';
 import { Response } from 'express';
 import { AuthenticatedRequest } from '../middlewares/auth.middleware';
 import { DocumentService, DocumentServiceError } from '../services/document.service';
@@ -12,7 +13,7 @@ import {
 } from '../validators/document.validator';
 
 const sendDocumentError = (res: Response, error: unknown, fallback: string): void => {
-  if (error instanceof DocumentServiceError) {
+  if (error instanceof DocumentServiceError || error instanceof DocumentAccessError) {
     sendError(res, error.message, null, error.statusCode);
     return;
   }

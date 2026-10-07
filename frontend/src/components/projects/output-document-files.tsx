@@ -1,10 +1,13 @@
 "use client";
+import { BusinessConfirmation } from "./business-confirmation";
+
+import { unresolvedFileRevisions } from "@/lib/output-file-revisions";
 
 import { useEffect, useRef, useState, type DragEvent } from "react";
 import { Download, FileText, Loader2, Plus, RefreshCw, RotateCcw, Trash2, UploadCloud } from "lucide-react";
 import { useLanguage } from "@/components/i18n/language-provider";
 import { Button } from "@/components/ui/button";
-import { translate, translateStoredError } from "@/i18n";
+import { translate, translateOutputName, translateStoredError } from "@/i18n";
 import {
   useOutputDocumentFileDownload,
   useRemoveOutputDocumentFile,
@@ -44,6 +47,7 @@ export function OutputDocumentFiles({ projectId, document, editable, blocked, on
   const revisionRef = useRef(document.draftRevision ?? 0);
   const removalRequests = useRef(new Map<string, { expected_draft_revision: number; request_id: string }>());
   const runningRef = useRef(false);
+  const [confirmation, setConfirmation] = useState<"UPLOAD" | string | null>(null);
   const [queue, setQueue] = useState<DraftUploadItem[]>([]);
   const [running, setRunning] = useState(false);
   const [dragging, setDragging] = useState(false);
@@ -68,19 +72,21 @@ export function OutputDocumentFiles({ projectId, document, editable, blocked, on
   useEffect(() => () => onBusyChange(document.key, false), [document.key, onBusyChange]);
 
   const runQueue = async (items: DraftUploadItem[]) => {
-    if (runningRef.current || blocked || !editable) return;
+    if (runningRef.current || blocked || !editable) throw Object.assign(new Error("Draft changed"), { status: 409 });
     runningRef.current = true;
     onBusyChange(document.key, true);
     setRunning(true);
     setError(null);
     try {
+      let failed = false; let stale = false;
       revisionRef.current = await uploadOutputDraftQueue(items, revisionRef.current,
         (item, revision) => upload.mutateAsync({ file: item.file, expected_draft_revision: revision,
           request_id: item.id, replace_file_id: item.replaceFileId }),
-        (id, update) => setQueue((current) => current.map((item) => item.id === id ? { ...item, ...update } : item)));
+        (id, update) => { if (update.status === "failed") { failed = true; stale ||= update.error === "outputFiles.draftConflict"; } setQueue((current) => current.map((item) => item.id === id ? { ...item, ...update } : item)); });
+      if (failed) throw Object.assign(new Error("Upload not confirmed"), { status: stale ? 409 : 503 });
       await refreshDraft(document.key);
-    } catch {
-      setError("outputFiles.refreshFailed");
+    } catch (cause) {
+      setError("outputFiles.refreshFailed"); throw cause;
     } finally {
       runningRef.current = false;
       setRunning(false);
@@ -94,7 +100,7 @@ export function OutputDocumentFiles({ projectId, document, editable, blocked, on
     const items: DraftUploadItem[] = selection.map((file) => ({ id: crypto.randomUUID(), file, replaceFileId, status: "pending" }));
     revisionRef.current = document.draftRevision ?? 0;
     setQueue(items);
-    void runQueue(items);
+    setConfirmation("UPLOAD");
   };
 
   const openPicker = (replaceFileId?: string) => {
@@ -112,7 +118,7 @@ export function OutputDocumentFiles({ projectId, document, editable, blocked, on
   };
 
   const removeFile = async (fileId: string) => {
-    if (locked || busy || runningRef.current || !editable) return;
+    if (locked || busy || runningRef.current || !editable) throw Object.assign(new Error("Draft changed"), { status: 409 });
     runningRef.current = true;
     setError(null);
     setRemovingId(fileId);
@@ -130,7 +136,7 @@ export function OutputDocumentFiles({ projectId, document, editable, blocked, on
       removalRequests.current.delete(fileId);
       await refreshDraft(document.key);
     } catch (failure) {
-      setError(removed ? "outputFiles.refreshFailed" : getDraftUploadError(failure) === "outputFiles.draftConflict" ? "outputFiles.draftConflict" : "outputFiles.removeFailed");
+      setError(removed ? "outputFiles.refreshFailed" : getDraftUploadError(failure) === "outputFiles.draftConflict" ? "outputFiles.draftConflict" : "outputFiles.removeFailed"); throw failure;
     } finally { runningRef.current = false; setRemovingId(null); }
   };
 
@@ -185,6 +191,18 @@ export function OutputDocumentFiles({ projectId, document, editable, blocked, on
       {editable && files.some((file) => !Number.isFinite(Number(file.fileSize)) || Number(file.fileSize) <= 0) && (
         <p className="text-xs text-amber-300">{translate("outputFiles.legacySizeUnknown")}</p>
       )}
+
+      {editable && Boolean(document.fileRevisions?.length) && <div className="space-y-1 border-b border-border pb-2">
+        <p className="text-xs text-muted-foreground">{translate("fileRevision.draftHelp")}</p>
+        {document.fileRevisions?.map(marker => {
+          const unresolved = unresolvedFileRevisions(document).some(item => item.fileId === marker.fileId);
+          const original = document.files?.find(file => file.id === marker.fileId);
+          return <div key={marker.fileId} className="py-1 text-xs">
+            <p className={unresolved ? "font-medium text-destructive" : "font-medium text-muted-foreground"}>{original?.fileName || translate("common.notAvailable")} — {translate(unresolved ? "fileRevision.required" : "fileRevision.resolved")}</p>
+            <p className="whitespace-pre-wrap break-words text-muted-foreground">{marker.feedback}</p>
+          </div>;
+        })}
+      </div>}
 
       {files.length === 0 && editable && (
         <div
@@ -271,7 +289,7 @@ export function OutputDocumentFiles({ projectId, document, editable, blocked, on
                       variant="ghost"
                       className="h-7 px-2 text-xs text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
                       disabled={locked || busy}
-                      onClick={() => void removeFile(file.id)}
+                      onClick={() => { if (!removalRequests.current.has(file.id)) removalRequests.current.set(file.id, { expected_draft_revision: document.draftRevision ?? 0, request_id: crypto.randomUUID() }); setConfirmation(file.id); }}
                       aria-label={translate("outputFiles.removeFile", { name: file.fileName })}
                     >
                       {removingId === file.id ? (
@@ -359,7 +377,7 @@ export function OutputDocumentFiles({ projectId, document, editable, blocked, on
             variant="outline"
             className="h-7 gap-1 text-xs"
             disabled={blocked || !editable || queue.some((item) => item.error === "outputFiles.draftConflict")}
-            onClick={() => void runQueue(queue)}
+            onClick={() => setConfirmation("UPLOAD")}
           >
             <RotateCcw className="h-3.5 w-3.5" />
             {translate("outputFiles.retryFailed")}
@@ -393,6 +411,10 @@ export function OutputDocumentFiles({ projectId, document, editable, blocked, on
           {translate("outputFiles.reloadDraft")}
         </Button>
       )}
+      <BusinessConfirmation open={confirmation !== null} onOpenChange={open => !open && setConfirmation(null)}
+        title={translateOutputName(document.key,document.name)} changes={confirmation === "UPLOAD" ? [translate("businessAudit.files", { count: queue.filter(item => item.status !== "succeeded").length }), ...queue.filter(item => item.status !== "succeeded").map(item => `${item.replaceFileId ? (files.find(file => file.id === item.replaceFileId)?.fileName || "-") + " -> " : ""}${item.file.name}`)] : [translate("businessAudit.removeHelp"), files.find(file => file.id === confirmation)?.fileName || ""]}
+        action={translate(confirmation === "UPLOAD" ? "businessAudit.upload" : "businessAudit.remove")}
+        onConfirm={() => confirmation === "UPLOAD" ? runQueue(queue) : removeFile(confirmation!)} />
     </div>
   );
 }

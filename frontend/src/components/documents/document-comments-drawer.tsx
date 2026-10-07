@@ -98,6 +98,12 @@ export function DocumentCommentsDrawer({
   }, [documentId]);
 
   if (!documentSummary) return null;
+  if (documentQuery.isError) return <Dialog open={open} onOpenChange={onOpenChange}>
+    <DialogHeader><DialogTitle>{translateI18n('documentAccess.details')}</DialogTitle></DialogHeader>
+    <p role="alert" className="text-sm text-destructive">{translateI18n('documentAccess.denied')}</p>
+    <DialogFooter><Button variant="outline" onClick={() => onOpenChange(false)}>{translateI18n('common.close')}</Button>
+      <Button onClick={() => void documentQuery.refetch()}>{translateI18n('common.retry')}</Button></DialogFooter>
+  </Dialog>;
 
   const detailedDocument = documentQuery.data;
   const currentDocument = detailedDocument || documentSummary;
@@ -184,7 +190,7 @@ export function DocumentCommentsDrawer({
                       : ""}
                   </>
                 ) : (
-                  translateI18n("documentDialog.projectUnavailable")
+                  translateI18n(currentDocument.canReadProject === false ? "documentAccess.projectPrivate" : "documentDialog.projectUnavailable")
                 )}
               </DialogDescription>
             </div>
@@ -311,7 +317,7 @@ export function DocumentCommentsDrawer({
           )}
         </section>
 
-        <section aria-labelledby="document-version-history">
+        {currentDocument.canReadProject !== false && <section aria-labelledby="document-version-history">
           <div className="mb-2 flex items-center justify-between gap-3">
             <h3
               id="document-version-history"
@@ -398,9 +404,9 @@ export function DocumentCommentsDrawer({
               })}
             </div>
           )}
-        </section>
+        </section>}
 
-        <section aria-labelledby="document-discussion" className="space-y-3">
+        {currentDocument.canReadProject !== false && <section aria-labelledby="document-discussion" className="space-y-3">
           <div className="flex items-center gap-2">
             <MessageSquare className="h-4 w-4 text-primary" />
             <h3
@@ -503,7 +509,7 @@ export function DocumentCommentsDrawer({
               {translateI18n(addCommentMutation.isPending ? "documentDialog.posting" : "documentDialog.postComment")}
             </Button>
           </form>
-        </section>
+        </section>}
 
         <DialogFooter className="border-t border-border/60 pt-4">
           <Button

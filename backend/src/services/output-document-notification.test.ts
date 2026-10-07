@@ -120,8 +120,8 @@ async function withState<T>(status: 'DRAFT' | 'IN_REVIEW', action: (state: State
 }
 
 const batch = [
-  { document_key: 'proposal_teknis', expected_version_id: 'version-success' },
-  { document_key: 'timeline_proyek', expected_version_id: 'version-fail' },
+  { document_key: 'proposal_teknis', expected_version_id: 'version-success', request_id: '10000000-0000-4000-8000-000000000090' },
+  { document_key: 'timeline_proyek', expected_version_id: 'version-fail', request_id: '10000000-0000-4000-8000-000000000090' },
 ];
 const submitBatch = batch.map((item, index) => ({ document_key: item.document_key, expected_draft_revision: 1,
   request_id: `11111111-1111-4111-8111-11111111111${index}` }));
@@ -161,7 +161,7 @@ async function main(): Promise<void> {
   });
 
   await withState('IN_REVIEW', async (state) => {
-    await OutputDocumentService.reviewOutputDocument(projectId, { decision: 'REVISE', feedback: 'Please revise.', items: [batch[0]] }, actors.headSa);
+    await OutputDocumentService.reviewOutputDocument(projectId, { decision: 'REVISE', feedback: 'Please revise.', items: [{ ...batch[0], file_revisions: [{ file_id: "10000000-0000-4000-8000-000000000091", feedback: "Please revise." }] }] }, actors.headSa);
     assert.equal(state.notifications.length, 1, 'Revision request sends one notification');
     assert.equal(state.notifications[0].userId, actors.pic.userId, 'Revision request does not notify Sales');
     assert(String(state.notifications[0].message).includes('Proposal Teknis'), 'Revision request names the revised output');

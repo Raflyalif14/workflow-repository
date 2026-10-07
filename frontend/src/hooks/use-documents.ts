@@ -1,14 +1,19 @@
+import { requireRepositoryArray } from "@/lib/document-repository";
+import { requireRepositorySession, useRepositorySession } from './use-repository-session';
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiClient, authorizedFetch } from "@/lib/api-client";
 import { projectKeys } from "@/lib/query-keys";
 import { DocumentItem, DocumentFilters, DocumentComment } from "@/types/document";
 
 export function useDocuments(filters: DocumentFilters = {}) {
+  const scope = useRepositorySession();
   const { projectId, milestoneId, category = "ALL", status = "ALL", search = "" } = filters;
 
   return useQuery<DocumentItem[]>({
-    queryKey: ["documents", { projectId, milestoneId, category, status, search }],
+    enabled: scope.enabled,
+    queryKey: ["documents", { projectId, milestoneId, category, status, search }, ...scope.key],
     queryFn: async () => {
+      requireRepositorySession(scope);
       const params = new URLSearchParams();
       if (projectId) params.append("projectId", projectId);
       if (milestoneId) params.append("milestoneId", milestoneId);
@@ -16,16 +21,17 @@ export function useDocuments(filters: DocumentFilters = {}) {
       if (status && status !== "ALL") params.append("status", status);
       if (search) params.append("search", search);
 
-      return apiClient<DocumentItem[]>(`/documents?${params.toString()}`);
+      return requireRepositoryArray(await apiClient<DocumentItem[]>(`/documents?${params.toString()}`));
     },
   });
 }
 
 export function useDocument(id: string) {
+  const scope = useRepositorySession();
   return useQuery<DocumentItem>({
-    queryKey: ["document", id],
-    queryFn: async () => apiClient<DocumentItem>(`/documents/${id}`),
-    enabled: !!id,
+    queryKey: ["document", id, ...scope.key],
+    queryFn: async () => { requireRepositorySession(scope); return apiClient<DocumentItem>(`/documents/${id}`); },
+    enabled: !!id && scope.enabled,
   });
 }
 

@@ -43,7 +43,7 @@ export interface DocumentVersion {
   changelog?: string | null;
   status: DocumentStatus;
   isLatest: boolean;
-  uploadedBy: DocumentUser;
+  uploadedBy?: DocumentUser;
   approvals?: DocumentApproval[];
   createdAt: string;
 }
@@ -57,6 +57,10 @@ export interface DocumentComment {
 }
 
 export interface DocumentItem {
+  accessMode?: "RESTRICTED" | "SHARED_INTERNAL";
+  canReadProject?: boolean;
+  canManageAccess?: boolean;
+  isSharedWithMe?: boolean;
   id: string;
   projectId: string;
   milestoneId?: string | null;

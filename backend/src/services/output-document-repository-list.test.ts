@@ -1,3 +1,4 @@
+import { installRestrictedRepositoryFixture } from '../test-utils/repository-access.fixture';
 import { strict as assert } from 'assert';
 import { supabaseAdmin } from '../config/supabase';
 import { DocumentStorageService } from '../utils/storage.util';
@@ -58,6 +59,7 @@ async function main() {
   const originalFrom = supabaseAdmin.from;
   const originalSigned = DocumentStorageService.createSignedDownloadUrl;
   let signedCalls = 0;
+  const restoreAccessFixture = installRestrictedRepositoryFixture({ 'sales-1':'SALES','sales-2':'SALES','sales-3':'SALES','sa-1':'SA','sa-2':'SA','sa-3':'SA','head-1':'HEAD_SA','admin-1':'SUPER_ADMIN' }, () => ({ projects, outputs }));
   try {
     (supabaseAdmin as any).from = (table: string) => new QueryMock(table);
     (DocumentStorageService as any).createSignedDownloadUrl = async () => { signedCalls++; return 'signed'; };
@@ -134,6 +136,7 @@ async function main() {
     assert.equal(signedCalls, 0, 'Listing must never generate signed URLs');
     console.log('Output repository list: role scopes, non-final metadata and URL safety passed');
   } finally {
+    restoreAccessFixture();
     supabaseAdmin.from = originalFrom;
     DocumentStorageService.createSignedDownloadUrl = originalSigned;
   }

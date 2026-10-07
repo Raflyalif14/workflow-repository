@@ -17,7 +17,9 @@ async function withDatabase<T>(action: (tables: string[]) => Promise<T>): Promis
       const query = {
         select: () => query,
         eq: () => query,
-        order: () => Promise.resolve({ data: [activity], error: null }),
+        neq: () => query,
+        order: () => query,
+        then: (resolve: any, reject: any) => Promise.resolve({ data: [activity], error: null }).then(resolve, reject),
         single: () => Promise.resolve({ data: project, error: null }),
       };
       return query;

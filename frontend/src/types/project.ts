@@ -25,6 +25,7 @@ export type MilestoneStatus =
   | "OVERDUE";
 
 export interface ProjectMilestonePhase4 {
+  phase_id?: string | null;
   id: string;
   project_id: string;
   workflow_stage_id: string;
@@ -73,6 +74,7 @@ export interface MilestoneDeadlineApproval {
 }
 
 export interface ProjectPlanApproval {
+  phase_id?: string | null;
   id: string;
   project_id: string;
   project?: {
@@ -195,6 +197,10 @@ export interface ActivityLog {
 }
 
 export interface ProjectActivityTimelineItem {
+  businessChange?: { objectKey?: string; objectType: string; objectId: string; changedFields: string[];
+    before: Record<string, unknown>; after: Record<string, unknown> };
+  picAssignmentChange?: { before: { id: string; name: string } | null; after: { id: string; name: string } | null };
+  estimatedValueChange?: { before: string | null; after: string };
   id: string;
   action: string;
   description: string | null;
@@ -211,7 +217,27 @@ export interface ProjectActivityPage {
   nextCursor: string | null;
 }
 
+export interface ProjectPhase {
+  id: string;
+  project_id: string;
+  scenario_id: string;
+  phase_key: "PRA_TENDER" | "ON_SUBMISSION_TENDER";
+  sales_decision?: "CONTINUE_TENDER" | "CLOSE_PRA_TENDER" | null;
+  sales_decided_by?: string | null;
+  sales_decided_at?: string | null;
+  status: "DRAFT" | "ACTIVE" | "COMPLETED";
+  selected_document_keys: string[];
+  pic_id?: string | null;
+  completed_at?: string | null;
+}
+
 export interface Project {
+  pic_revision?: string;
+  active_phase_id?: string | null;
+  current_scenario_id?: string | null;
+  active_scenario?: Scenario | null;
+  phases?: ProjectPhase[];
+  phase_migration_state?: "READY" | "LEGACY_REVIEW";
   id: string;
   projectCode?: string;
   name: string;
@@ -252,6 +278,7 @@ export interface Project {
   selected_document_keys?: string[];
   selectedDocumentKeys?: string[];
   estimated_revenue?: number | null;
+  estimated_revenue_exact?: string | null;
   final_contract_value?: number | null;
   loss_reason?: string | null;
   outcome_decided_by?: string | null;
@@ -285,7 +312,9 @@ export interface ProjectOutputDocumentItem {
   reviewedAt?: string | null;
   reviewedBy?: { id: string; fullName: string; role: string } | null;
   reviewFeedback?: string | null;
+  fileRevisions?: { fileId: string; feedback: string }[];
   currentVersionId?: string | null;
+  currentVersionNumber?: number | null;
   versionCount?: number;
   legacyVersionCount?: number;
   draftRevision?: number;
@@ -316,6 +345,7 @@ export interface ProjectOutputDocumentVersion {
   reviewedAt?: string | null;
   reviewedBy?: { id: string; fullName: string; role: string } | null;
   reviewFeedback?: string | null;
+  fileRevisions?: { fileId: string; feedback: string }[];
   files?: ProjectOutputDocumentFile[];
   versionKind?: "SUBMITTED" | "LEGACY_SUBMITTED" | "LEGACY_UPLOAD_UNCONFIRMED";
 }

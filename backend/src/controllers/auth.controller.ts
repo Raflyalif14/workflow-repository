@@ -8,9 +8,8 @@ export class AuthController {
   static async register(req: Request, res: Response): Promise<void> {
     try { sendSuccess(res, 'Registration successful', await AuthService.register(req.body), 201); }
     catch (error: any) {
-      const message = error.message || 'Registration failed';
-      const status = message.includes('already registered') ? 409 : message.includes('internal company domain') ? 422 : 400;
-      sendError(res, message, null, status);
+      const invalidDomain = error.message?.includes('internal company domain');
+      sendError(res, invalidDomain ? 'Registration requires an internal company domain.' : 'Registration failed', null, invalidDomain ? 422 : 400);
     }
   }
 

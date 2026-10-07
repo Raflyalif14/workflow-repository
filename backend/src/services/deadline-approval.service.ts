@@ -1,10 +1,10 @@
+import { mutateBusiness, BusinessRequestContext } from './business-audit.service';
 import { supabaseAdmin } from '../config/supabase';
 import { ApproveDeadlineApprovalInput, RejectDeadlineApprovalInput } from '../validators/deadline-approval.validator';
 import {
   notifyDeadlineChangeApproved,
   notifyDeadlineChangeRejected,
 } from './deadline-notification.service';
-import { logWorkflowActivityBestEffort } from './workflow-progression.service';
 import { DeadlineError } from '../utils/deadline-error.util';
 
 type Actor = { userId: string; role: string; fullName: string };
@@ -144,20 +144,6 @@ export function buildDeadlineApprovalReadResult(
   return currentOnly ? mappedApprovals[0] || null : mappedApprovals;
 }
 
-async function logDeadlineApprovalReview(
-  actor: Actor,
-  context: DeadlineApprovalContext,
-  action: 'DEADLINE_APPROVED' | 'DEADLINE_REJECTED'
-) {
-  const verb = action === 'DEADLINE_APPROVED' ? 'approved' : 'rejected';
-  await logWorkflowActivityBestEffort(
-    actor,
-    context.milestone.project_id,
-    action,
-    `${actor.fullName} ${verb} deadline for milestone '${context.milestone.name}' with due date ${context.history.due_date}`
-  );
-}
-
 export function buildDeadlineApprovalResolution(
   currentStatus: ApprovalStatus,
   decision: ReviewDecision,
@@ -247,76 +233,16 @@ export class DeadlineApprovalService {
     };
   }
 
-  private static async review(approvalId: string, decision: ReviewDecision, note: string | undefined, actor: Actor) {
+  private static async review(approvalId: string, decision: ReviewDecision, note: string | undefined, actor: Actor, requestContext?: BusinessRequestContext) {
     assertDeadlineApprovalReviewer(actor);
     const context = await this.getApprovalContext(approvalId);
-    assertDeadlineApprovalMilestoneIsReviewable(context.milestone.status);
+    // Live state is checked after receipt replay under the project/milestone lock.
     if (!context.milestone.project) throw new Error('Project not found');
-    if (context.milestone.project.status === 'POSTPONED' || context.milestone.project.is_postponed) throw new Error('Project is postponed.');
-    if (context.milestone.project.status !== 'ACTIVE') throw new Error('Deadline changes can only be reviewed for ACTIVE projects.');
 
-    const resolution = buildDeadlineApprovalResolution(
-      context.approval.status,
-      decision,
-      actor.userId,
-      context.history,
-      {
-        start_date: context.milestone.start_date,
-        duration_working_days: context.milestone.duration_working_days,
-        due_date: context.milestone.due_date,
-      },
-      note
-    );
 
-    const { data: updated, error: updateError } = await supabaseAdmin
-      .from('milestone_deadline_approvals')
-      .update(resolution.approval)
-      .eq('id', approvalId)
-      .eq('status', 'PENDING')
-      .select('id, milestone_id, deadline_history_id, status, requested_by, reviewed_by, review_note, requested_at, reviewed_at')
-      .maybeSingle();
-
-    if (updateError) throw new DeadlineError('Failed to review deadline approval.', 500, updateError);
-    if (!updated) throw new Error('Deadline approval is no longer pending.');
-
-    if (decision === 'APPROVED') {
-      const { data: milestone, error: milestoneError } = await supabaseAdmin
-        .from('project_milestones')
-        .update({
-          start_date: context.history.start_date,
-          duration_working_days: context.history.duration_working_days,
-          due_date: context.history.due_date,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', context.milestone.id)
-        .not('status', 'in', '(COMPLETED,APPROVED)')
-        .select('id')
-        .maybeSingle();
-
-      if (milestoneError || !milestone) {
-        const { error: rollbackError } = await supabaseAdmin
-          .from('milestone_deadline_approvals')
-          .update({
-            status: 'PENDING',
-            reviewed_by: null,
-            review_note: null,
-            reviewed_at: null,
-          })
-          .eq('id', approvalId);
-
-        throw new DeadlineError('Failed to apply approved deadline.', 500, {
-          milestoneError,
-          rollbackError,
-        });
-      }
-    }
-
-    await logDeadlineApprovalReview(
-      actor,
-      context,
-      decision === 'APPROVED' ? 'DEADLINE_APPROVED' : 'DEADLINE_REJECTED'
-    );
-
+    const result = await mutateBusiness(context.milestone.project_id, actor.userId, 'DEADLINE_REVIEW', {
+      milestone_id: context.milestone.id, approval_id: approvalId, decision, note: note?.trim() || null,
+    }, requestContext);
     const notificationContext = {
       projectId: context.milestone.project.id,
       projectName: context.milestone.project.name,
@@ -324,24 +250,24 @@ export class DeadlineApprovalService {
       milestoneId: context.milestone.id,
       milestoneName: context.milestone.name,
     };
-    if (decision === 'APPROVED') {
+    if (!result._businessReplayed && decision === 'APPROVED') {
       await notifyDeadlineChangeApproved(notificationContext);
-    } else {
+    } else if (!result._businessReplayed) {
       await notifyDeadlineChangeRejected(notificationContext);
     }
 
     return {
-      ...updated,
-      effective_deadline: resolution.effectiveDeadline,
+      ...result.approval,
+      effective_deadline: result.effective_deadline,
     };
   }
 
-  static approveDeadlineApproval(approvalId: string, input: ApproveDeadlineApprovalInput, actor: Actor) {
-    return this.review(approvalId, 'APPROVED', input.note, actor);
+  static approveDeadlineApproval(approvalId: string, input: ApproveDeadlineApprovalInput, actor: Actor, context?: BusinessRequestContext) {
+    return this.review(approvalId, 'APPROVED', input.note, actor, context);
   }
 
-  static rejectDeadlineApproval(approvalId: string, input: RejectDeadlineApprovalInput, actor: Actor) {
-    return this.review(approvalId, 'REJECTED', input.note, actor);
+  static rejectDeadlineApproval(approvalId: string, input: RejectDeadlineApprovalInput, actor: Actor, context?: BusinessRequestContext) {
+    return this.review(approvalId, 'REJECTED', input.note, actor, context);
   }
 
   private static async getReadData(milestoneId: string, actor: Actor) {

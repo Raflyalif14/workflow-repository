@@ -1,6 +1,7 @@
+import { DocumentAccessService, DocumentAccessError, accessMetadata, RepositoryAccess } from './document-access.service';
 import { randomUUID } from 'crypto';
 import { supabaseAdmin } from '../config/supabase';
-import { canAccessProject, getAccessibleProjectIds } from './project-access.service';
+import { canAccessProject } from './project-access.service';
 import { buildDocumentStoragePath, DocumentStorageService } from '../utils/storage.util';
 import {
   CreateCommentInput,
@@ -307,13 +308,6 @@ export class DocumentService {
     return project;
   }
 
-  private static async assertDocumentReadAccess(document: DocumentRow, actor: Actor): Promise<ProjectRow> {
-    const project = await this.assertDocumentAccess(document, actor);
-    if (actor.role === 'SALES' && document.status !== 'APPROVED') {
-      throw new DocumentServiceError('Document not found', 404);
-    }
-    return project;
-  }
 
   private static async loadUsers(userIds: string[]): Promise<Map<string, UserRow>> {
     const ids = [...new Set(userIds.filter(Boolean))];
@@ -367,8 +361,29 @@ export class DocumentService {
     };
   }
 
-  private static async hydrateDocuments(documents: DocumentRow[], includeComments: boolean, actor: Actor) {
+  private static async hydrateDocuments(documents: DocumentRow[], includeComments: boolean, actor: Actor, accesses?: Map<string, RepositoryAccess>): Promise<any[]> {
     if (!documents.length) return [];
+    const sharedOnly = documents.filter(document => accesses?.get(document.id)?.project_access === false);
+    if (sharedOnly.length) {
+      const native = await this.hydrateDocuments(documents.filter(document => !sharedOnly.includes(document)), includeComments, actor, accesses);
+      const { data: versions, error } = await supabaseAdmin.from('document_versions')
+        .select('id,document_id,version_number,file_name,file_size,mime_type,status,is_latest,created_at')
+        .in('document_id', sharedOnly.map(document => document.id)).eq('status', 'APPROVED').eq('is_latest', true);
+      if (error) throw new DocumentServiceError('Failed to retrieve document data.', 500);
+      const shared = sharedOnly.flatMap(document => {
+        const version = versions?.find(version => version.document_id === document.id);
+        if (!version) return [];
+        return [{ id: document.id, projectId: document.project_id, title: document.title, category: document.category,
+          status: 'APPROVED', createdAt: document.created_at, updatedAt: document.updated_at,
+          canUploadVersion: false, ...accessMetadata(accesses!.get(document.id)!), versions: [{
+            id: version.id, documentId: document.id, versionNumber: version.version_number, fileName: version.file_name,
+            fileSize: Number(version.file_size), mimeType: version.mime_type, status: version.status,
+            isLatest: true, createdAt: version.created_at, fileUrl: `/documents/versions/${version.id}/download-url`,
+          }] }];
+      });
+      const result = new Map([...native, ...shared].map(document => [document.id, document]));
+      return documents.flatMap(document => result.has(document.id) ? [result.get(document.id)] : []);
+    }
 
     const documentIds = documents.map((document) => document.id);
     const projectIds = [...new Set(documents.map((document) => document.project_id))];
@@ -419,14 +434,16 @@ export class DocumentService {
 
     return documents.map((document) => {
       const documentVersions = versions
-        .filter((version) => version.document_id === document.id)
+        .filter((version) => version.document_id === document.id && (actor.role !== 'SALES' || (version.status === 'APPROVED' && version.is_latest)))
         .sort((left, right) => right.version_number - left.version_number);
-      const initialVersion = documentVersions[documentVersions.length - 1];
+      const initialVersion = versions.filter(version => version.document_id === document.id)
+        .sort((a, b) => a.version_number - b.version_number)[0];
       const project = projects.get(document.project_id);
       const documentComments = comments.filter((comment) => comment.document_id === document.id);
 
       return {
         id: document.id,
+        ...(accesses?.get(document.id) ? accessMetadata(accesses.get(document.id)!) : {}),
         projectId: document.project_id,
         milestoneId: document.milestone_id,
         title: document.title,
@@ -493,29 +510,19 @@ export class DocumentService {
   }
 
   static async listDocuments(query: ListDocumentsQuery, actor: Actor) {
-    if (query.projectId) {
-      const project = await this.getProject(query.projectId);
-      this.assertProjectAccess(project, actor);
-    }
-
-    let accessibleProjectIds: string[] | null;
-    try {
-      accessibleProjectIds = query.projectId ? [query.projectId] : await getAccessibleProjectIds(actor);
-    } catch {
-      throw new DocumentServiceError('Failed to retrieve document data.', 500);
-    }
-    if (accessibleProjectIds && !accessibleProjectIds.length) return [];
-
+    const authorized = (await DocumentAccessService.list(actor, 'OFFICIAL', { includeSharing: true }))
+      .filter(access => !query.projectId || access.project_id === query.projectId);
+    if (!authorized.length) return [];
+    const accesses = new Map(authorized.map(access => [access.source_id, access]));
     const pageSize = 100;
-    const scopes = accessibleProjectIds
-      ? Array.from({ length: Math.ceil(accessibleProjectIds.length / pageSize) }, (_, index) => accessibleProjectIds.slice(index * pageSize, (index + 1) * pageSize))
-      : [null];
+    const ids = authorized.map(access => access.source_id);
+    const scopes = Array.from({ length: Math.ceil(ids.length / pageSize) }, (_, index) => ids.slice(index * pageSize, (index + 1) * pageSize));
     const results: Awaited<ReturnType<typeof DocumentService.hydrateDocuments>> = [];
     for (const scope of scopes) {
       for (let offset = 0; ; offset += pageSize) {
         let request: any = supabaseAdmin.from('documents').select(documentFields)
           .order('updated_at', { ascending: false }).order('id', { ascending: true });
-        if (scope) request = request.in('project_id', scope);
+        request = request.in('id', scope);
         if (query.milestoneId) request = request.eq('milestone_id', query.milestoneId);
         if (query.category) request = request.eq('category', query.category);
         if (query.status) request = request.eq('status', query.status);
@@ -523,17 +530,18 @@ export class DocumentService {
         if (query.search?.trim()) request = request.ilike('title', `%${query.search.trim()}%`);
         const { data, error } = await request.range(offset, offset + pageSize - 1);
         if (error) throw new DocumentServiceError('Failed to retrieve document data.', 500);
-        results.push(...await this.hydrateDocuments((data || []) as DocumentRow[], false, actor));
+        results.push(...await this.hydrateDocuments((data || []) as DocumentRow[], false, actor, accesses));
         if (!data || data.length < pageSize) break;
       }
     }
-    return results;
+    return results.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt) || a.id.localeCompare(b.id));
   }
 
   static async getDocumentById(documentId: string, actor: Actor) {
     const document = await this.getRawDocument(documentId);
-    await this.assertDocumentReadAccess(document, actor);
-    const [hydrated] = await this.hydrateDocuments([document], true, actor);
+    const access = await this.readRepositoryAccess(documentId, actor);
+    const [hydrated] = await this.hydrateDocuments([document], true, actor, new Map([[documentId, access]]));
+    if (!hydrated) throw new DocumentServiceError('Document not found', 404);
     return hydrated;
   }
 
@@ -849,10 +857,20 @@ export class DocumentService {
     return this.mapComment(data as DocumentCommentRow, users);
   }
 
+  private static async readRepositoryAccess(documentId: string, actor: Actor) {
+    return DocumentAccessService.read(actor, 'OFFICIAL', documentId).catch(error => {
+      if (error instanceof DocumentAccessError) throw new DocumentServiceError('Document not found', error.statusCode);
+      throw error;
+    });
+  }
+
   static async getDownloadUrl(versionId: string, actor: Actor) {
     const version = await this.getRawVersion(versionId);
     const document = await this.getRawDocument(version.document_id);
-    await this.assertDocumentReadAccess(document, actor);
+    const access = await this.readRepositoryAccess(document.id, actor);
+    if ((!access.project_access || actor.role === 'SALES') && (version.status !== 'APPROVED' || !version.is_latest)) {
+      throw new DocumentServiceError('Document version not found', 404);
+    }
 
     try {
       return {

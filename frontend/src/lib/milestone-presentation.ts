@@ -5,7 +5,7 @@ export function milestoneIdFromHash(hash: string, milestoneIds: readonly string[
     : hash.startsWith("#project-milestone-") ? "#project-milestone-" : null;
   if (!prefix) return null;
   try {
-    const id = decodeURIComponent(hash.slice(prefix.length));
+    const id = decodeURIComponent(hash.slice(prefix.length).split("?")[0]);
     return milestoneIds.includes(id) ? id : null;
   } catch {
     return null;

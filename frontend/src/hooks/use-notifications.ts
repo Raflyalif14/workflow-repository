@@ -1,5 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { apiClient } from "@/lib/api-client";
+import { apiClient, SessionChangedError } from "@/lib/api-client";
+import { useAuth } from "@/components/auth/auth-provider";
+import { getAuthSession, isCurrentSession } from "@/lib/auth";
+import { canUsePersonalNotificationSettings } from "@/lib/settings-access";
 import { notificationKeys } from "@/lib/query-keys";
 import {
   AppNotification,
@@ -75,11 +78,24 @@ type UpdateNotificationPreferencesInput = {
 const notificationPreferencesPath = "/notifications/preferences";
 const telegramDeliveryHealthPath = "/notifications/admin/telegram-delivery-health";
 
+function usePersonalNotificationScope() {
+  const { user, isLoading } = useAuth();
+  const session = getAuthSession();
+  const eligible = !isLoading && canUsePersonalNotificationSettings(user) && Boolean(session);
+  const current = () => Boolean(eligible && session && isCurrentSession(session));
+  const request = <T,>(path: string, options?: RequestInit) => {
+    if (!current()) throw new SessionChangedError();
+    return apiClient<T>(path, options);
+  };
+  return { eligible, current, request, key: notificationKeys.preferences(user?.id, session?.id) };
+}
+
 export function useNotificationPreferences(enabled = true) {
+  const scope = usePersonalNotificationScope();
   return useQuery<NotificationPreferences>({
-    queryKey: notificationKeys.preferences(),
-    queryFn: () => apiClient<NotificationPreferences>(notificationPreferencesPath),
-    enabled,
+    queryKey: scope.key,
+    queryFn: ({ signal }) => scope.request<NotificationPreferences>(notificationPreferencesPath, { signal }),
+    enabled: enabled && scope.eligible,
     staleTime: 15_000,
     refetchOnWindowFocus: true,
   });
@@ -98,51 +114,61 @@ export function useTelegramDeliveryHealth(enabled = true) {
 
 export function useUpdateNotificationPreferences() {
   const queryClient = useQueryClient();
+  const scope = usePersonalNotificationScope();
 
   return useMutation({
+    mutationKey: [...scope.key, "update"],
     mutationFn: (input: UpdateNotificationPreferencesInput) =>
-      apiClient<NotificationPreferences>(notificationPreferencesPath, {
+      scope.request<NotificationPreferences>(notificationPreferencesPath, {
         method: "PUT",
         body: JSON.stringify(input),
       }),
     onSuccess: async (preferences) => {
-      queryClient.setQueryData(notificationKeys.preferences(), preferences);
-      await queryClient.invalidateQueries({ queryKey: notificationKeys.preferences() });
+      if (!scope.current()) return;
+      queryClient.setQueryData(scope.key, preferences);
+      await queryClient.invalidateQueries({ queryKey: scope.key });
     },
   });
 }
 
 export function useCreateTelegramLink() {
   const queryClient = useQueryClient();
+  const scope = usePersonalNotificationScope();
 
   return useMutation({
+    mutationKey: [...scope.key, "link"],
     mutationFn: () =>
-      apiClient<TelegramLinkResponse>("/notifications/telegram/link", { method: "POST" }),
+      scope.request<TelegramLinkResponse>("/notifications/telegram/link", { method: "POST" }),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: notificationKeys.preferences() });
+      if (scope.current()) await queryClient.invalidateQueries({ queryKey: scope.key });
     },
   });
 }
 
 export function useInvalidateTelegramLink() {
   const queryClient = useQueryClient();
+  const scope = usePersonalNotificationScope();
 
   return useMutation({
-    mutationFn: () => apiClient<{ invalidated: true }>("/notifications/telegram/link", { method: "DELETE" }),
+    mutationKey: [...scope.key, "cancel-link"],
+    mutationFn: () => scope.request<{ invalidated: true }>("/notifications/telegram/link", { method: "DELETE" }),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: notificationKeys.preferences() });
+      if (scope.current()) await queryClient.invalidateQueries({ queryKey: scope.key });
     },
   });
 }
 
 export function useUnlinkTelegram() {
   const queryClient = useQueryClient();
+  const scope = usePersonalNotificationScope();
 
   return useMutation({
-    mutationFn: () => apiClient<NotificationPreferences>("/notifications/telegram", { method: "DELETE" }),
+    mutationKey: [...scope.key, "unlink"],
+    mutationFn: () => scope.request<NotificationPreferences>("/notifications/telegram", { method: "DELETE" }),
     onSuccess: async (preferences) => {
-      queryClient.setQueryData(notificationKeys.preferences(), preferences);
-      await queryClient.invalidateQueries({ queryKey: notificationKeys.preferences() });
+      if (!scope.current()) return;
+      queryClient.setQueryData(scope.key, preferences);
+      await queryClient.invalidateQueries({ queryKey: scope.key });
     },
   });
 }

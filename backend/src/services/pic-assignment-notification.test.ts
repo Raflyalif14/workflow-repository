@@ -30,11 +30,12 @@ async function run(): Promise<void> {
     assert(requestedNotifications[0].userId === 'sa-new', 'Test 1: new PIC must receive the assignment notification');
     assert(requestedNotifications[0].type === 'PIC_ASSIGNED', 'Test 1: initial assignment must use PIC_ASSIGNED');
     const assignmentSource = readFileSync(join(__dirname, 'assignment-phase5.service.ts'), 'utf8');
-    assert(assignmentSource.includes('await notifyPicAssignment({'), 'Test 1: canonical assignment workflow must trigger notification');
+    const migration = readFileSync(join(__dirname, '../../supabase/phase27-atomic-pic-assignment.sql'), 'utf8');
+    assert(assignmentSource.includes("runPicMutation('assign_project_pic_atomic'"), 'Test 1: canonical assignment uses the atomic RPC');
     assert(
-      assignmentSource.includes("if (workflowMode === 'OPERATIONAL_V2')") &&
-      assignmentSource.indexOf('const workflow = await completeAssignPicStageIfCurrent') < assignmentSource.lastIndexOf('await notifyPicAssignment({'),
-      'Test 1: legacy notification must run after legacy workflow progression while V2 retains its direct assignment notification'
+      !assignmentSource.includes('notifyPicAssignment(') && migration.includes('perform public.queue_pic_operation_notification(p_project_id,p_after,v_action);') &&
+      migration.includes('insert into public.notification_deliveries') && migration.includes('v_in_app or v_telegram'),
+      'Test 1: PIC writes durably queue independent notification channels inside SQL, without a post-commit service send'
     );
     console.log('Test 1 - No PIC to new PIC requests PIC_ASSIGNED for the new PIC: passed');
 

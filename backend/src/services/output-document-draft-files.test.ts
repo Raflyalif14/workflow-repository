@@ -1,3 +1,4 @@
+import { installRestrictedRepositoryFixture } from '../test-utils/repository-access.fixture';
 import { strict as assert } from 'assert';
 import { supabaseAdmin } from '../config/supabase';
 import { DocumentStorageService } from '../utils/storage.util';
@@ -141,6 +142,8 @@ async function main() {
         mutations.set(input.p_request_id, { request_id: input.p_request_id, output_document_id: output.id,
           actor_id: input.p_actor_id, payload, fileId: input.p_file_id || input.p_target_file_id });
         if (loseCommittedResponse) return { data: null, error: { code: 'NETWORK_ERROR' } };
+        // Phase30 wrapper inserts activity within this committed RPC, never on replay.
+        activity.push('OUTPUT_DRAFT_' + input.p_action);
         return { data: [{ draft_revision: output.draft_revision, file_id: input.p_file_id || input.p_target_file_id, applied: true }], error: null };
       }
       if (name === 'submit_project_output_document_draft') {
@@ -158,11 +161,12 @@ async function main() {
         output.current_version_id = version.id;
         output.status = 'IN_REVIEW';
         output.draft_revision++;
+        activity.push('OUTPUT_DOCUMENTS_SUBMITTED');
         const result = { version_id: version.id, draft_revision: output.draft_revision, new_status: 'IN_REVIEW', created: true };
         submissions.set(input.p_request_id, { ...result, expectedRevision: input.p_expected_revision, actor: input.p_actor_id, note: input.p_submission_note });
         return { data: [result], error: null };
       }
-      if (name === 'transition_project_output_document_version') {
+      if (name === 'review_project_output_document_snapshot') {
         assert.equal(input.p_expected_version_id, output.current_version_id);
         output.status = input.p_action === 'APPROVE' ? 'APPROVED' : 'REVISION_REQUIRED';
         snapshots.find((version) => version.id === output.current_version_id)!.status = output.status;
@@ -175,6 +179,10 @@ async function main() {
       }
       throw new Error(`Unexpected RPC: ${name}`);
     };
+    const mutationRpc = supabaseAdmin.rpc;
+    installRestrictedRepositoryFixture({ [actor.userId]:actor.role,[head.userId]:head.role,[sales.userId]:sales.role }, () => ({ projects:[project], outputs:[output] }));
+    const accessRpc = supabaseAdmin.rpc;
+    (supabaseAdmin as any).rpc = (name:string, input:Row) => name === 'list_document_repository_access' ? (accessRpc as any)(name,input) : (mutationRpc as any)(name,input);
 
     assert(uploadOutputDocumentFileSchema.safeParse({ expected_draft_revision: '0', request_id: uuid(1) }).success);
     for (const revision of [undefined, null, '', '-1', 1.5, Number.MAX_SAFE_INTEGER + 1]) {
@@ -244,7 +252,7 @@ async function main() {
     await assert.rejects(() => OutputDocumentService.getFileDownloadUrl(projectId, key, uuid(1), head, snapshots[0].id), OutputDocumentError);
 
     await OutputDocumentService.review(projectId, { decision: 'REVISE', feedback: 'Update the attachment.',
-      items: [{ document_key: key, expected_version_id: snapshots[0].id }] }, head);
+      items: [{ document_key: key, expected_version_id: snapshots[0].id, request_id: uuid(90), file_revisions: [{ file_id: snapshotFiles[0].file_id, feedback: "Update the attachment." }] }] }, head);
     await add(6, 5, uuid(3), 'revision.pdf');
     await add(7, 6, undefined, 'supporting.pdf');
     assert.equal(snapshots.length, 1);
@@ -253,10 +261,10 @@ async function main() {
     await OutputDocumentService.submitForReview(projectId, { items: [{ document_key: key, expected_draft_revision: 7, request_id: uuid(8) }] }, actor);
     assert.equal(snapshots.length, 2);
     assert.deepEqual(snapshotFiles.filter((ref) => ref.version_id === snapshots[1].id).map((ref) => ref.file_id), [uuid(6), uuid(7)]);
-    await OutputDocumentService.review(projectId, { decision: 'APPROVE', items: [{ document_key: key, expected_version_id: snapshots[1].id }] }, head);
+    await OutputDocumentService.review(projectId, { decision: 'APPROVE', items: [{ document_key: key, expected_version_id: snapshots[1].id, request_id: uuid(91) }] }, head);
     assert.equal(completion, 1);
     assert.equal(progression, 1);
-    await OutputDocumentService.review(projectId, { decision: 'APPROVE', items: [{ document_key: key, expected_version_id: snapshots[1].id }] }, head);
+    await OutputDocumentService.review(projectId, { decision: 'APPROVE', items: [{ document_key: key, expected_version_id: snapshots[1].id, request_id: uuid(91) }] }, head);
     assert.equal(progression, 1, 'Approval retry must not progress twice');
     const submissionRetry = await OutputDocumentService.submitForReview(projectId,
       { items: [{ document_key: key, expected_draft_revision: 7, request_id: uuid(8) }] }, actor);

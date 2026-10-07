@@ -1,3 +1,4 @@
+import { DocumentService } from './document.service';
 import { supabaseAdmin } from '../config/supabase';
 import { GlobalSearchQuery } from '../validators/search.validator';
 import { applyProjectAccessScope, getAccessibleProjectIds, ProjectAccessActor } from './project-access.service';
@@ -5,7 +6,6 @@ import { OutputDocumentService } from './output-document.service';
 
 type Actor = ProjectAccessActor & { fullName: string };
 type ProjectSearchRow = { id: string; name: string; customer: string; status: string };
-type DocumentSearchRow = { id: string; project_id: string; title: string; category: string };
 type MilestoneSearchRow = { id: string; project_id: string; name: string; step_order: number; status: string };
 
 export type GlobalSearchResult = {
@@ -16,6 +16,8 @@ export type GlobalSearchResult = {
   title: string;
   subtitle: string;
   status?: string;
+  canReadProject?: boolean;
+  repositorySourceId?: string;
 };
 
 export type GlobalSearchResponse = {
@@ -42,10 +44,6 @@ export class GlobalSearchService {
     const term = query.q.trim();
     const pattern = `%${escapeFilterValue(term)}%`;
     const accessibleProjectIds = await getAccessibleProjectIds(actor);
-    if (accessibleProjectIds && !accessibleProjectIds.length) {
-      return { projects: [], documents: [], milestones: [], outputDocuments: [] };
-    }
-
     let projectRequest: any = supabaseAdmin
       .from('projects')
       .select('id,name,customer,status')
@@ -54,12 +52,6 @@ export class GlobalSearchService {
       .limit(RESULT_LIMIT);
     projectRequest = applyProjectAccessScope(projectRequest, actor);
 
-    let documentRequest: any = supabaseAdmin
-      .from('documents')
-      .select('id,project_id,title,category')
-      .ilike('title', pattern)
-      .order('updated_at', { ascending: false })
-      .limit(RESULT_LIMIT);
     let milestoneRequest: any = supabaseAdmin
       .from('project_milestones')
       .select('id,project_id,name,step_order,status')
@@ -68,14 +60,13 @@ export class GlobalSearchService {
       .limit(RESULT_LIMIT);
 
     if (accessibleProjectIds) {
-      documentRequest = documentRequest.in('project_id', accessibleProjectIds);
       milestoneRequest = milestoneRequest.in('project_id', accessibleProjectIds);
     }
-    if (actor.role === 'SALES') documentRequest = documentRequest.eq('status', 'APPROVED');
 
     const [projectsResult, documentsResult, milestonesResult] = await Promise.all([
       projectRequest,
-      documentRequest,
+      DocumentService.listDocuments({ search: term }, actor).then(data => ({ data, error: null }))
+        .catch(() => { throw new GlobalSearchError('Failed to search documents.'); }),
       milestoneRequest,
     ]);
 
@@ -100,12 +91,10 @@ export class GlobalSearchService {
         subtitle: project.customer,
         status: project.status,
       })),
-      documents: ((documentsResult.data || []) as DocumentSearchRow[]).map((document) => ({
-        type: 'DOCUMENT',
-        id: document.id,
-        projectId: document.project_id,
-        title: document.title,
-        subtitle: document.category.replace(/_/g, ' '),
+      documents: (documentsResult.data || []).slice(0, RESULT_LIMIT).map(document => ({
+        type: 'DOCUMENT' as const, id: document.id, projectId: document.projectId, title: document.title,
+        subtitle: document.category.replace(/_/g, ' '), canReadProject: document.canReadProject,
+        repositorySourceId: document.id,
       })),
       milestones: ((milestonesResult.data || []) as MilestoneSearchRow[]).map((milestone) => ({
         type: 'MILESTONE',
@@ -122,6 +111,8 @@ export class GlobalSearchService {
         .slice(0, RESULT_LIMIT)
         .map((output) => ({
           type: 'OUTPUT_DOCUMENT',
+          canReadProject: output.canReadProject,
+          repositorySourceId: output.outputId,
           id: `${output.projectId}:${output.documentKey}`,
           projectId: output.projectId,
           milestoneId: output.milestoneId,

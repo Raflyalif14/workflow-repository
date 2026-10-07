@@ -145,6 +145,18 @@ export class ProjectDeletionService {
       p_initiated_by: actor.userId,
     });
     if (error) {
+      // Keep database diagnostics in server logs; never log message/details/hint,
+      // which can contain confirmation text, user data or exact Storage paths.
+      const sqlstate = /^[0-9A-Z]{5}$/.test(error.code || '') ? error.code : null;
+      const constraint = /\bconstraint "([a-z][a-z0-9_]{0,62})"/.exec(error.message || '')?.[1];
+      const knownConstraint = constraint && /^(?:project_|output_|milestone_phase_|approval_phase_|active_phase_|ready_project_phase_)/.test(constraint)
+        ? constraint : null;
+      console.error('[ProjectDeletion] Database deletion failed.', {
+        operation: 'delete_project_with_cleanup',
+        sqlstate,
+        constraint: knownConstraint,
+        httpStatus: error.code === 'P0002' ? 404 : error.code === '22023' ? 400 : 500,
+      });
       if (error.code === 'P0002') throw new ProjectDeletionError('Project not found', 404);
       if (error.code === '22023') throw new ProjectDeletionError('Project confirmation does not match.', 400);
       throw new ProjectDeletionError('Unable to delete project.', 500);

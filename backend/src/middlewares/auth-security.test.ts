@@ -179,12 +179,15 @@ async function run(): Promise<void> {
   registrationApp.use(express.json());
   registrationApp.use('/api/auth', authRoutes);
   await withServer(registrationApp, async (server) => {
-    for (let attempt = 0; attempt < 11; attempt += 1) {
+    for (let attempt = 0; attempt < AUTH_RATE_LIMITS.register.max; attempt += 1) {
       const response = await sendRequest(server, '/api/auth/register', 'POST', {});
-      assert(response.statusCode === 422, 'Test 2: registration must remain active and unrate-limited');
+      assert(response.statusCode === 422, 'Test 2: registration validation remains active within the limit');
     }
+    const limited = await sendRequest(server, '/api/auth/register', 'POST', {});
+    assert(limited.statusCode === 429, 'Test 2: registration must be limited before validation/account operations');
+    assert(JSON.parse(limited.body).message === AUTH_RATE_LIMIT_MESSAGE, 'Test 2: register shares the safe 429 contract');
   });
-  console.log('Test 2 - Registration route remains active and is not rate limited: passed');
+  console.log('Test 2 - Registration route retains validation and enforces its dedicated rate limit: passed');
 
   assert(AUTH_RATE_LIMITS.login.max === 10, 'Test 3: login limit must be 10 requests');
   assert(AUTH_RATE_LIMITS.forgotPassword.max === 5, 'Test 3: forgot-password limit must be 5 requests');

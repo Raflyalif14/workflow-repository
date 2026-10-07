@@ -1,7 +1,11 @@
+import { requireRepositoryArray } from "@/lib/document-repository";
+import { useBusinessRequest } from "./use-business-request";
+import { requireRepositorySession, useRepositorySession } from './use-repository-session';
+import type { DocumentAccessMetadata } from './use-document-access';
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "@/lib/api-client";
 import { ProjectOutputDocumentFile, ProjectOutputDocumentItem, ProjectOutputDocumentVersion } from "@/types/project";
-import { assignmentKeys, dashboardKeys, projectKeys } from "@/lib/query-keys";
+import { approvalKeys, assignmentKeys, dashboardKeys, projectKeys } from "@/lib/query-keys";
 
 export interface OutputDocumentsResponse {
   scenarioKey: string;
@@ -21,7 +25,8 @@ export const outputDocumentKeys = {
   versions: (projectId: string, documentKey: string) => [...outputDocumentKeys.project(projectId), documentKey, "versions"] as const,
 };
 
-export interface OutputRepositoryItem {
+export interface OutputRepositoryItem extends DocumentAccessMetadata {
+  outputId?: string;
   projectId: string;
   milestoneId: string;
   projectName: string;
@@ -38,10 +43,11 @@ export interface OutputRepositoryItem {
 }
 
 export function useOutputRepository(enabled = true) {
+  const scope = useRepositorySession();
   return useQuery<OutputRepositoryItem[]>({
-    queryKey: outputDocumentKeys.repository(),
-    queryFn: () => apiClient<OutputRepositoryItem[]>("/documents/outputs"),
-    enabled,
+    queryKey: [...outputDocumentKeys.repository(), ...scope.key],
+    queryFn: async () => { requireRepositorySession(scope); return requireRepositoryArray(await apiClient<OutputRepositoryItem[]>("/documents/outputs")); },
+    enabled: enabled && scope.enabled,
   });
 }
 
@@ -57,6 +63,8 @@ export function useOutputRepositoryDownload() {
 export interface OutputDocumentBatchItem {
   document_key: string;
   expected_version_id: string;
+  request_id: string;
+  file_revisions?: { file_id: string; feedback: string }[];
 }
 
 export interface OutputDocumentSubmitItem {
@@ -79,12 +87,18 @@ export interface OutputDraftReceipt {
   status: ProjectOutputDocumentItem["status"];
 }
 
-function invalidateOutputDocument(queryClient: ReturnType<typeof useQueryClient>, projectId: string) {
+function invalidateOutputDocument(queryClient: ReturnType<typeof useQueryClient>, projectId: string, approvalQueueChanged = false) {
+  if (approvalQueueChanged) {
+    queryClient.invalidateQueries({ queryKey: approvalKeys.all() });
+    queryClient.invalidateQueries({ queryKey: ["global-search"] });
+  }
   queryClient.invalidateQueries({ queryKey: outputDocumentKeys.project(projectId) });
   queryClient.invalidateQueries({ queryKey: outputDocumentKeys.repository() });
+  queryClient.invalidateQueries({ queryKey: projectKeys.all() });
   queryClient.invalidateQueries({ queryKey: projectKeys.detail(projectId) });
   queryClient.invalidateQueries({ queryKey: projectKeys.milestones(projectId) });
   queryClient.invalidateQueries({ queryKey: projectKeys.progress(projectId) });
+  queryClient.invalidateQueries({ queryKey: projectKeys.activities(projectId) });
   queryClient.invalidateQueries({ queryKey: dashboardKeys.overview() });
   queryClient.invalidateQueries({ queryKey: assignmentKeys.myAssignedMilestones() });
 }
@@ -162,7 +176,8 @@ export function useSubmitOutputDocuments(projectId: string) {
         method: "POST",
         body: JSON.stringify(data || {}),
       }),
-    onSuccess: () => invalidateOutputDocument(queryClient, projectId),
+    onSuccess: () => invalidateOutputDocument(queryClient, projectId, true),
+    onError: () => queryClient.invalidateQueries({ queryKey: approvalKeys.all() }),
   });
 }
 
@@ -175,12 +190,16 @@ export function useReviewOutputDocuments(projectId: string) {
         method: "POST",
         body: JSON.stringify(data),
       }),
+    onError: () => queryClient.invalidateQueries({ queryKey: approvalKeys.all() }),
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["global-search"] });
+      queryClient.invalidateQueries({ queryKey: approvalKeys.all() });
       queryClient.invalidateQueries({ queryKey: outputDocumentKeys.project(projectId) });
       queryClient.invalidateQueries({ queryKey: outputDocumentKeys.repository() });
       queryClient.invalidateQueries({ queryKey: projectKeys.detail(projectId) });
       queryClient.invalidateQueries({ queryKey: projectKeys.milestones(projectId) });
       queryClient.invalidateQueries({ queryKey: projectKeys.progress(projectId) });
+  queryClient.invalidateQueries({ queryKey: projectKeys.activities(projectId) });
       queryClient.invalidateQueries({ queryKey: dashboardKeys.overview() });
       queryClient.invalidateQueries({ queryKey: assignmentKeys.myAssignedMilestones() });
     },
@@ -189,24 +208,22 @@ export function useReviewOutputDocuments(projectId: string) {
 
 export function useUpdateOutputChecklist(projectId: string) {
   const queryClient = useQueryClient();
+  const business = useBusinessRequest();
 
-  return useMutation({
+  const mutation = useMutation({
     mutationFn: (selectedDocumentKeys: string[]) =>
-      apiClient<{ success: boolean; selectedDocumentKeys: string[] }>(
-        `/projects/${projectId}/output-documents/checklist`,
-        {
-          method: "PUT",
-          body: JSON.stringify({ selectedDocumentKeys }),
-        }
-      ),
+      business<{ success: boolean; selectedDocumentKeys: string[] }>(projectId, "SCOPE", `/projects/${projectId}/output-documents/checklist`, "PUT", { selectedDocumentKeys }),
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: approvalKeys.all() });
       queryClient.invalidateQueries({ queryKey: outputDocumentKeys.project(projectId) });
       queryClient.invalidateQueries({ queryKey: projectKeys.detail(projectId) });
       queryClient.invalidateQueries({ queryKey: projectKeys.milestones(projectId) });
       queryClient.invalidateQueries({ queryKey: projectKeys.progress(projectId) });
+  queryClient.invalidateQueries({ queryKey: projectKeys.activities(projectId) });
       queryClient.invalidateQueries({ queryKey: dashboardKeys.overview() });
     },
   });
+  return Object.assign(mutation, { prepare: () => { if (projectId) business.prepare(projectId); } });
 }
 
 export function useOutputDocumentDownloadUrl(projectId: string) {

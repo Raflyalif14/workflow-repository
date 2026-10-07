@@ -20,6 +20,7 @@ export const milestoneKeys = {
 
 export const approvalKeys = {
   all: () => ["approvals"] as const,
+  overview: () => ["approvals", "overview"] as const,
   list: (filters?: unknown) => ["approvals", filters ?? "all"] as const,
   stats: () => ["approval-stats"] as const,
 };
@@ -39,6 +40,7 @@ export const notificationKeys = {
   all: () => ["notifications"] as const,
   list: () => ["notifications", "list"] as const,
   unreadCount: () => ["notifications", "unread-count"] as const,
-  preferences: () => ["notifications", "preferences"] as const,
+  preferences: (userId?: string, sessionId?: string) =>
+    userId && sessionId ? ["notifications", "preferences", userId, sessionId] as const : ["notifications", "preferences"] as const,
   deliveryHealth: () => ["notifications", "admin", "telegram-delivery-health"] as const,
 };

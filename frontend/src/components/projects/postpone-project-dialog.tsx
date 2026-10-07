@@ -1,8 +1,9 @@
 "use client";
 
-import { translate as translateI18n } from "@/i18n";
+import { translateProjectStatus, translate as translateI18n } from "@/i18n";
 import { useLanguage } from "@/components/i18n/language-provider";
 
+import { useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { CalendarClock } from "lucide-react";
@@ -22,6 +23,9 @@ export function PostponeProjectDialog({
   project: Project | null;
 }) {
   useLanguage();
+  const [confirming, setConfirming] = useState(false);
+  const [error, setError] = useState<"businessAudit.failed" | "businessAudit.stale" | null>(null);
+  const busy = useRef(false);
   const postponeProject = usePostponeProject();
   const {
     register,
@@ -34,18 +38,20 @@ export function PostponeProjectDialog({
   });
 
   const submit = async (data: PostponeProjectFormValues) => {
-    if (!project) return;
+    if (!project || busy.current || error === "businessAudit.stale") return;
+    if (!confirming) { setConfirming(true); return; }
+    busy.current = true; setError(null);
     try {
       await postponeProject.mutateAsync({ projectId: project.id, reason: data.reason });
-      reset();
+      reset(); setConfirming(false);
       onOpenChange(false);
-    } catch {
-      alert(translateI18n("projectAction.postponeFailed"));
-    }
+    } catch (cause) {
+      setError((cause as {status?:number})?.status === 409 ? "businessAudit.stale" : "businessAudit.failed");
+    } finally { busy.current = false; }
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={value => { if (!busy.current) { setConfirming(false); if (!value) setError(null); onOpenChange(value); } }}>
       <DialogHeader>
         <div className="mb-1 flex items-center gap-2 text-amber-500">
           <CalendarClock className="h-5 w-5" />
@@ -62,16 +68,18 @@ export function PostponeProjectDialog({
           </label>
           <textarea
             rows={3}
-            {...register("reason")}
+            {...register("reason", { onChange: () => project && postponeProject.prepare?.(project.id) })}
             className="flex w-full rounded-md border border-input bg-card px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-primary"
-            disabled={isSubmitting}
+            disabled={isSubmitting || confirming}
           />
           {errors.reason && <p className="mt-1 text-xs text-destructive">{translateI18n("projectAction.postponeReasonMin")}</p>}
         </div>
+        {confirming && <p className="whitespace-pre-wrap text-sm">{translateI18n("businessAudit.check")} {project ? translateProjectStatus(project.status) : "-"} {" -> "} {translateI18n("projectStatus.POSTPONED")}</p>}
+        {error && <p role="alert" className="text-sm text-destructive">{translateI18n(error)}</p>}
         <DialogFooter>
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isSubmitting}>{translateI18n("common.cancel")}</Button>
-          <Button type="submit" disabled={isSubmitting} className="bg-amber-500 text-black hover:bg-amber-600">
-            {translateI18n(isSubmitting ? "common.saving" : "projectAction.confirmPostpone")}
+          <Button type="button" variant="outline" onClick={() => { setConfirming(false); setError(null); onOpenChange(false); }} disabled={isSubmitting}>{translateI18n("common.cancel")}</Button>
+          <Button type="submit" disabled={isSubmitting || error === "businessAudit.stale"} className="bg-amber-500 text-black hover:bg-amber-600">
+            {translateI18n(isSubmitting ? "common.saving" : confirming ? "projectAction.confirmPostpone" : "reviewConfirm.continue")}
           </Button>
         </DialogFooter>
       </form>

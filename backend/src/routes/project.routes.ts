@@ -1,4 +1,7 @@
+import { projectCreationRequestId, ProjectCreationRequestError } from '../services/project-creation.service';
 import { Request, Response, Router } from 'express';
+import { ProjectDocumentSharingController } from '../controllers/project-document-sharing.controller';
+import { ProjectEstimatedValueController } from '../controllers/project-estimated-value.controller';
 import { ProjectManagementController } from '../controllers/project-management.controller';
 import { ProjectActivityController } from '../controllers/project-activity.controller';
 import { ProjectPlanApprovalController } from '../controllers/project-plan-approval.controller';
@@ -34,10 +37,20 @@ const projectCreationUpload = uploadMiddleware.fields([
   { name: 'documents', maxCount: MAX_PROJECT_CREATION_OPTIONAL_DOCUMENTS },
 ]);
 
+// Reject unsupported legacy clients before multipart parsing or any persistent operation.
+const requireProjectCreationId = (req: Request,res: Response,next: () => void) => {
+  try { projectCreationRequestId(req.headers['x-project-create-request-id']); next(); }
+  catch (error) { const failure=error as ProjectCreationRequestError; sendError(res,failure.message,{code:failure.code},failure.statusCode); }
+};
 const uploadProjectCreationFiles = handleMultipartUpload(projectCreationUpload, 'Invalid project document upload.');
 
 // Seluruh endpoint Project diproteksi dengan JWT Authentication
 router.use(authenticateJwt);
+router.get('/:projectId/document-sharing',requireRoles(['HEAD_SA','SUPER_ADMIN']),ProjectDocumentSharingController.get);
+router.put('/:projectId/document-sharing',requireRoles(['HEAD_SA','SUPER_ADMIN']),ProjectDocumentSharingController.save);
+router.patch('/:projectId/estimated-value', requireRoles(['SALES']), ProjectEstimatedValueController.update);
+router.post('/:projectId/phases/on-submission-tender', requireRoles(['SALES']), ProjectManagementController.continuePhase);
+router.post('/:projectId/phases/pra-tender/close', requireRoles(['SALES']), ProjectManagementController.closePraTender);
 
 // 1. Project List & Detail (Accessible by all internal roles)
 router.get('/', ProjectManagementController.list);
@@ -123,6 +136,7 @@ router.get('/:id', ProjectManagementController.get);
 router.post(
   '/',
   requireRoles(['SALES']),
+  requireProjectCreationId,
   uploadProjectCreationFiles,
   ProjectManagementController.create
 );

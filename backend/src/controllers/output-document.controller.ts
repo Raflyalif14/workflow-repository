@@ -1,3 +1,5 @@
+import { BusinessAuditError, businessRequestContext } from '../services/business-audit.service';
+import { DocumentAccessError } from '../services/document-access.service';
 import { Response } from 'express';
 import { ZodError } from 'zod';
 import { AuthenticatedRequest } from '../middlewares/auth.middleware';
@@ -19,7 +21,7 @@ const run = async (res: Response, action: () => Promise<unknown>, message: strin
   try {
     sendSuccess(res, message, await action(), status);
   } catch (error: any) {
-    if (error instanceof OutputDocumentError) {
+    if (error instanceof BusinessAuditError || error instanceof OutputDocumentError || error instanceof DocumentAccessError) {
       sendError(res, error.message, null, error.statusCode);
       return;
     }
@@ -114,7 +116,7 @@ export class OutputDocumentController {
         return OutputDocumentService.updateChecklist(
           getRouteParam(req, 'projectId'),
           keys,
-          actor(req)
+          actor(req), businessRequestContext(req.headers)
         );
       },
       'Output documents checklist updated successfully'
@@ -168,7 +170,7 @@ export class OutputDocumentController {
       res.setHeader('Content-Length', zipBuffer.length);
       res.status(200).send(zipBuffer);
     } catch (error: any) {
-      if (error instanceof OutputDocumentError) {
+      if (error instanceof BusinessAuditError || error instanceof OutputDocumentError || error instanceof DocumentAccessError) {
         sendError(res, error.message, null, error.statusCode);
         return;
       }

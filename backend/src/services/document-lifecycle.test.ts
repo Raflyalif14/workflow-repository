@@ -1,3 +1,4 @@
+import { installRestrictedRepositoryFixture } from '../test-utils/repository-access.fixture';
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import { supabaseAdmin } from '../config/supabase';
@@ -236,7 +237,7 @@ async function verifySignedDownloadErrorSafety(): Promise<void> {
   const originals = {
     getRawVersion: service.getRawVersion,
     getRawDocument: service.getRawDocument,
-    assertDocumentAccess: service.assertDocumentAccess,
+    readRepositoryAccess: service.readRepositoryAccess,
   };
   const rawProviderError = 'storage.objects lookup failed for private bucket';
 
@@ -258,9 +259,9 @@ async function verifySignedDownloadErrorSafety(): Promise<void> {
       );
     }
 
-    service.getRawVersion = async () => ({ id: 'version-download', document_id: 'document-download', storage_path: 'project-1/document-1/file.pdf' });
+    service.getRawVersion = async () => ({ status:'APPROVED',is_latest:true,id: 'version-download', document_id: 'document-download', storage_path: 'project-1/document-1/file.pdf' });
     service.getRawDocument = async () => ({ id: 'document-download', project_id: 'project-1', status: 'APPROVED' });
-    service.assertDocumentAccess = async () => ({ id: 'project-1' });
+    service.readRepositoryAccess = async () => ({ project_access:true });
     try {
       await DocumentService.getDownloadUrl('version-download', actors.salesOwner);
       throw new Error('Expected document download failure');
@@ -280,7 +281,7 @@ async function verifySignedDownloadErrorSafety(): Promise<void> {
     (supabaseAdmin.storage as any).from = originalStorageFrom;
     service.getRawVersion = originals.getRawVersion;
     service.getRawDocument = originals.getRawDocument;
-    service.assertDocumentAccess = originals.assertDocumentAccess;
+    service.readRepositoryAccess = originals.readRepositoryAccess;
   }
 }
 
@@ -573,6 +574,7 @@ async function verifySalesDocumentReadFinality(): Promise<void> {
   };
   const documents = [approvedDocument, submittedDocument];
   let signedDownloadCalls = 0;
+  const restoreAccessFixture = installRestrictedRepositoryFixture(Object.fromEntries(Object.values(actors).map(actor => [actor.userId, actor.role])), () => ({ projects: [{ id:'project-1', sales_id:actors.salesOwner.userId, pic_id:actors.assignedSa.userId }], documents }));
 
   try {
     service.getProject = async () => ({
@@ -593,13 +595,13 @@ async function verifySalesDocumentReadFinality(): Promise<void> {
       storage_path: 'project-1/document-submitted/evidence.pdf',
     });
     service.assertDocumentAccess = async () => ({ id: 'project-1' });
-    service.hydrateDocuments = async (rows: Array<Record<string, unknown>>) => rows;
+    service.hydrateDocuments = async (rows: Array<Record<string, unknown>>) => rows.map(row => ({ ...row, updatedAt:row.updated_at }));
     (DocumentStorageService as any).createSignedDownloadUrl = async () => {
       signedDownloadCalls += 1;
       return 'https://signed.example/temporary';
     };
     (supabaseAdmin as any).from = (table: string) => {
-      if (table !== 'documents') throw new Error(`Unexpected table: ${table}`);
+      if (!['documents','document_repository_access'].includes(table)) throw new Error(`Unexpected table: ${table}`);
       const filters: Array<[string, unknown]> = [];
       const inFilters: Array<[string, unknown[]]> = [];
       const request: any = {
@@ -620,7 +622,7 @@ async function verifySalesDocumentReadFinality(): Promise<void> {
           return request;
         },
         then: (resolve: (value: unknown) => unknown, reject?: (reason: unknown) => unknown) => {
-          const data = documents.filter((document) =>
+          const data = (table === 'documents' ? documents : []).filter((document) =>
             filters.every(([field, value]) => document[field as keyof typeof document] === value) &&
             inFilters.every(([field, values]) => values.includes(document[field as keyof typeof document]))
           ).slice(request.pageStart || 0, (request.pageEnd ?? documents.length - 1) + 1);
@@ -662,6 +664,7 @@ async function verifySalesDocumentReadFinality(): Promise<void> {
     const headSaDownload = await DocumentService.getDownloadUrl('version-submitted', actors.headSa);
     assert(headSaDownload.url === 'https://signed.example/temporary' && signedDownloadCalls === 1, 'Test 12c: HEAD_SA retains signed download access to a non-final document');
   } finally {
+    restoreAccessFixture();
     (supabaseAdmin as any).from = originalFrom;
     (DocumentStorageService as any).createSignedDownloadUrl = originalSignedDownload;
     service.getProject = originals.getProject;

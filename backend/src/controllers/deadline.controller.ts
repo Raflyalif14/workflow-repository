@@ -1,3 +1,4 @@
+import { businessRequestContext } from '../services/business-audit.service';
 import { Response } from 'express';
 import { AuthenticatedRequest } from '../middlewares/auth.middleware';
 import { DeadlineService } from '../services/deadline.service';
@@ -26,7 +27,7 @@ export class DeadlineController {
   static async saveMilestoneDeadline(req: AuthenticatedRequest, res: Response): Promise<void> {
     try {
       const input = req.body as SaveMilestoneDeadlineInput;
-      const result = await DeadlineService.saveMilestoneDeadline(getRouteParam(req, 'milestoneId'), input, req.user!);
+      const result = await DeadlineService.saveMilestoneDeadline(getRouteParam(req, 'milestoneId'), input, req.user!, businessRequestContext(req.headers));
       sendSuccess(res, 'Milestone deadline saved successfully', result);
     } catch (error) {
       sendDeadlineError(res, error, 'Failed to save milestone deadline.', 'saveMilestoneDeadline');

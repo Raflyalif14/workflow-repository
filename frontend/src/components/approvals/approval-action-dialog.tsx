@@ -1,9 +1,12 @@
 "use client";
 
 import { translate as translateI18n, translateStoredError, translateRole, getIntlLocale } from "@/i18n";
+import { ApiError } from '@/lib/api-client';
+import { picErrorKey, retainPicRequest, type PicRequest } from '@/lib/pic-assignment-request';
+import { runConfirmedDecision } from "@/lib/phase-review";
 import { useLanguage } from "@/components/i18n/language-provider";
 
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import {
   Dialog,
   DialogHeader,
@@ -38,17 +41,23 @@ export function ApprovalActionDialog({
   initialAction = "APPROVE",
 }: ApprovalActionDialogProps) {
   useLanguage();
+  const intent = useRef<PicRequest | null>(null);
+  const busy = useRef(false);
+  const [reviewedPicName, setReviewedPicName] = useState("");
+  const [reviewedRevision, setReviewedRevision] = useState<string | undefined>();
   const processMutation = useProcessApproval();
   const projectQuery = useProject(item?.category === "PROJECT_PLAN" ? item.projectId : "");
 
   const [action, setAction] = useState<"APPROVE" | "REJECT">(initialAction || "APPROVE");
+  const [reviewedItemId, setReviewedItemId] = useState<string | null>(null);
+  const [confirming, setConfirming] = useState(false);
   const [feedback, setFeedback] = useState("");
   const [picId, setPicId] = useState("");
   const [error, setError] = useState("");
 
   const isProjectPlanApproval = item?.category === "PROJECT_PLAN" && action === "APPROVE";
-  const workflowModel = projectQuery.data?.scenario?.workflow_model;
-  const workflowVersion = projectQuery.data?.scenario?.workflow_version;
+  const workflowModel = (projectQuery.data?.active_scenario || projectQuery.data?.scenario)?.workflow_model;
+  const workflowVersion = (projectQuery.data?.active_scenario || projectQuery.data?.scenario)?.workflow_version;
   const isOperationalV2 = workflowModel === "OPERATIONAL_V2" && workflowVersion === 2;
   const isLegacy = workflowModel === "LEGACY" && workflowVersion === 1;
   const requiresPic = isProjectPlanApproval && isOperationalV2;
@@ -63,6 +72,7 @@ export function ApprovalActionDialog({
       setAction(initialAction);
     }
     if (!open) {
+      setConfirming(false); intent.current = null;
       setFeedback("");
       setPicId("");
       setError("");
@@ -71,16 +81,19 @@ export function ApprovalActionDialog({
 
   React.useEffect(() => {
     setPicId("");
+    setConfirming(false);
   }, [action, item?.id]);
 
   if (!item) return null;
 
   const isPending = item.status === "PENDING";
-  const canProcess = isPending && item.isCurrentApproval !== false;
+  const recoveringReceipt = confirming && (item.category === 'DEADLINE' || !!intent.current)
+    && item.id === reviewedItemId && (error === (item.category === 'DEADLINE' ? 'reviewConfirm.failed' : 'picOperation.failed') || busy.current || processMutation.isPending);
+  const canProcess = (isPending && item.isCurrentApproval !== false) || recoveringReceipt;
 
   const handleDecision = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!canProcess) return;
+    if (error === "businessAudit.stale" || !canProcess || busy.current || processMutation.isPending || (item.category === "PROJECT_PLAN" && projectQuery.isFetching)) return;
 
     if (action === "REJECT" && (!feedback.trim() || feedback.trim().length < 5)) {
       setError("approvalDialog.reasonMin");
@@ -96,22 +109,33 @@ export function ApprovalActionDialog({
     }
 
     setError("");
+    if (!confirming) {
+      if (item.category === "PROJECT_PLAN" && (isOperationalV2 || projectQuery.data?.active_phase_id) && projectQuery.data?.pic_revision === undefined) { setError('picOperation.failed'); return; }
+      setReviewedPicName(projectQuery.data?.pic?.full_name || projectQuery.data?.pic?.fullName || translateI18n('ui.unassigned')); setReviewedRevision(projectQuery.data?.pic_revision); setReviewedItemId(item.id); setConfirming(true); return;
+    }
+    busy.current = true;
+    if (item.category === 'PROJECT_PLAN' && reviewedRevision !== undefined) {
+      intent.current = retainPicRequest(intent.current, reviewedRevision, { approval: reviewedItemId, action, feedback: feedback.trim(), picId });
+    }
     try {
-      await processMutation.mutateAsync({
+      await runConfirmedDecision({ confirmed: confirming, current: canProcess && (item.category !== "PROJECT_PLAN" || item.id === reviewedItemId), reason: feedback, reasonRequired: action === "REJECT" }, () => processMutation.mutateAsync({
         item,
         action,
         feedback: feedback.trim() || undefined,
         picId: requiresPic ? picId : undefined,
-      });
+        expectedPicRevision: intent.current?.revision, requestId: intent.current?.id,
+      }));
       onOpenChange(false);
       setFeedback("");
-    } catch {
-      setError("approvalDialog.processFailed");
-    }
+    } catch (failure) {
+      const code = failure instanceof ApiError ? failure.code : undefined;
+      setError(failure instanceof ApiError && failure.status === 409 && code !== 'PIC_CONFLICT' ? 'businessAudit.stale' : item.category === 'PROJECT_PLAN' ? picErrorKey(code) : 'reviewConfirm.failed');
+      if (code === 'PIC_CONFLICT') { setConfirming(false); intent.current = null; await projectQuery.refetch(); }
+    } finally { busy.current = false; }
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={value => !busy.current && !processMutation.isPending && onOpenChange(value)}>
       <DialogHeader className="mb-5 space-y-0">
         <div className="flex items-start gap-3">
           <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-primary/15 bg-primary/10 text-primary">
@@ -127,6 +151,7 @@ export function ApprovalActionDialog({
         </div>
       </DialogHeader>
 
+      {confirming && requiresPic && <p className="mb-2 text-sm">{translateI18n('picOperation.reviewPic', { before: reviewedPicName, after: pics.find(pic => pic.id === picId)?.full_name || picId })}</p>}
       <div className="space-y-4">
         {/* Ticket Summary Box */}
         <div className="space-y-3 rounded-xl border border-border/60 bg-muted/10 p-4 text-xs shadow-sm">
@@ -152,6 +177,7 @@ export function ApprovalActionDialog({
           {item.category === "PROJECT_PLAN" && (
             <div className="space-y-1 rounded-xl border border-border/40 bg-card/70 p-3">
               <p>{translateI18n("copy.projectColon")} <strong className="text-foreground">{item.projectName}</strong></p>
+              {item.phaseName && <p>{translateI18n("projectPhase.label", { phase: item.phaseName })}</p>}
               {item.requestNote && <p>{translateI18n("copy.planNote")} <strong className="text-foreground">&quot;{item.requestNote}&quot;</strong></p>}
               {item.reviewNote && <p>{translateI18n("copy.reviewNoteLabel")} <strong className="text-foreground">&quot;{item.reviewNote}&quot;</strong></p>}
             </div>
@@ -222,9 +248,11 @@ export function ApprovalActionDialog({
                 ) : isOperationalV2 ? (
                   <select
                     id="approval-project-plan-pic"
+                    disabled={processMutation.isPending}
                     value={picId}
                     onChange={(event) => {
-                      setPicId(event.target.value);
+                      setConfirming(false);
+                      setPicId(event.target.value); setConfirming(false); intent.current = null;
                       setError("");
                     }}
                     className="flex h-10 w-full rounded-md border border-input bg-card px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-primary"
@@ -257,10 +285,12 @@ export function ApprovalActionDialog({
                     ? translateI18n("approvalDialog.rejectionPlaceholder")
                     : translateI18n("approvalDialog.approvalPlaceholder")
                 }
+                disabled={processMutation.isPending}
                 value={feedback}
                 onChange={(e) => {
+                  setConfirming(false);
                   setFeedback(e.target.value);
-                  setError("");
+                  if (error !== "businessAudit.stale") setError("");
                 }}
                 className="flex w-full rounded-lg border border-input bg-background/50 px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-primary"
                 required={action === "REJECT"}
@@ -276,6 +306,7 @@ export function ApprovalActionDialog({
               </div>
             )}
 
+            {confirming && <p className="text-sm">{translateI18n("reviewConfirm.check")} {item.phaseName || projectQuery.data?.active_scenario?.name || projectQuery.data?.scenario?.name}<strong className="block whitespace-pre-wrap">{feedback.trim()}</strong></p>}
             <DialogFooter className="border-t border-border/40 pt-4">
               <Button
                 type="button"
@@ -288,11 +319,13 @@ export function ApprovalActionDialog({
               </Button>
               <Button
                 type="submit"
-                disabled={processMutation.isPending || projectModelUnavailable || (requiresPic && (picsLoading || picsError || !picId))}
+                disabled={error === "businessAudit.stale" || processMutation.isPending || projectModelUnavailable || (requiresPic && (picsLoading || picsError || !picId))}
                 variant={action === "REJECT" ? "destructive" : "default"}
                 className={action === "APPROVE" ? "h-9 rounded-lg bg-emerald-500 font-semibold text-black hover:bg-emerald-600" : "h-9 rounded-lg"}
               >
-                {translateI18n(processMutation.isPending ? "approvalDialog.processing" : requiresPic ? "approvalDialog.confirmAndAssign" : action === "APPROVE" ? "approvalDialog.confirmApprove" : "approvalDialog.confirmReject")}
+                {processMutation.isPending ? translateI18n("approvalDialog.processing") : !confirming ? translateI18n("reviewConfirm.continue") : item.category === "PROJECT_PLAN"
+                  ? translateI18n(!confirming ? "reviewConfirm.continue" : action === "APPROVE" ? "reviewConfirm.approve" : "reviewConfirm.reject")
+                  : translateI18n(action === "APPROVE" ? "approvalDialog.confirmApprove" : "approvalDialog.confirmReject")}
               </Button>
             </DialogFooter>
           </form>
@@ -303,6 +336,7 @@ export function ApprovalActionDialog({
               <p>{translateI18n("copy.reviewedBy")} <strong className="text-foreground">{item.reviewer?.full_name || item.reviewer?.fullName || "-"}</strong></p>
               {item.reviewNote && <p>{translateI18n("copy.reviewNoteLabel")} <strong className="text-foreground">&quot;{item.reviewNote}&quot;</strong></p>}
             </div>
+            {confirming && <p className="text-sm">{translateI18n("reviewConfirm.check")} {item.phaseName || projectQuery.data?.active_scenario?.name || projectQuery.data?.scenario?.name}<strong className="block whitespace-pre-wrap">{feedback.trim()}</strong></p>}
             <DialogFooter className="border-t border-border/40 pt-4">
               <Button type="button" variant="outline" className="h-9 rounded-lg" onClick={() => onOpenChange(false)}>
                 {translateI18n("common.close")}
@@ -317,7 +351,7 @@ export function ApprovalActionDialog({
 
 function formatDate(value?: string | null) {
   if (!value) return "-";
-  return new Date(value).toLocaleDateString(getIntlLocale(), { dateStyle: "medium" });
+  return new Date(`${value.slice(0,10)}T00:00:00Z`).toLocaleDateString(getIntlLocale(), { dateStyle: "medium", timeZone: "UTC" });
 }
 
 function DeadlineBox({

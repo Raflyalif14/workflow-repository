@@ -1,3 +1,4 @@
+import { picRequestFields } from './assignment-phase5.validator';
 import { z } from 'zod';
 
 const dateOnlySchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'startDate must use YYYY-MM-DD format').refine((value) => {
@@ -42,11 +43,17 @@ export const submitProjectPlanSchema = z.object({
 });
 
 export const approveProjectPlanSchema = z.object({
+  expected_pic_revision: picRequestFields.expected_pic_revision.optional(),
+  request_id: picRequestFields.request_id.optional(),
+  expected_approval_id: z.string().uuid().optional(),
   note: z.string().trim().max(2000).optional(),
   pic_id: z.string().uuid().optional(),
 });
 
 export const rejectProjectPlanSchema = z.object({
+  expected_pic_revision: picRequestFields.expected_pic_revision.optional(),
+  request_id: picRequestFields.request_id.optional(),
+  expected_approval_id: z.string().uuid().optional(),
   note: z.string().trim().min(1, 'note is required').max(2000),
 });
 

@@ -1,4 +1,6 @@
 "use client";
+import { planAndDeadlineApprovals } from "@/lib/approval-queue";
+import { formatActivityDescription } from "@/lib/activity-timeline";
 import { useLanguage } from "@/components/i18n/language-provider";
 
 import { translate as translateI18n, getIntlLocale, type TranslationKey } from "@/i18n";
@@ -19,15 +21,14 @@ import {
   RotateCcw,
   UserRound,
 } from "lucide-react";
-import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
 import { useAuth } from "@/components/auth/auth-provider";
+import { PhaseWorkStatusPanel } from "@/components/dashboard/phase-work-status-panel";
 import { HeadSaProjectValuesPanel } from "@/components/dashboard/head-sa-project-values-panel";
 import { useApprovals, useApprovalStats } from "@/hooks/use-approvals";
 import { canReadApprovalOverview } from "@/lib/approval-overview-access";
 import { useDashboard } from "@/hooks/use-dashboard";
 import { AssignedMilestone, useMyAssignedMilestones, useProjects } from "@/hooks/use-projects";
 import {
-  buildDashboardDistribution,
   DashboardProjectHealth,
   DashboardWorkItem,
   formatDashboardActivityLabel,
@@ -52,7 +53,6 @@ import {
   sortDashboardProjectHealth,
   sortSaWorkload,
   shouldShowSaWorkload,
-  shouldShowDashboardInsights,
 } from "@/lib/dashboard-ux";
 import { formatActorRoleLabel } from "@/lib/workflow-ux-helpers";
 import { ApprovalItem } from "@/types/approval";
@@ -91,7 +91,7 @@ const getApprovalPresentation = (item: ApprovalItem) => {
 };
 
 const getHeadSaItems = (approvals: ApprovalItem[], projects: Project[]): DashboardWorkItem[] => {
-  const items: DashboardWorkItem[] = approvals.map((approval) => {
+  const items: DashboardWorkItem[] = planAndDeadlineApprovals(approvals).map((approval) => {
     const presentation = getApprovalPresentation(approval);
     const milestoneSuffix = approval.milestoneName ? ` - ${approval.milestoneName}` : "";
     const requestedAt = formatDashboardDate(approval.requestedAt || approval.submittedAt);
@@ -497,158 +497,6 @@ function ProjectDeliveryRow({
   );
 }
 
-function DeliveryHealthPanel({
-  statusDistribution,
-  scenarioDistribution,
-  projects,
-  role,
-  loading,
-}: {
-  statusDistribution: Array<{ status: string; count: number; color: string }>;
-  scenarioDistribution: Array<{ scenarioName: string; count: number }>;
-  projects: DashboardProjectHealth[];
-  role: string;
-  loading: boolean;
-}) {
-  const statusData = statusDistribution
-    .filter((item) => item.count > 0)
-    .map((item) => ({ name: formatDashboardLabel(item.status), value: item.count, color: item.color }));
-  const statusTotal = statusData.reduce((total, item) => total + item.value, 0);
-  const scenarios = buildDashboardDistribution(
-    scenarioDistribution.map((item) => ({ label: item.scenarioName, count: item.count }))
-  );
-  const projectCompletion = projects.filter((project) => project.percentage !== null).slice(0, 5);
-  const showScenarioBreakdown = scenarios.length > 0 && (
-    shouldShowDashboardInsights(role, scenarios.length, statusData.length) || projectCompletion.length === 0
-  );
-
-  return (
-    <section aria-labelledby="delivery-health-heading" className="rounded-xl border border-border bg-card p-5 sm:p-6">
-      <div className="flex items-start gap-3">
-        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-          <BarChart3 className="h-4 w-4" />
-        </span>
-        <div>
-          <h2 id="delivery-health-heading" className="text-base font-semibold text-foreground">{translateI18n("copy.workCondition")}</h2>
-          <p className="mt-1 text-sm text-muted-foreground">{translateI18n("copy.projectReviewStatus")}</p>
-        </div>
-      </div>
-
-      {loading && statusData.length === 0 ? (
-        <div className="mt-6 grid gap-6 sm:grid-cols-2" aria-label={translateI18n("dashboardPage.loadingHealth")}>
-          <div className="mx-auto h-48 w-48 animate-pulse rounded-full bg-muted" />
-          <div className="space-y-4">
-            {[0, 1, 2, 3].map((item) => <div key={item} className="h-9 animate-pulse rounded bg-muted" />)}
-          </div>
-        </div>
-      ) : (
-        <div className="mt-6 grid gap-7 sm:grid-cols-[minmax(220px,0.85fr)_minmax(0,1.15fr)] sm:items-center">
-          <div>
-            {statusData.length > 0 ? (
-              <>
-                <div className="relative mx-auto h-48 w-full max-w-[240px]">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={statusData}
-                        dataKey="value"
-                        nameKey="name"
-                        cx="50%"
-                        cy="50%"
-                        innerRadius={57}
-                        outerRadius={78}
-                        paddingAngle={2}
-                        stroke="none"
-                        isAnimationActive={false}
-                      >
-                        {statusData.map((entry) => <Cell key={entry.name} fill={entry.color} />)}
-                      </Pie>
-                      <Tooltip
-                        formatter={(value) => [Number(value), translateI18n("dashboardPage.chartProjects")]}
-                        contentStyle={{
-                          background: "hsl(var(--popover))",
-                          border: "1px solid hsl(var(--border))",
-                          borderRadius: "8px",
-                          color: "hsl(var(--popover-foreground))",
-                          fontSize: "12px",
-                        }}
-                      />
-                    </PieChart>
-                  </ResponsiveContainer>
-                  <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-                    <span className="text-2xl font-semibold text-foreground">{statusTotal}</span>
-                    <span className="text-xs text-muted-foreground">{translateI18n("ui.projectUnit")}</span>
-                  </div>
-                </div>
-                <div className="mt-2 flex flex-wrap justify-center gap-x-4 gap-y-2">
-                  {statusData.map((item) => (
-                    <span key={item.name} className="inline-flex items-center gap-2 text-xs text-muted-foreground">
-                      <span className="h-2 w-2 rounded-full" style={{ backgroundColor: item.color }} />
-                      {item.name} {item.value}
-                    </span>
-                  ))}
-                </div>
-              </>
-            ) : (
-              <div className="py-10 text-center">
-                <p className="text-sm font-medium text-foreground">{translateI18n("copy.noStatusData")}</p>
-                <p className="mt-1 text-xs leading-5 text-muted-foreground">{translateI18n("copy.distributionEmpty")}</p>
-              </div>
-            )}
-          </div>
-
-          <div className="min-w-0">
-            <p className="text-xs font-medium text-muted-foreground">
-              {showScenarioBreakdown ? translateI18n("dashboardPage.byScenario") : translateI18n("dashboardPage.projectCompletion")}
-            </p>
-            <div className="mt-4 space-y-4">
-              {showScenarioBreakdown ? (
-                scenarios.map((item) => (
-                  <div key={item.label}>
-                    <div className="flex items-center justify-between gap-3 text-xs">
-                      <span className="min-w-0 break-words text-foreground">{item.label}</span>
-                      <span className="shrink-0 text-muted-foreground">
-                        {item.count} ({item.percentage}%)
-                      </span>
-                    </div>
-                    <div className="mt-2 h-2 overflow-hidden rounded-full bg-muted">
-                      <div className="h-full rounded-full bg-primary" style={{ width: String(item.percentage) + "%" }} />
-                    </div>
-                  </div>
-                ))
-              ) : projectCompletion.length > 0 ? (
-                projectCompletion.map((project) => (
-                  <div key={project.id}>
-                    <div className="flex items-center justify-between gap-3 text-xs">
-                      <span className="min-w-0 truncate text-foreground">{project.name}</span>
-                      <span className="shrink-0 text-muted-foreground">{project.percentage}%</span>
-                    </div>
-                    <div className="mt-2 h-2 overflow-hidden rounded-full bg-muted">
-                      <div
-                        className="h-full rounded-full bg-primary"
-                        style={{ width: String(Math.min(100, Math.max(0, project.percentage || 0))) + "%" }}
-                      />
-                    </div>
-                  </div>
-                ))
-              ) : scenarios.length > 0 ? (
-                scenarios.map((item) => (
-                  <div key={item.label} className="flex items-center justify-between gap-4 border-b border-border pb-3 last:border-0 last:pb-0">
-                    <span className="text-sm text-foreground">{item.label}</span>
-                    <span className="text-sm font-medium text-muted-foreground">{item.count}</span>
-                  </div>
-                ))
-              ) : (
-                <p className="text-sm leading-6 text-muted-foreground">{translateI18n("copy.completionUnavailable")}</p>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-    </section>
-  );
-}
-
 function QuickInsightsPanel({
   insights,
   loading,
@@ -844,12 +692,10 @@ export default function DashboardPage() {
     onHoldProjects: summary?.onHoldProjects || 0,
     postponedProjects: summary?.postponedProjects || 0,
     overdueMilestones: summary?.overdueMilestones || 0,
-    waitingApproval: summary?.waitingApproval ?? (canLoadApprovalOverview ? approvalStatsQuery.data?.totalPending : undefined) ?? 0,
+    waitingApproval: (canLoadApprovalOverview ? approvalStatsQuery.data?.totalPending : undefined) ?? summary?.waitingApproval ?? 0,
   };
   const projectProgress = dashboardQuery.data?.projectProgress || [];
   const recentActivity = dashboardQuery.data?.recentActivity || [];
-  const statusDistribution = dashboardQuery.data?.statusDistribution || [];
-  const scenarioDistribution = dashboardQuery.data?.scenarioDistribution || [];
   const outputDocuments = dashboardQuery.data?.outputDocuments || { reviewQueue: [], revisionQueue: [], salesProgress: [] };
   const saWorkload = sortSaWorkload(dashboardQuery.data?.saWorkload || []);
   const projects = projectsQuery.data?.projects || [];
@@ -885,7 +731,7 @@ export default function DashboardPage() {
     approvals,
     milestones: assignedMilestones,
     summary: summaryForMetrics,
-    outputReviewCount: outputDocuments.reviewQueue.reduce((total, item) => total + item.count, 0),
+    outputReviewCount: approvalStatsQuery.data?.pendingDocs ?? outputDocuments.reviewQueue.reduce((total, item) => total + item.count, 0),
   });
   const metricValues = new Map(calculatedMetrics.map((metric) => [metric.label, metric.value]));
   const metrics = getDashboardKpiLabels(userRole).map((label) => ({
@@ -900,6 +746,7 @@ export default function DashboardPage() {
   const hasPartialError =
     dashboardQuery.isError ||
     projectsQuery.isError ||
+    (canLoadApprovalOverview && approvalStatsQuery.isError) ||
     (isHeadSa && approvalsQuery.isError) ||
     (isSa && assignedMilestonesQuery.isError);
 
@@ -969,7 +816,6 @@ export default function DashboardPage() {
     void dashboardQuery.refetch();
     void projectsQuery.refetch();
     if (canLoadApprovalOverview) void approvalStatsQuery.refetch();
-    if (isHeadSa) void approvalsQuery.refetch();
     if (isSa) void assignedMilestonesQuery.refetch();
   };
 
@@ -1052,12 +898,13 @@ export default function DashboardPage() {
       )}
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px] lg:items-start">
-        <DeliveryHealthPanel
-          statusDistribution={statusDistribution}
-          scenarioDistribution={scenarioDistribution}
-          projects={projectDelivery}
-          role={userRole}
+        <PhaseWorkStatusPanel
+          summary={dashboardQuery.data?.phaseWorkStatus}
+          allSummary={dashboardQuery.data?.allWorkStatus}
           loading={dashboardQuery.isLoading}
+          hasError={dashboardQuery.isError}
+          refreshing={dashboardQuery.isFetching}
+          onRetry={() => { void dashboardQuery.refetch(); }}
         />
         <QuickInsightsPanel
           insights={quickInsights}
@@ -1161,7 +1008,7 @@ export default function DashboardPage() {
                   <p className="text-sm font-medium text-foreground">{formatDashboardActivityLabel(activity.action)}</p>
                   <div className="min-w-0">
                     <p className="break-words text-sm text-foreground">{activity.project?.name || "Project unavailable"}</p>
-                    <p className="mt-1 break-words text-xs leading-5 text-muted-foreground">{activity.details}</p>
+                    <p className="mt-1 break-words text-xs leading-5 text-muted-foreground">{formatActivityDescription(activity.action, activity.details)}</p>
                   </div>
                   <p className="text-xs text-muted-foreground">
                     {[activity.user.fullName, formatActorRoleLabel(activity.user.role)].filter(Boolean).join(" - ")}

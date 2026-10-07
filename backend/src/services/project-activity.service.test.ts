@@ -38,6 +38,7 @@ const makeState = (): ActivityState => ({
 
 class QueryMock {
   private filters: Array<[string, unknown]> = [];
+  private exclusions: Array<[string, unknown]> = [];
   private ids: string[] = [];
   private cursor = '';
   private max = Number.POSITIVE_INFINITY;
@@ -46,6 +47,7 @@ class QueryMock {
   constructor(private readonly state: ActivityState, private readonly table: string) {}
   select() { return this; }
   eq(column: string, value: unknown) { this.filters.push([column, value]); return this; }
+  neq(column: string, value: unknown) { this.exclusions.push([column, value]); return this; }
   in(_column: string, values: string[]) { this.ids = values; return this; }
   order() { return this; }
   limit(value: number) { this.max = value; return this; }
@@ -62,6 +64,7 @@ class QueryMock {
         ? this.state.activities
         : this.state.users;
     let rows = source.filter((row) => this.filters.every(([column, value]) => row[column] === value));
+    rows = rows.filter(row => this.exclusions.every(([column,value]) => row[column] !== value));
     if (this.ids.length) rows = rows.filter((row) => this.ids.includes(row.id));
 
     if (this.table === 'activity_logs') {
@@ -89,6 +92,17 @@ async function withState<T>(state: ActivityState, action: () => Promise<T>): Pro
 }
 
 async function run() {
+  const auditState = makeState();
+  auditState.activities[2] = { ...auditState.activities[2], action: 'PROJECT_ESTIMATED_VALUE_CHANGED',
+    estimated_value_audit: { before: '100.00', after: '250.50', request_id: 'internal-receipt', object_type: 'PROJECT', object_id: 'project-1' } };
+  await withState(auditState, async () => {
+    for (const actor of [salesOwner, headSa]) {
+      const item = (await ProjectActivityService.list('project-1', { limit: 1 }, actor)).items[0];
+      assert.deepEqual(item.estimatedValueChange, { before: '100.00', after: '250.50' });
+      assert(!JSON.stringify(item).includes('internal-receipt'), 'Receipt internals are not returned by history');
+    }
+    await assert.rejects(() => ProjectActivityService.list('project-1', { limit: 1 }, salesOther), ProjectActivityError);
+  });
   await withState(makeState(), async () => {
     const firstPage = await ProjectActivityService.list('project-1', { limit: 2 }, admin);
     assert.deepEqual(firstPage.items.map((item) => item.id), [ids.newest, ids.sameTimestamp], 'Test 1: activities are newest-first with ID tie-breaking');

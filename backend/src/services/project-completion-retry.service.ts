@@ -1,3 +1,4 @@
+import { phaseRows } from './project-phase.service';
 import { supabaseAdmin } from '../config/supabase';
 import {
   advanceToNextMilestone,
@@ -21,7 +22,7 @@ export async function retryProjectCompletion(projectId: string, actor: RetryActo
   // 1. Verify access & load project
   const { data: project, error: projectError } = await supabaseAdmin
     .from('projects')
-    .select('id,name,sales_id,pic_id,status,is_postponed,scenario_id,selected_document_keys')
+    .select('id,name,sales_id,pic_id,status,is_postponed,scenario_id,current_scenario_id,active_phase_id,selected_document_keys')
     .eq('id', projectId)
     .single();
 
@@ -52,15 +53,16 @@ export async function retryProjectCompletion(projectId: string, actor: RetryActo
   }
 
   // 5. Verify all milestones COMPLETED/APPROVED
-  const { data: milestones, error: milestoneError } = await supabaseAdmin
+  const { data: storedMilestones, error: milestoneError } = await supabaseAdmin
     .from('project_milestones')
-    .select('id,status,step_order')
+    .select('id,status,step_order,phase_id')
     .eq('project_id', projectId)
     .order('step_order', { ascending: false });
 
   if (milestoneError) {
     throw new ProjectCompletionRetryError('Failed to verify milestones.', 500);
   }
+  const milestones = phaseRows(storedMilestones || [], project.active_phase_id);
   if (!milestones?.length) {
     throw new ProjectCompletionRetryError('Project has no milestones.');
   }
@@ -83,9 +85,9 @@ export async function retryProjectCompletion(projectId: string, actor: RetryActo
     throw new ProjectCompletionRetryError('Project output documents are not available for completion verification.');
   }
   const { data: scenario, error: scenarioError } = await supabaseAdmin.from('scenarios')
-    .select('name').eq('id', project.scenario_id).single();
+    .select('name').eq('id', project.current_scenario_id || project.scenario_id).single();
   if (scenarioError || !scenario) throw new ProjectCompletionRetryError('Failed to verify project scenario.', 500);
-  if (!areExpectedProjectOutputsApproved(project.selected_document_keys, scenario.name, outputDocuments)) {
+  if (!areExpectedProjectOutputsApproved(project.selected_document_keys, scenario.name, outputDocuments, Boolean(project.active_phase_id))) {
     throw new ProjectCompletionRetryError(
       'Not all selected output documents are approved. Complete them before retrying.'
     );
@@ -95,13 +97,13 @@ export async function retryProjectCompletion(projectId: string, actor: RetryActo
   const lastMilestone = milestones[0];
   try {
     const progression = await advanceToNextMilestone(projectId, lastMilestone.id, actor);
-    if (!progression.project_completed) {
+    if (!progression.project_completed && !('phase_completed' in progression && progression.phase_completed)) {
       throw new ProjectCompletionRetryError('Project completion is not currently eligible for reconciliation.', 409);
     }
 
     return {
       retried: true,
-      status: 'WAITING_RESULT',
+      status: 'phase_completed' in progression && progression.phase_completed ? project.status : 'WAITING_RESULT',
       reason: 'RECONCILED' as const,
     };
   } catch (error) {
