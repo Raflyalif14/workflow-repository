@@ -83,7 +83,7 @@ function ApprovalCenterPageContent() {
   };
 
   return (
-    <div className="mx-auto w-full max-w-[1280px] space-y-5 px-4 py-6 sm:px-6 lg:px-8">
+    <div className="mx-auto w-full max-w-[1600px] space-y-5 px-4 py-6 sm:px-6 xl:px-8">
       <header className="border-b border-border/60 pb-5">
         <p className="text-xs font-semibold uppercase text-primary">
           {translateI18n(canReview ? "approvalUi.headWorkspace" : "approvalUi.oversight")}
@@ -105,7 +105,7 @@ function ApprovalCenterPageContent() {
       </div>}
       <section
         aria-label={translateI18n("approvalUi.snapshot")}
-        className="grid grid-cols-2 overflow-hidden rounded-lg border border-border/60 bg-card lg:grid-cols-4"
+        className="grid grid-cols-2 overflow-hidden page-surface xl:grid-cols-4"
       >
         {snapshot.map((item, index) => (
           <div
@@ -113,8 +113,8 @@ function ApprovalCenterPageContent() {
             className={`border-border/60 px-4 py-3.5 sm:px-5 ${
               index % 2 === 1 ? "border-l" : ""
             } ${index >= 2 ? "border-t" : ""} ${
-              index > 0 ? "lg:border-l" : ""
-            } lg:border-t-0`}
+              index > 0 ? "xl:border-l" : ""
+            } xl:border-t-0`}
           >
             <p className="text-2xl font-semibold text-foreground">{item.value}</p>
             <p className="mt-0.5 text-xs text-muted-foreground">{item.label}</p>
@@ -122,7 +122,7 @@ function ApprovalCenterPageContent() {
         ))}
       </section>
 
-      <section className="overflow-hidden rounded-lg border border-border/60 bg-card">
+      <section className="overflow-hidden page-surface">
         <div className="space-y-4 border-b border-border/60 p-4 sm:p-5">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex gap-2">
@@ -157,7 +157,7 @@ function ApprovalCenterPageContent() {
                 aria-label={translateI18n("approvalUi.historyFilter")}
                 value={historyStatusFilter}
                 onChange={(event) => { setPage(1); setHistoryStatusFilter(event.target.value as ApprovalStatus); }}
-                className="h-9 w-full rounded-md border border-border bg-background px-3 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary sm:w-[180px]"
+                className="h-10 w-full rounded-lg border border-border bg-card px-3 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 sm:w-[180px]"
               >
                 <option value="ALL">{translateI18n("copy.allResolved")}</option>
                 <option value="APPROVED">{translateI18n("milestoneStatus.APPROVED")}</option>
@@ -173,7 +173,8 @@ function ApprovalCenterPageContent() {
                 key={option.key}
                 variant={categoryTab === option.key ? "secondary" : "ghost"}
                 size="sm"
-                className="shrink-0"
+                aria-pressed={categoryTab === option.key}
+                className={categoryTab === option.key ? "shrink-0 bg-primary-soft text-primary" : "shrink-0"}
                 onClick={() => { setPage(1); setCategoryTab(option.key); }}
               >
                 {translateI18n(option.label)}
@@ -286,7 +287,7 @@ function ApprovalRow({
         onOpenProject();
       }}
     >
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+      <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <ApprovalCategoryIcon category={item.category} />
@@ -306,7 +307,7 @@ function ApprovalRow({
           {item.category === "OUTPUT_DOCUMENT" && <div className="mt-2 space-y-1 text-xs text-muted-foreground">
             <p className="break-words">{item.phaseName}{"\u00b7"} {item.milestoneName}</p>
             <p>{translateI18n("outputQueue.snapshot", { version: item.versionNumber ?? "\u2014", count: item.fileCount ?? "\u2014" })}</p>
-            {item.reviewBlockedReason && <p className="text-amber-400">{translateI18n(`outputQueue.${item.reviewBlockedReason}`)}</p>}
+            {item.reviewBlockedReason && <p className="text-warning">{translateI18n(`outputQueue.${item.reviewBlockedReason}`)}</p>}
           </div>}
           <ApprovalSummary item={item} />
         </div>
@@ -433,7 +434,7 @@ function formatDate(value?: string | null) {
 
 function ApprovalCategoryIcon({ category }: { category: ApprovalItem["category"] }) {
   if (category === "DEADLINE") {
-    return <CalendarClock className="h-3.5 w-3.5 text-amber-400" />;
+    return <CalendarClock className="h-3.5 w-3.5 text-warning" />;
   }
   return <ClipboardCheck className="h-3.5 w-3.5 text-primary" />;
 }

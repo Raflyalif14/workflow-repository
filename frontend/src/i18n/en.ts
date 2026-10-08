@@ -140,6 +140,7 @@ export const en = {
     unexpectedError: "An unexpected error occurred",
   },
   nav: {
+    workspaceNavigation: "Workspace navigation", userAccount: "User account",
     dashboard: "Dashboard",
     projects: "Projects",
     milestones: "Milestones",
@@ -543,6 +544,12 @@ export const en = {
     postponed: "Postponed",
   },
   dashboardPage: {
+    noDirectSalesAction: "No action is needed from you right now.",
+    recentActivityScope: "Accessible project activity, newest first.",
+    activityPagination: "Recent activity pages",
+    activityPage: "Page {page}",
+    activityPrevious: "Previous",
+    summary: "Workspace summary", actionableNow: "Actions for you", waitingOnOthers: "Waiting on others",
     allScenarios: "All scenarios",
     allProjectsTotal: "Total projects",
     praProjectsTotal: "Active or postponed projects",

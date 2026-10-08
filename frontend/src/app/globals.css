@@ -4,87 +4,85 @@
 
 @layer base {
   :root {
-    color-scheme: dark;
-    /* ─── Premium Enterprise Dark Theme ─── */
-    --background: 220 12% 12%;
-    --foreground: 210 20% 94%;
-
-    --card: 220 12% 15%;
-    --card-foreground: 210 20% 94%;
-
-    --popover: 220 12% 16%;
-    --popover-foreground: 210 20% 94%;
-
-    --primary: 221 83% 53%;
+    color-scheme: light;
+    --background: 240 12.5% 96.9%; /* #f6f6f8 */
+    --foreground: 222 35% 16%;
+    --card: 0 0% 100%;
+    --card-foreground: 222 35% 16%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 35% 16%;
+    --primary: 221.2 83.2% 53.3%; /* #2563eb */
+    --primary-deep: 224.3 76.3% 48%; /* #1d4ed8 */
+    --primary-soft: 213.8 100% 96.9%; /* #eff6ff */
     --primary-foreground: 0 0% 100%;
-
-    --secondary: 220 11% 19%;
-    --secondary-foreground: 210 20% 92%;
-
-    --muted: 220 10% 18%;
-    --muted-foreground: 218 10% 62%;
-
-    --accent: 220 11% 21%;
-    --accent-foreground: 210 20% 94%;
-
-    --destructive: 0 72% 51%;
+    --secondary: 220 18% 95%;
+    --secondary-foreground: 222 25% 25%;
+    --muted: 220 18% 96%;
+    --muted-foreground: 215 16% 43%;
+    --accent: 213.8 100% 96.9%;
+    --accent-foreground: 224.3 76.3% 48%;
+    --destructive: 0 72% 45%;
     --destructive-foreground: 0 0% 100%;
-
-    --border: 220 10% 23%;
-    --input: 220 11% 22%;
-    --ring: 221 83% 53%;
-    --radius: 0.625rem;
-
-    /* ─── Sidebar Design Tokens ─── */
-    --sidebar-bg: 220 13% 10%;
-    --sidebar-foreground: 218 10% 60%;
-    --sidebar-active: 221 83% 53%;
-    --sidebar-hover: 220 11% 16%;
-    --sidebar-border: 220 10% 19%;
-    --sidebar-width: 228px;
-    --sidebar-collapsed-width: 64px;
-
-    /* ─── Semantic Colors ─── */
-    --success: 142 76% 36%;
+    --border: 220 17% 90%;
+    --input: 218 19% 83%;
+    --ring: 221.2 83.2% 53.3%;
+    --radius: 0.75rem;
+    --shell-radius: 1.125rem;
+    --shell-padding: 0.5rem;
+    --surface-shadow: 0 2px 8px hsl(222 35% 16% / 0.035);
+    --sidebar-bg: 0 0% 100%;
+    --sidebar-foreground: 215 16% 43%;
+    --sidebar-active: 221.2 83.2% 53.3%;
+    --sidebar-hover: 213.8 100% 96.9%;
+    --sidebar-border: 220 17% 90%;
+    --sidebar-width: 248px;
+    --sidebar-collapsed-width: 76px;
+    --success: 152 69% 28%;
     --success-foreground: 0 0% 100%;
-    --warning: 38 92% 50%;
-    --warning-foreground: 0 0% 0%;
-    --info: 199 89% 48%;
+    --warning: 32 94% 32%;
+    --warning-foreground: 0 0% 100%;
+    --info: 201 90% 32%;
     --info-foreground: 0 0% 100%;
   }
-}
-
-@layer base {
-  * {
-    @apply border-border;
-  }
-
+  * { @apply border-border; }
   body {
     @apply bg-background text-foreground antialiased;
-    font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font-family: "Plus Jakarta Sans", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     font-feature-settings: "rlig" 1, "calt" 1;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
+  ::selection { background: hsl(var(--primary) / 0.15); color: hsl(var(--foreground)); }
+  :where(button, a, input, select, textarea, [tabindex]):focus-visible {
+    outline: 2px solid hsl(var(--ring) / 0.55);
+    outline-offset: 3px;
+  }
+  :where(select, textarea) { color-scheme: light; }
+  :where(input[type="checkbox"], input[type="radio"]) { accent-color: hsl(var(--primary)); }
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: hsl(var(--muted-foreground) / 0.25); border-radius: 999px; }
+  ::-webkit-scrollbar-thumb:hover { background: hsl(var(--muted-foreground) / 0.4); }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; }
+  }
+}
 
-  ::selection {
-    background: hsl(var(--primary) / 0.25);
-    color: hsl(var(--primary-foreground));
+@layer components {
+  /* A quiet outer shell and a white inner surface; no extra DOM or lost refs. */
+  .surface-shell {
+    min-width: 0;
+    border-radius: var(--shell-radius);
+    border: 1px solid hsl(var(--border));
+    box-shadow: inset 0 0 0 var(--shell-padding) hsl(var(--muted)), var(--surface-shadow);
+    background: hsl(var(--card));
   }
-
-  /* Custom scrollbar for dark theme */
-  ::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
-  }
-  ::-webkit-scrollbar-track {
-    background: transparent;
-  }
-  ::-webkit-scrollbar-thumb {
-    background: hsl(var(--muted-foreground) / 0.25);
-    border-radius: 999px;
-  }
-  ::-webkit-scrollbar-thumb:hover {
-    background: hsl(var(--muted-foreground) / 0.4);
+  .page-surface, .dashboard-surface { @apply surface-shell; border: var(--shell-padding) solid hsl(var(--muted)); box-shadow: var(--surface-shadow); }
+  [role="tablist"] { @apply rounded-xl bg-muted p-1; }
+  [role="tab"][aria-selected="true"] { @apply bg-card text-primary shadow-sm; }
+  .dashboard-table { min-width: 0; overflow-x: auto; }
+  .dashboard-table > * { min-width: 0; }
+  @media (min-width: 1536px) {
+    .dashboard-table > .delivery-columns, .dashboard-table .delivery-row { min-width: 980px; }
   }
 }

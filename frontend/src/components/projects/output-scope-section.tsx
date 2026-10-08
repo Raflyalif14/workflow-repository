@@ -44,7 +44,7 @@ export function OutputScopeSection({ project }: { project: Project }) {
     }
   };
 
-  return <Card className="border-border/60 bg-card/70 shadow-none">
+  return <Card>
     <CardHeader>
       <CardTitle className="text-base">{translate("outputScope.title")}</CardTitle>
       <CardDescription>{translate("outputScope.help")}</CardDescription>

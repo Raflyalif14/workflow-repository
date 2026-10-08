@@ -134,22 +134,22 @@ export function Sidebar() {
     return pathname.startsWith(href);
   };
 
-  const sidebarContent = (
+  const sidebarContent = (compact: boolean) => (
     <div className="flex flex-col h-full">
       {/* Logo */}
-      <div className="flex h-14 items-center gap-2.5 border-b border-[hsl(var(--sidebar-border))] px-3 shrink-0">
-        <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary/10 text-primary shrink-0">
+      <div className="flex h-20 items-center gap-3 px-5 shrink-0">
+        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary text-primary-foreground shrink-0">
           <Layers className="h-4 w-4" />
         </div>
-        {!collapsed && (
+        {!compact && (
           <div className="overflow-hidden">
-            <h1 className="text-sm font-semibold text-foreground leading-tight">WorkflowHub</h1>
+            <h1 className="text-base font-bold tracking-tight text-foreground leading-tight">WorkflowHub</h1>
           </div>
         )}
       </div>
 
       {/* Dynamic Role Navigation */}
-      <nav className="flex-1 space-y-1 overflow-y-auto px-2 py-3">
+      <nav aria-label={t("nav.workspaceNavigation")} className="flex-1 space-y-1.5 overflow-y-auto px-3 py-4">
         {visibleNavItems.map((item) => {
           const active = isActive(item.href);
           const Icon = item.icon;
@@ -160,12 +160,14 @@ export function Sidebar() {
               key={item.href}
               href={item.href}
               onClick={() => setMobileOpen(false)}
-              title={collapsed ? t(item.labelKey) : undefined}
+              title={compact ? t(item.labelKey) : undefined}
+              aria-label={compact ? t(item.labelKey) : undefined}
+              aria-current={active ? "page" : undefined}
               className={`
-                group relative flex h-10 items-center gap-2.5 rounded-md px-3 text-sm font-medium transition-colors
-                ${collapsed ? "justify-center px-0" : ""}
+                group relative flex min-h-11 items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30
+                ${compact ? "justify-center px-0" : ""}
                 ${active
-                  ? "bg-primary/10 text-foreground"
+                  ? "bg-primary-soft text-primary font-semibold"
                   : "text-[hsl(var(--sidebar-foreground))] hover:bg-[hsl(var(--sidebar-hover))] hover:text-foreground"
                 }
               `}
@@ -178,18 +180,18 @@ export function Sidebar() {
               <div className="relative shrink-0">
                 <Icon
                   className={`h-[17px] w-[17px] transition-colors ${active
-                      ? "text-foreground"
+                      ? "text-primary"
                       : "text-[hsl(var(--sidebar-foreground))] group-hover:text-foreground"
                     }`}
                 />
-                {collapsed && badgeCount > 0 && (
+                {compact && badgeCount > 0 && (
                   <span className="absolute -top-1.5 -right-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[9px] font-bold text-primary-foreground">
                     {badgeCount > 99 ? "99+" : badgeCount}
                   </span>
                 )}
               </div>
 
-              {!collapsed && (
+              {!compact && (
                 <div className="flex flex-1 items-center justify-between overflow-hidden">
                   <span className="truncate leading-tight">{t(item.labelKey)}</span>
                   {badgeCount > 0 && (
@@ -214,12 +216,12 @@ export function Sidebar() {
         {/* Collapse Toggle */}
         <button
           type="button"
-          onClick={() => setCollapsed(!collapsed)}
-          aria-label={collapsed ? t("nav.expandSidebar") : t("nav.collapseSidebar")}
-          className="hidden lg:flex h-10 w-full items-center gap-2.5 rounded-md px-3 text-sm text-[hsl(var(--sidebar-foreground))] hover:bg-[hsl(var(--sidebar-hover))] hover:text-foreground transition-colors"
-          title={collapsed ? t("nav.expandSidebar") : t("nav.collapseSidebar")}
+          onClick={() => setCollapsed(!compact)}
+          aria-label={compact ? t("nav.expandSidebar") : t("nav.collapseSidebar")}
+          className="hidden lg:flex min-h-10 w-full items-center gap-2.5 rounded-md px-3 text-sm text-[hsl(var(--sidebar-foreground))] hover:bg-[hsl(var(--sidebar-hover))] hover:text-foreground transition-colors"
+          title={compact ? t("nav.expandSidebar") : t("nav.collapseSidebar")}
         >
-          {collapsed ? (
+          {compact ? (
             <ChevronRight className="h-[18px] w-[18px] shrink-0 mx-auto" />
           ) : (
             <>
@@ -240,20 +242,26 @@ export function Sidebar() {
           }`}
         style={{ background: "hsl(var(--sidebar-bg))" }}
       >
-        {sidebarContent}
+        {sidebarContent(collapsed)}
       </aside>
 
       {/* Mobile Overlay */}
       {mobileOpen && (
         <div
-          className="lg:hidden fixed inset-0 z-40 bg-background/80"
+          className="lg:hidden fixed inset-0 z-40 bg-slate-950/35"
           onClick={() => setMobileOpen(false)}
         />
       )}
 
       {/* Mobile Sidebar */}
       <aside
-        className={`lg:hidden fixed top-0 left-0 bottom-0 z-50 w-[var(--sidebar-width)] border-r border-[hsl(var(--sidebar-border))] transition-transform duration-300 ease-in-out ${mobileOpen ? "translate-x-0" : "-translate-x-full"
+        id="mobile-navigation"
+        role={mobileOpen ? "dialog" : undefined}
+        aria-modal={mobileOpen ? true : undefined}
+        aria-label={t("nav.workspaceNavigation")}
+        aria-hidden={!mobileOpen}
+        inert={!mobileOpen}
+        className={`lg:hidden fixed top-0 left-0 bottom-0 z-50 max-w-[85vw] w-[var(--sidebar-width)] border-r border-[hsl(var(--sidebar-border))] transition-transform duration-300 ease-in-out ${mobileOpen ? "translate-x-0" : "-translate-x-full"
           }`}
         style={{ background: "hsl(var(--sidebar-bg))" }}
       >
@@ -262,11 +270,11 @@ export function Sidebar() {
           type="button"
           onClick={() => setMobileOpen(false)}
           aria-label={t("nav.closeNavigation")}
-          className="absolute top-4 right-3 p-1 rounded-md text-[hsl(var(--sidebar-foreground))] hover:text-foreground hover:bg-[hsl(var(--sidebar-hover))] transition"
+          className="absolute top-6 right-2 z-10 flex h-9 w-9 items-center justify-center rounded-lg text-[hsl(var(--sidebar-foreground))] hover:text-foreground hover:bg-[hsl(var(--sidebar-hover))] transition"
         >
           <X className="h-5 w-5" />
         </button>
-        {sidebarContent}
+        {sidebarContent(false)}
       </aside>
     </>
   );
@@ -274,7 +282,7 @@ export function Sidebar() {
 
 // ─── Top Bar (Header) Component ───
 export function TopBar() {
-  const { setMobileOpen } = useSidebar();
+  const { setMobileOpen, mobileOpen } = useSidebar();
   const { user, logout } = useAuth();
   const { t } = useLanguage();
   const [globalSearchOpen, setGlobalSearchOpen] = useState(false);
@@ -311,15 +319,17 @@ export function TopBar() {
   };
 
   return (
-    <header className="sticky top-0 z-30 h-14 border-b border-border/50 bg-background/95">
-      <div className="flex h-full items-center justify-between px-4 sm:px-5 lg:px-6">
+    <header className="sticky top-0 z-30 h-16 border-b border-border bg-card/95 backdrop-blur-md">
+      <div className="mx-auto flex h-full max-w-[1600px] items-center justify-between gap-2 px-3 sm:px-6 lg:px-8">
         {/* Left: Mobile Hamburger + Global Search */}
-        <div className="flex items-center gap-3">
+        <div className="flex min-w-0 items-center gap-2">
           <button
             type="button"
             onClick={() => setMobileOpen(true)}
             aria-label={t("nav.openNavigation")}
-            className="lg:hidden p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition"
+            aria-controls="mobile-navigation"
+            aria-expanded={mobileOpen}
+            className="lg:hidden flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition"
           >
             <Menu className="h-5 w-5" />
           </button>
@@ -333,10 +343,10 @@ export function TopBar() {
               aria-expanded={globalSearchOpen}
               aria-haspopup="dialog"
               aria-controls={globalSearchOpen ? "global-search-panel" : undefined}
-              className="flex h-9 w-9 items-center justify-center gap-2 rounded-md px-2 text-left text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground sm:w-72 sm:justify-start sm:px-3 lg:w-80"
+              className="flex h-10 w-10 items-center justify-center gap-2 rounded-xl border border-transparent bg-muted/60 px-2 text-left text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground sm:w-52 sm:justify-start sm:border-border sm:px-3 xl:w-80"
             >
               <Search className="h-3.5 w-3.5 shrink-0" />
-              <span className="hidden sm:inline text-xs">{t("nav.searchPlaceholder")}</span>
+              <span className="hidden sm:inline text-sm">{t("nav.searchPlaceholder")}</span>
               <kbd className="ml-auto hidden rounded border border-border/50 bg-muted/40 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground sm:block">
                 Ctrl K
               </kbd>
@@ -347,16 +357,16 @@ export function TopBar() {
 
         {/* Right: User Profile & Actions */}
         <div className="flex items-center gap-2">
-          <div className="hidden md:block"><LanguageSwitcher compact /></div>
+          <LanguageSwitcher compact />
           <NotificationBell enabled={Boolean(user)} />
 
           <div className="flex h-10 items-center gap-2">
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-secondary text-xs font-semibold text-foreground">
+            <div className="hidden h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary-soft sm:flex text-xs font-bold text-primary">
               {getInitials(user?.fullName)}
             </div>
-            <div className="hidden sm:block text-left">
+            <div className="hidden md:block text-left">
               <p className="max-w-[130px] truncate text-xs font-semibold leading-tight text-foreground">
-                {user?.fullName || "User Account"}
+                {user?.fullName || t("nav.userAccount")}
               </p>
               <p className="text-[10px] leading-tight text-muted-foreground">
                 {formatActorRoleLabel(user?.role)}
@@ -385,6 +395,36 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
 
+  useEffect(() => {
+    if (!mobileOpen) return;
+    const navigation = document.getElementById("mobile-navigation");
+    const previousFocus = document.activeElement as HTMLElement | null;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const focusable = () => Array.from(navigation?.querySelectorAll<HTMLElement>(
+      'a[href], button:not([disabled]), select:not([disabled]), [tabindex="0"]'
+    ) || []).filter(element => element.getClientRects().length > 0);
+    focusable()[0]?.focus();
+    const handleKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") { event.preventDefault(); setMobileOpen(false); }
+      if (event.key !== "Tab") return;
+      const items = focusable();
+      const first = items[0], last = items[items.length - 1];
+      if (!first) { event.preventDefault(); return; }
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+    };
+    const closeOnDesktop = () => { if (window.matchMedia("(min-width: 1024px)").matches) setMobileOpen(false); };
+    document.addEventListener("keydown", handleKey);
+    window.addEventListener("resize", closeOnDesktop);
+    return () => {
+      document.removeEventListener("keydown", handleKey);
+      window.removeEventListener("resize", closeOnDesktop);
+      document.body.style.overflow = previousOverflow;
+      previousFocus?.focus();
+    };
+  }, [mobileOpen]);
+
   return (
     <SidebarContext.Provider
       value={{ collapsed, setCollapsed, mobileOpen, setMobileOpen }}
@@ -394,13 +434,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
         {/* Main Content Area - offset by sidebar width */}
         <div
-          className={`transition-all duration-300 ease-in-out ${collapsed
+          className={`min-w-0 transition-all duration-300 ease-in-out ${collapsed
               ? "lg:ml-[var(--sidebar-collapsed-width)]"
               : "lg:ml-[var(--sidebar-width)]"
             }`}
         >
           <TopBar />
-          <main className="min-h-[calc(100vh-3.5rem)]">
+          <main className="min-h-[calc(100vh-4rem)] min-w-0">
             {children}
           </main>
         </div>

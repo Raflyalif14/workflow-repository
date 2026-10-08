@@ -3,6 +3,42 @@ import { getDateOnlyKeyInTimeZone } from '../utils/dates';
 import { UserRole } from '../validators/auth.validator';
 import { RequestTiming, timeOperation } from '../utils/request-timing';
 
+export const DASHBOARD_ACTIVITY_PAGE_SIZE = 8;
+
+type ActivityCursor = { createdAt: string; id: string };
+export class DashboardActivityError extends Error {
+  constructor(message: string, readonly statusCode: number) { super(message); }
+}
+
+function encodeActivityCursor(row: DashboardActivityRow): string {
+  return Buffer.from(JSON.stringify({ createdAt: row.created_at, id: row.id })).toString('base64url');
+}
+
+function decodeActivityCursor(value?: string): ActivityCursor | null {
+  if (value === undefined) return null;
+  try {
+    if (!value || value.length > 500 || !/^[A-Za-z0-9_-]+$/.test(value)) throw new Error();
+    const parsed = JSON.parse(Buffer.from(value, 'base64url').toString('utf8'));
+    if (!parsed || typeof parsed.createdAt !== 'string' || typeof parsed.id !== 'string'
+      || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(parsed.id)
+      || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?(?:Z|[+-]\d{2}:\d{2})$/.test(parsed.createdAt)
+      || !Number.isFinite(Date.parse(parsed.createdAt))) throw new Error();
+    // Preserve PostgreSQL microseconds; conversion to JS ISO would truncate them.
+    return { createdAt: parsed.createdAt, id: parsed.id };
+  } catch { throw new DashboardActivityError('Invalid activity cursor.', 422); }
+}
+
+function mapRecentActivity(activity: DashboardActivityRow, projects: Map<string, DashboardProjectRow>, users: Map<string, DashboardUserRow>) {
+  const user = activity.user_id ? users.get(activity.user_id) : null;
+  const project = activity.project_id ? projects.get(activity.project_id) : null;
+  return {
+    id: activity.id, action: activity.action, entityType: 'ACTIVITY_LOG',
+    details: activity.description || activity.action, createdAt: activity.created_at,
+    user: { id: user?.id || activity.user_id || 'unknown', fullName: user?.full_name || 'Unknown User', role: user?.role || 'UNKNOWN' },
+    project: project ? { id: project.id, name: project.name, projectCode: project.id.slice(0, 8) } : null,
+  };
+}
+
 export type DashboardActor = {
   userId: string;
   role: UserRole | string;
@@ -417,34 +453,16 @@ export function buildDashboardOverviewFromRows(
       )
     );
 
-  const recentActivity = rows.activityLogs
-    .filter((activity) => activity.project_id && projectIds.has(activity.project_id))
-    .sort((a, b) => b.created_at.localeCompare(a.created_at))
-    .slice(0, 8)
-    .map((activity) => {
-      const user = activity.user_id ? userMap.get(activity.user_id) : null;
-      const project = activity.project_id ? projectMap.get(activity.project_id) : null;
-
-      return {
-        id: activity.id,
-        action: activity.action,
-        entityType: 'ACTIVITY_LOG',
-        details: activity.description || activity.action,
-        createdAt: activity.created_at,
-        user: {
-          id: user?.id || activity.user_id || 'unknown',
-          fullName: user?.full_name || 'Unknown User',
-          role: user?.role || 'UNKNOWN',
-        },
-        project: project
-          ? {
-              id: project.id,
-              name: project.name,
-              projectCode: project.id.slice(0, 8),
-            }
-          : null,
-      };
-    });
+  const activityRows = rows.activityLogs
+    .filter(activity => activity.project_id && projectIds.has(activity.project_id) && activity.action !== 'DOCUMENT_ACCESS_CHANGED')
+    .sort((a, b) => b.created_at.localeCompare(a.created_at) || b.id.localeCompare(a.id));
+  const activityPage = activityRows.slice(0, DASHBOARD_ACTIVITY_PAGE_SIZE);
+  const recentActivity = activityPage.map(activity => mapRecentActivity(activity, projectMap, userMap));
+  const recentActivityPagination = {
+    pageSize: DASHBOARD_ACTIVITY_PAGE_SIZE,
+    nextCursor: activityRows.length > DASHBOARD_ACTIVITY_PAGE_SIZE
+      ? encodeActivityCursor(activityPage[activityPage.length - 1]) : null,
+  };
 
   const postponedProjects = projects.filter((project) => project.status === 'POSTPONED' || project.is_postponed).length;
   const cancelledProjects = statusCounts.get('CANCELLED') || 0;
@@ -555,6 +573,7 @@ export function buildDashboardOverviewFromRows(
     allWorkStatus: buildAllWorkStatus(projects),
     projectProgress,
     recentActivity,
+    recentActivityPagination,
     outputDocuments: {
       reviewQueue: actor.role === 'HEAD_SA' ? countByMilestone('IN_REVIEW') : [],
       revisionQueue: actor.role === 'SA' ? countByMilestone('REVISION_REQUIRED') : [],
@@ -572,14 +591,14 @@ export function toSafeDashboardError(error: unknown, context: string) {
   return new Error('Failed to load dashboard data.');
 }
 
-async function getScopedProjects(actor: DashboardActor) {
+async function getScopedProjects(actor: DashboardActor, activityOnly = false) {
   // All chart aggregates need the full role scope, not Supabase's default row cap.
   const projects: DashboardProjectRow[] = [];
   const pageSize = 250;
   for (let offset = 0; ; offset += pageSize) {
     let query = supabaseAdmin
       .from('projects')
-      .select('id,name,customer,scenario_id,current_scenario_id,active_phase_id,phase_migration_state,active_phase:project_phases!projects_active_phase_id_fkey(id,project_id,scenario_id,phase_key),sales_id,pic_id,status,is_postponed,estimated_revenue,final_contract_value,created_at,updated_at')
+      .select(activityOnly ? 'id,name,sales_id,pic_id' : 'id,name,customer,scenario_id,current_scenario_id,active_phase_id,phase_migration_state,active_phase:project_phases!projects_active_phase_id_fkey(id,project_id,scenario_id,phase_key),sales_id,pic_id,status,is_postponed,estimated_revenue,final_contract_value,created_at,updated_at')
       .order('updated_at', { ascending: false })
       .order('id', { ascending: true })
       .range(offset, offset + pageSize - 1);
@@ -642,8 +661,10 @@ async function getRowsByProjectIds(projectIds: string[], trace?: RequestTiming) 
       .from('activity_logs')
       .select('id,project_id,user_id,action,description,created_at')
       .in('project_id', projectIds)
+      .neq('action', 'DOCUMENT_ACCESS_CHANGED')
       .order('created_at', { ascending: false })
-      .limit(8),
+      .order('id', { ascending: false })
+      .limit(DASHBOARD_ACTIVITY_PAGE_SIZE + 1),
     supabaseAdmin
       .from('project_output_documents')
       .select('project_id,phase_id,milestone_id,status,is_required,is_selected')
@@ -698,6 +719,41 @@ async function getRowsByProjectIds(projectIds: string[], trace?: RequestTiming) 
 }
 
 export class DashboardService {
+  static async getActivityPage(actor: DashboardActor, cursorValue?: string, trace?: RequestTiming) {
+    if (!actor.userId || !['SALES', 'SA', 'HEAD_SA', 'SUPER_ADMIN'].includes(actor.role)) {
+      throw new DashboardActivityError('Access denied.', 403);
+    }
+    const cursor = decodeActivityCursor(cursorValue);
+    const projects = await timeOperation(trace, 'dashboard.projects', () => getScopedProjects(actor, true));
+    if (!projects.length) return { items: [], nextCursor: null, pageSize: DASHBOARD_ACTIVITY_PAGE_SIZE };
+    // Scope is recalculated for every page; a cursor never grants project access.
+    let query = supabaseAdmin.from('activity_logs')
+      .select('id,project_id,user_id,action,description,created_at')
+      .in('project_id', projects.map(project => project.id))
+      // Same private-audit rule as ProjectActivityService; no recipients/ACL details.
+      .neq('action', 'DOCUMENT_ACCESS_CHANGED')
+      .order('created_at', { ascending: false }).order('id', { ascending: false })
+      .limit(DASHBOARD_ACTIVITY_PAGE_SIZE + 1);
+    if (cursor) query = query.or(`created_at.lt.${cursor.createdAt},and(created_at.eq.${cursor.createdAt},id.lt.${cursor.id})`);
+    const { data, error } = await timeOperation(trace, 'dashboard.base_queries', async () => await query);
+    if (error || !Array.isArray(data)) throw toSafeDashboardError(error || new Error('Missing activity rows'), 'activity_logs');
+    const rows = data as DashboardActivityRow[];
+    const page = rows.slice(0, DASHBOARD_ACTIVITY_PAGE_SIZE);
+    const userIds = [...new Set(page.map(row => row.user_id).filter((id): id is string => Boolean(id)))];
+    const users = new Map<string, DashboardUserRow>();
+    if (userIds.length) {
+      const result = await timeOperation(trace, 'dashboard.approvals_and_users', async () => await supabaseAdmin.from('users').select('id,full_name,role').in('id', userIds));
+      if (result.error || !Array.isArray(result.data)) throw toSafeDashboardError(result.error || new Error('Missing actor rows'), 'activity_users');
+      for (const user of result.data as DashboardUserRow[]) users.set(user.id, user);
+    }
+    const projectMap = new Map(projects.map(project => [project.id, project]));
+    return {
+      items: page.map(row => mapRecentActivity(row, projectMap, users)),
+      nextCursor: rows.length > DASHBOARD_ACTIVITY_PAGE_SIZE ? encodeActivityCursor(page[page.length - 1]) : null,
+      pageSize: DASHBOARD_ACTIVITY_PAGE_SIZE,
+    };
+  }
+
   static async getOverview(actor: DashboardActor, trace?: RequestTiming) {
     // HEAD_SA roster has its own scope and does not depend on the project query.
     const saUsersPromise = actor.role === 'HEAD_SA'

@@ -8,5 +8,6 @@ router.use(authenticateJwt);
 
 // GET /api/dashboard — Full dashboard overview
 router.get('/', DashboardController.getOverview);
+router.get('/activity', DashboardController.getActivityPage);
 
 export default router;

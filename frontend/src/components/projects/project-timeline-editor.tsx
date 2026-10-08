@@ -157,7 +157,7 @@ export function ProjectTimelineEditor({
   if (!rows.length) return null;
 
   return (
-    <Card className="min-w-0 border-border/60 bg-card/70 shadow-sm">
+    <Card className="min-w-0">
       <CardHeader className="flex flex-col gap-3 pb-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex items-start gap-3">
           <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-primary/15 bg-primary/10 text-primary">
@@ -265,7 +265,7 @@ export function ProjectTimelineEditor({
                     <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground xl:hidden">{translateI18n("copy.calculatedDue")}</span>
                     <span
                       className={`flex h-9 items-center rounded-lg border border-border/40 bg-muted/20 px-3 font-mono text-xs ${
-                        changed ? "italic text-amber-400" : "font-semibold text-foreground"
+                        changed ? "italic text-warning" : "font-semibold text-foreground"
                       }`}
                     >
                       {changed ? translateI18n("projectAction.saveTimeline") : formatDate(row.dueDate)}
@@ -284,7 +284,7 @@ export function ProjectTimelineEditor({
           </div>
         )}
         {message && (
-          <div className="flex items-start gap-2 rounded-xl border border-emerald-500/40 bg-emerald-500/10 p-3 text-xs text-emerald-400 shadow-sm">
+          <div className="flex items-start gap-2 rounded-xl border border-emerald-500/40 bg-emerald-500/10 p-3 text-xs text-success shadow-sm">
             <CheckCircle2 className="h-4 w-4 shrink-0" />
             <span>{translateStoredMessage(message)}</span>
           </div>

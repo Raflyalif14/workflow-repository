@@ -20,7 +20,7 @@ export function HeadSaProjectValuesPanel({ role, values, loading, hasError }: Pr
         : null;
 
   return (
-    <section aria-labelledby="head-sa-project-values-heading" className="rounded-xl border border-border bg-card p-5">
+    <section aria-labelledby="head-sa-project-values-heading" className="dashboard-surface p-5 sm:p-6">
       <h2 id="head-sa-project-values-heading" className="text-base font-semibold text-foreground">
         {translate("dashboardPage.headSaProjectValues")}
       </h2>

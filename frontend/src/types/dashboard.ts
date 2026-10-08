@@ -75,6 +75,15 @@ export interface DashboardHeadSaProjectValues {
   won: { count: number; finalContractValue: number };
 }
 
+export interface DashboardActivityPagination {
+  pageSize: number;
+  nextCursor: string | null;
+}
+
+export interface DashboardActivityPage extends DashboardActivityPagination {
+  items: RecentActivity[];
+}
+
 export interface DashboardData {
   allWorkStatus?: {
     total: number; planning: number; active: number; postponed: number;
@@ -89,6 +98,7 @@ export interface DashboardData {
   statusDistribution: StatusDistribution[];
   projectProgress: ProjectProgress[];
   recentActivity: RecentActivity[];
+  recentActivityPagination?: DashboardActivityPagination;
   outputDocuments: DashboardOutputDocuments;
   saWorkload: DashboardSaWorkload[];
   headSaProjectValues: DashboardHeadSaProjectValues | null;

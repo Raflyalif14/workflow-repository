@@ -110,7 +110,7 @@ export default function MilestonesPage() {
       ];
 
   return (
-    <div className="mx-auto w-full max-w-[1280px] space-y-5 px-4 py-6 sm:px-6 lg:px-8">
+    <div className="mx-auto w-full max-w-[1600px] space-y-5 px-4 py-6 sm:px-6 xl:px-8">
       <header className="flex flex-col gap-4 border-b border-border/60 pb-5 sm:flex-row sm:items-end sm:justify-between">
         <div className="max-w-2xl">
           <p className="text-xs font-semibold uppercase text-primary">{translateI18n(pageCopy.eyebrow)}</p>
@@ -126,7 +126,7 @@ export default function MilestonesPage() {
       </header>
 
       {!isSaOrHeadSa ? (
-        <section className="rounded-lg border border-border/60 bg-card px-5 py-14 text-center">
+        <section className="page-surface px-5 py-14 text-center">
           <FolderKanban className="mx-auto h-8 w-8 text-muted-foreground" />
           <h2 className="mt-3 font-semibold text-foreground">{translateI18n("copy.milestoneLocation")}</h2>
           <p className="mx-auto mt-1 max-w-md text-sm text-muted-foreground">
@@ -140,7 +140,7 @@ export default function MilestonesPage() {
         <>
           <section
             aria-label={translateI18n("milestonePage.snapshot")}
-            className="grid grid-cols-2 overflow-hidden rounded-lg border border-border/60 bg-card lg:grid-cols-4"
+            className="grid grid-cols-2 overflow-hidden page-surface xl:grid-cols-4"
           >
             {snapshot.map((item, index) => (
               <div
@@ -148,8 +148,8 @@ export default function MilestonesPage() {
                 className={`border-border/60 px-4 py-3.5 sm:px-5 ${
                   index % 2 === 1 ? "border-l" : ""
                 } ${index >= 2 ? "border-t" : ""} ${
-                  index > 0 ? "lg:border-l" : ""
-                } lg:border-t-0`}
+                  index > 0 ? "xl:border-l" : ""
+                } xl:border-t-0`}
               >
                 <p className="text-2xl font-semibold text-foreground">{item.value}</p>
                 <p className="mt-0.5 text-xs text-muted-foreground">{item.label}</p>
@@ -157,7 +157,7 @@ export default function MilestonesPage() {
             ))}
           </section>
 
-          <section className="overflow-hidden rounded-lg border border-border/60 bg-card">
+          <section className="overflow-hidden page-surface">
             <div className="border-b border-border/60 p-4 sm:px-5">
               <div className="flex items-center gap-2 overflow-x-auto pb-1">
                 <QueueTabButton

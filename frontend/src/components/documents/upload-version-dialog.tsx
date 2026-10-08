@@ -187,7 +187,7 @@ export function UploadVersionDialog({
                 setChangelog(event.target.value);
                 setError("");
               }}
-              className="flex w-full rounded-md border border-input bg-card px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-primary"
+              className="flex w-full rounded-lg border border-input bg-card px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
               required
               disabled={uploadVersionMutation.isPending}
               aria-invalid={Boolean(error)}

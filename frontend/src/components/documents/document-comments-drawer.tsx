@@ -478,7 +478,7 @@ export function DocumentCommentsDrawer({
                 setContent(event.target.value);
                 setCommentError("");
               }}
-              className="flex w-full resize-y rounded-md border border-input bg-card px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-primary"
+              className="flex w-full resize-y rounded-lg border border-input bg-card px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
               disabled={addCommentMutation.isPending}
               aria-invalid={Boolean(commentError)}
               aria-describedby={

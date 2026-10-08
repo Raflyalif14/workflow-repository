@@ -107,7 +107,7 @@ export function PicAssignmentCard({
                 <span className="truncate text-xs text-muted-foreground">{currentPic.email}</span>
               </div>
             ) : unassignedNotice ? (
-              <p className={`text-sm ${unassignedNotice.tone === "warning" ? "text-amber-400" : "text-muted-foreground"}`}>
+              <p className={`text-sm ${unassignedNotice.tone === "warning" ? "text-warning" : "text-muted-foreground"}`}>
                 {unassignedNotice.message}
               </p>
             ) : null}

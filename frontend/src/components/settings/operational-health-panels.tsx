@@ -89,7 +89,7 @@ export function StorageCleanupPanel({ enabled }: { enabled: boolean }) {
             {(["total", "pending", "failed", "completed"] as const).map((key) => <div key={key}><dt className="text-muted-foreground">{t(`operations.${key}`)}</dt><dd className="font-semibold">{number(query.data!.summary[key])}</dd></div>)}
           </dl>
           <label className="block text-sm">{t("operations.filterStatus")}
-            <select className="ml-2 rounded-md border border-border bg-background px-2 py-1" value={status} onChange={(event) => { setStatus(event.target.value as StorageCleanupFilter); setPage(1); setRowError(null); }}>
+            <select className="ml-2 rounded-lg border border-border bg-card px-2 py-1" value={status} onChange={(event) => { setStatus(event.target.value as StorageCleanupFilter); setPage(1); setRowError(null); }}>
               {(["ALL", "PENDING", "FAILED", "COMPLETED"] as const).map((value) => <option key={value} value={value}>{t(`operations.status${value}`)}</option>)}
             </select>
           </label>

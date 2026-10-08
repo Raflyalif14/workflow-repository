@@ -47,7 +47,7 @@ const failureKindDetails: Record<TelegramDeliveryFailureKind, { title: Translati
   },
   AMBIGUOUS: {
     title: "telegramHealth.ambiguous", description: "telegramHealth.ambiguousHelp",
-    className: "border-amber-400/20 text-amber-400",
+    className: "border-amber-400/20 text-warning",
   },
   TERMINAL: {
     title: "telegramHealth.terminal", description: "telegramHealth.terminalHelp",
@@ -78,7 +78,7 @@ function MetricCard({
   valueClassName?: string;
 }) {
   return (
-    <Card className="group h-full border-border/60 bg-card/70 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/20 hover:shadow-md">
+    <Card className="h-full">
       <CardHeader className="flex flex-row items-start justify-between gap-3 pb-3">
         <div className="space-y-1">
           <CardTitle className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
@@ -180,17 +180,17 @@ function TelegramDeliveryHealthContent() {
         <div className="space-y-4">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
             {Array.from({ length: 4 }, (_, index) => (
-              <div key={index} className="h-36 animate-pulse rounded-xl border border-border/60 bg-card/70" />
+              <div key={index} className="h-36 animate-pulse rounded-xl border border-border/60 bg-card" />
             ))}
           </div>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
             {Array.from({ length: 4 }, (_, index) => (
-              <div key={index} className="h-32 animate-pulse rounded-xl border border-border/60 bg-card/70" />
+              <div key={index} className="h-32 animate-pulse rounded-xl border border-border/60 bg-card" />
             ))}
           </div>
         </div>
       ) : isError || !health ? (
-        <Card className="border-border/60 bg-card/70 shadow-sm">
+        <Card>
           <CardContent className="flex min-h-64 flex-col items-center justify-center gap-3 px-5 text-center">
             <CircleAlert className="h-6 w-6 text-destructive" aria-hidden="true" />
             <div>
@@ -205,9 +205,9 @@ function TelegramDeliveryHealthContent() {
         </Card>
       ) : (
         <>
-          <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border/60 bg-card/70 px-4 py-3 shadow-sm">
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border/60 bg-card px-4 py-3 shadow-sm">
             <div className="flex items-center gap-3">
-              <span className={`flex h-9 w-9 items-center justify-center rounded-xl border ${needsAttention ? "border-amber-400/20 bg-amber-400/10 text-amber-400" : "border-emerald-400/20 bg-emerald-400/10 text-emerald-400"}`}>
+              <span className={`flex h-9 w-9 items-center justify-center rounded-xl border ${needsAttention ? "border-amber-400/20 bg-amber-400/10 text-warning" : "border-emerald-400/20 bg-emerald-400/10 text-success"}`}>
                 {needsAttention ? <AlertTriangle className="h-4 w-4" aria-hidden="true" /> : <CheckCircle2 className="h-4 w-4" aria-hidden="true" />}
               </span>
               <div>
@@ -227,8 +227,8 @@ function TelegramDeliveryHealthContent() {
             </div>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
               <MetricCard label={translateI18n("telegramHealth.total")} value={health.summary.total} description={translateI18n("telegramHealth.allDeliveries")} icon={<Activity className="h-4 w-4 text-primary" />} iconClassName="border-primary/15 bg-primary/10" />
-              <MetricCard label={translateI18n("telegramHealth.sent")} value={health.summary.sent} description={translateI18n("telegramHealth.delivered")} icon={<Send className="h-4 w-4 text-emerald-400" />} iconClassName="border-emerald-400/15 bg-emerald-400/10" valueClassName="text-emerald-400" />
-              <MetricCard label={translateI18n("telegramHealth.pending")} value={health.summary.pending} description={translateI18n("telegramHealth.awaitingResult")} icon={<Clock3 className="h-4 w-4 text-amber-400" />} iconClassName="border-amber-400/15 bg-amber-400/10" valueClassName="text-amber-400" />
+              <MetricCard label={translateI18n("telegramHealth.sent")} value={health.summary.sent} description={translateI18n("telegramHealth.delivered")} icon={<Send className="h-4 w-4 text-success" />} iconClassName="border-emerald-400/15 bg-emerald-400/10" valueClassName="text-success" />
+              <MetricCard label={translateI18n("telegramHealth.pending")} value={health.summary.pending} description={translateI18n("telegramHealth.awaitingResult")} icon={<Clock3 className="h-4 w-4 text-warning" />} iconClassName="border-amber-400/15 bg-amber-400/10" valueClassName="text-warning" />
               <MetricCard label={translateI18n("telegramHealth.failed")} value={health.summary.failed} description={translateI18n("telegramHealth.failedDeliveries")} icon={<AlertTriangle className="h-4 w-4 text-destructive" />} iconClassName="border-destructive/30 bg-destructive/10" valueClassName="text-destructive" />
             </div>
           </section>
@@ -240,13 +240,13 @@ function TelegramDeliveryHealthContent() {
             </div>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
               <MetricCard label={translateI18n("telegramHealth.retryable")} value={health.summary.retryable} description={translateI18n("telegramHealth.retryEligible")} icon={<RefreshCw className="h-4 w-4 text-primary" />} iconClassName="border-primary/15 bg-primary/10" valueClassName="text-primary" />
-              <MetricCard label={translateI18n("telegramHealth.ambiguous")} value={health.summary.ambiguous} description={translateI18n("telegramHealth.outcomeUncertain")} icon={<CircleAlert className="h-4 w-4 text-amber-400" />} iconClassName="border-amber-400/15 bg-amber-400/10" valueClassName="text-amber-400" />
+              <MetricCard label={translateI18n("telegramHealth.ambiguous")} value={health.summary.ambiguous} description={translateI18n("telegramHealth.outcomeUncertain")} icon={<CircleAlert className="h-4 w-4 text-warning" />} iconClassName="border-amber-400/15 bg-amber-400/10" valueClassName="text-warning" />
               <MetricCard label={translateI18n("telegramHealth.terminal")} value={health.summary.terminal} description={translateI18n("telegramHealth.noAutoRetry")} icon={<ShieldAlert className="h-4 w-4 text-destructive" />} iconClassName="border-destructive/30 bg-destructive/10" valueClassName="text-destructive" />
               <MetricCard label={translateI18n("telegramHealth.dueRetry")} value={health.summary.dueRetryable} description={translateI18n("telegramHealth.retryNow")} icon={<Clock3 className="h-4 w-4 text-destructive" />} iconClassName="border-destructive/30 bg-destructive/10" valueClassName="text-destructive" />
             </div>
           </section>
 
-          <Card className="border-border/60 bg-card/70 shadow-sm">
+          <Card>
             <CardHeader className="space-y-3 border-b border-border/40">
               <div className="flex items-center gap-3">
                 <span className="flex h-9 w-9 items-center justify-center rounded-xl border border-primary/15 bg-primary/10 text-primary">
@@ -271,7 +271,7 @@ function TelegramDeliveryHealthContent() {
             </CardContent>
           </Card>
 
-          <Card className="border-border/60 bg-card/70 shadow-sm">
+          <Card>
             <CardHeader className="flex flex-row items-start justify-between gap-4 border-b border-border/40">
               <div className="flex items-center gap-3">
                 <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-destructive/30 bg-destructive/10 text-destructive">
@@ -286,7 +286,7 @@ function TelegramDeliveryHealthContent() {
             </CardHeader>
             {health.recentFailures.length === 0 ? (
               <CardContent className="space-y-3 py-14 text-center">
-                <CheckCircle2 className="mx-auto h-9 w-9 text-emerald-400" aria-hidden="true" />
+                <CheckCircle2 className="mx-auto h-9 w-9 text-success" aria-hidden="true" />
                 <div>
                   <p className="text-base font-semibold tracking-tight text-foreground">{translateI18n("copy.noTelegramFailures")}</p>
                   <p className="mt-1 text-xs text-muted-foreground">{translateI18n("copy.newFailureHelp")}</p>

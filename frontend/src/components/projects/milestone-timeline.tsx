@@ -24,7 +24,7 @@ export function MilestoneTimeline({ milestones }: MilestoneTimelineProps) {
               <div
                 className={`absolute -left-[17px] top-1.5 flex h-8 w-8 items-center justify-center rounded-full border-2 bg-background ${
                   isDone
-                    ? "border-emerald-500 text-emerald-400"
+                    ? "border-emerald-500 text-success"
                     : isActive
                       ? "border-primary text-primary"
                       : "border-muted-foreground text-muted-foreground"
@@ -65,7 +65,7 @@ export function MilestoneTimeline({ milestones }: MilestoneTimelineProps) {
                   </div>
 
                   {milestone.actualEndDate && (
-                    <div className="flex items-center gap-1.5 text-emerald-400">
+                    <div className="flex items-center gap-1.5 text-success">
                       <Clock className="h-3.5 w-3.5" />
                       <span>Finished: {formatDate(milestone.actualEndDate)}</span>
                     </div>
@@ -84,7 +84,7 @@ function MilestoneStatusBadge({ status }: { status: MilestoneStatus }) {
   if (status === "COMPLETED" || status === "APPROVED") return <Badge variant="success">{status}</Badge>;
   if (status === "IN_PROGRESS") return <Badge variant="warning">IN_PROGRESS</Badge>;
   if (status === "SUBMITTED" || status === "WAITING_APPROVAL") {
-    return <Badge className="border-blue-500/30 bg-blue-500/20 text-blue-300">{status}</Badge>;
+    return <Badge className="border-blue-500/30 bg-blue-500/20 text-primary">{status}</Badge>;
   }
   if (status === "REJECTED" || status === "OVERDUE") return <Badge variant="destructive">{status}</Badge>;
   return <Badge variant="outline">{status}</Badge>;

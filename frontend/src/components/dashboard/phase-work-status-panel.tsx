@@ -20,7 +20,7 @@ export function PhaseWorkStatusPanel({ summary, allSummary, loading, hasError, r
     : phase === "PRA_TENDER" ? "dashboardPage.praWorkStatusScope" : "dashboardPage.tenderWorkStatusScope");
 
   return (
-    <section aria-labelledby="delivery-health-heading" className="min-w-0 rounded-xl border border-border bg-card p-5 sm:p-6">
+    <section aria-labelledby="delivery-health-heading" className="dashboard-surface min-w-0 p-5 sm:p-6">
       <div className="min-w-0">
         <h2 id="delivery-health-heading" className="text-base font-semibold text-foreground">{translate("copy.workCondition")}</h2>
         <p className="mt-1 text-sm text-muted-foreground">{scopeLabel}</p>
@@ -29,7 +29,7 @@ export function PhaseWorkStatusPanel({ summary, allSummary, loading, hasError, r
         {(["ALL", "PRA_TENDER", "ON_SUBMISSION_TENDER"] as const).map(key => (
           <button key={key} type="button" aria-pressed={phase === key} onClick={() => setPhase(key)}
             className={["min-w-0 rounded-md px-3 py-2 text-sm font-medium whitespace-normal focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
-              phase === key ? "bg-secondary text-secondary-foreground" : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground"].join(" ")}>
+              phase === key ? "bg-card text-primary shadow-sm" : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground"].join(" ")}>
             {translate(key === "ALL" ? "dashboardPage.allScenarios" : key === "PRA_TENDER" ? "dashboardPage.praTender" : "dashboardPage.onSubmissionTender")}
           </button>
         ))}

@@ -332,14 +332,14 @@ export function PersonalNotificationSettings() {
       )}
 
       {isLoading ? (
-        <Card className="border-border/60 bg-card/70 shadow-sm">
+        <Card>
           <CardContent className="flex min-h-24 items-center justify-center gap-2 text-sm text-muted-foreground">
             <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" />
             {translateI18n("notificationSettings.loading")}
           </CardContent>
         </Card>
       ) : isError || !preferences ? (
-        <Card className="border-border/60 bg-card/70 shadow-sm">
+        <Card>
           <CardContent className="flex min-h-24 flex-col items-center justify-center gap-3 px-5 text-center">
             <CircleAlert className="h-5 w-5 text-destructive" aria-hidden="true" />
             <p className="text-sm text-muted-foreground">{translateI18n("copy.notificationPrefsError")}</p>
@@ -350,7 +350,7 @@ export function PersonalNotificationSettings() {
         </Card>
       ) : (
         <div className="grid gap-4 md:grid-cols-2">
-          <Card className="border-border/60 bg-card/70 shadow-sm">
+          <Card>
             <CardHeader className="space-y-3">
               <div className="flex items-start justify-between gap-4">
                 <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-primary/15 bg-primary/10 text-primary">
@@ -382,10 +382,10 @@ export function PersonalNotificationSettings() {
             </CardContent>
           </Card>
 
-          <Card className="border-border/60 bg-card/70 shadow-sm">
+          <Card>
             <CardHeader className="space-y-3">
               <div className="flex items-start justify-between gap-4">
-                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-sky-400/15 bg-sky-400/10 text-sky-400">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-sky-400/15 bg-sky-400/10 text-info">
                   <Send className="h-4 w-4" aria-hidden="true" />
                 </span>
                 <Badge variant={preferences.telegram_linked ? "success" : "outline"}>
@@ -458,7 +458,7 @@ export function PersonalNotificationSettings() {
               ) : (
                 <div className="space-y-4">
                   <div className="flex items-start gap-3 rounded-lg border border-border/50 bg-muted/20 p-3 text-xs text-muted-foreground">
-                    <MessageCircle className="mt-0.5 h-4 w-4 shrink-0 text-sky-400" aria-hidden="true" />
+                    <MessageCircle className="mt-0.5 h-4 w-4 shrink-0 text-info" aria-hidden="true" />
                     <p>{translateI18n("copy.telegramLinkRequired")}</p>
                   </div>
                   <Button

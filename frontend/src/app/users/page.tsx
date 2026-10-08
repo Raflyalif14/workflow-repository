@@ -72,28 +72,28 @@ function UsersPageContent() {
     switch (role) {
       case "SUPER_ADMIN":
         return (
-          <Badge className="bg-purple-500/15 text-purple-400 border border-purple-500/30 gap-1">
+          <Badge className="bg-primary-soft text-primary border border-primary/20 gap-1">
             <Shield className="h-3 w-3" />
             <span>{translateI18n("role.SUPER_ADMIN")}</span>
           </Badge>
         );
       case "SALES":
         return (
-          <Badge className="bg-blue-500/15 text-blue-400 border border-blue-500/30 gap-1">
+          <Badge className="bg-blue-500/15 text-primary border border-blue-500/30 gap-1">
             <Briefcase className="h-3 w-3" />
             <span>{translateI18n("role.SALES")}</span>
           </Badge>
         );
       case "HEAD_SA":
         return (
-          <Badge className="bg-amber-500/15 text-amber-400 border border-amber-500/30 gap-1">
+          <Badge className="bg-amber-500/15 text-warning border border-amber-500/30 gap-1">
             <Layers className="h-3 w-3" />
             <span>{translateI18n("role.HEAD_SA")}</span>
           </Badge>
         );
       case "SA":
         return (
-          <Badge className="bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 gap-1">
+          <Badge className="bg-emerald-500/15 text-success border border-emerald-500/30 gap-1">
             <Code2 className="h-3 w-3" />
             <span>{translateI18n("role.SA")}</span>
           </Badge>
@@ -114,7 +114,7 @@ function UsersPageContent() {
   };
 
   return (
-    <div className="container py-8 space-y-6">
+    <div className="mx-auto w-full max-w-[1600px] min-w-0 space-y-5 px-4 py-6 sm:px-6 lg:px-8">
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-border/50 pb-6">
         <div>
@@ -159,7 +159,7 @@ function UsersPageContent() {
               setRoleFilter(e.target.value as any);
               setPage(1);
             }}
-            className="flex h-9 w-full rounded-md border border-input bg-card px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-primary"
+            className="flex h-10 w-full rounded-lg border border-input bg-card px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
           >
             <option value="ALL">{translateI18n("users.allRoles")}</option>
             <option value="SUPER_ADMIN">{translateI18n("role.SUPER_ADMIN")}</option>
@@ -177,7 +177,7 @@ function UsersPageContent() {
               setStatusFilter(e.target.value);
               setPage(1);
             }}
-            className="flex h-9 w-full rounded-md border border-input bg-card px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-primary"
+            className="flex h-10 w-full rounded-lg border border-input bg-card px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
           >
             <option value="">{translateI18n("users.allStatuses")}</option>
             <option value="true">{translateI18n("copy.activeOnly")}</option>
@@ -187,7 +187,7 @@ function UsersPageContent() {
       </div>
 
       {/* Table Card */}
-      <Card className="border border-border/70 overflow-hidden shadow-sm">
+      <Card className="overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
             <thead className="bg-muted/40 border-b border-border text-xs uppercase font-semibold text-muted-foreground">

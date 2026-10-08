@@ -189,7 +189,7 @@ export function OutputDocumentFiles({ projectId, document, editable, blocked, on
       />
 
       {editable && files.some((file) => !Number.isFinite(Number(file.fileSize)) || Number(file.fileSize) <= 0) && (
-        <p className="text-xs text-amber-300">{translate("outputFiles.legacySizeUnknown")}</p>
+        <p className="text-xs text-warning">{translate("outputFiles.legacySizeUnknown")}</p>
       )}
 
       {editable && Boolean(document.fileRevisions?.length) && <div className="space-y-1 border-b border-border pb-2">

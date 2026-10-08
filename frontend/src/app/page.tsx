@@ -1,12 +1,10 @@
 "use client";
 import { planAndDeadlineApprovals } from "@/lib/approval-queue";
-import { formatActivityDescription } from "@/lib/activity-timeline";
 import { useLanguage } from "@/components/i18n/language-provider";
 
 import { translate as translateI18n, getIntlLocale, type TranslationKey } from "@/i18n";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
 import {
   AlertTriangle,
   ArrowRight,
@@ -24,6 +22,7 @@ import {
 import { useAuth } from "@/components/auth/auth-provider";
 import { PhaseWorkStatusPanel } from "@/components/dashboard/phase-work-status-panel";
 import { HeadSaProjectValuesPanel } from "@/components/dashboard/head-sa-project-values-panel";
+import { RecentActivityPanel } from "@/components/dashboard/recent-activity-panel";
 import { useApprovals, useApprovalStats } from "@/hooks/use-approvals";
 import { canReadApprovalOverview } from "@/lib/approval-overview-access";
 import { useDashboard } from "@/hooks/use-dashboard";
@@ -31,11 +30,9 @@ import { AssignedMilestone, useMyAssignedMilestones, useProjects } from "@/hooks
 import {
   DashboardProjectHealth,
   DashboardWorkItem,
-  formatDashboardActivityLabel,
   formatDashboardDate,
   formatDashboardDeadline,
   formatDashboardLabel,
-  formatDashboardTimestamp,
   getApprovalProjectHref,
   getDashboardGreeting,
   getDashboardGreetingSubject,
@@ -44,7 +41,6 @@ import {
   getDashboardProjectHealthLabel,
   getDashboardRoleContent,
   getHeadSaOutputReviewItems,
-  getDashboardSnapshotTitle,
   getSaDashboardItems,
   getSaDashboardMetrics,
   getSaOutputRevisionItems,
@@ -56,13 +52,17 @@ import {
 } from "@/lib/dashboard-ux";
 import { formatActorRoleLabel } from "@/lib/workflow-ux-helpers";
 import { ApprovalItem } from "@/types/approval";
-import { DashboardSaWorkload, DashboardSummary, ProjectProgress, RecentActivity } from "@/types/dashboard";
+import { DashboardSaWorkload, DashboardSummary, ProjectProgress } from "@/types/dashboard";
 import { Project } from "@/types/project";
 
 type SummaryMetric = {
   label: string;
   value: number;
 };
+
+const displayWorkState = (value?: string) => value === "Pending review"
+  ? translateI18n("copy.waitingReview") : value === "Planning"
+  ? translateI18n("projectStatus.DRAFT") : value;
 
 const formatRevenue = (value: number): string =>
   new Intl.NumberFormat(getIntlLocale(), {
@@ -105,7 +105,7 @@ const getHeadSaItems = (approvals: ApprovalItem[], projects: Project[]): Dashboa
       title: `${approval.projectName}${milestoneSuffix}`,
       description: presentation.description,
       meta: meta || undefined,
-      state: "Pending review",
+      state: translateI18n("copy.waitingReview"),
       href: getApprovalProjectHref(approval.projectId, approval.category, approval.milestoneId),
       actionLabel: presentation.actionLabel,
     };
@@ -172,7 +172,7 @@ const getSuperAdminItems = (summary: DashboardSummary, projectProgress: ProjectP
       label: translateI18n("dashboardPage.approvalPipeline"),
       title: summary.waitingApproval === 1 ? translateI18n("dashboardPage.oneReview") : translateI18n("dashboardPage.itemsReview", { count: summary.waitingApproval }),
       description: translateI18n("dashboardPage.approvalHelp"),
-      state: "Pending review",
+      state: translateI18n("copy.waitingReview"),
       href: "/approvals",
       actionLabel: translateI18n("dashboardPage.openApprovals"),
     });
@@ -346,11 +346,11 @@ function MetricCard({ metric }: { metric: SummaryMetric }) {
   const Icon = visual.icon;
 
   return (
-    <div className="min-w-0 rounded-xl border border-border bg-card p-3 sm:p-5">
+    <div className="dashboard-surface min-w-0 p-4 sm:p-5">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-xs font-medium leading-5 text-muted-foreground">{metricLabels[metric.label] ? translateI18n(metricLabels[metric.label]) : metric.label}</p>
-          <p className="mt-1 text-2xl font-semibold text-foreground">
+          <p className="mt-1 text-2xl font-semibold tabular-nums text-foreground">
             {metric.label === "Total estimated revenue" ? formatRevenue(metric.value) : metric.value}
           </p>
         </div>
@@ -362,6 +362,14 @@ function MetricCard({ metric }: { metric: SummaryMetric }) {
     </div>
   );
 }
+
+const projectStatusIcon = (status: string) => {
+  if (status === "COMPLETED" || status === "WON") return CheckCircle2;
+  if (status === "POSTPONED" || status === "ON_HOLD") return PauseCircle;
+  if (status === "LOST" || status === "CANCELLED") return AlertTriangle;
+  if (status === "ACTIVE") return FolderKanban;
+  return Clock3;
+};
 
 const getProjectStatusClassName = (status: string): string => {
   if (status === "ACTIVE") return "border-primary/25 bg-primary/10 text-primary";
@@ -384,6 +392,7 @@ function ProjectDeliveryRow({
   role: string;
   hasOverdueData: boolean;
 }) {
+  const StatusIcon = projectStatusIcon(project.status);
   const targetDate = formatDashboardDate(project.targetEndDate);
   const healthLabel = getDashboardProjectHealthLabel(project, role);
   const hasProgress = project.percentage !== null;
@@ -401,7 +410,7 @@ function ProjectDeliveryRow({
   const openProject = (
     <Link
       href={"/projects/" + project.id}
-      className="inline-flex min-h-10 items-center justify-center gap-1 rounded-md border border-border px-3 text-sm font-medium text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring lg:min-h-0 lg:border-0 lg:px-0 lg:text-primary lg:hover:bg-transparent lg:hover:underline"
+      className="inline-flex min-h-10 items-center justify-center gap-1 rounded-md border border-border px-3 text-sm font-medium text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring 2xl:min-h-0 2xl:border-0 2xl:px-0 2xl:text-primary 2xl:hover:bg-transparent 2xl:hover:underline"
     >
       {translateI18n("common.open")}
       <ChevronRight className="h-4 w-4" />
@@ -410,25 +419,32 @@ function ProjectDeliveryRow({
 
   if (role === "SALES") {
     return (
-      <div className="grid gap-4 px-4 py-4 lg:grid-cols-[minmax(180px,1.3fr)_minmax(130px,1fr)_minmax(160px,1fr)_minmax(140px,0.9fr)_110px_auto] lg:items-center lg:px-5">
-        <div className="min-w-0"><p className="break-words text-sm font-semibold text-foreground">{project.name}</p>{project.outputSelectedCount !== undefined && <p className="mt-1 text-xs text-muted-foreground">{translateI18n("dashboardPage.outputApproved", { approved: project.outputApprovedCount || 0, total: project.outputSelectedCount })}</p>}</div>
-        <div><p className="text-xs text-muted-foreground lg:hidden">{translateI18n("copy.estimatedRevenue")}</p><p className="mt-1 text-sm text-foreground lg:mt-0">{project.estimatedRevenue === null || project.estimatedRevenue === undefined ? translateI18n("common.notAvailable") : formatRevenue(project.estimatedRevenue)}</p></div>
-        <div><p className="text-xs text-muted-foreground lg:hidden">{translateI18n("copy.stage")}</p><p className="mt-1 break-words text-sm text-foreground lg:mt-0">{project.currentStage || translateI18n("common.notAvailable")}</p></div>
-        <div><p className="text-xs text-muted-foreground lg:hidden">PIC</p><p className="mt-1 break-words text-sm text-foreground lg:mt-0">{project.picName || translateI18n("ui.unassigned")}</p></div>
-        <div><p className="text-xs text-muted-foreground lg:hidden">{translateI18n("common.status")}</p><span className={["mt-1 inline-flex rounded-full border px-2 py-1 text-xs font-medium lg:mt-0", getProjectStatusClassName(project.status)].join(" ")}>{formatDashboardLabel(project.status)}</span></div>
-        {openProject}
+      <div className="sales-delivery-row grid min-w-0 gap-3 px-4 py-3 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1.1fr)_minmax(0,1fr)_minmax(0,0.85fr)] lg:items-start lg:gap-4 lg:px-5">
+        <div className="min-w-0 space-y-1.5">
+          <p className="break-words text-sm font-semibold text-foreground">{project.name}</p>
+          {project.outputSelectedCount !== undefined ? (
+            <p className="text-xs text-muted-foreground">{translateI18n("dashboardPage.outputApproved", { approved: project.outputApprovedCount || 0, total: project.outputSelectedCount })}</p>
+          ) : hasProgress && <p className="text-xs text-muted-foreground">{translateI18n("copy.progress")}: {project.percentage}%</p>}
+          <div className="flex flex-wrap items-center gap-2">
+            <span className={["inline-flex items-center gap-1.5 rounded-full border px-2 py-1 text-xs font-medium", getProjectStatusClassName(project.status)].join(" ")}><StatusIcon className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />{formatDashboardLabel(project.status)}</span>
+            {openProject}
+          </div>
+        </div>
+        <div className="min-w-0"><p className="text-xs text-muted-foreground lg:hidden">{translateI18n("copy.estimatedRevenue")}</p><p className="mt-1 break-words text-sm tabular-nums text-foreground lg:mt-0">{project.estimatedRevenue === null || project.estimatedRevenue === undefined ? translateI18n("common.notAvailable") : formatRevenue(project.estimatedRevenue)}</p></div>
+        <div className="min-w-0"><p className="text-xs text-muted-foreground lg:hidden">{translateI18n("copy.stage")}</p><p className="mt-1 break-words text-sm text-foreground lg:mt-0">{project.currentStage || translateI18n("common.notAvailable")}</p></div>
+        <div className="min-w-0"><p className="text-xs text-muted-foreground lg:hidden">PIC</p><p className="mt-1 break-words text-sm text-foreground lg:mt-0">{project.picName || translateI18n("ui.unassigned")}</p></div>
       </div>
     );
   }
 
   if (role === "HEAD_SA") {
     return (
-      <div className="grid gap-4 px-4 py-4 lg:grid-cols-[minmax(180px,1.3fr)_minmax(140px,1fr)_minmax(180px,1.1fr)_110px_minmax(150px,1fr)_auto] lg:items-center lg:px-5">
+      <div className="delivery-row grid min-w-0 gap-4 px-4 py-4 2xl:grid-cols-[minmax(180px,1.3fr)_minmax(140px,1fr)_minmax(180px,1.1fr)_110px_minmax(150px,1fr)_auto] 2xl:items-center 2xl:px-5">
         <p className="break-words text-sm font-semibold text-foreground">{project.name}</p>
-        <div><p className="text-xs text-muted-foreground lg:hidden">{translateI18n("role.SA")}</p><p className="mt-1 break-words text-sm text-foreground lg:mt-0">{project.picName || translateI18n("ui.unassigned")}</p></div>
-        <div><p className="text-xs text-muted-foreground lg:hidden">{translateI18n("copy.currentWork")}</p><p className="mt-1 break-words text-sm text-foreground lg:mt-0">{project.currentStage || translateI18n("common.notAvailable")}</p></div>
-        <div><p className="text-xs text-muted-foreground lg:hidden">{translateI18n("common.status")}</p><span className={["mt-1 inline-flex rounded-full border px-2 py-1 text-xs font-medium lg:mt-0", getProjectStatusClassName(project.status)].join(" ")}>{formatDashboardLabel(project.status)}</span></div>
-        <div><p className="text-xs text-muted-foreground lg:hidden">{translateI18n("copy.progress")}</p><p className="mt-1 text-sm text-foreground lg:mt-0">{hasProgress ? `${project.percentage}%` : translateI18n("dashboardPage.unknown")}</p><p className="mt-1 text-xs text-muted-foreground">{project.totalMilestones > 0 ? translateI18n("dashboardPage.stages", { done: project.completedMilestones, total: project.totalMilestones }) : translateI18n("dashboardPage.stageUnavailable")}</p></div>
+        <div><p className="text-xs text-muted-foreground 2xl:hidden">{translateI18n("role.SA")}</p><p className="mt-1 break-words text-sm text-foreground 2xl:mt-0">{project.picName || translateI18n("ui.unassigned")}</p></div>
+        <div><p className="text-xs text-muted-foreground 2xl:hidden">{translateI18n("copy.currentWork")}</p><p className="mt-1 break-words text-sm text-foreground 2xl:mt-0">{project.currentStage || translateI18n("common.notAvailable")}</p></div>
+        <div><p className="text-xs text-muted-foreground 2xl:hidden">{translateI18n("common.status")}</p><span className={["mt-1 inline-flex items-center gap-1.5 rounded-full border px-2 py-1 text-xs font-medium 2xl:mt-0", getProjectStatusClassName(project.status)].join(" ")}><StatusIcon className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />{formatDashboardLabel(project.status)}</span></div>
+        <div><p className="text-xs text-muted-foreground 2xl:hidden">{translateI18n("copy.progress")}</p><p className="mt-1 text-sm text-foreground 2xl:mt-0">{hasProgress ? `${project.percentage}%` : translateI18n("dashboardPage.unknown")}</p><p className="mt-1 text-xs text-muted-foreground">{project.totalMilestones > 0 ? translateI18n("dashboardPage.stages", { done: project.completedMilestones, total: project.totalMilestones }) : translateI18n("dashboardPage.stageUnavailable")}</p></div>
         {openProject}
       </div>
     );
@@ -436,35 +452,35 @@ function ProjectDeliveryRow({
 
   if (role === "SA") {
     return (
-      <div className="grid gap-4 px-4 py-4 lg:grid-cols-[minmax(180px,1.3fr)_minmax(140px,1fr)_minmax(180px,1.1fr)_minmax(140px,0.9fr)_110px_auto] lg:items-center lg:px-5">
+      <div className="delivery-row grid min-w-0 gap-4 px-4 py-4 2xl:grid-cols-[minmax(180px,1.3fr)_minmax(140px,1fr)_minmax(180px,1.1fr)_minmax(140px,0.9fr)_110px_auto] 2xl:items-center 2xl:px-5">
         <p className="break-words text-sm font-semibold text-foreground">{project.name}</p>
-        <div><p className="text-xs text-muted-foreground lg:hidden">{translateI18n("project.customer")}</p><p className="mt-1 break-words text-sm text-foreground lg:mt-0">{project.clientName || translateI18n("common.notAvailable")}</p></div>
-        <div><p className="text-xs text-muted-foreground lg:hidden">{translateI18n("copy.currentWork")}</p><p className="mt-1 break-words text-sm text-foreground lg:mt-0">{project.currentStage || translateI18n("common.notAvailable")}</p></div>
-        <div><p className="text-xs text-muted-foreground lg:hidden">{translateI18n("copy.deadline")}</p><p className={["mt-1 text-sm lg:mt-0", project.overdueMilestones > 0 ? "text-destructive" : "text-foreground"].join(" ")}>{deadlineLabel}</p></div>
-        <div><p className="text-xs text-muted-foreground lg:hidden">{translateI18n("common.status")}</p><span className={["mt-1 inline-flex rounded-full border px-2 py-1 text-xs font-medium lg:mt-0", getProjectStatusClassName(project.status)].join(" ")}>{formatDashboardLabel(project.status)}</span></div>
+        <div><p className="text-xs text-muted-foreground 2xl:hidden">{translateI18n("project.customer")}</p><p className="mt-1 break-words text-sm text-foreground 2xl:mt-0">{project.clientName || translateI18n("common.notAvailable")}</p></div>
+        <div><p className="text-xs text-muted-foreground 2xl:hidden">{translateI18n("copy.currentWork")}</p><p className="mt-1 break-words text-sm text-foreground 2xl:mt-0">{project.currentStage || translateI18n("common.notAvailable")}</p></div>
+        <div><p className="text-xs text-muted-foreground 2xl:hidden">{translateI18n("copy.deadline")}</p><p className={["mt-1 text-sm 2xl:mt-0", project.overdueMilestones > 0 ? "text-destructive" : "text-foreground"].join(" ")}>{deadlineLabel}</p></div>
+        <div><p className="text-xs text-muted-foreground 2xl:hidden">{translateI18n("common.status")}</p><span className={["mt-1 inline-flex items-center gap-1.5 rounded-full border px-2 py-1 text-xs font-medium 2xl:mt-0", getProjectStatusClassName(project.status)].join(" ")}><StatusIcon className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />{formatDashboardLabel(project.status)}</span></div>
         {openProject}
       </div>
     );
   }
 
   return (
-    <div className="grid gap-4 px-4 py-4 lg:grid-cols-[minmax(170px,1.4fr)_minmax(110px,0.9fr)_110px_minmax(145px,1fr)_minmax(135px,1fr)_minmax(110px,0.9fr)_auto] lg:items-center lg:px-5">
+    <div className="delivery-row grid min-w-0 gap-4 px-4 py-4 2xl:grid-cols-[minmax(170px,1.4fr)_minmax(110px,0.9fr)_110px_minmax(145px,1fr)_minmax(135px,1fr)_minmax(110px,0.9fr)_auto] 2xl:items-center 2xl:px-5">
       <div className="min-w-0">
         <p className="break-words text-sm font-semibold text-foreground">{project.name}</p>
       </div>
       <div className="min-w-0">
-        <p className="text-xs text-muted-foreground lg:hidden">{translateI18n("project.customer")}</p>
-        <p className="mt-1 break-words text-sm text-foreground lg:mt-0">{project.clientName || translateI18n("common.notAvailable")}</p>
+        <p className="text-xs text-muted-foreground 2xl:hidden">{translateI18n("project.customer")}</p>
+        <p className="mt-1 break-words text-sm text-foreground 2xl:mt-0">{project.clientName || translateI18n("common.notAvailable")}</p>
       </div>
       <div>
-        <p className="text-xs text-muted-foreground lg:hidden">{translateI18n("common.status")}</p>
-        <span className={["mt-1 inline-flex rounded-full border px-2 py-1 text-xs font-medium lg:mt-0", getProjectStatusClassName(project.status)].join(" ")}>
-          {formatDashboardLabel(project.status)}
+        <p className="text-xs text-muted-foreground 2xl:hidden">{translateI18n("common.status")}</p>
+        <span className={["mt-1 inline-flex items-center gap-1.5 rounded-full border px-2 py-1 text-xs font-medium 2xl:mt-0", getProjectStatusClassName(project.status)].join(" ")}>
+          <StatusIcon className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />{formatDashboardLabel(project.status)}
         </span>
       </div>
       <div>
         <div className="flex items-center justify-between gap-2 text-xs">
-          <span className="text-muted-foreground lg:hidden">{translateI18n("copy.progress")}</span>
+          <span className="text-muted-foreground 2xl:hidden">{translateI18n("copy.progress")}</span>
           <span className="text-foreground">{hasProgress ? String(project.percentage) + "%" : translateI18n("dashboardPage.unknown")}</span>
         </div>
         <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted">
@@ -482,15 +498,15 @@ function ProjectDeliveryRow({
         </p>
       </div>
       <div>
-        <p className="text-xs text-muted-foreground lg:hidden">{translateI18n("copy.deadlineRisk")}</p>
-        <p className={["mt-1 text-sm lg:mt-0", project.overdueMilestones > 0 ? "text-destructive" : "text-foreground"].join(" ")}>
+        <p className="text-xs text-muted-foreground 2xl:hidden">{translateI18n("copy.deadlineRisk")}</p>
+        <p className={["mt-1 text-sm 2xl:mt-0", project.overdueMilestones > 0 ? "text-destructive" : "text-foreground"].join(" ")}>
           {deadlineLabel}
         </p>
         {riskDetail && <p className="mt-0.5 text-xs text-muted-foreground">{riskDetail}</p>}
       </div>
       <div className="min-w-0">
-        <p className="text-xs text-muted-foreground lg:hidden">{translateI18n("project.owner")}</p>
-        <p className="mt-1 break-words text-sm text-foreground lg:mt-0">{ownerLabel}</p>
+        <p className="text-xs text-muted-foreground 2xl:hidden">{translateI18n("project.owner")}</p>
+        <p className="mt-1 break-words text-sm text-foreground 2xl:mt-0">{ownerLabel}</p>
       </div>
       {openProject}
     </div>
@@ -509,18 +525,18 @@ function QuickInsightsPanel({
   hasMore: boolean;
 }) {
   return (
-    <section aria-labelledby="quick-insights-heading" className="rounded-xl border border-border bg-card p-5 sm:p-6">
+    <section aria-labelledby="quick-insights-heading" className="dashboard-surface p-4 sm:p-5">
       <div>
         <h2 id="quick-insights-heading" className="text-base font-semibold text-foreground">{translateI18n("copy.needsAttention")}</h2>
         <p className="mt-1 text-sm text-muted-foreground">{translateI18n("copy.actionItems")}</p>
       </div>
 
       {loading && insights.length === 0 ? (
-        <div className="mt-5 space-y-4" aria-label={translateI18n("dashboardPage.loadingInsights")}>
+        <div className="mt-4 space-y-3" aria-label={translateI18n("dashboardPage.loadingInsights")}>
           {[0, 1, 2, 3].map((item) => <div key={item} className="h-16 animate-pulse rounded bg-muted" />)}
         </div>
       ) : insights.length > 0 ? (
-        <div className="mt-5 divide-y divide-border">
+        <div className="mt-4 divide-y divide-border">
           {insights.map((insight) => {
             const isRisk = insight.tone === "risk";
             const isWaiting = insight.tone === "waiting";
@@ -531,15 +547,16 @@ function QuickInsightsPanel({
               ? "bg-[hsl(var(--warning)/0.12)] text-[hsl(var(--warning))]"
               : "bg-primary/10 text-primary";
             const content = (
-              <div className="flex min-w-0 items-start gap-3 py-4 first:pt-0 last:pb-0">
+              <div className="flex min-w-0 items-start gap-3 py-3 first:pt-0 last:pb-0">
                 <span className={["mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg", iconClassName].join(" ")}>
                   <Icon className="h-4 w-4" />
                 </span>
                 <div className="min-w-0 flex-1">
+                  <p className="mb-1 text-xs font-semibold text-muted-foreground">{translateI18n(isWaiting ? "dashboardPage.waitingOnOthers" : "dashboardPage.actionableNow")}</p>
                   <p className="break-words text-sm font-medium text-foreground">{insight.title}</p>
                   <p className="mt-1 text-xs leading-5 text-muted-foreground">{insight.description}</p>
                   <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                    {[insight.label, insight.meta, insight.state].filter(Boolean).join(" - ")}
+                    {[insight.label, insight.meta, displayWorkState(insight.state)].filter(Boolean).join(" - ")}
                   </p>
                 </div>
                 {insight.href && <ArrowRight className="mt-1 h-4 w-4 shrink-0 text-muted-foreground" />}
@@ -597,7 +614,7 @@ function SolutionArchitectWorkloadPanel({
   );
 
   return (
-    <section aria-labelledby="sa-workload-heading" className="overflow-hidden rounded-xl border border-border bg-card">
+    <section aria-labelledby="sa-workload-heading" className="dashboard-surface overflow-hidden">
       <div className="border-b border-border px-5 py-5">
         <h2 id="sa-workload-heading" className="text-base font-semibold text-foreground">{translateI18n("copy.saWorkload")}</h2>
         <p className="mt-1 text-sm text-muted-foreground">{translateI18n("copy.workloadDescription")}</p>
@@ -750,6 +767,9 @@ export default function DashboardPage() {
     (isHeadSa && approvalsQuery.isError) ||
     (isSa && assignedMilestonesQuery.isError);
 
+  const combineEmptySalesPanels = userRole === "SALES" && !isRoleDataLoading && !hasPartialError
+    && !nextTask && remainingItemCount === 0;
+
   const projectsById = new Map(projects.map((project) => [project.id, project]));
   const salesOutputProgressByProject = new Map(outputDocuments.salesProgress.map((item) => [item.projectId, item]));
   const healthSource: DashboardProjectHealth[] = (
@@ -820,37 +840,20 @@ export default function DashboardPage() {
   };
 
   return (
-    <div className="mx-auto w-full max-w-[1280px] space-y-6 px-4 py-6 sm:px-6 lg:px-8">
-      <header className="flex flex-col gap-5 border-b border-border pb-6 sm:flex-row sm:items-end sm:justify-between">
+    <div className="mx-auto w-full max-w-[1600px] min-w-0 space-y-4 px-4 py-5 sm:px-6 lg:px-8 lg:py-6">
+      <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div className="min-w-0">
           <p className="text-xs font-semibold text-primary">{roleContent.eyebrow}</p>
-          <h1 className="mt-2 break-words text-2xl font-semibold text-foreground sm:text-3xl">
+          <h1 className="mt-1.5 break-words text-[26px] font-semibold leading-tight tracking-tight text-foreground">
             {greeting}, {greetingSubject}
           </h1>
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">{roleContent.description}</p>
-          {nextTask && (
-            <p className="mt-3 break-words text-sm text-muted-foreground">
-              <span className="font-medium text-foreground">{translateI18n("copy.nextLabel")}</span> {nextTask.title}
-            </p>
-          )}
+          <p className="mt-1.5 max-w-2xl text-sm leading-5 text-muted-foreground">{roleContent.description}</p>
+
         </div>
 
-        {isRoleDataLoading && !nextTask ? (
-          <div className="h-10 w-full animate-pulse rounded-md bg-muted sm:w-36" aria-label={translateI18n("dashboardPage.loadingNext")} />
-        ) : nextTask ? (
-          <Link
-            href={nextTask.href || viewAllHref}
-            className="inline-flex min-h-10 w-full shrink-0 items-center justify-center gap-2 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:w-auto"
-          >
-            {nextTask.actionLabel}
-            <ArrowRight className="h-4 w-4" />
-          </Link>
-        ) : (
-          <Link href="/projects" className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline">
-            {translateI18n("copy.viewProject")}
-            <ArrowRight className="h-4 w-4" />
-          </Link>
-        )}
+        <Link href="/projects" className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border border-border bg-card px-4 text-sm font-medium text-foreground hover:bg-primary-soft hover:text-primary">
+          {translateI18n("dashboardPage.viewAllProjects")}<ArrowRight className="h-4 w-4" aria-hidden="true" />
+        </Link>
       </header>
 
       {hasPartialError && (
@@ -869,68 +872,53 @@ export default function DashboardPage() {
         </div>
       )}
 
-      <section aria-label={getDashboardSnapshotTitle(userRole)}>
-        {isRoleDataLoading ? (
-          <div className="grid grid-cols-2 gap-3 xl:grid-cols-4" aria-label={translateI18n("dashboardPage.loadingMetrics")}>
-            {[0, 1, 2, 3].map((item) => (
-              <div key={item} className="h-24 animate-pulse rounded-xl border border-border bg-muted sm:h-32" />
-            ))}
+      <div className={`grid min-w-0 gap-4 ${combineEmptySalesPanels ? "" : "xl:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)] xl:items-start"}`}>
+        <section aria-labelledby="next-task-heading" className="dashboard-surface p-4 sm:p-5">
+          <div className="flex items-center gap-3">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary-soft text-primary"><ClipboardCheck className="h-5 w-5" aria-hidden="true" /></span>
+            <h2 id="next-task-heading" className="text-base font-semibold">{roleContent.title}</h2>
           </div>
-        ) : (
-          <dl className="grid grid-cols-2 gap-3 xl:grid-cols-4">
-            {metrics.map((metric) => (
-              <div key={metric.label}>
-                <dt className="sr-only">{metric.label}</dt>
-                <dd><MetricCard metric={metric} /></dd>
+          {isRoleDataLoading && !nextTask ? (
+            <div role="status" aria-label={translateI18n("dashboardPage.loadingNext")} className="mt-4 space-y-3"><div className="h-6 w-3/4 animate-pulse rounded bg-muted" /><div className="h-16 animate-pulse rounded-xl bg-muted" /></div>
+          ) : nextTask ? (
+            <div className="mt-4 space-y-3">
+              <div>
+                <p className="text-xs font-semibold text-primary">{nextTask.label}</p>
+                <h3 className="mt-2 break-words text-xl font-semibold">{nextTask.title}</h3>
+                <p className="mt-2 break-words text-sm leading-6 text-muted-foreground">{nextTask.description}</p>
               </div>
-            ))}
-          </dl>
-        )}
-      </section>
-
-      {userRole === "SALES" && !dashboardQuery.isLoading && !dashboardQuery.isError && salesResults && (
-        <section aria-label={translateI18n("dashboardPage.salesResults")} className="grid gap-4 border-y border-border py-4 text-sm sm:grid-cols-2 lg:grid-cols-4">
-          <div><p className="text-muted-foreground">{translateI18n("projectStatus.WAITING_RESULT")}</p><p className="font-semibold">{translateI18n("dashboardPage.projectCount", { count: salesResults.waitingResult.count })}</p><p className="text-xs text-muted-foreground">{translateI18n("dashboardPage.estimate", { value: formatRevenue(salesResults.waitingResult.estimatedRevenue) })}</p></div>
-          <div><p className="text-muted-foreground">{translateI18n("projectStatus.WON")}</p><p className="font-semibold">{translateI18n("dashboardPage.projectCount", { count: salesResults.won.count })}</p><p className="text-xs text-muted-foreground">{translateI18n("dashboardPage.estimate", { value: formatRevenue(salesResults.won.estimatedRevenue) })}</p></div>
-          <div><p className="text-muted-foreground">{translateI18n("projectStatus.LOST")}</p><p className="font-semibold">{translateI18n("dashboardPage.projectCount", { count: salesResults.lost.count })}</p><p className="text-xs text-muted-foreground">{translateI18n("dashboardPage.estimate", { value: formatRevenue(salesResults.lost.estimatedRevenue) })}</p></div>
-          <div><p className="text-muted-foreground">{translateI18n("copy.finalContract")}</p><p className="font-semibold">{formatRevenue(salesResults.finalContractValueTotal)}</p><p className="text-xs text-muted-foreground">{translateI18n("copy.wonOnly")}</p></div>
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-muted-foreground">
+                {nextTask.state && <span className="inline-flex items-center gap-1.5"><Clock3 className="h-3.5 w-3.5" aria-hidden="true" />{displayWorkState(nextTask.state)}</span>}
+                {nextTask.meta && <span className="break-words">{nextTask.meta}</span>}
+              </div>
+              <Link href={nextTask.href || viewAllHref} className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary-deep sm:w-auto">
+                {nextTask.actionLabel}<ArrowRight className="h-4 w-4" aria-hidden="true" />
+              </Link>
+            </div>
+          ) : hasPartialError ? (
+            <div role="alert" className="mt-4 space-y-3 text-sm text-muted-foreground">
+              <p>{translateI18n("copy.partialLoad")}</p>
+              <button type="button" onClick={retryVisibleQueries} className="min-h-10 rounded-lg border border-border px-4 text-primary hover:bg-primary-soft">{translateI18n("common.retry")}</button>
+            </div>
+          ) : combineEmptySalesPanels ? (
+            <div className="mt-3 flex flex-wrap items-center justify-between gap-3 text-sm">
+              <p className="flex items-center gap-2 text-muted-foreground"><CheckCircle2 className="h-4 w-4 shrink-0 text-success" aria-hidden="true" />{translateI18n("copy.queueClear")}</p>
+              <Link href={viewAllHref} className="inline-flex min-h-9 items-center gap-2 font-medium text-primary">{translateI18n("dashboardPage.fullQueue")}<ArrowRight className="h-4 w-4" aria-hidden="true" /></Link>
+            </div>
+          ) : (
+            <div className="mt-4 flex items-start gap-3 rounded-xl bg-muted/60 p-3"><CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-[hsl(var(--success))]" aria-hidden="true" /><div><p className="text-sm font-medium">{translateI18n(userRole === "SALES" && remainingItemCount > 0 ? "dashboardPage.noDirectSalesAction" : "copy.noAttention")}</p>{!(userRole === "SALES" && remainingItemCount > 0) && <p className="mt-1 text-sm text-muted-foreground">{translateI18n("copy.queueClear")}</p>}<Link href={viewAllHref} className="mt-3 inline-flex min-h-9 items-center gap-2 text-sm font-medium text-primary">{translateI18n("dashboardPage.fullQueue")}<ArrowRight className="h-4 w-4" aria-hidden="true" /></Link></div></div>
+          )}
         </section>
-      )}
-
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px] lg:items-start">
-        <PhaseWorkStatusPanel
-          summary={dashboardQuery.data?.phaseWorkStatus}
-          allSummary={dashboardQuery.data?.allWorkStatus}
-          loading={dashboardQuery.isLoading}
-          hasError={dashboardQuery.isError}
-          refreshing={dashboardQuery.isFetching}
-          onRetry={() => { void dashboardQuery.refetch(); }}
-        />
-        <QuickInsightsPanel
+        {!combineEmptySalesPanels && <QuickInsightsPanel
           insights={quickInsights}
           loading={isRoleDataLoading}
           viewAllHref={viewAllHref}
           hasMore={remainingItemCount > quickInsights.length}
-        />
+        />}
       </div>
 
-      <HeadSaProjectValuesPanel
-        role={userRole}
-        values={dashboardQuery.data?.headSaProjectValues}
-        loading={dashboardQuery.isLoading}
-        hasError={dashboardQuery.isError}
-      />
-
-      {shouldShowSaWorkload(userRole) && (
-        <SolutionArchitectWorkloadPanel
-          workload={saWorkload}
-          loading={dashboardQuery.isLoading}
-          hasError={dashboardQuery.isError}
-        />
-      )}
-
-      <section aria-labelledby="project-delivery-heading" className="overflow-hidden rounded-xl border border-border bg-card">
-        <div className="flex flex-col gap-3 border-b border-border px-5 py-5 sm:flex-row sm:items-center sm:justify-between">
+      <section aria-labelledby="project-delivery-heading" className="dashboard-surface overflow-hidden">
+        <div className="flex flex-col gap-3 border-b border-border px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
           <div>
             <h2 id="project-delivery-heading" className="text-base font-semibold text-foreground">{projectDeliveryTitle}</h2>
             <p className="mt-1 text-sm text-muted-foreground">{projectDeliveryDescription}</p>
@@ -943,20 +931,21 @@ export default function DashboardPage() {
           )}
         </div>
 
+        <div className="dashboard-table">
         {userRole === "SALES" ? (
-          <div className="hidden grid-cols-[minmax(180px,1.3fr)_minmax(130px,1fr)_minmax(160px,1fr)_minmax(140px,0.9fr)_110px_auto] gap-4 border-b border-border bg-muted/40 px-5 py-3 text-xs font-medium text-muted-foreground lg:grid">
-            <span>{translateI18n("nav.projects")}</span><span>{translateI18n("project.revenue")}</span><span>{translateI18n("copy.stage")}</span><span>PIC</span><span>{translateI18n("common.status")}</span><span>{translateI18n("common.actions")}</span>
+          <div className="hidden grid-cols-[minmax(0,1.6fr)_minmax(0,1.1fr)_minmax(0,1fr)_minmax(0,0.85fr)] gap-4 border-b border-border bg-muted/40 px-5 py-2.5 text-xs font-medium text-muted-foreground lg:grid">
+            <span>{translateI18n("nav.projects")}</span><span>{translateI18n("copy.estimatedRevenue")}</span><span>{translateI18n("copy.stage")}</span><span>PIC</span>
           </div>
         ) : userRole === "HEAD_SA" ? (
-          <div className="hidden grid-cols-[minmax(180px,1.3fr)_minmax(140px,1fr)_minmax(180px,1.1fr)_110px_minmax(150px,1fr)_auto] gap-4 border-b border-border bg-muted/40 px-5 py-3 text-xs font-medium text-muted-foreground lg:grid">
+          <div className="delivery-columns hidden grid-cols-[minmax(180px,1.3fr)_minmax(140px,1fr)_minmax(180px,1.1fr)_110px_minmax(150px,1fr)_auto] gap-4 border-b border-border bg-muted/40 px-5 py-3 text-xs font-medium text-muted-foreground 2xl:grid">
             <span>{translateI18n("nav.projects")}</span><span>{translateI18n("role.SA")}</span><span>{translateI18n("copy.currentTasks")}</span><span>{translateI18n("common.status")}</span><span>{translateI18n("copy.progress")}</span><span>{translateI18n("common.actions")}</span>
           </div>
         ) : userRole === "SA" ? (
-          <div className="hidden grid-cols-[minmax(180px,1.3fr)_minmax(140px,1fr)_minmax(180px,1.1fr)_minmax(140px,0.9fr)_110px_auto] gap-4 border-b border-border bg-muted/40 px-5 py-3 text-xs font-medium text-muted-foreground lg:grid">
+          <div className="delivery-columns hidden grid-cols-[minmax(180px,1.3fr)_minmax(140px,1fr)_minmax(180px,1.1fr)_minmax(140px,0.9fr)_110px_auto] gap-4 border-b border-border bg-muted/40 px-5 py-3 text-xs font-medium text-muted-foreground 2xl:grid">
             <span>{translateI18n("nav.projects")}</span><span>{translateI18n("project.customer")}</span><span>{translateI18n("copy.currentTasks")}</span><span>{translateI18n("copy.deadline")}</span><span>{translateI18n("common.status")}</span><span>{translateI18n("common.actions")}</span>
           </div>
         ) : (
-          <div className="hidden grid-cols-[minmax(170px,1.4fr)_minmax(110px,0.9fr)_110px_minmax(145px,1fr)_minmax(135px,1fr)_minmax(110px,0.9fr)_auto] gap-4 border-b border-border bg-muted/40 px-5 py-3 text-xs font-medium text-muted-foreground lg:grid">
+          <div className="delivery-columns hidden grid-cols-[minmax(170px,1.4fr)_minmax(110px,0.9fr)_110px_minmax(145px,1fr)_minmax(135px,1fr)_minmax(110px,0.9fr)_auto] gap-4 border-b border-border bg-muted/40 px-5 py-3 text-xs font-medium text-muted-foreground 2xl:grid">
             <span>{translateI18n("nav.projects")}</span><span>{translateI18n("project.customer")}</span><span>{translateI18n("common.status")}</span><span>{translateI18n("copy.progress")}</span><span>{translateI18n("copy.deadlineRisk")}</span><span>{translateI18n("project.owner")}</span><span>{translateI18n("common.actions")}</span>
           </div>
         )}
@@ -987,58 +976,75 @@ export default function DashboardPage() {
             <Link href="/projects" className="text-sm font-medium text-primary hover:underline">{translateI18n("copy.viewProject")}</Link>
           </div>
         )}
+        </div>
       </section>
 
-      <section aria-labelledby="recent-activity-heading" className="overflow-hidden rounded-xl border border-border bg-card">
-        <div className="border-b border-border px-5 py-5">
-          <h2 id="recent-activity-heading" className="text-base font-semibold text-foreground">{translateI18n("copy.recentActivity")}</h2>
-          <p className="mt-1 text-sm text-muted-foreground">{translateI18n("copy.accessibleChanges")}</p>
-        </div>
+      <HeadSaProjectValuesPanel
+        role={userRole}
+        values={dashboardQuery.data?.headSaProjectValues}
+        loading={dashboardQuery.isLoading}
+        hasError={dashboardQuery.isError}
+      />
 
-        {dashboardQuery.isLoading && recentActivity.length === 0 ? (
-          <div className="space-y-3 p-5" aria-label={translateI18n("dashboardPage.loadingActivity")}>
-            {[0, 1, 2, 3].map((item) => <div key={item} className="h-14 animate-pulse rounded bg-muted" />)}
-          </div>
-        ) : recentActivity.length > 0 ? (
-          <div className="divide-y divide-border">
-            {recentActivity.slice(0, 8).map((activity: RecentActivity) => {
-              const timestamp = formatDashboardTimestamp(activity.createdAt);
-              const content = (
-                <div className="grid gap-2 px-5 py-4 sm:grid-cols-[minmax(170px,0.8fr)_minmax(220px,1.5fr)_minmax(170px,0.9fr)_auto] sm:items-center sm:gap-5">
-                  <p className="text-sm font-medium text-foreground">{formatDashboardActivityLabel(activity.action)}</p>
-                  <div className="min-w-0">
-                    <p className="break-words text-sm text-foreground">{activity.project?.name || "Project unavailable"}</p>
-                    <p className="mt-1 break-words text-xs leading-5 text-muted-foreground">{formatActivityDescription(activity.action, activity.details)}</p>
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    {[activity.user.fullName, formatActorRoleLabel(activity.user.role)].filter(Boolean).join(" - ")}
-                  </p>
-                  <div className="flex items-center justify-between gap-3 sm:justify-end">
-                    <span className="text-xs text-muted-foreground">{timestamp || "Time unavailable"}</span>
-                    {activity.project && <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />}
-                  </div>
-                </div>
-              );
+      {shouldShowSaWorkload(userRole) && (
+        <SolutionArchitectWorkloadPanel
+          workload={saWorkload}
+          loading={dashboardQuery.isLoading}
+          hasError={dashboardQuery.isError}
+        />
+      )}
 
-              return activity.project ? (
-                <Link
-                  key={activity.id}
-                  href={"/projects/" + activity.project.id}
-                  className="block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
-                >
-                  {content}
-                </Link>
-              ) : (
-                <div key={activity.id}>{content}</div>
-              );
-            })}
+      <section aria-labelledby="dashboard-summary-heading" className="space-y-3">
+        <h2 id="dashboard-summary-heading" className="text-base font-semibold">{translateI18n("dashboardPage.summary")}</h2>
+        {isRoleDataLoading ? (
+          <div className="grid grid-cols-2 gap-3 xl:grid-cols-4" aria-label={translateI18n("dashboardPage.loadingMetrics")}>
+            {[0, 1, 2, 3].map((item) => (
+              <div key={item} className="h-24 animate-pulse rounded-xl border border-border bg-muted sm:h-32" />
+            ))}
           </div>
-        ) : dashboardQuery.isError ? (
-          <div className="px-5 py-8 text-sm text-muted-foreground">{translateI18n("ui.activityLoadFailed")}</div>
+        ) : hasPartialError ? (
+          <div role="alert" className="dashboard-surface p-5 text-sm text-muted-foreground"><p>{translateI18n("copy.partialLoad")}</p><button type="button" onClick={retryVisibleQueries} className="mt-2 min-h-9 rounded-lg px-3 text-primary hover:bg-primary-soft">{translateI18n("common.retry")}</button></div>
         ) : (
-          <div className="px-5 py-8 text-sm text-muted-foreground">{translateI18n("copy.noRecentActivity")}</div>
+          <dl className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+            {metrics.map((metric) => (
+              <div key={metric.label}>
+                <dt className="sr-only">{metric.label}</dt>
+                <dd><MetricCard metric={metric} /></dd>
+              </div>
+            ))}
+          </dl>
         )}
       </section>
+
+      {userRole === "SALES" && !dashboardQuery.isLoading && !dashboardQuery.isError && salesResults && (
+        <section aria-label={translateI18n("dashboardPage.salesResults")} className="dashboard-surface grid gap-4 p-5 text-sm sm:grid-cols-2 lg:grid-cols-4">
+          <div><p className="text-muted-foreground">{translateI18n("projectStatus.WAITING_RESULT")}</p><p className="font-semibold">{translateI18n("dashboardPage.projectCount", { count: salesResults.waitingResult.count })}</p><p className="text-xs text-muted-foreground">{translateI18n("dashboardPage.estimate", { value: formatRevenue(salesResults.waitingResult.estimatedRevenue) })}</p></div>
+          <div><p className="text-muted-foreground">{translateI18n("projectStatus.WON")}</p><p className="font-semibold">{translateI18n("dashboardPage.projectCount", { count: salesResults.won.count })}</p><p className="text-xs text-muted-foreground">{translateI18n("dashboardPage.estimate", { value: formatRevenue(salesResults.won.estimatedRevenue) })}</p></div>
+          <div><p className="text-muted-foreground">{translateI18n("projectStatus.LOST")}</p><p className="font-semibold">{translateI18n("dashboardPage.projectCount", { count: salesResults.lost.count })}</p><p className="text-xs text-muted-foreground">{translateI18n("dashboardPage.estimate", { value: formatRevenue(salesResults.lost.estimatedRevenue) })}</p></div>
+          <div><p className="text-muted-foreground">{translateI18n("copy.finalContract")}</p><p className="font-semibold">{formatRevenue(salesResults.finalContractValueTotal)}</p><p className="text-xs text-muted-foreground">{translateI18n("copy.wonOnly")}</p></div>
+        </section>
+      )}
+
+      <div className="min-w-0">
+        <PhaseWorkStatusPanel
+          summary={dashboardQuery.data?.phaseWorkStatus}
+          allSummary={dashboardQuery.data?.allWorkStatus}
+          loading={dashboardQuery.isLoading}
+          hasError={dashboardQuery.isError}
+          refreshing={dashboardQuery.isFetching}
+          onRetry={() => { void dashboardQuery.refetch(); }}
+        />
+      </div>
+
+      <RecentActivityPanel
+        activities={recentActivity}
+        pagination={dashboardQuery.data?.recentActivityPagination}
+        refreshing={dashboardQuery.isFetching}
+        scopeKey={`${user?.id || "guest"}:${userRole}`}
+        loading={dashboardQuery.isLoading}
+        hasError={dashboardQuery.isError}
+        onRetry={() => { void dashboardQuery.refetch(); }}
+      />
     </div>
   );
 }

@@ -66,11 +66,11 @@ function formatDate(value?: string | null): string {
 
 function OutputStatusBadge({ status }: { status: ProjectOutputDocumentItem["status"] }) {
   const className = status === "APPROVED"
-    ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
+    ? "border-emerald-500/30 bg-emerald-500/10 text-success"
     : status === "REVISION_REQUIRED"
       ? "border-destructive/30 bg-destructive/10 text-destructive"
       : status === "IN_REVIEW"
-        ? "border-blue-500/30 bg-blue-500/10 text-blue-400"
+        ? "border-blue-500/30 bg-blue-500/10 text-primary"
         : "border-border/60 bg-muted/30 text-muted-foreground";
   return <Badge variant="outline" className={`text-[11px] ${className}`}>{translateOutputStatus(status)}</Badge>;
 }
@@ -81,7 +81,7 @@ function BatchResultNotice({ results, documents, action }: { results: OutputDocu
   const successful = results.filter((result) => result.success);
   const succeeded = results.length - failed.length;
   return (
-    <div className={`rounded-md border p-3 text-xs ${failed.length ? "border-amber-500/30 bg-amber-500/10 text-amber-200" : "border-emerald-500/30 bg-emerald-500/10 text-emerald-300"}`}>
+    <div className={`rounded-md border p-3 text-xs ${failed.length ? "border-amber-500/30 bg-amber-500/10 text-warning" : "border-emerald-500/30 bg-emerald-500/10 text-success"}`}>
       <p className="font-semibold">{translateI18n(action === "submit" ? "outputUi.submitSummary" : action === "approve" ? "outputUi.approveSummary" : "outputUi.reviseSummary", { success: succeeded, failed: failed.length })}</p>
       {successful.map((result) => { const item = documents.find((document) => document.key === result.documentKey); return <p key={result.documentKey} className="mt-1">{translateI18n("outputUi.itemSuccess", { name: item ? translateOutputName(item.key, item.name) : translateI18n("documents.output") })}</p>; })}
       {failed.length > 0 && <p className="mt-1">{translateI18n("copy.retryFailed")}</p>}
@@ -142,7 +142,7 @@ function OutputDocumentRow({ projectId, document, canUpload, canReview, canReadH
 
   return (
     <div id={`project-output-${document.id}`} tabIndex={-1} className="min-w-0 space-y-2 py-3 first:pt-0 last:pb-0 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary">
-      {outputReviewIsStale(reviewLink, document) && <p role="status" className="text-xs text-amber-400">{translateI18n("outputQueue.noLongerPending")}</p>}
+      {outputReviewIsStale(reviewLink, document) && <p role="status" className="text-xs text-warning">{translateI18n("outputQueue.noLongerPending")}</p>}
       <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
         <div className="min-w-0 flex-1 space-y-1.5">
           <div className="flex min-w-0 flex-wrap items-center gap-1.5">
@@ -592,12 +592,12 @@ export function OutputDocumentsSection({ project, milestoneId, milestoneStatus, 
                 {marker && <div><label htmlFor={`file-reason-${file.id}`} className="text-xs">{translateI18n("fileRevision.reason", { name: file.fileName })}</label>
                   {revisionConfirmed ? <p className="whitespace-pre-wrap break-words text-sm">{marker.feedback.trim()}</p> : <textarea id={`file-reason-${file.id}`} required maxLength={2000} value={marker.feedback} disabled={review.isPending}
                     onChange={event => setFileRevisionInputs(current => current.map(item => item.file_id === file.id ? { ...item, feedback: event.target.value } : item))}
-                    className="min-h-16 w-full rounded-md border border-input bg-background p-2 text-sm" />}</div>}
+                    className="min-h-16 w-full rounded-lg border border-input bg-card p-2 text-sm" />}</div>}
               </div>;
             })}
           </div>
           <label htmlFor="output-revision-feedback" className="block text-xs">{translateI18n("fileRevision.general")}</label>
-          <textarea id="output-revision-feedback" maxLength={2000} value={revisionFeedback} disabled={review.isPending || revisionConfirmed} onChange={event => setRevisionFeedback(event.target.value)} className="min-h-16 w-full rounded-md border border-input bg-background p-2 text-sm" />
+          <textarea id="output-revision-feedback" maxLength={2000} value={revisionFeedback} disabled={review.isPending || revisionConfirmed} onChange={event => setRevisionFeedback(event.target.value)} className="min-h-16 w-full rounded-lg border border-input bg-card p-2 text-sm" />
           {revisionConfirmed && <p className="text-sm">{translateI18n("fileRevision.confirm", { count: fileRevisionInputs.length })}</p>}
           {revisionError && <p role="alert" className="text-sm text-destructive">{translateI18n(reviewTargetsAreCurrent(captureOutputReview([revisionTarget]), documents) ? "reviewConfirm.failed" : "reviewConfirm.stale")}</p>}
           <DialogFooter>

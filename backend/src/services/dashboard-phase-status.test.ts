@@ -128,7 +128,7 @@ async function main() {
       },
       order: (column: string, options: { ascending: boolean }) => { if (table === 'projects') ordered.push([column, options.ascending]); return query; },
       eq: (column: string, value: unknown) => { if (table === 'projects') { filters.push([column, value]); pageFilters.push([column, value]); } return query; },
-      in: () => query, limit: () => query,
+      in: () => query, neq: () => query, limit: () => query,
       range: (start: number, end: number) => { range = [start, end]; if (table === 'projects') pages.push(range); return query; },
       then: (resolve: (result: unknown) => unknown, reject: (error: unknown) => unknown) => {
         const scoped = data.filter(row => pageFilters.every(([column, value]) => row[column as keyof DashboardProjectRow] === value));

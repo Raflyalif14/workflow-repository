@@ -74,6 +74,7 @@ async function run() {
         if (table === 'projects') orders.push([column, options.ascending]);
         return query;
       },
+      neq: () => query,
       limit: () => query,
       eq: (column: string, value: unknown) => {
         if (table === 'projects') { filters.push([column, value]); queryFilters.push([column, value]); }

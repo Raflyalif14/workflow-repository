@@ -206,7 +206,7 @@ function DocumentsContent() {
   };
 
   return (
-    <div className="mx-auto w-full max-w-[1280px] space-y-5 px-4 py-6 sm:px-6 lg:px-8">
+    <div className="mx-auto w-full max-w-[1600px] space-y-5 px-4 py-6 sm:px-6 xl:px-8">
       <header className="border-b border-border/60 pb-5">
         <p className="text-xs font-semibold uppercase text-primary">{translateI18n(pageCopy.eyebrow)}</p>
         <h1 className="mt-1 text-2xl font-semibold text-foreground sm:text-3xl">{translateI18n(pageCopy.title)}</h1>
@@ -215,7 +215,7 @@ function DocumentsContent() {
 
       <section
         aria-label={translateI18n("documentPage.summary")}
-        className="grid grid-cols-2 overflow-hidden rounded-lg border border-border/60 bg-card lg:grid-cols-4"
+        className="grid grid-cols-2 overflow-hidden page-surface xl:grid-cols-4"
       >
         {snapshot.map((item, index) => (
           <div
@@ -223,8 +223,8 @@ function DocumentsContent() {
             className={`border-border/60 px-4 py-3.5 sm:px-5 ${
               index % 2 === 1 ? "border-l" : ""
             } ${index >= 2 ? "border-t" : ""} ${
-              index > 0 ? "lg:border-l" : ""
-            } lg:border-t-0`}
+              index > 0 ? "xl:border-l" : ""
+            } xl:border-t-0`}
           >
             <p className="text-2xl font-semibold text-foreground">{loadState === "ready" ? item.value : "—"}</p>
             <p className="mt-0.5 text-xs text-muted-foreground">{item.label}</p>
@@ -232,7 +232,7 @@ function DocumentsContent() {
         ))}
       </section>
 
-      <section className="overflow-hidden rounded-lg border border-border/60 bg-card">
+      <section className="overflow-hidden page-surface">
         <div className="space-y-4 border-b border-border/60 p-4 sm:p-5">
           <div>
             <h2 className="text-base font-semibold text-foreground">{translateI18n("documentPage.allResults")}</h2>
@@ -244,7 +244,7 @@ function DocumentsContent() {
             className={`grid min-w-0 gap-1 rounded-md bg-muted/30 p-1 ${accessGroups.length === 2 ? "grid-cols-2" : "grid-cols-1"}`}>
             {accessGroups.map((group, index) => <Button key={group} id={`repository-tab-${group}`} type="button" role="tab"
               aria-selected={activeGroup === group} aria-controls="repository-results" tabIndex={activeGroup === group ? 0 : -1}
-              variant="ghost" className={`h-auto min-h-10 min-w-0 whitespace-normal break-words px-3 py-2 text-sm ${activeGroup === group ? "bg-secondary text-secondary-foreground shadow-sm" : "text-muted-foreground"}`}
+              variant="ghost" className={`h-auto min-h-10 min-w-0 whitespace-normal break-words px-3 py-2 text-sm ${activeGroup === group ? "bg-primary-soft text-primary shadow-sm" : "text-muted-foreground"}`}
               onClick={() => { setAccessGroup(group); setPage(1); }}
               onKeyDown={event => {
                 const nextIndex = event.key === "Home" ? 0 : event.key === "End" ? accessGroups.length - 1
@@ -256,7 +256,7 @@ function DocumentsContent() {
                 event.currentTarget.parentElement?.querySelector<HTMLButtonElement>(`#repository-tab-${next}`)?.focus();
               }}>{translateI18n(accessLabel(group))}</Button>)}
           </div>
-          <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_220px_180px_auto]">
+          <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_220px_180px_auto]">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
@@ -274,7 +274,7 @@ function DocumentsContent() {
               onChange={(event) =>
                 { setCategoryFilter(event.target.value as DocumentCategory | "OUTPUT" | "ALL"); setPage(1); }
               }
-              className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+              className="h-10 w-full rounded-lg border border-border bg-card px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20"
             >
               <option value="ALL">{translateI18n("copy.allCategories")}</option>
               <option value="OUTPUT">{translateI18n("documents.output")}</option>
@@ -293,7 +293,7 @@ function DocumentsContent() {
               onChange={(event) =>
                 { setStatusFilter(event.target.value as DocumentStatus | "ALL"); setPage(1); }
               }
-              className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+              className="h-10 w-full rounded-lg border border-border bg-card px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20"
             >
               <option value="ALL">{translateI18n("copy.allStatuses")}</option>
               <option value="APPROVED">{translateI18n("approvalStatus.APPROVED")}</option>
@@ -330,7 +330,7 @@ function DocumentsContent() {
         <div id="repository-results" role="tabpanel" aria-labelledby={`repository-tab-${activeGroup}`} tabIndex={0}
           className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
         {!isLoading && !isError && visibleItems.length > 0 && (
-          <div className="hidden grid-cols-[minmax(240px,1.7fr)_minmax(180px,1fr)_minmax(230px,1.3fr)_auto] gap-4 border-b border-border/60 px-5 py-2.5 text-[11px] font-semibold uppercase text-muted-foreground lg:grid">
+          <div className="hidden grid-cols-[minmax(240px,1.7fr)_minmax(180px,1fr)_minmax(230px,1.3fr)_auto] gap-4 border-b border-border/60 px-5 py-2.5 text-[11px] font-semibold uppercase text-muted-foreground xl:grid">
             <span>{translateI18n("nav.documents")}</span>
             <span>{translateI18n("nav.projects")}</span>
             <span>{translateI18n("ui.latestVersion")}</span>
@@ -419,7 +419,7 @@ function OutputRepositoryRow({ item, pendingFiles, onDownload, onArchive, archiv
   onDownload: (fileId: string) => void;
   onArchive: () => void; archivePending: boolean;
 }) {
-  return <div id={`repository-output-${item.outputId}`} className="grid gap-4 border-t border-border/60 px-4 py-4 first:border-t-0 sm:px-5 lg:grid-cols-[minmax(240px,1.7fr)_minmax(180px,1fr)_minmax(230px,1.3fr)_auto] lg:items-center">
+  return <div id={`repository-output-${item.outputId}`} className="grid gap-4 border-t border-border/60 px-4 py-4 first:border-t-0 sm:px-5 xl:grid-cols-[minmax(240px,1.7fr)_minmax(180px,1fr)_minmax(230px,1.3fr)_auto] xl:items-center">
     <div className="min-w-0">
       <div className="flex flex-wrap items-center gap-2"><Badge variant="outline">{translateI18n("documents.output")}</Badge><Badge variant="success">{translateOutputStatus(item.status)}</Badge>{item.accessMode && <Badge variant="outline">{translateI18n(item.accessMode === "SHARED_INTERNAL" ? "documentAccess.shared" : "documentAccess.restricted")}</Badge>}</div>
       <h3 className="mt-2 break-words font-semibold text-foreground">{translateOutputName(item.documentKey, item.name)}</h3>
@@ -449,7 +449,7 @@ function OutputRepositoryRow({ item, pendingFiles, onDownload, onArchive, archiv
         })}
       </ul>
     </div>
-    <div className="flex flex-wrap gap-1 lg:justify-end">
+    <div className="flex flex-wrap gap-1 xl:justify-end">
       {item.canReadProject !== false && <Link href={`/projects/${item.projectId}#milestone-outputs-${item.milestoneId}`}><Button type="button" size="sm" variant="outline"><ArrowRight className="mr-1 h-3.5 w-3.5" />{translateI18n("project.open")}</Button></Link>}
       {item.outputId && <Button size="sm" variant="outline" disabled={archivePending} onClick={onArchive}>{translateI18n("documentAccess.downloadAll")}</Button>}
     </div>
@@ -472,7 +472,7 @@ function DocumentRow({
   const latestVersion = document.versions?.[0];
 
   return (
-    <div className="grid gap-4 border-t border-border/60 px-4 py-4 first:border-t-0 sm:px-5 lg:grid-cols-[minmax(240px,1.7fr)_minmax(180px,1fr)_minmax(230px,1.3fr)_auto] lg:items-center">
+    <div className="grid gap-4 border-t border-border/60 px-4 py-4 first:border-t-0 sm:px-5 xl:grid-cols-[minmax(240px,1.7fr)_minmax(180px,1fr)_minmax(230px,1.3fr)_auto] xl:items-center">
       <div className="min-w-0">
         <div className="flex flex-wrap items-center gap-2">
           <Badge variant="outline">{translateI18n("ui.officialDocument")}</Badge>
@@ -496,12 +496,12 @@ function DocumentRow({
         )}
       </div>
 
-      <div className="flex min-w-0 items-center justify-between gap-3 lg:block">
-        <span className="text-[11px] font-medium text-muted-foreground lg:hidden">{translateI18n("nav.projects")}</span>
+      <div className="flex min-w-0 items-center justify-between gap-3 xl:block">
+        <span className="text-[11px] font-medium text-muted-foreground xl:hidden">{translateI18n("nav.projects")}</span>
         {document.project ? (
           <Link
             href={`/projects/${document.project.id}`}
-            className="min-w-0 text-right lg:text-left"
+            className="min-w-0 text-right xl:text-left"
           >
             <p className="truncate text-sm font-medium text-foreground hover:text-primary">
               {document.project.name}
@@ -543,7 +543,7 @@ function DocumentRow({
         )}
       </div>
 
-      <div className="flex flex-wrap justify-start gap-1 lg:justify-end">
+      <div className="flex flex-wrap justify-start gap-1 xl:justify-end">
         {latestVersion && (
           <Button
             size="sm"

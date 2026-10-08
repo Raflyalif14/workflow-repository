@@ -34,6 +34,12 @@ export const assignmentKeys = {
 
 export const dashboardKeys = {
   overview: () => ["dashboard", "overview"] as const,
+  // Keep cursor pages under the existing overview invalidation prefix.
+  activityScope: (userId: string, sessionId: string, role: string) =>
+    [...dashboardKeys.overview(), "activity", userId, sessionId, role] as const,
+  activityPage: (userId: string, sessionId: string, role: string, cursor: string | null) =>
+    [...dashboardKeys.activityScope(userId, sessionId, role), cursor] as const,
+
 };
 
 export const notificationKeys = {

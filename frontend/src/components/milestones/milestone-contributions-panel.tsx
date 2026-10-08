@@ -299,7 +299,7 @@ export function MilestoneContributionsPanel({
               maxLength={4000}
               rows={4}
               disabled={createContribution.isPending}
-              className="w-full resize-y rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground outline-none transition-colors placeholder:text-muted-foreground focus:border-primary disabled:cursor-not-allowed disabled:opacity-50"
+              className="w-full resize-y rounded-lg border border-input bg-card px-3 py-2 text-sm text-foreground outline-none transition-colors placeholder:text-muted-foreground focus:border-primary disabled:cursor-not-allowed disabled:opacity-50"
               placeholder={translateI18n("contribution.notePlaceholder")}
             />
           </div>

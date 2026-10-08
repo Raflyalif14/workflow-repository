@@ -87,14 +87,14 @@ export default function LoginPage() {
                 key={key}
                 className="flex items-center gap-2 rounded-lg border border-border/60 bg-card/50 px-3 py-2 text-xs text-muted-foreground"
               >
-                <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-400" />
+                <CheckCircle2 className="h-4 w-4 shrink-0 text-success" />
                 <span>{t(key)}</span>
               </div>
             ))}
           </div>
         </section>
 
-        <Card className="border-border/70 bg-card/80 shadow-2xl shadow-black/30 hover:border-border/70">
+        <Card>
           <CardHeader className="space-y-2">
             <CardTitle className="text-xl">{t("auth.login")}</CardTitle>
             <p className="text-sm text-muted-foreground">

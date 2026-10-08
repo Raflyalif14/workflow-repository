@@ -37,7 +37,7 @@ export default function ForgotPasswordPage() {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4 py-8">
-      <Card className="w-full max-w-md border-border/70 bg-card/80 shadow-2xl shadow-black/30 hover:border-border/70">
+      <Card className="w-full max-w-md">
         <CardHeader className="space-y-2">
           <CardTitle className="text-xl">{translateI18n("copy.forgotPassword")}</CardTitle>
           <p className="text-sm text-muted-foreground">
@@ -65,7 +65,7 @@ export default function ForgotPasswordPage() {
             </div>
 
             {message && (
-              <div className="flex items-start gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-300">
+              <div className="flex items-start gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm text-success">
                 <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
                 <span>{translateI18n("auth.resetInstructionsSent")}</span>
               </div>

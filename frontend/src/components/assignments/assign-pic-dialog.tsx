@@ -123,7 +123,7 @@ export function AssignPicDialog({
           <select
             value={selectedPicId}
             onChange={(e) => setSelectedPicId(e.target.value)}
-            className="flex h-10 w-full rounded-md border border-input bg-card px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-primary"
+            className="flex h-10 w-full rounded-lg border border-input bg-card px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
             disabled={isLoadingSAs || assignMutation.isPending}
             required
           >
@@ -160,7 +160,7 @@ export function AssignPicDialog({
             placeholder="e.g. Expertise in cloud migration, workload distribution..."
             value={reason}
             onChange={(e) => setReason(e.target.value)}
-            className="flex w-full rounded-md border border-input bg-card px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-primary"
+            className="flex w-full rounded-lg border border-input bg-card px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
             disabled={assignMutation.isPending}
           />
         </div>

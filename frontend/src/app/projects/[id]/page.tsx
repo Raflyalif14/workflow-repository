@@ -354,7 +354,7 @@ export default function ProjectDetailPage() {
     setPlanReviewTarget(null);
   };
   return (
-    <div className="mx-auto w-full max-w-[1280px] space-y-5 px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
+    <div className="mx-auto w-full max-w-[1600px] space-y-5 px-4 py-6 sm:px-6 xl:px-8 xl:py-8">
       {/* Back Button */}
       <Button variant="ghost" size="sm" className="-ml-2 h-8 gap-1.5 text-muted-foreground hover:text-foreground" onClick={() => router.push("/projects")}>
         <ArrowLeft className="h-4 w-4" />
@@ -381,7 +381,7 @@ export default function ProjectDetailPage() {
         <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
           {isActive && isSalesOwner && (
             <Button size="sm" variant="outline" className="h-9 gap-1.5 rounded-lg" onClick={() => setPostponeOpen(true)}>
-              <PauseCircle className="h-4 w-4 text-amber-400" />
+              <PauseCircle className="h-4 w-4 text-warning" />
               <span>{translateI18n("projectDetail.postpone")}</span>
             </Button>
           )}
@@ -399,7 +399,7 @@ export default function ProjectDetailPage() {
         </div>
       )}
       {message && (
-        <div className="flex items-start gap-2 rounded-md border border-emerald-500/40 bg-emerald-500/10 p-3 text-sm text-emerald-400">
+        <div className="flex items-start gap-2 rounded-md border border-emerald-500/40 bg-emerald-500/10 p-3 text-sm text-success">
           <CheckCircle2 className="h-4 w-4 shrink-0" />
           <span>{translateStoredMessage(message)}</span>
         </div>
@@ -414,7 +414,7 @@ export default function ProjectDetailPage() {
       />}
 
       {(isActive || isPostponed) && !isPraTenderDecisionPending(project) && (
-        <section aria-label={translateI18n("copy.pendingItems")} className="rounded-lg border border-border/60 bg-card/70 p-4 text-sm sm:p-5">
+        <section aria-label={translateI18n("copy.pendingItems")} className="page-surface p-4 text-sm sm:p-5">
           <h2 className="font-semibold text-foreground">{translateI18n("copy.pendingItems")}</h2>
           {milestonesLoading || outputReadiness.isLoading ? (
             <p className="mt-2 text-muted-foreground">{translateI18n("copy.checkingProgress")}</p>
@@ -435,7 +435,7 @@ export default function ProjectDetailPage() {
       {/* ─── Postponed Banner ─── */}
       {isPostponed && (
         <div className="space-y-3 rounded-lg border border-amber-500/30 bg-amber-500/10 p-4 sm:p-5">
-          <div className="flex items-center gap-2 text-sm font-semibold tracking-tight text-amber-400">
+          <div className="flex items-center gap-2 text-sm font-semibold tracking-tight text-warning">
             <PauseCircle className="h-5 w-5 shrink-0" />
             <span>{translateI18n("copy.projectPaused")}</span>
           </div>
@@ -457,7 +457,7 @@ export default function ProjectDetailPage() {
       {isWaitingResult && (
         <div className="flex flex-col gap-4 rounded-lg border border-amber-500/30 bg-amber-500/10 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
           <div className="space-y-1">
-            <div className="flex items-center gap-2 text-sm font-semibold text-amber-300">
+            <div className="flex items-center gap-2 text-sm font-semibold text-warning">
               <Clock3 className="h-5 w-5 shrink-0" />
               <span>{translateI18n("copy.waitingTender")}</span>
             </div>
@@ -548,7 +548,7 @@ export default function ProjectDetailPage() {
                 id="loss-reason"
                 value={lossReason}
                 onChange={(event) => { setProjectOutcome.prepare?.(); setLossReason(event.target.value); setOutcomeConfirming(false); }}
-                className="min-h-24 w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                className="min-h-24 w-full rounded-lg border border-input bg-card px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
                 disabled={setProjectOutcome.isPending}
                 maxLength={2000}
                 required
@@ -570,7 +570,7 @@ export default function ProjectDetailPage() {
       {(project.status === "WON" || project.status === "LOST" || project.status === "COMPLETED") && (
         <div className={`flex flex-col gap-4 rounded-lg border p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5 ${project.status === "LOST" ? "border-destructive/30 bg-destructive/10" : "border-emerald-500/30 bg-emerald-500/10"}`}>
           <div className="space-y-1">
-            <div className={`flex items-center gap-2 text-sm font-semibold tracking-tight ${project.status === "LOST" ? "text-destructive" : "text-emerald-400"}`}>
+            <div className={`flex items-center gap-2 text-sm font-semibold tracking-tight ${project.status === "LOST" ? "text-destructive" : "text-success"}`}>
               <CheckCircle2 className="h-5 w-5 shrink-0" />
               <span>{translateI18n(project.status === "COMPLETED" ? "ui.projectCompleted" : project.status === "WON" ? "ui.projectWon" : "ui.projectLost")} - 100%</span>
             </div>
@@ -614,7 +614,7 @@ export default function ProjectDetailPage() {
             </p>
           </div>
 
-          <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
+          <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
             <div className="min-w-0 space-y-6">
               <ProjectIntakeSection projectId={project.id} />
               <ProjectTimelineEditor
@@ -626,7 +626,7 @@ export default function ProjectDetailPage() {
               />
             </div>
 
-            <div className="lg:sticky lg:top-20 lg:self-start">
+            <div className="xl:sticky xl:top-20 xl:self-start">
               <ProjectPlanCard
                 onReviewDecision={openPlanReview}
                 project={project}
@@ -732,7 +732,7 @@ export default function ProjectDetailPage() {
       {/* ─── Milestones Execution List & Activity Log ─── */}
       {!isDraft && (
       <div>
-<Card className="border-border/60 bg-card/70 shadow-none hover:border-border/60">
+<Card>
           <CardHeader className="pb-3">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div className="space-y-1">
@@ -817,7 +817,7 @@ function ActivityTimeline({ projectId }: { projectId: string }) {
   const activities = flattenActivityPages(data?.pages);
 
   return (
-    <Card className="border-border/60 bg-card/70 shadow-none hover:border-border/60">
+    <Card>
       <CardHeader className="pb-3">
         <div className="space-y-1">
           <CardTitle className="text-base font-semibold tracking-tight">{translateI18n("copy.activity")}</CardTitle>
@@ -906,7 +906,7 @@ function ProjectIntakeSection({ projectId }: { projectId: string }) {
   ];
 
   return (
-    <Card className="border-border/60 bg-card/70 shadow-none hover:border-border/60">
+    <Card>
       <CardHeader className="pb-3">
         <div className="space-y-1">
           <CardTitle className="text-base font-semibold tracking-tight">{translateI18n("copy.projectIntake")}</CardTitle>
@@ -992,7 +992,7 @@ function ProjectDocumentsSection({ projectId }: { projectId: string }) {
   };
 
   return (
-    <Card className="border-border/60 bg-card/70 shadow-none hover:border-border/60">
+    <Card>
       <CardHeader className="pb-3">
         <div className="space-y-1">
           <CardTitle className="text-base font-semibold tracking-tight">{translateI18n("documents.official")}</CardTitle>
@@ -1221,7 +1221,7 @@ function ProjectPlanCard({
 }) {
   return (
     <>
-      <Card className={reviewWorkspace ? "border-border/60 bg-card shadow-none hover:border-border/60" : approval?.status === "REJECTED" ? "border-destructive/40 bg-destructive/5 shadow-none hover:border-destructive/40" : "border-border/60 bg-card/70 shadow-none hover:border-border/60"}>
+      <Card className={reviewWorkspace ? "border-border/60 bg-card shadow-none hover:border-border/60" : approval?.status === "REJECTED" ? "border-destructive/40 bg-destructive/5 shadow-none hover:border-destructive/40" : ""}>
         <CardHeader className="flex flex-col gap-3 pb-3 sm:flex-row sm:items-start sm:justify-between">
           <div className="space-y-1">
             <CardTitle className="text-base font-semibold tracking-tight">
@@ -1466,7 +1466,7 @@ function MilestoneRow({
       tabIndex={-1}
       className={`scroll-mt-20 rounded-lg border transition-colors focus:outline-none focus:ring-2 focus:ring-primary/60 focus:ring-offset-2 focus:ring-offset-background ${
         isCurrentStage
-          ? "border-primary/40 bg-card/70"
+          ? "border-primary/40 bg-card"
           : isCompleted
           ? "border-border/50 bg-muted/20"
           : "border-border/60 bg-card/50 hover:border-border/80"
@@ -1478,7 +1478,7 @@ function MilestoneRow({
             <span
               className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold ${
                 isCompleted
-                  ? "bg-emerald-500/20 text-emerald-400"
+                  ? "bg-emerald-500/20 text-success"
                   : isCurrentStage
                   ? "bg-primary text-primary-foreground font-bold"
                   : "bg-muted text-muted-foreground"
@@ -1493,14 +1493,14 @@ function MilestoneRow({
                 {translateI18n("copy.currentWork")}
               </span>
             )}
-            {outputCounts.inReview > 0 && <Badge variant="outline" className="border-blue-500/30 text-blue-400">{translateI18n("milestoneCompact.awaitingReview", { count: outputCounts.inReview })}</Badge>}
+            {outputCounts.inReview > 0 && <Badge variant="outline" className="border-blue-500/30 text-primary">{translateI18n("milestoneCompact.awaitingReview", { count: outputCounts.inReview })}</Badge>}
             {outputCounts.revisionRequired > 0 && <Badge variant="destructive">{translateI18n("milestoneCompact.needsRevision", { count: outputCounts.revisionRequired })}</Badge>}
             {hasPendingDeadline && <Badge variant="warning">{translateI18n("copy.deadlinePending")}</Badge>}
           </div>
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 pl-0 text-xs text-muted-foreground sm:pl-9">
             <span>{translateI18n("milestoneCompact.pic")}: <strong className="font-medium text-foreground">{milestone.pic?.full_name || milestone.pic?.fullName || translateI18n("milestoneCompact.unassigned")}</strong></span>
             <span>{translateI18n("milestoneCompact.due")}: <strong className="font-medium text-foreground">{formatDate(milestone.due_date)}</strong></span>
-            {!deadlineStatusQuery.isLoading && !deadlineStatusQuery.isError && <span className={deadlineHealth.tone === "destructive" ? "font-medium text-destructive" : deadlineHealth.tone === "warning" ? "font-medium text-amber-400" : ""}>{translateI18n(`milestoneCompact.deadline_${deadlineStatusQuery.data?.deadline_status || "NOT_SET"}`)}</span>}
+            {!deadlineStatusQuery.isLoading && !deadlineStatusQuery.isError && <span className={deadlineHealth.tone === "destructive" ? "font-medium text-destructive" : deadlineHealth.tone === "warning" ? "font-medium text-warning" : ""}>{translateI18n(`milestoneCompact.deadline_${deadlineStatusQuery.data?.deadline_status || "NOT_SET"}`)}</span>}
             {stageRole === "SA" && !milestoneOutputs.isLoading && !milestoneOutputs.isError && (
               <span className="font-medium text-foreground">{outputCounts.total === null
                 ? translateI18n("milestoneCompact.approvedVisible", { count: outputCounts.approved })
@@ -1602,14 +1602,14 @@ function MilestoneRow({
 
       {/* ─── Informative Waiting State Alerts ─── */}
       {isAssignPic && milestoneStatus === "IN_PROGRESS" && (
-        <div className="mt-3 rounded-lg border border-blue-500/30 bg-blue-500/10 p-3 text-xs text-blue-300 flex items-center gap-2">
-          <Users className="h-4 w-4 shrink-0 text-blue-400" />
+        <div className="mt-3 rounded-lg border border-blue-500/30 bg-blue-500/10 p-3 text-xs text-primary flex items-center gap-2">
+          <Users className="h-4 w-4 shrink-0 text-primary" />
           <span>{translateI18n("copy.waitingAssignment")}</span>
         </div>
       )}
 
       {error && <p className="mt-3 text-xs text-destructive">{translateStoredError(error)}</p>}
-      {message && <p className="mt-3 text-xs text-emerald-400">{message === "projectDetail.documentsUploaded" ? translateI18n("projectDetail.documentsUploaded", { count: uploadedDocumentCount }) : translateStoredMessage(message)}</p>}
+      {message && <p className="mt-3 text-xs text-success">{message === "projectDetail.documentsUploaded" ? translateI18n("projectDetail.documentsUploaded", { count: uploadedDocumentCount }) : translateStoredMessage(message)}</p>}
       </div>}
 
       {/* Dialogs */}
@@ -1628,7 +1628,7 @@ function MilestoneRow({
             <label htmlFor={`outcome-${milestone.id}`} className="mb-1 block text-xs font-semibold text-muted-foreground">{translateI18n("copy.projectResult")}</label>
             <select
               id={`outcome-${milestone.id}`}
-              className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+              className="h-10 w-full rounded-lg border border-input bg-card px-3 text-sm"
               value={finalOutcome || ""}
               onChange={(event) => { setFinalOutcome(event.target.value as "WON" | "LOST" | null); setFinalConfirming(false); }}
               disabled={complete.isPending}
@@ -1648,7 +1648,7 @@ function MilestoneRow({
           {finalOutcome === "LOST" && (
             <div>
               <label htmlFor={`loss-${milestone.id}`} className="mb-1 block text-xs font-semibold text-muted-foreground">{translateI18n("copy.lossReason")}</label>
-              <textarea id={`loss-${milestone.id}`} className="min-h-24 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" value={finalLossReason} onChange={(event) => { setFinalLossReason(event.target.value); setFinalConfirming(false); }} maxLength={2000} disabled={complete.isPending} required />
+              <textarea id={`loss-${milestone.id}`} className="min-h-24 w-full rounded-lg border border-input bg-card px-3 py-2 text-sm" value={finalLossReason} onChange={(event) => { setFinalLossReason(event.target.value); setFinalConfirming(false); }} maxLength={2000} disabled={complete.isPending} required />
             </div>
           )}
           {error && <p className="text-xs text-destructive">{translateStoredError(error)}</p>}
@@ -1781,7 +1781,7 @@ function DeadlineDialog({
             value={reason}
             onChange={(event) => { saveDeadline.prepare?.(); setReason(event.target.value); setConfirming(false); }}
             placeholder={translateI18n("projectDetail.deadlineReasonPlaceholder")}
-            className="flex w-full rounded-md border border-input bg-card px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-primary"
+            className="flex w-full rounded-lg border border-input bg-card px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
             aria-describedby={error ? "deadline-change-error" : undefined}
             required
           />
@@ -1981,7 +1981,7 @@ function ReviewDialog({
               if (error !== "businessAudit.stale") setError("");
             }}
             placeholder={reviewCopy.notePlaceholder}
-            className="flex w-full rounded-md border border-input bg-card px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-primary"
+            className="flex w-full rounded-lg border border-input bg-card px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
             required={reviewCopy.noteRequired}
             aria-invalid={Boolean(error) && reviewCopy.noteRequired}
             aria-describedby={error ? "workflow-review-error" : undefined}
@@ -2141,7 +2141,7 @@ function PlanReviewDialog({
               setError("");
             }}
             placeholder={reviewCopy.notePlaceholder}
-            className="flex w-full rounded-md border border-input bg-card px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-primary"
+            className="flex w-full rounded-lg border border-input bg-card px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
             required={reviewCopy.noteRequired}
             aria-invalid={Boolean(error) && reviewCopy.noteRequired}
             aria-describedby={error ? "project-plan-review-error" : undefined}
@@ -2169,7 +2169,7 @@ function PlanReviewDialog({
                   setPicId(event.target.value);
                   setError("");
                 }}
-                className="flex h-10 w-full rounded-md border border-input bg-card px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                className="flex h-10 w-full rounded-lg border border-input bg-card px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
                 required
                 disabled={isPending || confirming}
               >
@@ -2235,7 +2235,7 @@ function StatusBadge({ status }: { status: string }) {
     case "IN_PROGRESS":
       return <Badge variant="default">{translateI18n("milestoneStatus.IN_PROGRESS")}</Badge>;
     case "SUBMITTED":
-      return <Badge className="border-blue-500/30 bg-blue-500/20 text-blue-300">{translateI18n("milestoneStatus.UNDER_REVIEW")}</Badge>;
+      return <Badge className="border-blue-500/30 bg-blue-500/20 text-primary">{translateI18n("milestoneStatus.UNDER_REVIEW")}</Badge>;
     case "REJECTED":
       return <Badge variant="destructive">{translateI18n("copy.revisionRequired")}</Badge>;
     case "CANCELLED":

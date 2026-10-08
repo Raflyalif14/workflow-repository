@@ -115,6 +115,7 @@ export const id = {
     save: "Simpan", saving: "Menyimpan...", cancel: "Batal", close: "Tutup", delete: "Hapus", edit: "Ubah", create: "Buat", search: "Cari", loading: "Memuat...", retry: "Coba lagi", back: "Kembali", next: "Berikutnya", open: "Buka", submit: "Ajukan", approve: "Setujui", reject: "Tolak", review: "Tinjau", download: "Unduh", upload: "Unggah", active: "Aktif", inactive: "Tidak aktif", enabled: "Aktif", disabled: "Nonaktif", status: "Status", actions: "Aksi", optional: "opsional", notAvailable: "Tidak tersedia", noResults: "Tidak ada data yang cocok.", unexpectedError: "Terjadi kesalahan yang tidak terduga",
   },
   nav: {
+    workspaceNavigation: "Navigasi ruang kerja", userAccount: "Akun pengguna",
     dashboard: "Dasbor", projects: "Proyek", milestones: "Milestone", approvals: "Persetujuan", documents: "Dokumen", users: "Pengguna", settings: "Pengaturan", logout: "Keluar", expandSidebar: "Perluas sidebar", collapseSidebar: "Ciutkan sidebar", openNavigation: "Buka navigasi", closeNavigation: "Tutup navigasi", openSearch: "Buka pencarian global", searchPlaceholder: "Cari proyek, dokumen...",
   },
   language: {
@@ -348,6 +349,12 @@ export const id = {
     postponed: "Ditunda",
   },
   dashboardPage: {
+    noDirectSalesAction: "Saat ini tidak ada tindakan yang perlu Anda lakukan.",
+    recentActivityScope: "Aktivitas proyek yang dapat diakses, dari yang terbaru.",
+    activityPagination: "Halaman aktivitas terbaru",
+    activityPage: "Halaman {page}",
+    activityPrevious: "Sebelumnya",
+    summary: "Ringkasan ruang kerja", actionableNow: "Tindakan untuk Anda", waitingOnOthers: "Menunggu pihak lain",
     allScenarios: "Semua skenario",
     allProjectsTotal: "Total proyek",
     praProjectsTotal: "Proyek aktif atau ditunda",

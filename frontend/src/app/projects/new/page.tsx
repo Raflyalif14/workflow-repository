@@ -152,7 +152,7 @@ function ChecklistItem({
       <Icon
         className={
           complete && !optional
-            ? "mt-0.5 h-4 w-4 shrink-0 text-emerald-400"
+            ? "mt-0.5 h-4 w-4 shrink-0 text-success"
             : "mt-0.5 h-4 w-4 shrink-0 text-muted-foreground/60"
         }
       />
@@ -278,7 +278,7 @@ export default function NewProjectPage() {
   };
 
   return (
-    <div className="mx-auto w-full max-w-[1280px] px-4 py-7 sm:px-6 lg:px-8 lg:py-9">
+    <div className="mx-auto w-full max-w-[1600px] px-4 py-7 sm:px-6 xl:px-8 xl:py-9">
       <header className="mb-7 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div className="min-w-0">
           <p className="text-xs font-semibold uppercase text-primary">{translateI18n("copy.salesWorkspace")}</p>
@@ -299,8 +299,8 @@ export default function NewProjectPage() {
         </Button>
       </header>
 
-      <form onSubmit={submit} className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
-        <div className="overflow-hidden rounded-lg border border-border bg-card">
+      <form onSubmit={submit} className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
+        <div className="overflow-hidden page-surface">
           <fieldset disabled={creationFrozen} className="min-w-0">
           <section className="border-b border-border px-5 py-6 sm:px-7">
             <SectionHeading number="01" title={translateI18n("projectCreate.projectInfo")}>
@@ -387,7 +387,7 @@ export default function NewProjectPage() {
             </label>
             <select
               id="project-scenario"
-              className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              className="h-10 w-full rounded-lg border border-input bg-card px-3 text-sm outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
               value={scenarioId}
               onChange={(event) => {
                 setScenarioId(event.target.value);
@@ -651,7 +651,7 @@ export default function NewProjectPage() {
           </div>
         </div>
 
-        <aside className="rounded-lg border border-border bg-card px-5 py-5 lg:sticky lg:top-24">
+        <aside className="page-surface px-5 py-5 xl:sticky xl:top-24">
           <h2 className="text-base font-semibold text-foreground">{translateI18n("copy.beforeCreate")}</h2>
           <div className="mt-5 space-y-5">
             <ChecklistItem

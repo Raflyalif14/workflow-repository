@@ -165,7 +165,7 @@ function ProjectRow({ project, role }: { project: Project; role: string }) {
   const progressPresentation = getProgressPresentation(project);
 
   return (
-    <div className="grid gap-4 border-t border-border/60 px-4 py-4 first:border-t-0 sm:px-5 lg:grid-cols-[minmax(220px,2fr)_minmax(130px,1fr)_minmax(150px,1.1fr)_minmax(150px,1fr)_auto] lg:items-center">
+    <div className="grid gap-4 border-t border-border/60 px-4 py-4 first:border-t-0 sm:px-5 xl:grid-cols-[minmax(220px,2fr)_minmax(130px,1fr)_minmax(150px,1.1fr)_minmax(150px,1fr)_auto] xl:items-center">
       <div className="min-w-0">
         <Link
           href={`/projects/${project.id}`}
@@ -179,9 +179,9 @@ function ProjectRow({ project, role }: { project: Project; role: string }) {
         </p>
       </div>
 
-      <div className="flex min-w-0 items-center justify-between gap-3 lg:block">
-        <span className="text-[11px] font-medium text-muted-foreground lg:hidden">{translateI18n("copy.state")}</span>
-        <div className="min-w-0 text-right lg:text-left">
+      <div className="flex min-w-0 items-center justify-between gap-3 xl:block">
+        <span className="text-[11px] font-medium text-muted-foreground xl:hidden">{translateI18n("copy.state")}</span>
+        <div className="min-w-0 text-right xl:text-left">
           {getStatusBadge(project.status)}
           <p className="mt-1 truncate text-xs text-muted-foreground">
             {getProjectState(project, role)}
@@ -220,16 +220,16 @@ function ProjectRow({ project, role }: { project: Project; role: string }) {
         )}
       </div>
 
-      <div className="flex min-w-0 items-center justify-between gap-3 lg:block">
-        <span className="text-[11px] font-medium text-muted-foreground lg:hidden">{translateI18n("copy.responsible")}</span>
-        <div className="min-w-0 text-right lg:text-left">
+      <div className="flex min-w-0 items-center justify-between gap-3 xl:block">
+        <span className="text-[11px] font-medium text-muted-foreground xl:hidden">{translateI18n("copy.responsible")}</span>
+        <div className="min-w-0 text-right xl:text-left">
           <p className="truncate text-sm font-medium text-foreground">{responsible.name}</p>
           <p className="truncate text-xs text-muted-foreground">{responsible.role}</p>
         </div>
       </div>
 
-      <Link href={`/projects/${project.id}`} className="justify-self-stretch lg:justify-self-end">
-        <Button variant="ghost" size="sm" className="w-full gap-1.5 lg:w-auto">
+      <Link href={`/projects/${project.id}`} className="justify-self-stretch xl:justify-self-end">
+        <Button variant="ghost" size="sm" className="w-full gap-1.5 xl:w-auto">
           {translateI18n("common.open")}
           <ArrowRight className="h-3.5 w-3.5" />
         </Button>
@@ -291,7 +291,7 @@ export default function ProjectsPage() {
   };
 
   return (
-    <div className="mx-auto w-full max-w-[1280px] space-y-5 px-4 py-6 sm:px-6 lg:px-8">
+    <div className="mx-auto w-full max-w-[1600px] space-y-5 px-4 py-6 sm:px-6 xl:px-8">
       <header className="flex flex-col gap-4 border-b border-border/60 pb-5 sm:flex-row sm:items-end sm:justify-between">
         <div className="max-w-2xl">
           <p className="text-xs font-semibold uppercase text-primary">{translateI18n(pageCopy.eyebrow)}</p>
@@ -310,7 +310,7 @@ export default function ProjectsPage() {
 
       <section
         aria-label={translateI18n("projectsList.snapshot")}
-        className="grid grid-cols-2 overflow-hidden rounded-lg border border-border/60 bg-card lg:grid-cols-4"
+        className="grid grid-cols-2 overflow-hidden page-surface xl:grid-cols-4"
       >
         {snapshot.map((item, index) => (
           <div
@@ -318,8 +318,8 @@ export default function ProjectsPage() {
             className={`border-border/60 px-4 py-3.5 sm:px-5 ${
               index % 2 === 1 ? "border-l" : ""
             } ${index >= 2 ? "border-t" : ""} ${
-              index > 0 ? "lg:border-l" : ""
-            } lg:border-t-0`}
+              index > 0 ? "xl:border-l" : ""
+            } xl:border-t-0`}
           >
             <p className="text-2xl font-semibold text-foreground">{item.value}</p>
             <p className="mt-0.5 text-xs text-muted-foreground">{item.label}</p>
@@ -327,22 +327,23 @@ export default function ProjectsPage() {
         ))}
       </section>
 
-      <section className="overflow-hidden rounded-lg border border-border/60 bg-card">
+      <section className="overflow-hidden page-surface">
         <div className="space-y-4 border-b border-border/60 p-4 sm:p-5">
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
             <div>
               <h2 className="text-base font-semibold text-foreground">{translateI18n("nav.projects")}</h2>
               <p className="text-xs text-muted-foreground">
                 {translateI18n("projectsList.matches", { count: pagination?.total || 0 })}
               </p>
             </div>
-            <div className="flex gap-2 overflow-x-auto pb-1 lg:pb-0">
+            <div className="flex gap-2 overflow-x-auto pb-1 xl:pb-0">
               {statuses.map((item) => (
                 <Button
                   key={item.key}
                   variant={status === item.key ? "secondary" : "ghost"}
                   size="sm"
-                  className="shrink-0"
+                  aria-pressed={status === item.key}
+                  className={status === item.key ? "shrink-0 bg-primary-soft text-primary" : "shrink-0"}
                   onClick={() => {
                     setStatus(item.key);
                     setPage(1);
@@ -370,7 +371,7 @@ export default function ProjectsPage() {
             </div>
             <select
               aria-label={translateI18n("projectsList.scenarioFilter")}
-              className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+              className="h-10 w-full rounded-lg border border-border bg-card px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20"
               value={scenarioId}
               onChange={(event) => {
                 setScenarioId(event.target.value);
@@ -398,7 +399,7 @@ export default function ProjectsPage() {
         </div>
 
         {!isLoading && !isError && projects.length > 0 && (
-          <div className="hidden grid-cols-[minmax(220px,2fr)_minmax(130px,1fr)_minmax(150px,1.1fr)_minmax(150px,1fr)_auto] gap-4 border-b border-border/60 px-5 py-2.5 text-[11px] font-semibold uppercase text-muted-foreground lg:grid">
+          <div className="hidden grid-cols-[minmax(220px,2fr)_minmax(130px,1fr)_minmax(150px,1.1fr)_minmax(150px,1fr)_auto] gap-4 border-b border-border/60 px-5 py-2.5 text-[11px] font-semibold uppercase text-muted-foreground xl:grid">
             <span>{translateI18n("copy.projectLabel")}</span>
             <span>{translateI18n("copy.state")}</span>
             <span>{translateI18n("copy.progress")}</span>

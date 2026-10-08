@@ -27,7 +27,7 @@ export default function SettingsPage() {
         <p className="mt-1 text-sm text-muted-foreground">{t("settings.personalDescription")}</p>
       </div>
 
-      <Card className="border-primary/20 bg-card/70">
+      <Card>
         <CardHeader>
           <CardTitle className="text-base">{t("language.preference")}</CardTitle>
           <CardDescription>{t("language.description")}</CardDescription>

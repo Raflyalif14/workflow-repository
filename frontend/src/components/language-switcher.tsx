@@ -6,12 +6,12 @@ import { useLanguage } from "@/components/i18n/language-provider";
 export function LanguageSwitcher({ compact = false }: { compact?: boolean }) {
   const { locale, setLocale, isLoading, isSaving, t } = useLanguage();
   return (
-    <label className="flex items-center gap-2 text-xs text-muted-foreground">
-      <Languages className="h-4 w-4 shrink-0" aria-hidden="true" />
+    <label className="flex min-w-0 items-center gap-2 text-xs text-muted-foreground">
+      <Languages className="hidden h-4 w-4 shrink-0 sm:block" aria-hidden="true" />
       {!compact && <span className="sr-only">{t("language.label")}</span>}
       <select
         aria-label={t("language.label")}
-        className="h-9 rounded-md border border-input bg-background px-2 text-xs text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="h-10 max-w-[100px] rounded-lg border border-input bg-card px-2 text-xs text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring"
         value={locale}
         disabled={isLoading || isSaving}
         onChange={(event) => { void setLocale(event.target.value as "en" | "id").catch(() => undefined); }}

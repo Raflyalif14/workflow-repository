@@ -139,7 +139,7 @@ export function ApprovalActionDialog({
       <DialogHeader className="mb-5 space-y-0">
         <div className="flex items-start gap-3">
           <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-primary/15 bg-primary/10 text-primary">
-            {item.category === "DEADLINE" && <CalendarClock className="h-4 w-4 text-amber-400" />}
+            {item.category === "DEADLINE" && <CalendarClock className="h-4 w-4 text-warning" />}
             {item.category === "PROJECT_PLAN" && <ClipboardCheck className="h-4 w-4" />}
           </span>
           <div className="min-w-0 space-y-1">
@@ -175,7 +175,7 @@ export function ApprovalActionDialog({
           )}
 
           {item.category === "PROJECT_PLAN" && (
-            <div className="space-y-1 rounded-xl border border-border/40 bg-card/70 p-3">
+            <div className="space-y-1 rounded-xl border border-border/40 bg-card p-3">
               <p>{translateI18n("copy.projectColon")} <strong className="text-foreground">{item.projectName}</strong></p>
               {item.phaseName && <p>{translateI18n("projectPhase.label", { phase: item.phaseName })}</p>}
               {item.requestNote && <p>{translateI18n("copy.planNote")} <strong className="text-foreground">&quot;{item.requestNote}&quot;</strong></p>}
@@ -255,7 +255,7 @@ export function ApprovalActionDialog({
                       setPicId(event.target.value); setConfirming(false); intent.current = null;
                       setError("");
                     }}
-                    className="flex h-10 w-full rounded-md border border-input bg-card px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                    className="flex h-10 w-full rounded-lg border border-input bg-card px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
                     required
                   >
                     <option value="">{translateI18n("copy.selectSa")}</option>
@@ -292,7 +292,7 @@ export function ApprovalActionDialog({
                   setFeedback(e.target.value);
                   if (error !== "businessAudit.stale") setError("");
                 }}
-                className="flex w-full rounded-lg border border-input bg-background/50 px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                className="flex w-full rounded-lg border border-input bg-card/50 px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
                 required={action === "REJECT"}
                 aria-invalid={Boolean(error) && action === "REJECT"}
                 aria-describedby={error ? "approval-action-error" : undefined}
@@ -367,7 +367,7 @@ function DeadlineBox({
   } | null;
 }) {
   return (
-    <div className="space-y-0.5 rounded-xl border border-border/40 bg-card/70 p-3 text-[11px]">
+    <div className="space-y-0.5 rounded-xl border border-border/40 bg-card p-3 text-[11px]">
       <p className="font-semibold text-foreground">{title}</p>
       <p>{translateI18n("approvalDialog.startDate", { date: formatDate(deadline?.start_date) })}</p>
       <p>{translateI18n("approvalDialog.duration", { count: deadline?.duration_working_days || "-" })}</p>

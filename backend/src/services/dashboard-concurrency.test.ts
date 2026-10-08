@@ -26,6 +26,7 @@ async function run() {
     const query = {
       select: () => query,
       order: () => query,
+      neq: () => query,
       limit: () => query,
       range: () => query,
       eq: (column: string, value: unknown) => {
