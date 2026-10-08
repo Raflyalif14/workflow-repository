@@ -36,6 +36,7 @@ async function post(server: Server, path: string, role: string | undefined, chun
   const result = new Promise<Reply>((resolve, reject) => {
     sender = request({ hostname: '127.0.0.1', port, path, method: 'POST', headers: {
       'Content-Type': contentType, 'Content-Length': chunks.reduce((size, chunk) => size + chunk.length, 0),
+      ...(path === '/api/projects' ? { 'x-project-create-request-id': requestId } : {}),
       ...(role ? { Authorization: `Bearer ${role}` } : {}),
     } }, (response) => {
       let body = '';
