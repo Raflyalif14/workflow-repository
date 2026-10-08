@@ -1,0 +1,1140 @@
+{
+  "method": "Actual Dashboard summary SSR markup from existing dashboard-layout test fixture, real application CSS and Chrome; static component fixture, not authenticated dashboard session",
+  "fixtureEstimatedRevenue": 25000000,
+  "before": {
+    "width": 360,
+    "clientWidth": 360,
+    "scrollWidth": 360,
+    "columns": 2,
+    "cards": [
+      {
+        "text": "IDR 25,000,000",
+        "fontSize": "24px",
+        "cardLeft": 16,
+        "cardRight": 174,
+        "valueLeft": 40,
+        "valueRight": 106,
+        "valueScrollWidth": 175,
+        "valueClientWidth": 66,
+        "textFits": false,
+        "clearOfIcon": true,
+        "minWidth": "0px"
+      },
+      {
+        "text": "1",
+        "fontSize": "24px",
+        "cardLeft": 186,
+        "cardRight": 344,
+        "valueLeft": 210,
+        "valueRight": 276,
+        "valueScrollWidth": 66,
+        "valueClientWidth": 66,
+        "textFits": true,
+        "clearOfIcon": true,
+        "minWidth": "0px"
+      },
+      {
+        "text": "0",
+        "fontSize": "24px",
+        "cardLeft": 16,
+        "cardRight": 174,
+        "valueLeft": 40,
+        "valueRight": 66.3125,
+        "valueScrollWidth": 26,
+        "valueClientWidth": 26,
+        "textFits": true,
+        "clearOfIcon": true,
+        "minWidth": "0px"
+      },
+      {
+        "text": "0",
+        "fontSize": "24px",
+        "cardLeft": 186,
+        "cardRight": 344,
+        "valueLeft": 210,
+        "valueRight": 235.15625,
+        "valueScrollWidth": 25,
+        "valueClientWidth": 25,
+        "textFits": true,
+        "clearOfIcon": true,
+        "minWidth": "0px"
+      }
+    ]
+  },
+  "results": [
+    {
+      "role": "SALES",
+      "locale": "en",
+      "width": 360,
+      "clientWidth": 360,
+      "scrollWidth": 360,
+      "columns": 1,
+      "cards": [
+        {
+          "text": "IDR 25,000,000",
+          "fontSize": "20px",
+          "lines": 1,
+          "textFits": true,
+          "valueFits": true,
+          "minWidth": "0px"
+        },
+        {
+          "text": "1",
+          "fontSize": "20px",
+          "lines": 1,
+          "textFits": true,
+          "valueFits": true,
+          "minWidth": "0px"
+        },
+        {
+          "text": "0",
+          "fontSize": "20px",
+          "lines": 1,
+          "textFits": true,
+          "valueFits": true,
+          "minWidth": "0px"
+        },
+        {
+          "text": "0",
+          "fontSize": "20px",
+          "lines": 1,
+          "textFits": true,
+          "valueFits": true,
+          "minWidth": "0px"
+        }
+      ],
+      "screenshot": "sales-en-360.png"
+    },
+    {
+      "role": "SALES",
+      "locale": "en",
+      "width": 390,
+      "clientWidth": 390,
+      "scrollWidth": 390,
+      "columns": 1,
+      "cards": [
+        {
+          "text": "IDR 25,000,000",
+          "fontSize": "20px",
+          "lines": 1,
+          "textFits": true,
+          "valueFits": true,
+          "minWidth": "0px"
+        },
+        {
+          "text": "1",
+          "fontSize": "20px",
+          "lines": 1,
+          "textFits": true,
+          "valueFits": true,
+          "minWidth": "0px"
+        },
+        {
+          "text": "0",
+          "fontSize": "20px",
+          "lines": 1,
+          "textFits": true,
+          "valueFits": true,
+          "minWidth": "0px"
+        },
+        {
+          "text": "0",
+          "fontSize": "20px",
+          "lines": 1,
+          "textFits": true,
+          "valueFits": true,
+          "minWidth": "0px"
+        }
+      ],
+      "screenshot": "sales-en-390.png"
+    },
+    {
+      "role": "SALES",
+      "locale": "en",
+      "width": 1440,
+      "clientWidth": 1440,
+      "scrollWidth": 1440,
+      "columns": 4,
+      "cards": [
+        {
+          "text": "IDR 25,000,000",
+          "fontSize": "20px",
+          "lines": 1,
+          "textFits": true,
+          "valueFits": true,
+          "minWidth": "0px"
+        },
+        {
+          "text": "1",
+          "fontSize": "20px",
+          "lines": 1,
+          "textFits": true,
+          "valueFits": true,
+          "minWidth": "0px"
+        },
+        {
+          "text": "0",
+          "fontSize": "20px",
+          "lines": 1,
+          "textFits": true,
+          "valueFits": true,
+          "minWidth": "0px"
+        },
+        {
+          "text": "0",
+          "fontSize": "20px",
+          "lines": 1,
+          "textFits": true,
+          "valueFits": true,
+          "minWidth": "0px"
+        }
+      ],
+      "screenshot": "sales-en-1440.png"
+    },
+    {
+      "role": "SALES",
+      "locale": "id",
+      "width": 360,
+      "clientWidth": 360,
+      "scrollWidth": 360,
+      "columns": 1,
+      "cards": [
+        {
+          "text": "Rp 25.000.000",
+          "fontSize": "20px",
+          "lines": 1,
+          "textFits": true,
+          "valueFits": true,
+          "minWidth": "0px"
+        },
+        {
+          "text": "1",
+          "fontSize": "20px",
+          "lines": 1,
+          "textFits": true,
+          "valueFits": true,
+          "minWidth": "0px"
+        },
+        {
+          "text": "0",
+          "fontSize": "20px",
+          "lines": 1,
+          "textFits": true,
+          "valueFits": true,
+          "minWidth": "0px"
+        },
+        {
+          "text": "0",
+          "fontSize": "20px",
+          "lines": 1,
+          "textFits": true,
+          "valueFits": true,
+          "minWidth": "0px"
+        }
+      ],
+      "screenshot": "sales-id-360.png"
+    },
+    {
+      "role": "SALES",
+      "locale": "id",
+      "width": 390,
+      "clientWidth": 390,
+      "scrollWidth": 390,
+      "columns": 1,
+      "cards": [
+        {
+          "text": "Rp 25.000.000",
+          "fontSize": "20px",
+          "lines": 1,
+          "textFits": true,
+          "valueFits": true,
+          "minWidth": "0px"
+        },
+        {
+          "text": "1",
+          "fontSize": "20px",
+          "lines": 1,
+          "textFits": true,
+          "valueFits": true,
+          "minWidth": "0px"
+        },
+        {
+          "text": "0",
+          "fontSize": "20px",
+          "lines": 1,
+          "textFits": true,
+          "valueFits": true,
+          "minWidth": "0px"
+        },
+        {
+          "text": "0",
+          "fontSize": "20px",
+          "lines": 1,
+          "textFits": true,
+          "valueFits": true,
+          "minWidth": "0px"
+        }
+      ],
+      "screenshot": "sales-id-390.png"
+    },
+    {
+      "role": "SALES",
+      "locale": "id",
+      "width": 1440,
+      "clientWidth": 1440,
+      "scrollWidth": 1440,
+      "columns": 4,
+      "cards": [
+        {
+          "text": "Rp 25.000.000",
+          "fontSize": "20px",
+          "lines": 1,
+          "textFits": true,
+          "valueFits": true,
+          "minWidth": "0px"
+        },
+        {
+          "text": "1",
+          "fontSize": "20px",
+          "lines": 1,
+          "textFits": true,
+          "valueFits": true,
+          "minWidth": "0px"
+        },
+        {
+          "text": "0",
+          "fontSize": "20px",
+          "lines": 1,
+          "textFits": true,
+          "valueFits": true,
+          "minWidth": "0px"
+        },
+        {
+          "text": "0",
+          "fontSize": "20px",
+          "lines": 1,
+          "textFits": true,
+          "valueFits": true,
+          "minWidth": "0px"
+        }
+      ],
+      "screenshot": "sales-id-1440.png"
+    },
+    {
+      "role": "HEAD_SA",
+      "locale": "en",
+      "width": 360,
+      "clientWidth": 360,
+      "scrollWidth": 360,
+      "columns": 1,
+      "cards": [
+        {
+          "text": "1",
+          "fontSize": "20px",
+          "lines": 1,
+          "textFits": true,
+          "valueFits": true,
+          "minWidth": "0px"
+        },
+        {
+          "text": "1",
+          "fontSize": "20px",
+          "lines": 1,
+          "textFits": true,
+          "valueFits": true,
+          "minWidth": "0px"
+        },
+        {
+          "text": "1",
+          "fontSize": "20px",
+          "lines": 1,
+          "textFits": true,
+          "valueFits": true,
+          "minWidth": "0px"
+        },
+        {
+          "text": "0",
+          "fontSize": "20px",
+          "lines": 1,
+          "textFits": true,
+          "valueFits": true,
+          "minWidth": "0px"
+        }
+      ],
+      "screenshot": "head_sa-en-360.png"
+    },
+    {
+      "role": "HEAD_SA",
+      "locale": "en",
+      "width": 390,
+      "clientWidth": 390,
+      "scrollWidth": 390,
+      "columns": 1,
+      "cards": [
+        {
+          "text": "1",
+          "fontSize": "20px",
+          "lines": 1,
+          "textFits": true,
+          "valueFits": true,
+          "minWidth": "0px"
+        },
+        {
+          "text": "1",
+          "fontSize": "20px",
+          "lines": 1,
+          "textFits": true,
+          "valueFits": true,
+          "minWidth": "0px"
+        },
+        {
+          "text": "1",
+          "fontSize": "20px",
+          "lines": 1,
+          "textFits": true,
+          "valueFits": true,
+          "minWidth": "0px"
+        },
+        {
+          "text": "0",
+          "fontSize": "20px",
+          "lines": 1,
+          "textFits": true,
+          "valueFits": true,
+          "minWidth": "0px"
+        }
+      ],
+      "screenshot": "head_sa-en-390.png"
+    },
+    {
+      "role": "HEAD_SA",
+      "locale": "en",
+      "width": 1440,
+      "clientWidth": 1440,
+      "scrollWidth": 1440,
+      "columns": 4,
+      "cards": [
+        {
+          "text": "1",
+          "fontSize": "20px",
+          "lines": 1,
+          "textFits": true,
+          "valueFits": true,
+          "minWidth": "0px"
+        },
+        {
+          "text": "1",
+          "fontSize": "20px",
+          "lines": 1,
+          "textFits": true,
+          "valueFits": true,
+          "minWidth": "0px"
+        },
+        {
+          "text": "1",
+          "fontSize": "20px",
+          "lines": 1,
+          "textFits": true,
+          "valueFits": true,
+          "minWidth": "0px"
+        },
+        {
+          "text": "0",
+          "fontSize": "20px",
+          "lines": 1,
+          "textFits": true,
+          "valueFits": true,
+          "minWidth": "0px"
+        }
+      ],
+      "screenshot": "head_sa-en-1440.png"
+    },
+    {
+      "role": "HEAD_SA",
+      "locale": "id",
+      "width": 360,
+      "clientWidth": 360,
+      "scrollWidth": 360,
+      "columns": 1,
+      "cards": [
+        {
+          "text": "1",
+          "fontSize": "20px",
+          "lines": 1,
+          "textFits": true,
+          "valueFits": true,
+          "minWidth": "0px"
+        },
+        {
+          "text": "1",
+          "fontSize": "20px",
+          "lines": 1,
+          "textFits": true,
+          "valueFits": true,
+          "minWidth": "0px"
+        },
+        {
+          "text": "1",
+          "fontSize": "20px",
+          "lines": 1,
+          "textFits": true,
+          "valueFits": true,
+          "minWidth": "0px"
+        },
+        {
+          "text": "0",
+          "fontSize": "20px",
+          "lines": 1,
+          "textFits": true,
+          "valueFits": true,
+          "minWidth": "0px"
+        }
+      ],
+      "screenshot": "head_sa-id-360.png"
+    },
+    {
+      "role": "HEAD_SA",
+      "locale": "id",
+      "width": 390,
+      "clientWidth": 390,
+      "scrollWidth": 390,
+      "columns": 1,
+      "cards": [
+        {
+          "text": "1",
+          "fontSize": "20px",
+          "lines": 1,
+          "textFits": true,
+          "valueFits": true,
+          "minWidth": "0px"
+        },
+        {
+          "text": "1",
+          "fontSize": "20px",
+          "lines": 1,
+          "textFits": true,
+          "valueFits": true,
+          "minWidth": "0px"
+        },
+        {
+          "text": "1",
+          "fontSize": "20px",
+          "lines": 1,
+          "textFits": true,
+          "valueFits": true,
+          "minWidth": "0px"
+        },
+        {
+          "text": "0",
+          "fontSize": "20px",
+          "lines": 1,
+          "textFits": true,
+          "valueFits": true,
+          "minWidth": "0px"
+        }
+      ],
+      "screenshot": "head_sa-id-390.png"
+    },
+    {
+      "role": "HEAD_SA",
+      "locale": "id",
+      "width": 1440,
+      "clientWidth": 1440,
+      "scrollWidth": 1440,
+      "columns": 4,
+      "cards": [
+        {
+          "text": "1",
+          "fontSize": "20px",
+          "lines": 1,
+          "textFits": true,
+          "valueFits": true,
+          "minWidth": "0px"
+        },
+        {
+          "text": "1",
+          "fontSize": "20px",
+          "lines": 1,
+          "textFits": true,
+          "valueFits": true,
+          "minWidth": "0px"
+        },
+        {
+          "text": "1",
+          "fontSize": "20px",
+          "lines": 1,
+          "textFits": true,
+          "valueFits": true,
+          "minWidth": "0px"
+        },
+        {
+          "text": "0",
+          "fontSize": "20px",
+          "lines": 1,
+          "textFits": true,
+          "valueFits": true,
+          "minWidth": "0px"
+        }
+      ],
+      "screenshot": "head_sa-id-1440.png"
+    },
+    {
+      "role": "SA",
+      "locale": "en",
+      "width": 360,
+      "clientWidth": 360,
+      "scrollWidth": 360,
+      "columns": 1,
+      "cards": [
+        {
+          "text": "0",
+          "fontSize": "20px",
+          "lines": 1,
+          "textFits": true,
+          "valueFits": true,
+          "minWidth": "0px"
+        },
+        {
+          "text": "0",
+          "fontSize": "20px",
+          "lines": 1,
+          "textFits": true,
+          "valueFits": true,
+          "minWidth": "0px"
+        },
+        {
+          "text": "0",
+          "fontSize": "20px",
+          "lines": 1,
+          "textFits": true,
+          "valueFits": true,
+          "minWidth": "0px"
+        },
+        {
+          "text": "0",
+          "fontSize": "20px",
+          "lines": 1,
+          "textFits": true,
+          "valueFits": true,
+          "minWidth": "0px"
+        }
+      ],
+      "screenshot": "sa-en-360.png"
+    },
+    {
+      "role": "SA",
+      "locale": "en",
+      "width": 390,
+      "clientWidth": 390,
+      "scrollWidth": 390,
+      "columns": 1,
+      "cards": [
+        {
+          "text": "0",
+          "fontSize": "20px",
+          "lines": 1,
+          "textFits": true,
+          "valueFits": true,
+          "minWidth": "0px"
+        },
+        {
+          "text": "0",
+          "fontSize": "20px",
+          "lines": 1,
+          "textFits": true,
+          "valueFits": true,
+          "minWidth": "0px"
+        },
+        {
+          "text": "0",
+          "fontSize": "20px",
+          "lines": 1,
+          "textFits": true,
+          "valueFits": true,
+          "minWidth": "0px"
+        },
+        {
+          "text": "0",
+          "fontSize": "20px",
+          "lines": 1,
+          "textFits": true,
+          "valueFits": true,
+          "minWidth": "0px"
+        }
+      ],
+      "screenshot": "sa-en-390.png"
+    },
+    {
+      "role": "SA",
+      "locale": "en",
+      "width": 1440,
+      "clientWidth": 1440,
+      "scrollWidth": 1440,
+      "columns": 4,
+      "cards": [
+        {
+          "text": "0",
+          "fontSize": "20px",
+          "lines": 1,
+          "textFits": true,
+          "valueFits": true,
+          "minWidth": "0px"
+        },
+        {
+          "text": "0",
+          "fontSize": "20px",
+          "lines": 1,
+          "textFits": true,
+          "valueFits": true,
+          "minWidth": "0px"
+        },
+        {
+          "text": "0",
+          "fontSize": "20px",
+          "lines": 1,
+          "textFits": true,
+          "valueFits": true,
+          "minWidth": "0px"
+        },
+        {
+          "text": "0",
+          "fontSize": "20px",
+          "lines": 1,
+          "textFits": true,
+          "valueFits": true,
+          "minWidth": "0px"
+        }
+      ],
+      "screenshot": "sa-en-1440.png"
+    },
+    {
+      "role": "SA",
+      "locale": "id",
+      "width": 360,
+      "clientWidth": 360,
+      "scrollWidth": 360,
+      "columns": 1,
+      "cards": [
+        {
+          "text": "0",
+          "fontSize": "20px",
+          "lines": 1,
+          "textFits": true,
+          "valueFits": true,
+          "minWidth": "0px"
+        },
+        {
+          "text": "0",
+          "fontSize": "20px",
+          "lines": 1,
+          "textFits": true,
+          "valueFits": true,
+          "minWidth": "0px"
+        },
+        {
+          "text": "0",
+          "fontSize": "20px",
+          "lines": 1,
+          "textFits": true,
+          "valueFits": true,
+          "minWidth": "0px"
+        },
+        {
+          "text": "0",
+          "fontSize": "20px",
+          "lines": 1,
+          "textFits": true,
+          "valueFits": true,
+          "minWidth": "0px"
+        }
+      ],
+      "screenshot": "sa-id-360.png"
+    },
+    {
+      "role": "SA",
+      "locale": "id",
+      "width": 390,
+      "clientWidth": 390,
+      "scrollWidth": 390,
+      "columns": 1,
+      "cards": [
+        {
+          "text": "0",
+          "fontSize": "20px",
+          "lines": 1,
+          "textFits": true,
+          "valueFits": true,
+          "minWidth": "0px"
+        },
+        {
+          "text": "0",
+          "fontSize": "20px",
+          "lines": 1,
+          "textFits": true,
+          "valueFits": true,
+          "minWidth": "0px"
+        },
+        {
+          "text": "0",
+          "fontSize": "20px",
+          "lines": 1,
+          "textFits": true,
+          "valueFits": true,
+          "minWidth": "0px"
+        },
+        {
+          "text": "0",
+          "fontSize": "20px",
+          "lines": 1,
+          "textFits": true,
+          "valueFits": true,
+          "minWidth": "0px"
+        }
+      ],
+      "screenshot": "sa-id-390.png"
+    },
+    {
+      "role": "SA",
+      "locale": "id",
+      "width": 1440,
+      "clientWidth": 1440,
+      "scrollWidth": 1440,
+      "columns": 4,
+      "cards": [
+        {
+          "text": "0",
+          "fontSize": "20px",
+          "lines": 1,
+          "textFits": true,
+          "valueFits": true,
+          "minWidth": "0px"
+        },
+        {
+          "text": "0",
+          "fontSize": "20px",
+          "lines": 1,
+          "textFits": true,
+          "valueFits": true,
+          "minWidth": "0px"
+        },
+        {
+          "text": "0",
+          "fontSize": "20px",
+          "lines": 1,
+          "textFits": true,
+          "valueFits": true,
+          "minWidth": "0px"
+        },
+        {
+          "text": "0",
+          "fontSize": "20px",
+          "lines": 1,
+          "textFits": true,
+          "valueFits": true,
+          "minWidth": "0px"
+        }
+      ],
+      "screenshot": "sa-id-1440.png"
+    },
+    {
+      "role": "SUPER_ADMIN",
+      "locale": "en",
+      "width": 360,
+      "clientWidth": 360,
+      "scrollWidth": 360,
+      "columns": 1,
+      "cards": [
+        {
+          "text": "1",
+          "fontSize": "20px",
+          "lines": 1,
+          "textFits": true,
+          "valueFits": true,
+          "minWidth": "0px"
+        },
+        {
+          "text": "1",
+          "fontSize": "20px",
+          "lines": 1,
+          "textFits": true,
+          "valueFits": true,
+          "minWidth": "0px"
+        },
+        {
+          "text": "1",
+          "fontSize": "20px",
+          "lines": 1,
+          "textFits": true,
+          "valueFits": true,
+          "minWidth": "0px"
+        },
+        {
+          "text": "0",
+          "fontSize": "20px",
+          "lines": 1,
+          "textFits": true,
+          "valueFits": true,
+          "minWidth": "0px"
+        }
+      ],
+      "screenshot": "super_admin-en-360.png"
+    },
+    {
+      "role": "SUPER_ADMIN",
+      "locale": "en",
+      "width": 390,
+      "clientWidth": 390,
+      "scrollWidth": 390,
+      "columns": 1,
+      "cards": [
+        {
+          "text": "1",
+          "fontSize": "20px",
+          "lines": 1,
+          "textFits": true,
+          "valueFits": true,
+          "minWidth": "0px"
+        },
+        {
+          "text": "1",
+          "fontSize": "20px",
+          "lines": 1,
+          "textFits": true,
+          "valueFits": true,
+          "minWidth": "0px"
+        },
+        {
+          "text": "1",
+          "fontSize": "20px",
+          "lines": 1,
+          "textFits": true,
+          "valueFits": true,
+          "minWidth": "0px"
+        },
+        {
+          "text": "0",
+          "fontSize": "20px",
+          "lines": 1,
+          "textFits": true,
+          "valueFits": true,
+          "minWidth": "0px"
+        }
+      ],
+      "screenshot": "super_admin-en-390.png"
+    },
+    {
+      "role": "SUPER_ADMIN",
+      "locale": "en",
+      "width": 1440,
+      "clientWidth": 1440,
+      "scrollWidth": 1440,
+      "columns": 4,
+      "cards": [
+        {
+          "text": "1",
+          "fontSize": "20px",
+          "lines": 1,
+          "textFits": true,
+          "valueFits": true,
+          "minWidth": "0px"
+        },
+        {
+          "text": "1",
+          "fontSize": "20px",
+          "lines": 1,
+          "textFits": true,
+          "valueFits": true,
+          "minWidth": "0px"
+        },
+        {
+          "text": "1",
+          "fontSize": "20px",
+          "lines": 1,
+          "textFits": true,
+          "valueFits": true,
+          "minWidth": "0px"
+        },
+        {
+          "text": "0",
+          "fontSize": "20px",
+          "lines": 1,
+          "textFits": true,
+          "valueFits": true,
+          "minWidth": "0px"
+        }
+      ],
+      "screenshot": "super_admin-en-1440.png"
+    },
+    {
+      "role": "SUPER_ADMIN",
+      "locale": "id",
+      "width": 360,
+      "clientWidth": 360,
+      "scrollWidth": 360,
+      "columns": 1,
+      "cards": [
+        {
+          "text": "1",
+          "fontSize": "20px",
+          "lines": 1,
+          "textFits": true,
+          "valueFits": true,
+          "minWidth": "0px"
+        },
+        {
+          "text": "1",
+          "fontSize": "20px",
+          "lines": 1,
+          "textFits": true,
+          "valueFits": true,
+          "minWidth": "0px"
+        },
+        {
+          "text": "1",
+          "fontSize": "20px",
+          "lines": 1,
+          "textFits": true,
+          "valueFits": true,
+          "minWidth": "0px"
+        },
+        {
+          "text": "0",
+          "fontSize": "20px",
+          "lines": 1,
+          "textFits": true,
+          "valueFits": true,
+          "minWidth": "0px"
+        }
+      ],
+      "screenshot": "super_admin-id-360.png"
+    },
+    {
+      "role": "SUPER_ADMIN",
+      "locale": "id",
+      "width": 390,
+      "clientWidth": 390,
+      "scrollWidth": 390,
+      "columns": 1,
+      "cards": [
+        {
+          "text": "1",
+          "fontSize": "20px",
+          "lines": 1,
+          "textFits": true,
+          "valueFits": true,
+          "minWidth": "0px"
+        },
+        {
+          "text": "1",
+          "fontSize": "20px",
+          "lines": 1,
+          "textFits": true,
+          "valueFits": true,
+          "minWidth": "0px"
+        },
+        {
+          "text": "1",
+          "fontSize": "20px",
+          "lines": 1,
+          "textFits": true,
+          "valueFits": true,
+          "minWidth": "0px"
+        },
+        {
+          "text": "0",
+          "fontSize": "20px",
+          "lines": 1,
+          "textFits": true,
+          "valueFits": true,
+          "minWidth": "0px"
+        }
+      ],
+      "screenshot": "super_admin-id-390.png"
+    },
+    {
+      "role": "SUPER_ADMIN",
+      "locale": "id",
+      "width": 1440,
+      "clientWidth": 1440,
+      "scrollWidth": 1440,
+      "columns": 4,
+      "cards": [
+        {
+          "text": "1",
+          "fontSize": "20px",
+          "lines": 1,
+          "textFits": true,
+          "valueFits": true,
+          "minWidth": "0px"
+        },
+        {
+          "text": "1",
+          "fontSize": "20px",
+          "lines": 1,
+          "textFits": true,
+          "valueFits": true,
+          "minWidth": "0px"
+        },
+        {
+          "text": "1",
+          "fontSize": "20px",
+          "lines": 1,
+          "textFits": true,
+          "valueFits": true,
+          "minWidth": "0px"
+        },
+        {
+          "text": "0",
+          "fontSize": "20px",
+          "lines": 1,
+          "textFits": true,
+          "valueFits": true,
+          "minWidth": "0px"
+        }
+      ],
+      "screenshot": "super_admin-id-1440.png"
+    }
+  ],
+  "breakpoint640": {
+    "width": 640,
+    "clientWidth": 640,
+    "scrollWidth": 640,
+    "columns": 2,
+    "cards": [
+      {
+        "text": "1",
+        "fontSize": "24px",
+        "lines": 1,
+        "textFits": true,
+        "valueFits": true,
+        "minWidth": "0px"
+      },
+      {
+        "text": "1",
+        "fontSize": "24px",
+        "lines": 1,
+        "textFits": true,
+        "valueFits": true,
+        "minWidth": "0px"
+      },
+      {
+        "text": "1",
+        "fontSize": "24px",
+        "lines": 1,
+        "textFits": true,
+        "valueFits": true,
+        "minWidth": "0px"
+      },
+      {
+        "text": "0",
+        "fontSize": "24px",
+        "lines": 1,
+        "textFits": true,
+        "valueFits": true,
+        "minWidth": "0px"
+      }
+    ]
+  },
+  "apiRequests": 0,
+  "mutationRequests": 0
+}

@@ -347,17 +347,17 @@ function MetricCard({ metric }: { metric: SummaryMetric }) {
 
   return (
     <div className="dashboard-surface min-w-0 p-4 sm:p-5">
-      <div className="flex items-start justify-between gap-3">
+      <div className="flex min-w-0 items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-xs font-medium leading-5 text-muted-foreground">{metricLabels[metric.label] ? translateI18n(metricLabels[metric.label]) : metric.label}</p>
-          <p className="mt-1 text-2xl font-semibold tabular-nums text-foreground">
-            {metric.label === "Total estimated revenue" ? formatRevenue(metric.value) : metric.value}
-          </p>
         </div>
         <span className={["flex h-8 w-8 shrink-0 items-center justify-center rounded-lg sm:h-9 sm:w-9", visual.iconClassName].join(" ")}>
           <Icon className="h-4 w-4" />
         </span>
       </div>
+      <p className="mt-1 min-w-0 break-words text-xl font-semibold tabular-nums text-foreground [overflow-wrap:anywhere] sm:text-2xl xl:text-xl 2xl:text-2xl">
+        {metric.label === "Total estimated revenue" ? formatRevenue(metric.value) : metric.value}
+      </p>
       <p className="mt-3 hidden text-xs leading-5 text-muted-foreground sm:block">{visual.description}</p>
     </div>
   );
@@ -997,7 +997,7 @@ export default function DashboardPage() {
       <section aria-labelledby="dashboard-summary-heading" className="space-y-3">
         <h2 id="dashboard-summary-heading" className="text-base font-semibold">{translateI18n("dashboardPage.summary")}</h2>
         {isRoleDataLoading ? (
-          <div className="grid grid-cols-2 gap-3 xl:grid-cols-4" aria-label={translateI18n("dashboardPage.loadingMetrics")}>
+          <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-3 sm:grid-cols-[repeat(2,minmax(0,1fr))] xl:grid-cols-[repeat(4,minmax(0,1fr))]" aria-label={translateI18n("dashboardPage.loadingMetrics")}>
             {[0, 1, 2, 3].map((item) => (
               <div key={item} className="h-24 animate-pulse rounded-xl border border-border bg-muted sm:h-32" />
             ))}
@@ -1005,11 +1005,11 @@ export default function DashboardPage() {
         ) : hasPartialError ? (
           <div role="alert" className="dashboard-surface p-5 text-sm text-muted-foreground"><p>{translateI18n("copy.partialLoad")}</p><button type="button" onClick={retryVisibleQueries} className="mt-2 min-h-9 rounded-lg px-3 text-primary hover:bg-primary-soft">{translateI18n("common.retry")}</button></div>
         ) : (
-          <dl className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+          <dl className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-3 sm:grid-cols-[repeat(2,minmax(0,1fr))] xl:grid-cols-[repeat(4,minmax(0,1fr))]">
             {metrics.map((metric) => (
-              <div key={metric.label}>
+              <div key={metric.label} className="min-w-0">
                 <dt className="sr-only">{metric.label}</dt>
-                <dd><MetricCard metric={metric} /></dd>
+                <dd className="min-w-0"><MetricCard metric={metric} /></dd>
               </div>
             ))}
           </dl>

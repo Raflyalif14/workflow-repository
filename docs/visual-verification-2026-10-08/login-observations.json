@@ -1,0 +1,107 @@
+{
+  "baseline": "main/f559349",
+  "browser": "Chrome 154.0.8037.98",
+  "method": "Native Chrome DevTools on dedicated loopback-only headless profile; existing public login, no authenticated session",
+  "records": [
+    {
+      "locale": "en",
+      "width": 1440,
+      "height": 1000,
+      "clientWidth": 1434,
+      "scrollWidth": 1434,
+      "scrollHeight": 1040,
+      "passwordButtons": 1,
+      "passwordLabel": "Show password",
+      "passwordType": "password",
+      "languageSelectWidth": 138,
+      "languageLabel": "English",
+      "font": "\"Plus Jakarta Sans\", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif"
+    },
+    {
+      "locale": "en",
+      "width": 390,
+      "height": 1000,
+      "clientWidth": 384,
+      "scrollWidth": 384,
+      "scrollHeight": 1040,
+      "passwordButtons": 1,
+      "passwordLabel": "Show password",
+      "passwordType": "password",
+      "languageSelectWidth": 138,
+      "languageLabel": "English",
+      "font": "\"Plus Jakarta Sans\", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif"
+    },
+    {
+      "locale": "en",
+      "width": 360,
+      "height": 1000,
+      "clientWidth": 354,
+      "scrollWidth": 354,
+      "scrollHeight": 1040,
+      "passwordButtons": 1,
+      "passwordLabel": "Show password",
+      "passwordType": "password",
+      "languageSelectWidth": 138,
+      "languageLabel": "English",
+      "font": "\"Plus Jakarta Sans\", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif"
+    },
+    {
+      "locale": "id",
+      "width": 1440,
+      "height": 1000,
+      "clientWidth": 1434,
+      "scrollWidth": 1434,
+      "scrollHeight": 1040,
+      "passwordButtons": 1,
+      "passwordLabel": "Tampilkan kata sandi",
+      "passwordType": "password",
+      "languageSelectWidth": 138,
+      "languageLabel": "Bahasa Indonesia",
+      "font": "\"Plus Jakarta Sans\", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif"
+    },
+    {
+      "locale": "id",
+      "width": 390,
+      "height": 1000,
+      "clientWidth": 384,
+      "scrollWidth": 384,
+      "scrollHeight": 1040,
+      "passwordButtons": 1,
+      "passwordLabel": "Tampilkan kata sandi",
+      "passwordType": "password",
+      "languageSelectWidth": 138,
+      "languageLabel": "Bahasa Indonesia",
+      "font": "\"Plus Jakarta Sans\", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif"
+    },
+    {
+      "locale": "id",
+      "width": 360,
+      "height": 1000,
+      "clientWidth": 354,
+      "scrollWidth": 354,
+      "scrollHeight": 1040,
+      "passwordButtons": 1,
+      "passwordLabel": "Tampilkan kata sandi",
+      "passwordType": "password",
+      "languageSelectWidth": 138,
+      "languageLabel": "Bahasa Indonesia",
+      "font": "\"Plus Jakarta Sans\", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif"
+    }
+  ],
+  "passwordKeyboard": {
+    "afterEnter": "text",
+    "afterSecondEnter": "password",
+    "nextFocus": {
+      "tag": "BUTTON",
+      "type": "submit",
+      "boxShadow": "rgb(255, 255, 255) 0px 0px 0px 2px, rgba(37, 99, 235, 0.3) 0px 0px 0px 4px, rgba(0, 0, 0, 0.05) 0px 1px 2px 0px",
+      "outline": "rgba(0, 0, 0, 0) solid 2px"
+    }
+  },
+  "scroll": {
+    "y": 40,
+    "max": 40
+  },
+  "apiRequests": 0,
+  "mutationRequests": 0
+}

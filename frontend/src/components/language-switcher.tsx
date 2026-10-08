@@ -11,7 +11,7 @@ export function LanguageSwitcher({ compact = false }: { compact?: boolean }) {
       {!compact && <span className="sr-only">{t("language.label")}</span>}
       <select
         aria-label={t("language.label")}
-        className="h-10 max-w-[100px] rounded-lg border border-input bg-card px-2 text-xs text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="h-10 min-w-0 max-w-full rounded-lg border border-input bg-card px-2 text-xs text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring"
         value={locale}
         disabled={isLoading || isSaving}
         onChange={(event) => { void setLocale(event.target.value as "en" | "id").catch(() => undefined); }}
