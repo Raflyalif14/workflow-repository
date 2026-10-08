@@ -1,3 +1,4 @@
+import assert from "node:assert/strict";
 import {
   DashboardWorkItem,
   DashboardProjectHealth,
@@ -217,22 +218,40 @@ if (pausedRevisionItems.some((item) => item.actionLabel === "Revise submission")
   throw new Error("A paused rejected milestone must not become a revision action");
 }
 
-const saMetrics = getSaDashboardMetrics([
-  activeSaMilestone,
-  { ...activeSaMilestone, id: "sa-active-revision", status: "REJECTED", due_date: "2026-09-09" },
+const metricDate = new Date("2026-09-10T12:00:00");
+const activeMetricMilestones = [
+  activeSaMilestone, // Sep 12 is an upcoming deadline, two days after metricDate.
+  { ...activeSaMilestone, id: "sa-active-overdue", due_date: "2026-09-09" },
+];
+const excludedMetricMilestones = [
+  // Milestone submission REJECTED is legacy; revisions now belong to output documents.
+  { ...activeSaMilestone, id: "sa-legacy-rejected", status: "REJECTED", due_date: "2026-09-09" },
   { ...pausedSaMilestone, id: "sa-paused-overdue", due_date: "2026-09-09" },
   { ...pausedSaMilestone, id: "sa-paused-revision-metric", status: "REJECTED", due_date: "2026-09-12" },
-  ...["DRAFT", "WAITING_RESULT", "WON", "LOST", "COMPLETED", "CANCELLED"].map((status) => ({
-    ...activeSaMilestone,
-    id: `sa-metric-${status.toLowerCase()}`,
-    status: "IN_PROGRESS",
-    due_date: "2026-09-09",
+  { ...activeSaMilestone, id: "sa-flag-paused", due_date: "2026-09-09", project: { ...activeSaMilestone.project, is_postponed: true } },
+  ...["DRAFT", "WAITING_RESULT", "WON", "LOST", "COMPLETED", "CANCELLED"].map(status => ({
+    ...activeSaMilestone, id: `sa-metric-${status.toLowerCase()}`, due_date: "2026-09-09",
     project: { ...activeSaMilestone.project, status },
   })),
-], new Date("2026-09-10T12:00:00"));
-if (saMetrics.inProgress !== 1 || saMetrics.needsRevision !== 0 || saMetrics.upcomingDeadlines !== 0 || saMetrics.overdue !== 1) {
-  throw new Error("Paused and non-active SA milestones must be excluded from active, revision, upcoming, and overdue metrics");
-}
+  ...["CREATED", "SUBMITTED", "APPROVED", "COMPLETED"].map(status => ({
+    ...activeSaMilestone, id: `sa-stage-metric-${status.toLowerCase()}`, status, due_date: "2026-09-09",
+  })),
+];
+try {
+  for (const locale of ["en", "id"] as const) {
+    setActiveLanguage(locale);
+    const activeMetrics = getSaDashboardMetrics(activeMetricMilestones, metricDate);
+    assert.deepEqual(activeMetrics, { inProgress: 2, needsRevision: 0, upcomingDeadlines: 1, overdue: 1 }, "Only active IN_PROGRESS work supplies active/upcoming/overdue metrics");
+    for (const milestone of excludedMetricMilestones) {
+      assert.deepEqual(getSaDashboardMetrics([milestone], metricDate), { inProgress: 0, needsRevision: 0, upcomingDeadlines: 0, overdue: 0 }, `${milestone.id} must not inflate any actionable metric`);
+    }
+    assert.deepEqual(getSaDashboardMetrics([...activeMetricMilestones, ...excludedMetricMilestones], metricDate), activeMetrics, "Paused, terminal, non-active and legacy rejected milestones do not alter the valid active totals");
+    assert.deepEqual(getSaDashboardItems([excludedMetricMilestones[0]], "sa-1"), [], "Legacy milestone rejection does not create a duplicate revision task");
+    const revision = getSaOutputRevisionItems([{ projectId: "project-output", milestoneId: "milestone-output", projectName: "Output Revision", count: 1 }]);
+    assert.equal(revision.length, 1); assert.equal(revision[0].group, "action");
+    assert.equal(revision[0].href, "/projects/project-output#milestone-outputs-milestone-output", "Output revision remains a real direct workspace action in both languages");
+  }
+} finally { setActiveLanguage("en"); }
 
 if (getDraftProjectActionCopy("SALES") !== "Continue project planning") {
   throw new Error("Sales draft projects should use safe planning copy");

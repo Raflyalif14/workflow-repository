@@ -8,6 +8,8 @@ import { DEFAULT_WORK_STATUS_FILTER, getPhaseStatusDistribution, getWorkStatusDi
 import { DEFAULT_LANGUAGE, formatNumber, setActiveLanguage, translate } from "../i18n";
 import { useAssignPic, useCreateProject, useDeleteProject, useSubmitProjectPlan, useClosePraTender, useContinueTenderPhase, usePostponeProject, useResumeProject, useSetProjectOutcome } from "../hooks/use-projects";
 import { useProcessApproval } from "../hooks/use-approvals";
+import * as auth from "../components/auth/auth-provider";
+import { dashboardKeys, projectKeys } from "./query-keys";
 
 const summary: PhaseWorkStatus = { PRA_TENDER: { active: 3, postponed: 1 }, ON_SUBMISSION_TENDER: { won: 1, lost: 2 } };
 const allSummary: AllWorkStatus = { total: 14, planning: 2, active: 4, postponed: 2, completed: 1, won: 1, lost: 2, waitingResult: 1, cancelled: 1 };
@@ -120,24 +122,55 @@ async function checkInvalidation() {
       resume: useResumeProject(), outcome: useSetProjectOutcome("p") };
     return null;
   }
-  renderToStaticMarkup(createElement(QueryClientProvider, { client }, createElement(Harness)));
-  const fetch = globalThis.fetch;
-  globalThis.fetch = async () => new Response(JSON.stringify({ success: true, data: {} }), { status: 200, headers: { "content-type": "application/json" } });
+  const originalFetch = globalThis.fetch, originalAuth = auth.useAuth;
+  const expectedUpdatedAt = "2026-10-08T12:00:00.000Z";
+  let actor = { id: "fixture-sales", role: "SALES" }, failRequest = false;
+  const writes: Array<{ method: string; path: string; headers: Headers }> = [];
+  (auth as any).useAuth = () => ({ user: { ...actor, isActive: true, mustChangePassword: false }, isLoading: false });
+  globalThis.fetch = async (url, options) => {
+    const path = new URL(String(url)).pathname.replace(/^\/api/, "");
+    const method = options?.method || "GET";
+    writes.push({ method, path, headers: new Headers(options?.headers) });
+    const data = { id: path === "/projects" ? "fixture-created-project" : "p", updated_at: expectedUpdatedAt };
+    return new Response(JSON.stringify({ success: !failRequest, data: failRequest ? undefined : data, message: "Fixture response" }), {
+      status: failRequest ? 503 : path === "/projects" && method === "POST" ? 201 : 200,
+      headers: { "content-type": "application/json" },
+    });
+  };
+  const cases = [
+    { name: "create", role: "SALES", path: "/projects", method: "POST", run: () => mutations.create.mutateAsync({ name: "Fixture", customer: "Fixture", scenario_id: "s", estimated_revenue: 1, mom: new File(["fixture"], "mom.pdf", { type: "application/pdf" }), photos: [new File(["fixture"], "photo.png", { type: "image/png" })] }) },
+    { name: "delete", role: "SUPER_ADMIN", path: "/projects/p", method: "DELETE", run: () => mutations.remove.mutateAsync("Fixture") },
+    { name: "submit plan", role: "SALES", path: "/projects/p/plan/submit", method: "POST", cas: true, run: () => mutations.submitPlan.mutateAsync() },
+    { name: "assign PIC", role: "HEAD_SA", path: "/projects/p/assign-pic", method: "POST", run: () => mutations.assign.mutateAsync({ pic_id: "new", expected_pic_revision: "0", request_id: "10000000-0000-4000-8000-000000000001", reason: "Fixture" }) },
+    { name: "approve plan", role: "HEAD_SA", path: "/projects/p/plan/approve", method: "POST", run: () => mutations.reviewPlan.mutateAsync({ item: { id: "plan", category: "PROJECT_PLAN", projectId: "p" } as any, action: "APPROVE", picId: "new", expectedPicRevision: "0", requestId: "10000000-0000-4000-8000-000000000002" }) },
+    { name: "close Pra-Tender", role: "SALES", path: "/projects/p/phases/pra-tender/close", method: "POST", run: () => mutations.close.mutateAsync() },
+    { name: "continue tender", role: "SALES", path: "/projects/p/phases/on-submission-tender", method: "POST", run: () => mutations.next.mutateAsync([]) },
+    { name: "postpone", role: "SALES", path: "/projects/p/postpone", method: "POST", cas: true, run: () => mutations.postpone.mutateAsync({ projectId: "p", reason: "Test" }) },
+    { name: "resume", role: "SALES", path: "/projects/p/resume", method: "POST", cas: true, run: () => mutations.resume.mutateAsync("p") },
+    { name: "WON", role: "SALES", path: "/projects/p/outcome", method: "POST", cas: true, run: () => mutations.outcome.mutateAsync({ outcome: "WON", finalContractValue: 1 }) },
+    { name: "LOST", role: "SALES", path: "/projects/p/outcome", method: "POST", cas: true, run: () => mutations.outcome.mutateAsync({ outcome: "LOST", lossReason: "Test" }) },
+  ];
+  const mount = () => renderToStaticMarkup(createElement(QueryClientProvider, { client }, createElement(Harness)));
+  const seedProject = () => client.setQueryData(projectKeys.detailWithoutActivity("p"), { id: "p", updated_at: expectedUpdatedAt });
   try {
-    for (const action of [
-      () => mutations.create.mutateAsync({ name: "Fixture", customer: "Fixture", scenario_id: "s", estimated_revenue: 1, mom: new File(["fixture"], "mom.pdf", { type: "application/pdf" }), photos: [new File(["fixture"], "photo.png", { type: "image/png" })] }),
-      () => mutations.remove.mutateAsync("Fixture"), () => mutations.submitPlan.mutateAsync(),
-      () => mutations.assign.mutateAsync({ pic_id: "new", expected_pic_revision: "0", request_id: "10000000-0000-4000-8000-000000000001", reason: "Fixture" }),
-      () => mutations.reviewPlan.mutateAsync({ item: { id: "plan", category: "PROJECT_PLAN", projectId: "p" } as any, action: "APPROVE", picId: "new", expectedPicRevision: "0", requestId: "10000000-0000-4000-8000-000000000002" }),
-      () => mutations.close.mutateAsync(), () => mutations.next.mutateAsync([]),
-      () => mutations.postpone.mutateAsync({ projectId: "p", reason: "Test" }), () => mutations.resume.mutateAsync("p"),
-      () => mutations.outcome.mutateAsync({ outcome: "WON", finalContractValue: 1 }),
-      () => mutations.outcome.mutateAsync({ outcome: "LOST", lossReason: "Test" }),
-    ]) {
-      keys.length = 0; await action();
-      assert(keys.some(key => key[0] === "dashboard"), "Every relevant mutation must invalidate the overview aggregate");
+    for (const action of cases) {
+      actor = { id: `fixture-${action.role}`, role: action.role };
+      seedProject(); mount(); keys.length = 0; writes.length = 0;
+      await action.run();
+      assert(keys.some(key => JSON.stringify(key) === JSON.stringify(dashboardKeys.overview())), `${action.name} must invalidate the exact overview prefix, including activity pages`);
+      assert.equal(writes.length, 1, `${action.name} must issue its actual mutation once`);
+      assert.equal(writes[0].path, action.path); assert.equal(writes[0].method, action.method);
+      if (action.cas) {
+        assert.equal(writes[0].headers.get("x-business-expected-updated-at"), expectedUpdatedAt, "Use cached server CAS state, not a bypass");
+        assert.match(writes[0].headers.get("x-business-request-id") || "", /^[0-9a-f-]{36}$/i);
+      }
+      if (action.name === "create") assert.match(writes[0].headers.get("x-project-create-request-id") || "", /^[0-9a-f-]{36}$/i, "Creation retains its receipt contract");
     }
-    console.log("Dashboard phase panel: selection/refresh/locale, chart and legend, percentages/empty/error/retry, EN/ID and actual mutation invalidation passed.");
-  } finally { globalThis.fetch = fetch; client.clear(); }
+    seedProject(); mount(); keys.length = 0; failRequest = true;
+    await assert.rejects(() => mutations.outcome.mutateAsync({ outcome: "WON", finalContractValue: 1 }), (error: any) => error.status === 503);
+    assert(!keys.some(key => JSON.stringify(key) === JSON.stringify(dashboardKeys.overview())), "Failed outcome save must not perform success invalidation");
+    console.log("Dashboard phase panel: selection/refresh/locale, chart and legend, percentages/empty/error/retry, EN/ID and 11 real mutation hooks with auth/CAS/receipt invalidation passed.");
+  } finally { globalThis.fetch = originalFetch; (auth as any).useAuth = originalAuth; client.clear(); }
+
 }
 void checkInvalidation().catch(error => { console.error(error); process.exitCode = 1; });
