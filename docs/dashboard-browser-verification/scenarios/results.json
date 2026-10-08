@@ -1,0 +1,898 @@
+{
+  "results": [
+    {
+      "area": "activity-error",
+      "loading": true,
+      "errorDistinctFromEmpty": true,
+      "retry": true,
+      "items": 8
+    },
+    {
+      "area": "account-reset",
+      "profileReloaded": true,
+      "page": 1,
+      "noOldCursorRequest": true,
+      "noOldActivityVisible": true
+    },
+    {
+      "area": "dialog",
+      "width": 360,
+      "clientWidth": 354,
+      "scrollWidth": 354,
+      "dialogWidth": 322,
+      "dialogHeight": 358,
+      "scrollable": true,
+      "buttons": [
+        {
+          "text": "Tutup",
+          "reachable": true
+        },
+        {
+          "text": "Batal",
+          "reachable": true
+        },
+        {
+          "text": "Tinjau perubahan",
+          "reachable": true
+        }
+      ],
+      "inputRetainedAfterLocale": true
+    },
+    {
+      "area": "dialog",
+      "width": 390,
+      "clientWidth": 384,
+      "scrollWidth": 384,
+      "dialogWidth": 352,
+      "dialogHeight": 358,
+      "scrollable": true,
+      "buttons": [
+        {
+          "text": "Tutup",
+          "reachable": true
+        },
+        {
+          "text": "Batal",
+          "reachable": true
+        },
+        {
+          "text": "Tinjau perubahan",
+          "reachable": true
+        }
+      ],
+      "inputRetainedAfterLocale": true
+    },
+    {
+      "area": "dialog",
+      "width": 1440,
+      "clientWidth": 1434,
+      "scrollWidth": 1434,
+      "dialogWidth": 512,
+      "dialogHeight": 318,
+      "scrollable": true,
+      "buttons": [
+        {
+          "text": "Tutup",
+          "reachable": true
+        },
+        {
+          "text": "Batal",
+          "reachable": true
+        },
+        {
+          "text": "Tinjau perubahan",
+          "reachable": true
+        }
+      ],
+      "inputRetainedAfterLocale": true
+    },
+    {
+      "area": "sales-approvals",
+      "content": "Akses DibatasiRole Anda (SALES) tidak memiliki izin untuk melihat atau mengelola halaman ini.Kembali",
+      "approvalFetchForSales": false,
+      "viewport": 1440
+    },
+    {
+      "area": "sales-empty",
+      "noActivity": true,
+      "viewport": 1440
+    },
+    {
+      "area": "isolation",
+      "unconfigured": 0,
+      "nonUiNetworkRequestsForwarded": 0
+    }
+  ],
+  "traffic": {
+    "api": [
+      {
+        "path": "/api/auth/login",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "SALES",
+        "account": 1
+      },
+      {
+        "path": "/api/auth/login",
+        "method": "POST",
+        "status": 200,
+        "role": "SALES",
+        "account": 1
+      },
+      {
+        "path": "/api/auth/preferences/language",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "SALES",
+        "account": 1
+      },
+      {
+        "path": "/api/auth/preferences/language",
+        "method": "GET",
+        "status": 200,
+        "role": "SALES",
+        "account": 1
+      },
+      {
+        "path": "/api/notifications",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "SALES",
+        "account": 1
+      },
+      {
+        "path": "/api/notifications/unread-count",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "SALES",
+        "account": 1
+      },
+      {
+        "path": "/api/dashboard",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "SALES",
+        "account": 1
+      },
+      {
+        "path": "/api/projects",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "SALES",
+        "account": 1
+      },
+      {
+        "path": "/api/notifications",
+        "method": "GET",
+        "status": 200,
+        "role": "SALES",
+        "account": 1
+      },
+      {
+        "path": "/api/notifications/unread-count",
+        "method": "GET",
+        "status": 200,
+        "role": "SALES",
+        "account": 1
+      },
+      {
+        "path": "/api/dashboard",
+        "method": "GET",
+        "status": 200,
+        "role": "SALES",
+        "account": 1
+      },
+      {
+        "path": "/api/projects",
+        "method": "GET",
+        "status": 200,
+        "role": "SALES",
+        "account": 1
+      },
+      {
+        "path": "/api/dashboard/activity",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "SALES",
+        "account": 1
+      },
+      {
+        "path": "/api/dashboard/activity",
+        "method": "GET",
+        "status": 503,
+        "role": "SALES",
+        "account": 1
+      },
+      {
+        "path": "/api/dashboard/activity",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "SALES",
+        "account": 1
+      },
+      {
+        "path": "/api/dashboard/activity",
+        "method": "GET",
+        "status": 503,
+        "role": "SALES",
+        "account": 1
+      },
+      {
+        "path": "/api/dashboard/activity",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "SALES",
+        "account": 1
+      },
+      {
+        "path": "/api/dashboard/activity",
+        "method": "GET",
+        "status": 200,
+        "role": "SALES",
+        "account": 1
+      },
+      {
+        "path": "/api/auth/preferences/language",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "SALES",
+        "account": 1
+      },
+      {
+        "path": "/api/auth/preferences/language",
+        "method": "PUT",
+        "status": 200,
+        "role": "SALES",
+        "account": 1
+      },
+      {
+        "path": "/api/auth/me",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "SALES",
+        "account": 2
+      },
+      {
+        "path": "/api/auth/me",
+        "method": "GET",
+        "status": 200,
+        "role": "SALES",
+        "account": 2
+      },
+      {
+        "path": "/api/notifications",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "SALES",
+        "account": 2
+      },
+      {
+        "path": "/api/notifications/unread-count",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "SALES",
+        "account": 2
+      },
+      {
+        "path": "/api/dashboard",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "SALES",
+        "account": 2
+      },
+      {
+        "path": "/api/notifications",
+        "method": "GET",
+        "status": 200,
+        "role": "SALES",
+        "account": 2
+      },
+      {
+        "path": "/api/projects",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "SALES",
+        "account": 2
+      },
+      {
+        "path": "/api/notifications/unread-count",
+        "method": "GET",
+        "status": 200,
+        "role": "SALES",
+        "account": 2
+      },
+      {
+        "path": "/api/dashboard",
+        "method": "GET",
+        "status": 200,
+        "role": "SALES",
+        "account": 2
+      },
+      {
+        "path": "/api/auth/preferences/language",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "SALES",
+        "account": 2
+      },
+      {
+        "path": "/api/projects",
+        "method": "GET",
+        "status": 200,
+        "role": "SALES",
+        "account": 2
+      },
+      {
+        "path": "/api/auth/preferences/language",
+        "method": "GET",
+        "status": 200,
+        "role": "SALES",
+        "account": 2
+      },
+      {
+        "path": "/api/auth/me",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "SALES",
+        "account": 2
+      },
+      {
+        "path": "/api/auth/me",
+        "method": "GET",
+        "status": 200,
+        "role": "SALES",
+        "account": 2
+      },
+      {
+        "path": "/api/notifications",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "SALES",
+        "account": 2
+      },
+      {
+        "path": "/api/notifications/unread-count",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "SALES",
+        "account": 2
+      },
+      {
+        "path": "/api/notifications",
+        "method": "GET",
+        "status": 200,
+        "role": "SALES",
+        "account": 2
+      },
+      {
+        "path": "/api/notifications/unread-count",
+        "method": "GET",
+        "status": 200,
+        "role": "SALES",
+        "account": 2
+      },
+      {
+        "path": "/api/projects/90000000-0000-4000-8000-000000000001",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "SALES",
+        "account": 2
+      },
+      {
+        "path": "/api/projects/90000000-0000-4000-8000-000000000001/milestones",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "SALES",
+        "account": 2
+      },
+      {
+        "path": "/api/projects/90000000-0000-4000-8000-000000000001/output-documents",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "SALES",
+        "account": 2
+      },
+      {
+        "path": "/api/projects/90000000-0000-4000-8000-000000000001",
+        "method": "GET",
+        "status": 200,
+        "role": "SALES",
+        "account": 2
+      },
+      {
+        "path": "/api/projects/90000000-0000-4000-8000-000000000001/plan-approval",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "SALES",
+        "account": 2
+      },
+      {
+        "path": "/api/projects/90000000-0000-4000-8000-000000000001/milestones",
+        "method": "GET",
+        "status": 200,
+        "role": "SALES",
+        "account": 2
+      },
+      {
+        "path": "/api/projects/90000000-0000-4000-8000-000000000001/output-documents",
+        "method": "GET",
+        "status": 200,
+        "role": "SALES",
+        "account": 2
+      },
+      {
+        "path": "/api/projects/90000000-0000-4000-8000-000000000001/plan-approval",
+        "method": "GET",
+        "status": 200,
+        "role": "SALES",
+        "account": 2
+      },
+      {
+        "path": "/api/auth/preferences/language",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "SALES",
+        "account": 2
+      },
+      {
+        "path": "/api/auth/preferences/language",
+        "method": "GET",
+        "status": 200,
+        "role": "SALES",
+        "account": 2
+      },
+      {
+        "path": "/api/projects/90000000-0000-4000-8000-000000000001/intake-attachments",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "SALES",
+        "account": 2
+      },
+      {
+        "path": "/api/documents",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "SALES",
+        "account": 2
+      },
+      {
+        "path": "/api/projects/90000000-0000-4000-8000-000000000001/intake-attachments",
+        "method": "GET",
+        "status": 200,
+        "role": "SALES",
+        "account": 2
+      },
+      {
+        "path": "/api/milestones/90000000-0000-4000-8000-000000000002/deadline-status",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "SALES",
+        "account": 2
+      },
+      {
+        "path": "/api/documents",
+        "method": "GET",
+        "status": 200,
+        "role": "SALES",
+        "account": 2
+      },
+      {
+        "path": "/api/milestones/90000000-0000-4000-8000-000000000002/deadline-status",
+        "method": "GET",
+        "status": 200,
+        "role": "SALES",
+        "account": 2
+      },
+      {
+        "path": "/api/projects/90000000-0000-4000-8000-000000000001/activities",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "SALES",
+        "account": 2
+      },
+      {
+        "path": "/api/projects/90000000-0000-4000-8000-000000000001/assignments",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "SALES",
+        "account": 2
+      },
+      {
+        "path": "/api/projects/90000000-0000-4000-8000-000000000001/activities",
+        "method": "GET",
+        "status": 200,
+        "role": "SALES",
+        "account": 2
+      },
+      {
+        "path": "/api/milestones/90000000-0000-4000-8000-000000000002/deadline-approval",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "SALES",
+        "account": 2
+      },
+      {
+        "path": "/api/projects/90000000-0000-4000-8000-000000000001/assignments",
+        "method": "GET",
+        "status": 200,
+        "role": "SALES",
+        "account": 2
+      },
+      {
+        "path": "/api/milestones/90000000-0000-4000-8000-000000000002/deadline-approval",
+        "method": "GET",
+        "status": 200,
+        "role": "SALES",
+        "account": 2
+      },
+      {
+        "path": "/api/milestones/90000000-0000-4000-8000-000000000002/contributions",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "SALES",
+        "account": 2
+      },
+      {
+        "path": "/api/milestones/90000000-0000-4000-8000-000000000002/contributions",
+        "method": "GET",
+        "status": 200,
+        "role": "SALES",
+        "account": 2
+      },
+      {
+        "path": "/api/auth/preferences/language",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "SALES",
+        "account": 2
+      },
+      {
+        "path": "/api/auth/preferences/language",
+        "method": "PUT",
+        "status": 200,
+        "role": "SALES",
+        "account": 2
+      },
+      {
+        "path": "/api/auth/preferences/language",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "SALES",
+        "account": 2
+      },
+      {
+        "path": "/api/auth/preferences/language",
+        "method": "PUT",
+        "status": 200,
+        "role": "SALES",
+        "account": 2
+      },
+      {
+        "path": "/api/auth/me",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "SALES",
+        "account": 2
+      },
+      {
+        "path": "/api/auth/me",
+        "method": "GET",
+        "status": 200,
+        "role": "SALES",
+        "account": 2
+      },
+      {
+        "path": "/api/notifications",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "SALES",
+        "account": 2
+      },
+      {
+        "path": "/api/notifications/unread-count",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "SALES",
+        "account": 2
+      },
+      {
+        "path": "/api/notifications",
+        "method": "GET",
+        "status": 200,
+        "role": "SALES",
+        "account": 2
+      },
+      {
+        "path": "/api/auth/preferences/language",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "SALES",
+        "account": 2
+      },
+      {
+        "path": "/api/notifications/unread-count",
+        "method": "GET",
+        "status": 200,
+        "role": "SALES",
+        "account": 2
+      },
+      {
+        "path": "/api/auth/preferences/language",
+        "method": "GET",
+        "status": 200,
+        "role": "SALES",
+        "account": 2
+      },
+      {
+        "path": "/api/auth/me",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "SALES",
+        "account": 2
+      },
+      {
+        "path": "/api/auth/me",
+        "method": "GET",
+        "status": 200,
+        "role": "SALES",
+        "account": 2
+      },
+      {
+        "path": "/api/notifications",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "SALES",
+        "account": 2
+      },
+      {
+        "path": "/api/notifications/unread-count",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "SALES",
+        "account": 2
+      },
+      {
+        "path": "/api/notifications",
+        "method": "GET",
+        "status": 200,
+        "role": "SALES",
+        "account": 2
+      },
+      {
+        "path": "/api/notifications/unread-count",
+        "method": "GET",
+        "status": 200,
+        "role": "SALES",
+        "account": 2
+      },
+      {
+        "path": "/api/dashboard",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "SALES",
+        "account": 2
+      },
+      {
+        "path": "/api/projects",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "SALES",
+        "account": 2
+      },
+      {
+        "path": "/api/dashboard",
+        "method": "GET",
+        "status": 200,
+        "role": "SALES",
+        "account": 2
+      },
+      {
+        "path": "/api/projects",
+        "method": "GET",
+        "status": 200,
+        "role": "SALES",
+        "account": 2
+      },
+      {
+        "path": "/api/auth/preferences/language",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "SALES",
+        "account": 2
+      },
+      {
+        "path": "/api/auth/preferences/language",
+        "method": "GET",
+        "status": 200,
+        "role": "SALES",
+        "account": 2
+      }
+    ],
+    "blocked": [
+      {
+        "host": "fonts.googleapis.com",
+        "path": "/css2"
+      },
+      {
+        "host": "fonts.googleapis.com",
+        "path": "/css2"
+      },
+      {
+        "host": "fonts.googleapis.com",
+        "path": "/css2"
+      },
+      {
+        "host": "fonts.googleapis.com",
+        "path": "/css2"
+      }
+    ],
+    "allowed": [
+      {
+        "path": "/login",
+        "method": "GET"
+      },
+      {
+        "path": "/_next/static/css/app/layout.css",
+        "method": "GET"
+      },
+      {
+        "path": "/_next/static/chunks/webpack.js",
+        "method": "GET"
+      },
+      {
+        "path": "/_next/static/chunks/main-app.js",
+        "method": "GET"
+      },
+      {
+        "path": "/_next/static/chunks/app-pages-internals.js",
+        "method": "GET"
+      },
+      {
+        "path": "/_next/static/chunks/app/layout.js",
+        "method": "GET"
+      },
+      {
+        "path": "/_next/static/chunks/app/login/page.js",
+        "method": "GET"
+      },
+      {
+        "path": "/favicon.ico",
+        "method": "GET"
+      },
+      {
+        "path": "/_next/static/chunks/_app-pages-browser_node_modules_tanstack_query-devtools_build_DevtoolsComponent-CFsAhafd_js.js",
+        "method": "GET"
+      },
+      {
+        "path": "/_next/static/chunks/_app-pages-browser_node_modules_next_dist_client_dev_noop-turbopack-hmr_js.js",
+        "method": "GET"
+      },
+      {
+        "path": "/",
+        "method": "GET"
+      },
+      {
+        "path": "/",
+        "method": "GET"
+      },
+      {
+        "path": "/",
+        "method": "GET"
+      },
+      {
+        "path": "/_next/static/chunks/app/page.js",
+        "method": "GET"
+      },
+      {
+        "path": "/projects/90000000-0000-4000-8000-000000000001",
+        "method": "GET"
+      },
+      {
+        "path": "/_next/static/css/app/layout.css",
+        "method": "GET"
+      },
+      {
+        "path": "/_next/static/chunks/webpack.js",
+        "method": "GET"
+      },
+      {
+        "path": "/_next/static/chunks/main-app.js",
+        "method": "GET"
+      },
+      {
+        "path": "/_next/static/chunks/app-pages-internals.js",
+        "method": "GET"
+      },
+      {
+        "path": "/_next/static/chunks/app/layout.js",
+        "method": "GET"
+      },
+      {
+        "path": "/_next/static/chunks/app/projects/%5Bid%5D/page.js",
+        "method": "GET"
+      },
+      {
+        "path": "/_next/static/chunks/_app-pages-browser_node_modules_tanstack_query-devtools_build_DevtoolsComponent-CFsAhafd_js.js",
+        "method": "GET"
+      },
+      {
+        "path": "/_next/static/chunks/_app-pages-browser_node_modules_next_dist_client_dev_noop-turbopack-hmr_js.js",
+        "method": "GET"
+      },
+      {
+        "path": "/approvals",
+        "method": "GET"
+      },
+      {
+        "path": "/_next/static/css/app/layout.css",
+        "method": "GET"
+      },
+      {
+        "path": "/_next/static/chunks/webpack.js",
+        "method": "GET"
+      },
+      {
+        "path": "/_next/static/chunks/main-app.js",
+        "method": "GET"
+      },
+      {
+        "path": "/_next/static/chunks/app-pages-internals.js",
+        "method": "GET"
+      },
+      {
+        "path": "/_next/static/chunks/app/layout.js",
+        "method": "GET"
+      },
+      {
+        "path": "/_next/static/chunks/app/approvals/page.js",
+        "method": "GET"
+      },
+      {
+        "path": "/_next/static/chunks/_app-pages-browser_node_modules_tanstack_query-devtools_build_DevtoolsComponent-CFsAhafd_js.js",
+        "method": "GET"
+      },
+      {
+        "path": "/_next/static/chunks/_app-pages-browser_node_modules_next_dist_client_dev_noop-turbopack-hmr_js.js",
+        "method": "GET"
+      },
+      {
+        "path": "/",
+        "method": "GET"
+      },
+      {
+        "path": "/_next/static/css/app/layout.css",
+        "method": "GET"
+      },
+      {
+        "path": "/_next/static/chunks/webpack.js",
+        "method": "GET"
+      },
+      {
+        "path": "/_next/static/chunks/main-app.js",
+        "method": "GET"
+      },
+      {
+        "path": "/_next/static/chunks/app-pages-internals.js",
+        "method": "GET"
+      },
+      {
+        "path": "/_next/static/chunks/app/layout.js",
+        "method": "GET"
+      },
+      {
+        "path": "/_next/static/chunks/app/page.js",
+        "method": "GET"
+      },
+      {
+        "path": "/_next/static/chunks/_app-pages-browser_node_modules_tanstack_query-devtools_build_DevtoolsComponent-CFsAhafd_js.js",
+        "method": "GET"
+      },
+      {
+        "path": "/_next/static/chunks/_app-pages-browser_node_modules_next_dist_client_dev_noop-turbopack-hmr_js.js",
+        "method": "GET"
+      }
+    ],
+    "errors": []
+  },
+  "unknown": []
+}

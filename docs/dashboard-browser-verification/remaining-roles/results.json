@@ -1,0 +1,3491 @@
+{
+  "baseline": "e25cd05",
+  "browser": "Chrome/154.0.8037.98",
+  "fixture": "Synthetic login/API; actual app/AuthProvider/app shell; backend auth and GoTrue/Storage not tested",
+  "results": [
+    {
+      "area": "dashboard",
+      "role": "HEAD_SA",
+      "locale": "en",
+      "viewport": 360,
+      "width": 360,
+      "clientWidth": 354,
+      "scrollWidth": 354,
+      "summaryColumns": 1,
+      "activityCount": 8,
+      "workspaceLinks": [
+        "/projects/90000000-0000-4000-8000-000000000001#milestone-outputs-90000000-0000-4000-8000-000000000002"
+      ],
+      "summary": [
+        {
+          "text": "1",
+          "fits": true,
+          "width": 274,
+          "scrollWidth": 274
+        },
+        {
+          "text": "1",
+          "fits": true,
+          "width": 274,
+          "scrollWidth": 274
+        },
+        {
+          "text": "1",
+          "fits": true,
+          "width": 274,
+          "scrollWidth": 274
+        },
+        {
+          "text": "0",
+          "fits": true,
+          "width": 274,
+          "scrollWidth": 274
+        }
+      ],
+      "alerts": []
+    },
+    {
+      "area": "dashboard",
+      "role": "HEAD_SA",
+      "locale": "en",
+      "viewport": 390,
+      "width": 390,
+      "clientWidth": 384,
+      "scrollWidth": 384,
+      "summaryColumns": 1,
+      "activityCount": 8,
+      "workspaceLinks": [
+        "/projects/90000000-0000-4000-8000-000000000001#milestone-outputs-90000000-0000-4000-8000-000000000002"
+      ],
+      "summary": [
+        {
+          "text": "1",
+          "fits": true,
+          "width": 304,
+          "scrollWidth": 304
+        },
+        {
+          "text": "1",
+          "fits": true,
+          "width": 304,
+          "scrollWidth": 304
+        },
+        {
+          "text": "1",
+          "fits": true,
+          "width": 304,
+          "scrollWidth": 304
+        },
+        {
+          "text": "0",
+          "fits": true,
+          "width": 304,
+          "scrollWidth": 304
+        }
+      ],
+      "alerts": []
+    },
+    {
+      "area": "dashboard",
+      "role": "HEAD_SA",
+      "locale": "en",
+      "viewport": 1440,
+      "width": 1440,
+      "clientWidth": 1434,
+      "scrollWidth": 1434,
+      "summaryColumns": 4,
+      "activityCount": 8,
+      "workspaceLinks": [
+        "/projects/90000000-0000-4000-8000-000000000001#milestone-outputs-90000000-0000-4000-8000-000000000002"
+      ],
+      "summary": [
+        {
+          "text": "1",
+          "fits": true,
+          "width": 216,
+          "scrollWidth": 216
+        },
+        {
+          "text": "1",
+          "fits": true,
+          "width": 216,
+          "scrollWidth": 216
+        },
+        {
+          "text": "1",
+          "fits": true,
+          "width": 216,
+          "scrollWidth": 216
+        },
+        {
+          "text": "0",
+          "fits": true,
+          "width": 216,
+          "scrollWidth": 216
+        }
+      ],
+      "alerts": []
+    },
+    {
+      "area": "dashboard",
+      "role": "HEAD_SA",
+      "locale": "id",
+      "viewport": 360,
+      "width": 360,
+      "clientWidth": 354,
+      "scrollWidth": 354,
+      "summaryColumns": 1,
+      "activityCount": 8,
+      "workspaceLinks": [
+        "/projects/90000000-0000-4000-8000-000000000001#milestone-outputs-90000000-0000-4000-8000-000000000002"
+      ],
+      "summary": [
+        {
+          "text": "1",
+          "fits": true,
+          "width": 274,
+          "scrollWidth": 274
+        },
+        {
+          "text": "1",
+          "fits": true,
+          "width": 274,
+          "scrollWidth": 274
+        },
+        {
+          "text": "1",
+          "fits": true,
+          "width": 274,
+          "scrollWidth": 274
+        },
+        {
+          "text": "0",
+          "fits": true,
+          "width": 274,
+          "scrollWidth": 274
+        }
+      ],
+      "alerts": []
+    },
+    {
+      "area": "dashboard",
+      "role": "HEAD_SA",
+      "locale": "id",
+      "viewport": 390,
+      "width": 390,
+      "clientWidth": 384,
+      "scrollWidth": 384,
+      "summaryColumns": 1,
+      "activityCount": 8,
+      "workspaceLinks": [
+        "/projects/90000000-0000-4000-8000-000000000001#milestone-outputs-90000000-0000-4000-8000-000000000002"
+      ],
+      "summary": [
+        {
+          "text": "1",
+          "fits": true,
+          "width": 304,
+          "scrollWidth": 304
+        },
+        {
+          "text": "1",
+          "fits": true,
+          "width": 304,
+          "scrollWidth": 304
+        },
+        {
+          "text": "1",
+          "fits": true,
+          "width": 304,
+          "scrollWidth": 304
+        },
+        {
+          "text": "0",
+          "fits": true,
+          "width": 304,
+          "scrollWidth": 304
+        }
+      ],
+      "alerts": []
+    },
+    {
+      "area": "dashboard",
+      "role": "HEAD_SA",
+      "locale": "id",
+      "viewport": 1440,
+      "width": 1440,
+      "clientWidth": 1434,
+      "scrollWidth": 1434,
+      "summaryColumns": 4,
+      "activityCount": 8,
+      "workspaceLinks": [
+        "/projects/90000000-0000-4000-8000-000000000001#milestone-outputs-90000000-0000-4000-8000-000000000002"
+      ],
+      "summary": [
+        {
+          "text": "1",
+          "fits": true,
+          "width": 216,
+          "scrollWidth": 216
+        },
+        {
+          "text": "1",
+          "fits": true,
+          "width": 216,
+          "scrollWidth": 216
+        },
+        {
+          "text": "1",
+          "fits": true,
+          "width": 216,
+          "scrollWidth": 216
+        },
+        {
+          "text": "0",
+          "fits": true,
+          "width": 216,
+          "scrollWidth": 216
+        }
+      ],
+      "alerts": []
+    },
+    {
+      "area": "drawer",
+      "role": "HEAD_SA",
+      "viewport": 360,
+      "focus": true,
+      "escape": true,
+      "scrollRestored": true,
+      "links": [
+        "/",
+        "/projects",
+        "/milestones",
+        "/approvals",
+        "/documents",
+        "/settings"
+      ]
+    },
+    {
+      "area": "activity",
+      "role": "HEAD_SA",
+      "items": [
+        8,
+        8,
+        1
+      ],
+      "nextPrevious": true,
+      "localeRetainsPage": true,
+      "lastNextDisabled": true,
+      "firstPreviousDisabled": true,
+      "loading": true
+    },
+    {
+      "area": "route",
+      "role": "HEAD_SA",
+      "route": "/projects",
+      "locale": "id",
+      "viewport": 360,
+      "width": 360,
+      "clientWidth": 354,
+      "scrollWidth": 354,
+      "summaryColumns": null,
+      "activityCount": 0,
+      "workspaceLinks": [],
+      "summary": [],
+      "alerts": []
+    },
+    {
+      "area": "route",
+      "role": "HEAD_SA",
+      "route": "/projects",
+      "locale": "id",
+      "viewport": 390,
+      "width": 390,
+      "clientWidth": 384,
+      "scrollWidth": 384,
+      "summaryColumns": null,
+      "activityCount": 0,
+      "workspaceLinks": [],
+      "summary": [],
+      "alerts": []
+    },
+    {
+      "area": "route",
+      "role": "HEAD_SA",
+      "route": "/projects",
+      "locale": "id",
+      "viewport": 1440,
+      "width": 1440,
+      "clientWidth": 1440,
+      "scrollWidth": 1440,
+      "summaryColumns": null,
+      "activityCount": 0,
+      "workspaceLinks": [],
+      "summary": [],
+      "alerts": []
+    },
+    {
+      "area": "route",
+      "role": "HEAD_SA",
+      "route": "/projects/90000000-0000-4000-8000-000000000001",
+      "locale": "id",
+      "viewport": 360,
+      "width": 360,
+      "clientWidth": 354,
+      "scrollWidth": 354,
+      "summaryColumns": null,
+      "activityCount": 0,
+      "workspaceLinks": [],
+      "summary": [],
+      "alerts": []
+    },
+    {
+      "area": "route",
+      "role": "HEAD_SA",
+      "route": "/projects/90000000-0000-4000-8000-000000000001",
+      "locale": "id",
+      "viewport": 390,
+      "width": 390,
+      "clientWidth": 384,
+      "scrollWidth": 384,
+      "summaryColumns": null,
+      "activityCount": 0,
+      "workspaceLinks": [],
+      "summary": [],
+      "alerts": []
+    },
+    {
+      "area": "route",
+      "role": "HEAD_SA",
+      "route": "/projects/90000000-0000-4000-8000-000000000001",
+      "locale": "id",
+      "viewport": 1440,
+      "width": 1440,
+      "clientWidth": 1434,
+      "scrollWidth": 1434,
+      "summaryColumns": null,
+      "activityCount": 0,
+      "workspaceLinks": [],
+      "summary": [],
+      "alerts": []
+    },
+    {
+      "area": "route",
+      "role": "HEAD_SA",
+      "route": "/documents",
+      "locale": "id",
+      "viewport": 360,
+      "width": 360,
+      "clientWidth": 354,
+      "scrollWidth": 354,
+      "summaryColumns": null,
+      "activityCount": 0,
+      "workspaceLinks": [],
+      "summary": [],
+      "alerts": []
+    },
+    {
+      "area": "route",
+      "role": "HEAD_SA",
+      "route": "/documents",
+      "locale": "id",
+      "viewport": 390,
+      "width": 390,
+      "clientWidth": 384,
+      "scrollWidth": 384,
+      "summaryColumns": null,
+      "activityCount": 0,
+      "workspaceLinks": [],
+      "summary": [],
+      "alerts": []
+    },
+    {
+      "area": "route",
+      "role": "HEAD_SA",
+      "route": "/documents",
+      "locale": "id",
+      "viewport": 1440,
+      "width": 1440,
+      "clientWidth": 1440,
+      "scrollWidth": 1440,
+      "summaryColumns": null,
+      "activityCount": 0,
+      "workspaceLinks": [],
+      "summary": [],
+      "alerts": []
+    },
+    {
+      "area": "route",
+      "role": "HEAD_SA",
+      "route": "/approvals",
+      "locale": "id",
+      "viewport": 360,
+      "width": 360,
+      "clientWidth": 354,
+      "scrollWidth": 354,
+      "summaryColumns": null,
+      "activityCount": 0,
+      "workspaceLinks": [],
+      "summary": [],
+      "alerts": []
+    },
+    {
+      "area": "route",
+      "role": "HEAD_SA",
+      "route": "/approvals",
+      "locale": "id",
+      "viewport": 390,
+      "width": 390,
+      "clientWidth": 384,
+      "scrollWidth": 384,
+      "summaryColumns": null,
+      "activityCount": 0,
+      "workspaceLinks": [],
+      "summary": [],
+      "alerts": []
+    },
+    {
+      "area": "route",
+      "role": "HEAD_SA",
+      "route": "/approvals",
+      "locale": "id",
+      "viewport": 1440,
+      "width": 1440,
+      "clientWidth": 1440,
+      "scrollWidth": 1440,
+      "summaryColumns": null,
+      "activityCount": 0,
+      "workspaceLinks": [],
+      "summary": [],
+      "alerts": []
+    },
+    {
+      "area": "empty",
+      "role": "HEAD_SA",
+      "viewport": 360,
+      "locale": "en",
+      "width": 360,
+      "clientWidth": 354,
+      "scrollWidth": 354,
+      "summaryColumns": 1,
+      "activityCount": 0,
+      "workspaceLinks": [],
+      "summary": [
+        {
+          "text": "0",
+          "fits": true,
+          "width": 218,
+          "scrollWidth": 218
+        },
+        {
+          "text": "0",
+          "fits": true,
+          "width": 218,
+          "scrollWidth": 218
+        },
+        {
+          "text": "0",
+          "fits": true,
+          "width": 218,
+          "scrollWidth": 218
+        },
+        {
+          "text": "0",
+          "fits": true,
+          "width": 218,
+          "scrollWidth": 218
+        }
+      ],
+      "alerts": []
+    },
+    {
+      "area": "dashboard",
+      "role": "SA",
+      "locale": "en",
+      "viewport": 360,
+      "width": 360,
+      "clientWidth": 354,
+      "scrollWidth": 354,
+      "summaryColumns": 1,
+      "activityCount": 8,
+      "workspaceLinks": [
+        "/projects/90000000-0000-4000-8000-000000000001#milestone-outputs-90000000-0000-4000-8000-000000000002"
+      ],
+      "summary": [
+        {
+          "text": "1",
+          "fits": true,
+          "width": 274,
+          "scrollWidth": 274
+        },
+        {
+          "text": "0",
+          "fits": true,
+          "width": 274,
+          "scrollWidth": 274
+        },
+        {
+          "text": "0",
+          "fits": true,
+          "width": 274,
+          "scrollWidth": 274
+        },
+        {
+          "text": "0",
+          "fits": true,
+          "width": 274,
+          "scrollWidth": 274
+        }
+      ],
+      "alerts": []
+    },
+    {
+      "area": "dashboard",
+      "role": "SA",
+      "locale": "en",
+      "viewport": 390,
+      "width": 390,
+      "clientWidth": 384,
+      "scrollWidth": 384,
+      "summaryColumns": 1,
+      "activityCount": 8,
+      "workspaceLinks": [
+        "/projects/90000000-0000-4000-8000-000000000001#milestone-outputs-90000000-0000-4000-8000-000000000002"
+      ],
+      "summary": [
+        {
+          "text": "1",
+          "fits": true,
+          "width": 304,
+          "scrollWidth": 304
+        },
+        {
+          "text": "0",
+          "fits": true,
+          "width": 304,
+          "scrollWidth": 304
+        },
+        {
+          "text": "0",
+          "fits": true,
+          "width": 304,
+          "scrollWidth": 304
+        },
+        {
+          "text": "0",
+          "fits": true,
+          "width": 304,
+          "scrollWidth": 304
+        }
+      ],
+      "alerts": []
+    },
+    {
+      "area": "dashboard",
+      "role": "SA",
+      "locale": "en",
+      "viewport": 1440,
+      "width": 1440,
+      "clientWidth": 1434,
+      "scrollWidth": 1434,
+      "summaryColumns": 4,
+      "activityCount": 8,
+      "workspaceLinks": [
+        "/projects/90000000-0000-4000-8000-000000000001#milestone-outputs-90000000-0000-4000-8000-000000000002"
+      ],
+      "summary": [
+        {
+          "text": "1",
+          "fits": true,
+          "width": 216,
+          "scrollWidth": 216
+        },
+        {
+          "text": "0",
+          "fits": true,
+          "width": 216,
+          "scrollWidth": 216
+        },
+        {
+          "text": "0",
+          "fits": true,
+          "width": 216,
+          "scrollWidth": 216
+        },
+        {
+          "text": "0",
+          "fits": true,
+          "width": 216,
+          "scrollWidth": 216
+        }
+      ],
+      "alerts": []
+    },
+    {
+      "area": "dashboard",
+      "role": "SA",
+      "locale": "id",
+      "viewport": 360,
+      "width": 360,
+      "clientWidth": 354,
+      "scrollWidth": 354,
+      "summaryColumns": 1,
+      "activityCount": 8,
+      "workspaceLinks": [
+        "/projects/90000000-0000-4000-8000-000000000001#milestone-outputs-90000000-0000-4000-8000-000000000002"
+      ],
+      "summary": [
+        {
+          "text": "1",
+          "fits": true,
+          "width": 274,
+          "scrollWidth": 274
+        },
+        {
+          "text": "0",
+          "fits": true,
+          "width": 274,
+          "scrollWidth": 274
+        },
+        {
+          "text": "0",
+          "fits": true,
+          "width": 274,
+          "scrollWidth": 274
+        },
+        {
+          "text": "0",
+          "fits": true,
+          "width": 274,
+          "scrollWidth": 274
+        }
+      ],
+      "alerts": []
+    },
+    {
+      "area": "dashboard",
+      "role": "SA",
+      "locale": "id",
+      "viewport": 390,
+      "width": 390,
+      "clientWidth": 384,
+      "scrollWidth": 384,
+      "summaryColumns": 1,
+      "activityCount": 8,
+      "workspaceLinks": [
+        "/projects/90000000-0000-4000-8000-000000000001#milestone-outputs-90000000-0000-4000-8000-000000000002"
+      ],
+      "summary": [
+        {
+          "text": "1",
+          "fits": true,
+          "width": 304,
+          "scrollWidth": 304
+        },
+        {
+          "text": "0",
+          "fits": true,
+          "width": 304,
+          "scrollWidth": 304
+        },
+        {
+          "text": "0",
+          "fits": true,
+          "width": 304,
+          "scrollWidth": 304
+        },
+        {
+          "text": "0",
+          "fits": true,
+          "width": 304,
+          "scrollWidth": 304
+        }
+      ],
+      "alerts": []
+    },
+    {
+      "area": "dashboard",
+      "role": "SA",
+      "locale": "id",
+      "viewport": 1440,
+      "width": 1440,
+      "clientWidth": 1434,
+      "scrollWidth": 1434,
+      "summaryColumns": 4,
+      "activityCount": 8,
+      "workspaceLinks": [
+        "/projects/90000000-0000-4000-8000-000000000001#milestone-outputs-90000000-0000-4000-8000-000000000002"
+      ],
+      "summary": [
+        {
+          "text": "1",
+          "fits": true,
+          "width": 216,
+          "scrollWidth": 216
+        },
+        {
+          "text": "0",
+          "fits": true,
+          "width": 216,
+          "scrollWidth": 216
+        },
+        {
+          "text": "0",
+          "fits": true,
+          "width": 216,
+          "scrollWidth": 216
+        },
+        {
+          "text": "0",
+          "fits": true,
+          "width": 216,
+          "scrollWidth": 216
+        }
+      ],
+      "alerts": []
+    },
+    {
+      "area": "drawer",
+      "role": "SA",
+      "viewport": 360,
+      "focus": true,
+      "escape": true,
+      "scrollRestored": true,
+      "links": [
+        "/",
+        "/projects",
+        "/milestones",
+        "/documents",
+        "/settings"
+      ]
+    },
+    {
+      "area": "activity",
+      "role": "SA",
+      "items": [
+        8,
+        8,
+        1
+      ],
+      "nextPrevious": true,
+      "localeRetainsPage": true,
+      "lastNextDisabled": true,
+      "firstPreviousDisabled": true,
+      "loading": true
+    },
+    {
+      "area": "route",
+      "role": "SA",
+      "route": "/projects",
+      "locale": "id",
+      "viewport": 360,
+      "width": 360,
+      "clientWidth": 354,
+      "scrollWidth": 354,
+      "summaryColumns": null,
+      "activityCount": 0,
+      "workspaceLinks": [],
+      "summary": [],
+      "alerts": []
+    },
+    {
+      "area": "route",
+      "role": "SA",
+      "route": "/projects",
+      "locale": "id",
+      "viewport": 390,
+      "width": 390,
+      "clientWidth": 384,
+      "scrollWidth": 384,
+      "summaryColumns": null,
+      "activityCount": 0,
+      "workspaceLinks": [],
+      "summary": [],
+      "alerts": []
+    },
+    {
+      "area": "route",
+      "role": "SA",
+      "route": "/projects",
+      "locale": "id",
+      "viewport": 1440,
+      "width": 1440,
+      "clientWidth": 1440,
+      "scrollWidth": 1440,
+      "summaryColumns": null,
+      "activityCount": 0,
+      "workspaceLinks": [],
+      "summary": [],
+      "alerts": []
+    },
+    {
+      "area": "route",
+      "role": "SA",
+      "route": "/projects/90000000-0000-4000-8000-000000000001",
+      "locale": "id",
+      "viewport": 360,
+      "width": 360,
+      "clientWidth": 354,
+      "scrollWidth": 354,
+      "summaryColumns": null,
+      "activityCount": 0,
+      "workspaceLinks": [],
+      "summary": [],
+      "alerts": []
+    },
+    {
+      "area": "route",
+      "role": "SA",
+      "route": "/projects/90000000-0000-4000-8000-000000000001",
+      "locale": "id",
+      "viewport": 390,
+      "width": 390,
+      "clientWidth": 384,
+      "scrollWidth": 384,
+      "summaryColumns": null,
+      "activityCount": 0,
+      "workspaceLinks": [],
+      "summary": [],
+      "alerts": []
+    },
+    {
+      "area": "route",
+      "role": "SA",
+      "route": "/projects/90000000-0000-4000-8000-000000000001",
+      "locale": "id",
+      "viewport": 1440,
+      "width": 1440,
+      "clientWidth": 1434,
+      "scrollWidth": 1434,
+      "summaryColumns": null,
+      "activityCount": 0,
+      "workspaceLinks": [],
+      "summary": [],
+      "alerts": []
+    },
+    {
+      "area": "route",
+      "role": "SA",
+      "route": "/documents",
+      "locale": "id",
+      "viewport": 360,
+      "width": 360,
+      "clientWidth": 354,
+      "scrollWidth": 354,
+      "summaryColumns": null,
+      "activityCount": 0,
+      "workspaceLinks": [],
+      "summary": [],
+      "alerts": []
+    },
+    {
+      "area": "route",
+      "role": "SA",
+      "route": "/documents",
+      "locale": "id",
+      "viewport": 390,
+      "width": 390,
+      "clientWidth": 384,
+      "scrollWidth": 384,
+      "summaryColumns": null,
+      "activityCount": 0,
+      "workspaceLinks": [],
+      "summary": [],
+      "alerts": []
+    },
+    {
+      "area": "route",
+      "role": "SA",
+      "route": "/documents",
+      "locale": "id",
+      "viewport": 1440,
+      "width": 1440,
+      "clientWidth": 1440,
+      "scrollWidth": 1440,
+      "summaryColumns": null,
+      "activityCount": 0,
+      "workspaceLinks": [],
+      "summary": [],
+      "alerts": []
+    },
+    {
+      "area": "route",
+      "role": "SA",
+      "route": "/approvals",
+      "locale": "id",
+      "viewport": 360,
+      "width": 360,
+      "clientWidth": 360,
+      "scrollWidth": 360,
+      "summaryColumns": null,
+      "activityCount": 0,
+      "workspaceLinks": [],
+      "summary": [],
+      "alerts": []
+    },
+    {
+      "area": "route",
+      "role": "SA",
+      "route": "/approvals",
+      "locale": "id",
+      "viewport": 390,
+      "width": 390,
+      "clientWidth": 390,
+      "scrollWidth": 390,
+      "summaryColumns": null,
+      "activityCount": 0,
+      "workspaceLinks": [],
+      "summary": [],
+      "alerts": []
+    },
+    {
+      "area": "route",
+      "role": "SA",
+      "route": "/approvals",
+      "locale": "id",
+      "viewport": 1440,
+      "width": 1440,
+      "clientWidth": 1440,
+      "scrollWidth": 1440,
+      "summaryColumns": null,
+      "activityCount": 0,
+      "workspaceLinks": [],
+      "summary": [],
+      "alerts": []
+    },
+    {
+      "area": "failure",
+      "message": "SA empty: page overflow {\"width\":360,\"clientWidth\":354,\"scrollWidth\":377,\"summaryColumns\":1,\"activityCount\":0,\"workspaceLinks\":[],\"summary\":[{\"text\":\"0\",\"fits\":true,\"width\":139,\"scrollWidth\":139},{\"text\":\"0\",\"fits\":true,\"width\":139,\"scrollWidth\":139},{\"text\":\"0\",\"fits\":true,\"width\":139,\"scrollWidth\":139},{\"text\":\"0\",\"fits\":true,\"width\":139,\"scrollWidth\":139}],\"alerts\":[]}",
+      "ui": {
+        "url": "/",
+        "buttons": [
+          {
+            "label": "Open navigation",
+            "controls": "mobile-navigation",
+            "expanded": "false",
+            "rect": {
+              "x": 146.59375,
+              "y": 11.5,
+              "width": 40,
+              "height": 40,
+              "top": 11.5,
+              "right": 186.59375,
+              "bottom": 51.5,
+              "left": 146.59375
+            }
+          }
+        ],
+        "drawerHidden": "true",
+        "alerts": []
+      }
+    }
+  ],
+  "traffic": {
+    "api": [
+      {
+        "path": "/api/auth/login",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "HEAD_SA",
+        "account": 1
+      },
+      {
+        "path": "/api/auth/login",
+        "method": "POST",
+        "status": 200,
+        "role": "HEAD_SA",
+        "account": 1
+      },
+      {
+        "path": "/api/auth/preferences/language",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "HEAD_SA",
+        "account": 1
+      },
+      {
+        "path": "/api/auth/preferences/language",
+        "method": "GET",
+        "status": 200,
+        "role": "HEAD_SA",
+        "account": 1
+      },
+      {
+        "path": "/api/approvals/overview",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "HEAD_SA",
+        "account": 1
+      },
+      {
+        "path": "/api/me/assigned-milestones",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "HEAD_SA",
+        "account": 1
+      },
+      {
+        "path": "/api/notifications",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "HEAD_SA",
+        "account": 1
+      },
+      {
+        "path": "/api/notifications/unread-count",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "HEAD_SA",
+        "account": 1
+      },
+      {
+        "path": "/api/dashboard",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "HEAD_SA",
+        "account": 1
+      },
+      {
+        "path": "/api/projects",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "HEAD_SA",
+        "account": 1
+      },
+      {
+        "path": "/api/approvals/overview",
+        "method": "GET",
+        "status": 200,
+        "role": "HEAD_SA",
+        "account": 1
+      },
+      {
+        "path": "/api/me/assigned-milestones",
+        "method": "GET",
+        "status": 200,
+        "role": "HEAD_SA",
+        "account": 1
+      },
+      {
+        "path": "/api/notifications",
+        "method": "GET",
+        "status": 200,
+        "role": "HEAD_SA",
+        "account": 1
+      },
+      {
+        "path": "/api/notifications/unread-count",
+        "method": "GET",
+        "status": 200,
+        "role": "HEAD_SA",
+        "account": 1
+      },
+      {
+        "path": "/api/dashboard",
+        "method": "GET",
+        "status": 200,
+        "role": "HEAD_SA",
+        "account": 1
+      },
+      {
+        "path": "/api/projects",
+        "method": "GET",
+        "status": 200,
+        "role": "HEAD_SA",
+        "account": 1
+      },
+      {
+        "path": "/api/auth/preferences/language",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "HEAD_SA",
+        "account": 1
+      },
+      {
+        "path": "/api/auth/preferences/language",
+        "method": "PUT",
+        "status": 200,
+        "role": "HEAD_SA",
+        "account": 1
+      },
+      {
+        "path": "/api/auth/preferences/language",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "HEAD_SA",
+        "account": 1
+      },
+      {
+        "path": "/api/auth/preferences/language",
+        "method": "PUT",
+        "status": 200,
+        "role": "HEAD_SA",
+        "account": 1
+      },
+      {
+        "path": "/api/auth/preferences/language",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "HEAD_SA",
+        "account": 1
+      },
+      {
+        "path": "/api/auth/preferences/language",
+        "method": "PUT",
+        "status": 200,
+        "role": "HEAD_SA",
+        "account": 1
+      },
+      {
+        "path": "/api/dashboard/activity",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "HEAD_SA",
+        "account": 1
+      },
+      {
+        "path": "/api/dashboard/activity",
+        "method": "GET",
+        "status": 200,
+        "role": "HEAD_SA",
+        "account": 1
+      },
+      {
+        "path": "/api/auth/preferences/language",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "HEAD_SA",
+        "account": 1
+      },
+      {
+        "path": "/api/auth/preferences/language",
+        "method": "PUT",
+        "status": 200,
+        "role": "HEAD_SA",
+        "account": 1
+      },
+      {
+        "path": "/api/dashboard/activity",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "HEAD_SA",
+        "account": 1
+      },
+      {
+        "path": "/api/dashboard/activity",
+        "method": "GET",
+        "status": 200,
+        "role": "HEAD_SA",
+        "account": 1
+      },
+      {
+        "path": "/api/auth/me",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "HEAD_SA",
+        "account": 1
+      },
+      {
+        "path": "/api/auth/me",
+        "method": "GET",
+        "status": 200,
+        "role": "HEAD_SA",
+        "account": 1
+      },
+      {
+        "path": "/api/approvals/overview",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "HEAD_SA",
+        "account": 1
+      },
+      {
+        "path": "/api/me/assigned-milestones",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "HEAD_SA",
+        "account": 1
+      },
+      {
+        "path": "/api/notifications",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "HEAD_SA",
+        "account": 1
+      },
+      {
+        "path": "/api/notifications/unread-count",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "HEAD_SA",
+        "account": 1
+      },
+      {
+        "path": "/api/projects",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "HEAD_SA",
+        "account": 1
+      },
+      {
+        "path": "/api/scenarios",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "HEAD_SA",
+        "account": 1
+      },
+      {
+        "path": "/api/approvals/overview",
+        "method": "GET",
+        "status": 200,
+        "role": "HEAD_SA",
+        "account": 1
+      },
+      {
+        "path": "/api/me/assigned-milestones",
+        "method": "GET",
+        "status": 200,
+        "role": "HEAD_SA",
+        "account": 1
+      },
+      {
+        "path": "/api/notifications",
+        "method": "GET",
+        "status": 200,
+        "role": "HEAD_SA",
+        "account": 1
+      },
+      {
+        "path": "/api/auth/preferences/language",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "HEAD_SA",
+        "account": 1
+      },
+      {
+        "path": "/api/notifications/unread-count",
+        "method": "GET",
+        "status": 200,
+        "role": "HEAD_SA",
+        "account": 1
+      },
+      {
+        "path": "/api/projects",
+        "method": "GET",
+        "status": 200,
+        "role": "HEAD_SA",
+        "account": 1
+      },
+      {
+        "path": "/api/scenarios",
+        "method": "GET",
+        "status": 200,
+        "role": "HEAD_SA",
+        "account": 1
+      },
+      {
+        "path": "/api/auth/preferences/language",
+        "method": "GET",
+        "status": 200,
+        "role": "HEAD_SA",
+        "account": 1
+      },
+      {
+        "path": "/api/auth/me",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "HEAD_SA",
+        "account": 1
+      },
+      {
+        "path": "/api/auth/me",
+        "method": "GET",
+        "status": 200,
+        "role": "HEAD_SA",
+        "account": 1
+      },
+      {
+        "path": "/api/approvals/overview",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "HEAD_SA",
+        "account": 1
+      },
+      {
+        "path": "/api/me/assigned-milestones",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "HEAD_SA",
+        "account": 1
+      },
+      {
+        "path": "/api/notifications",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "HEAD_SA",
+        "account": 1
+      },
+      {
+        "path": "/api/notifications/unread-count",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "HEAD_SA",
+        "account": 1
+      },
+      {
+        "path": "/api/projects/90000000-0000-4000-8000-000000000001",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "HEAD_SA",
+        "account": 1
+      },
+      {
+        "path": "/api/projects/90000000-0000-4000-8000-000000000001/milestones",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "HEAD_SA",
+        "account": 1
+      },
+      {
+        "path": "/api/projects/90000000-0000-4000-8000-000000000001/output-documents",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "HEAD_SA",
+        "account": 1
+      },
+      {
+        "path": "/api/projects/90000000-0000-4000-8000-000000000001/plan-approval",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "HEAD_SA",
+        "account": 1
+      },
+      {
+        "path": "/api/auth/preferences/language",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "HEAD_SA",
+        "account": 1
+      },
+      {
+        "path": "/api/approvals/overview",
+        "method": "GET",
+        "status": 200,
+        "role": "HEAD_SA",
+        "account": 1
+      },
+      {
+        "path": "/api/me/assigned-milestones",
+        "method": "GET",
+        "status": 200,
+        "role": "HEAD_SA",
+        "account": 1
+      },
+      {
+        "path": "/api/notifications",
+        "method": "GET",
+        "status": 200,
+        "role": "HEAD_SA",
+        "account": 1
+      },
+      {
+        "path": "/api/notifications/unread-count",
+        "method": "GET",
+        "status": 200,
+        "role": "HEAD_SA",
+        "account": 1
+      },
+      {
+        "path": "/api/projects/90000000-0000-4000-8000-000000000001",
+        "method": "GET",
+        "status": 200,
+        "role": "HEAD_SA",
+        "account": 1
+      },
+      {
+        "path": "/api/projects/90000000-0000-4000-8000-000000000001/milestones",
+        "method": "GET",
+        "status": 200,
+        "role": "HEAD_SA",
+        "account": 1
+      },
+      {
+        "path": "/api/projects/90000000-0000-4000-8000-000000000001/output-documents",
+        "method": "GET",
+        "status": 200,
+        "role": "HEAD_SA",
+        "account": 1
+      },
+      {
+        "path": "/api/projects/90000000-0000-4000-8000-000000000001/plan-approval",
+        "method": "GET",
+        "status": 200,
+        "role": "HEAD_SA",
+        "account": 1
+      },
+      {
+        "path": "/api/auth/preferences/language",
+        "method": "GET",
+        "status": 200,
+        "role": "HEAD_SA",
+        "account": 1
+      },
+      {
+        "path": "/api/projects/90000000-0000-4000-8000-000000000001/document-sharing",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "HEAD_SA",
+        "account": 1
+      },
+      {
+        "path": "/api/projects/90000000-0000-4000-8000-000000000001/intake-attachments",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "HEAD_SA",
+        "account": 1
+      },
+      {
+        "path": "/api/projects/90000000-0000-4000-8000-000000000001/document-sharing",
+        "method": "GET",
+        "status": 200,
+        "role": "HEAD_SA",
+        "account": 1
+      },
+      {
+        "path": "/api/documents",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "HEAD_SA",
+        "account": 1
+      },
+      {
+        "path": "/api/projects/90000000-0000-4000-8000-000000000001/intake-attachments",
+        "method": "GET",
+        "status": 200,
+        "role": "HEAD_SA",
+        "account": 1
+      },
+      {
+        "path": "/api/milestones/90000000-0000-4000-8000-000000000002/deadline-status",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "HEAD_SA",
+        "account": 1
+      },
+      {
+        "path": "/api/documents",
+        "method": "GET",
+        "status": 200,
+        "role": "HEAD_SA",
+        "account": 1
+      },
+      {
+        "path": "/api/milestones/90000000-0000-4000-8000-000000000002/deadline-status",
+        "method": "GET",
+        "status": 200,
+        "role": "HEAD_SA",
+        "account": 1
+      },
+      {
+        "path": "/api/projects/90000000-0000-4000-8000-000000000001/activities",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "HEAD_SA",
+        "account": 1
+      },
+      {
+        "path": "/api/projects/90000000-0000-4000-8000-000000000001/assignments",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "HEAD_SA",
+        "account": 1
+      },
+      {
+        "path": "/api/projects/90000000-0000-4000-8000-000000000001/activities",
+        "method": "GET",
+        "status": 200,
+        "role": "HEAD_SA",
+        "account": 1
+      },
+      {
+        "path": "/api/projects/90000000-0000-4000-8000-000000000001/assignments",
+        "method": "GET",
+        "status": 200,
+        "role": "HEAD_SA",
+        "account": 1
+      },
+      {
+        "path": "/api/milestones/90000000-0000-4000-8000-000000000002/deadline-approval",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "HEAD_SA",
+        "account": 1
+      },
+      {
+        "path": "/api/milestones/90000000-0000-4000-8000-000000000002/deadline-approval",
+        "method": "GET",
+        "status": 200,
+        "role": "HEAD_SA",
+        "account": 1
+      },
+      {
+        "path": "/api/milestones/90000000-0000-4000-8000-000000000002/contributions",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "HEAD_SA",
+        "account": 1
+      },
+      {
+        "path": "/api/milestones/90000000-0000-4000-8000-000000000002/contributions",
+        "method": "GET",
+        "status": 200,
+        "role": "HEAD_SA",
+        "account": 1
+      },
+      {
+        "path": "/api/auth/me",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "HEAD_SA",
+        "account": 1
+      },
+      {
+        "path": "/api/auth/me",
+        "method": "GET",
+        "status": 200,
+        "role": "HEAD_SA",
+        "account": 1
+      },
+      {
+        "path": "/api/approvals/overview",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "HEAD_SA",
+        "account": 1
+      },
+      {
+        "path": "/api/me/assigned-milestones",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "HEAD_SA",
+        "account": 1
+      },
+      {
+        "path": "/api/notifications",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "HEAD_SA",
+        "account": 1
+      },
+      {
+        "path": "/api/notifications/unread-count",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "HEAD_SA",
+        "account": 1
+      },
+      {
+        "path": "/api/documents",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "HEAD_SA",
+        "account": 1
+      },
+      {
+        "path": "/api/approvals/overview",
+        "method": "GET",
+        "status": 200,
+        "role": "HEAD_SA",
+        "account": 1
+      },
+      {
+        "path": "/api/me/assigned-milestones",
+        "method": "GET",
+        "status": 200,
+        "role": "HEAD_SA",
+        "account": 1
+      },
+      {
+        "path": "/api/documents/outputs",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "HEAD_SA",
+        "account": 1
+      },
+      {
+        "path": "/api/notifications",
+        "method": "GET",
+        "status": 200,
+        "role": "HEAD_SA",
+        "account": 1
+      },
+      {
+        "path": "/api/notifications/unread-count",
+        "method": "GET",
+        "status": 200,
+        "role": "HEAD_SA",
+        "account": 1
+      },
+      {
+        "path": "/api/documents",
+        "method": "GET",
+        "status": 200,
+        "role": "HEAD_SA",
+        "account": 1
+      },
+      {
+        "path": "/api/auth/preferences/language",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "HEAD_SA",
+        "account": 1
+      },
+      {
+        "path": "/api/documents/outputs",
+        "method": "GET",
+        "status": 200,
+        "role": "HEAD_SA",
+        "account": 1
+      },
+      {
+        "path": "/api/auth/preferences/language",
+        "method": "GET",
+        "status": 200,
+        "role": "HEAD_SA",
+        "account": 1
+      },
+      {
+        "path": "/api/auth/me",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "HEAD_SA",
+        "account": 1
+      },
+      {
+        "path": "/api/auth/me",
+        "method": "GET",
+        "status": 200,
+        "role": "HEAD_SA",
+        "account": 1
+      },
+      {
+        "path": "/api/approvals/overview",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "HEAD_SA",
+        "account": 1
+      },
+      {
+        "path": "/api/me/assigned-milestones",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "HEAD_SA",
+        "account": 1
+      },
+      {
+        "path": "/api/notifications",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "HEAD_SA",
+        "account": 1
+      },
+      {
+        "path": "/api/notifications/unread-count",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "HEAD_SA",
+        "account": 1
+      },
+      {
+        "path": "/api/approvals/overview",
+        "method": "GET",
+        "status": 200,
+        "role": "HEAD_SA",
+        "account": 1
+      },
+      {
+        "path": "/api/me/assigned-milestones",
+        "method": "GET",
+        "status": 200,
+        "role": "HEAD_SA",
+        "account": 1
+      },
+      {
+        "path": "/api/notifications",
+        "method": "GET",
+        "status": 200,
+        "role": "HEAD_SA",
+        "account": 1
+      },
+      {
+        "path": "/api/notifications/unread-count",
+        "method": "GET",
+        "status": 200,
+        "role": "HEAD_SA",
+        "account": 1
+      },
+      {
+        "path": "/api/auth/preferences/language",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "HEAD_SA",
+        "account": 1
+      },
+      {
+        "path": "/api/auth/preferences/language",
+        "method": "GET",
+        "status": 200,
+        "role": "HEAD_SA",
+        "account": 1
+      },
+      {
+        "path": "/api/auth/me",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "HEAD_SA",
+        "account": 1
+      },
+      {
+        "path": "/api/auth/me",
+        "method": "GET",
+        "status": 200,
+        "role": "HEAD_SA",
+        "account": 1
+      },
+      {
+        "path": "/api/approvals/overview",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "HEAD_SA",
+        "account": 1
+      },
+      {
+        "path": "/api/me/assigned-milestones",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "HEAD_SA",
+        "account": 1
+      },
+      {
+        "path": "/api/notifications",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "HEAD_SA",
+        "account": 1
+      },
+      {
+        "path": "/api/approvals/overview",
+        "method": "GET",
+        "status": 200,
+        "role": "HEAD_SA",
+        "account": 1
+      },
+      {
+        "path": "/api/notifications/unread-count",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "HEAD_SA",
+        "account": 1
+      },
+      {
+        "path": "/api/me/assigned-milestones",
+        "method": "GET",
+        "status": 200,
+        "role": "HEAD_SA",
+        "account": 1
+      },
+      {
+        "path": "/api/dashboard",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "HEAD_SA",
+        "account": 1
+      },
+      {
+        "path": "/api/notifications",
+        "method": "GET",
+        "status": 200,
+        "role": "HEAD_SA",
+        "account": 1
+      },
+      {
+        "path": "/api/projects",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "HEAD_SA",
+        "account": 1
+      },
+      {
+        "path": "/api/notifications/unread-count",
+        "method": "GET",
+        "status": 200,
+        "role": "HEAD_SA",
+        "account": 1
+      },
+      {
+        "path": "/api/dashboard",
+        "method": "GET",
+        "status": 200,
+        "role": "HEAD_SA",
+        "account": 1
+      },
+      {
+        "path": "/api/projects",
+        "method": "GET",
+        "status": 200,
+        "role": "HEAD_SA",
+        "account": 1
+      },
+      {
+        "path": "/api/auth/preferences/language",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "HEAD_SA",
+        "account": 1
+      },
+      {
+        "path": "/api/auth/preferences/language",
+        "method": "GET",
+        "status": 200,
+        "role": "HEAD_SA",
+        "account": 1
+      },
+      {
+        "path": "/api/auth/preferences/language",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "HEAD_SA",
+        "account": 1
+      },
+      {
+        "path": "/api/auth/preferences/language",
+        "method": "PUT",
+        "status": 200,
+        "role": "HEAD_SA",
+        "account": 1
+      },
+      {
+        "path": "/api/auth/me",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "HEAD_SA",
+        "account": 1
+      },
+      {
+        "path": "/api/auth/me",
+        "method": "GET",
+        "status": 200,
+        "role": "HEAD_SA",
+        "account": 1
+      },
+      {
+        "path": "/api/approvals/overview",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "HEAD_SA",
+        "account": 1
+      },
+      {
+        "path": "/api/me/assigned-milestones",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "HEAD_SA",
+        "account": 1
+      },
+      {
+        "path": "/api/notifications",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "HEAD_SA",
+        "account": 1
+      },
+      {
+        "path": "/api/notifications/unread-count",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "HEAD_SA",
+        "account": 1
+      },
+      {
+        "path": "/api/dashboard",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "HEAD_SA",
+        "account": 1
+      },
+      {
+        "path": "/api/projects",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "HEAD_SA",
+        "account": 1
+      },
+      {
+        "path": "/api/approvals/overview",
+        "method": "GET",
+        "status": 200,
+        "role": "HEAD_SA",
+        "account": 1
+      },
+      {
+        "path": "/api/me/assigned-milestones",
+        "method": "GET",
+        "status": 200,
+        "role": "HEAD_SA",
+        "account": 1
+      },
+      {
+        "path": "/api/notifications",
+        "method": "GET",
+        "status": 200,
+        "role": "HEAD_SA",
+        "account": 1
+      },
+      {
+        "path": "/api/notifications/unread-count",
+        "method": "GET",
+        "status": 200,
+        "role": "HEAD_SA",
+        "account": 1
+      },
+      {
+        "path": "/api/dashboard",
+        "method": "GET",
+        "status": 200,
+        "role": "HEAD_SA",
+        "account": 1
+      },
+      {
+        "path": "/api/auth/preferences/language",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "HEAD_SA",
+        "account": 1
+      },
+      {
+        "path": "/api/projects",
+        "method": "GET",
+        "status": 200,
+        "role": "HEAD_SA",
+        "account": 1
+      },
+      {
+        "path": "/api/auth/preferences/language",
+        "method": "GET",
+        "status": 200,
+        "role": "HEAD_SA",
+        "account": 1
+      },
+      {
+        "path": "/api/auth/logout",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "HEAD_SA",
+        "account": 1
+      },
+      {
+        "path": "/api/auth/logout",
+        "method": "POST",
+        "status": 200,
+        "role": "HEAD_SA",
+        "account": 1
+      },
+      {
+        "path": "/api/auth/login",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "SA",
+        "account": 1
+      },
+      {
+        "path": "/api/auth/login",
+        "method": "POST",
+        "status": 200,
+        "role": "SA",
+        "account": 1
+      },
+      {
+        "path": "/api/auth/preferences/language",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "SA",
+        "account": 1
+      },
+      {
+        "path": "/api/auth/preferences/language",
+        "method": "GET",
+        "status": 200,
+        "role": "SA",
+        "account": 1
+      },
+      {
+        "path": "/api/me/assigned-milestones",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "SA",
+        "account": 1
+      },
+      {
+        "path": "/api/notifications",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "SA",
+        "account": 1
+      },
+      {
+        "path": "/api/notifications/unread-count",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "SA",
+        "account": 1
+      },
+      {
+        "path": "/api/dashboard",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "SA",
+        "account": 1
+      },
+      {
+        "path": "/api/projects",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "SA",
+        "account": 1
+      },
+      {
+        "path": "/api/me/assigned-milestones",
+        "method": "GET",
+        "status": 200,
+        "role": "SA",
+        "account": 1
+      },
+      {
+        "path": "/api/notifications",
+        "method": "GET",
+        "status": 200,
+        "role": "SA",
+        "account": 1
+      },
+      {
+        "path": "/api/notifications/unread-count",
+        "method": "GET",
+        "status": 200,
+        "role": "SA",
+        "account": 1
+      },
+      {
+        "path": "/api/dashboard",
+        "method": "GET",
+        "status": 200,
+        "role": "SA",
+        "account": 1
+      },
+      {
+        "path": "/api/projects",
+        "method": "GET",
+        "status": 200,
+        "role": "SA",
+        "account": 1
+      },
+      {
+        "path": "/api/auth/preferences/language",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "SA",
+        "account": 1
+      },
+      {
+        "path": "/api/auth/preferences/language",
+        "method": "PUT",
+        "status": 200,
+        "role": "SA",
+        "account": 1
+      },
+      {
+        "path": "/api/auth/preferences/language",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "SA",
+        "account": 1
+      },
+      {
+        "path": "/api/auth/preferences/language",
+        "method": "PUT",
+        "status": 200,
+        "role": "SA",
+        "account": 1
+      },
+      {
+        "path": "/api/auth/preferences/language",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "SA",
+        "account": 1
+      },
+      {
+        "path": "/api/auth/preferences/language",
+        "method": "PUT",
+        "status": 200,
+        "role": "SA",
+        "account": 1
+      },
+      {
+        "path": "/api/dashboard/activity",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "SA",
+        "account": 1
+      },
+      {
+        "path": "/api/dashboard/activity",
+        "method": "GET",
+        "status": 200,
+        "role": "SA",
+        "account": 1
+      },
+      {
+        "path": "/api/auth/preferences/language",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "SA",
+        "account": 1
+      },
+      {
+        "path": "/api/auth/preferences/language",
+        "method": "PUT",
+        "status": 200,
+        "role": "SA",
+        "account": 1
+      },
+      {
+        "path": "/api/dashboard/activity",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "SA",
+        "account": 1
+      },
+      {
+        "path": "/api/dashboard/activity",
+        "method": "GET",
+        "status": 200,
+        "role": "SA",
+        "account": 1
+      },
+      {
+        "path": "/api/auth/me",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "SA",
+        "account": 1
+      },
+      {
+        "path": "/api/auth/me",
+        "method": "GET",
+        "status": 200,
+        "role": "SA",
+        "account": 1
+      },
+      {
+        "path": "/api/me/assigned-milestones",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "SA",
+        "account": 1
+      },
+      {
+        "path": "/api/notifications",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "SA",
+        "account": 1
+      },
+      {
+        "path": "/api/notifications/unread-count",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "SA",
+        "account": 1
+      },
+      {
+        "path": "/api/me/assigned-milestones",
+        "method": "GET",
+        "status": 200,
+        "role": "SA",
+        "account": 1
+      },
+      {
+        "path": "/api/projects",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "SA",
+        "account": 1
+      },
+      {
+        "path": "/api/notifications",
+        "method": "GET",
+        "status": 200,
+        "role": "SA",
+        "account": 1
+      },
+      {
+        "path": "/api/notifications/unread-count",
+        "method": "GET",
+        "status": 200,
+        "role": "SA",
+        "account": 1
+      },
+      {
+        "path": "/api/scenarios",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "SA",
+        "account": 1
+      },
+      {
+        "path": "/api/projects",
+        "method": "GET",
+        "status": 200,
+        "role": "SA",
+        "account": 1
+      },
+      {
+        "path": "/api/scenarios",
+        "method": "GET",
+        "status": 200,
+        "role": "SA",
+        "account": 1
+      },
+      {
+        "path": "/api/auth/preferences/language",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "SA",
+        "account": 1
+      },
+      {
+        "path": "/api/auth/preferences/language",
+        "method": "GET",
+        "status": 200,
+        "role": "SA",
+        "account": 1
+      },
+      {
+        "path": "/api/auth/me",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "SA",
+        "account": 1
+      },
+      {
+        "path": "/api/auth/me",
+        "method": "GET",
+        "status": 200,
+        "role": "SA",
+        "account": 1
+      },
+      {
+        "path": "/api/me/assigned-milestones",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "SA",
+        "account": 1
+      },
+      {
+        "path": "/api/notifications",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "SA",
+        "account": 1
+      },
+      {
+        "path": "/api/notifications/unread-count",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "SA",
+        "account": 1
+      },
+      {
+        "path": "/api/projects/90000000-0000-4000-8000-000000000001",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "SA",
+        "account": 1
+      },
+      {
+        "path": "/api/projects/90000000-0000-4000-8000-000000000001/milestones",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "SA",
+        "account": 1
+      },
+      {
+        "path": "/api/projects/90000000-0000-4000-8000-000000000001/output-documents",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "SA",
+        "account": 1
+      },
+      {
+        "path": "/api/projects/90000000-0000-4000-8000-000000000001/plan-approval",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "SA",
+        "account": 1
+      },
+      {
+        "path": "/api/auth/preferences/language",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "SA",
+        "account": 1
+      },
+      {
+        "path": "/api/me/assigned-milestones",
+        "method": "GET",
+        "status": 200,
+        "role": "SA",
+        "account": 1
+      },
+      {
+        "path": "/api/notifications",
+        "method": "GET",
+        "status": 200,
+        "role": "SA",
+        "account": 1
+      },
+      {
+        "path": "/api/notifications/unread-count",
+        "method": "GET",
+        "status": 200,
+        "role": "SA",
+        "account": 1
+      },
+      {
+        "path": "/api/projects/90000000-0000-4000-8000-000000000001",
+        "method": "GET",
+        "status": 200,
+        "role": "SA",
+        "account": 1
+      },
+      {
+        "path": "/api/projects/90000000-0000-4000-8000-000000000001/milestones",
+        "method": "GET",
+        "status": 200,
+        "role": "SA",
+        "account": 1
+      },
+      {
+        "path": "/api/projects/90000000-0000-4000-8000-000000000001/output-documents",
+        "method": "GET",
+        "status": 200,
+        "role": "SA",
+        "account": 1
+      },
+      {
+        "path": "/api/projects/90000000-0000-4000-8000-000000000001/plan-approval",
+        "method": "GET",
+        "status": 200,
+        "role": "SA",
+        "account": 1
+      },
+      {
+        "path": "/api/auth/preferences/language",
+        "method": "GET",
+        "status": 200,
+        "role": "SA",
+        "account": 1
+      },
+      {
+        "path": "/api/projects/90000000-0000-4000-8000-000000000001/intake-attachments",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "SA",
+        "account": 1
+      },
+      {
+        "path": "/api/documents",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "SA",
+        "account": 1
+      },
+      {
+        "path": "/api/projects/90000000-0000-4000-8000-000000000001/intake-attachments",
+        "method": "GET",
+        "status": 200,
+        "role": "SA",
+        "account": 1
+      },
+      {
+        "path": "/api/milestones/90000000-0000-4000-8000-000000000002/deadline-status",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "SA",
+        "account": 1
+      },
+      {
+        "path": "/api/documents",
+        "method": "GET",
+        "status": 200,
+        "role": "SA",
+        "account": 1
+      },
+      {
+        "path": "/api/milestones/90000000-0000-4000-8000-000000000002/deadline-status",
+        "method": "GET",
+        "status": 200,
+        "role": "SA",
+        "account": 1
+      },
+      {
+        "path": "/api/projects/90000000-0000-4000-8000-000000000001/activities",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "SA",
+        "account": 1
+      },
+      {
+        "path": "/api/projects/90000000-0000-4000-8000-000000000001/assignments",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "SA",
+        "account": 1
+      },
+      {
+        "path": "/api/projects/90000000-0000-4000-8000-000000000001/activities",
+        "method": "GET",
+        "status": 200,
+        "role": "SA",
+        "account": 1
+      },
+      {
+        "path": "/api/milestones/90000000-0000-4000-8000-000000000002/deadline-approval",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "SA",
+        "account": 1
+      },
+      {
+        "path": "/api/projects/90000000-0000-4000-8000-000000000001/assignments",
+        "method": "GET",
+        "status": 200,
+        "role": "SA",
+        "account": 1
+      },
+      {
+        "path": "/api/milestones/90000000-0000-4000-8000-000000000002/deadline-approval",
+        "method": "GET",
+        "status": 200,
+        "role": "SA",
+        "account": 1
+      },
+      {
+        "path": "/api/milestones/90000000-0000-4000-8000-000000000002/contributions",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "SA",
+        "account": 1
+      },
+      {
+        "path": "/api/milestones/90000000-0000-4000-8000-000000000002/contributions",
+        "method": "GET",
+        "status": 200,
+        "role": "SA",
+        "account": 1
+      },
+      {
+        "path": "/api/auth/me",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "SA",
+        "account": 1
+      },
+      {
+        "path": "/api/auth/me",
+        "method": "GET",
+        "status": 200,
+        "role": "SA",
+        "account": 1
+      },
+      {
+        "path": "/api/me/assigned-milestones",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "SA",
+        "account": 1
+      },
+      {
+        "path": "/api/notifications",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "SA",
+        "account": 1
+      },
+      {
+        "path": "/api/me/assigned-milestones",
+        "method": "GET",
+        "status": 200,
+        "role": "SA",
+        "account": 1
+      },
+      {
+        "path": "/api/notifications/unread-count",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "SA",
+        "account": 1
+      },
+      {
+        "path": "/api/notifications",
+        "method": "GET",
+        "status": 200,
+        "role": "SA",
+        "account": 1
+      },
+      {
+        "path": "/api/documents",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "SA",
+        "account": 1
+      },
+      {
+        "path": "/api/documents/outputs",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "SA",
+        "account": 1
+      },
+      {
+        "path": "/api/notifications/unread-count",
+        "method": "GET",
+        "status": 200,
+        "role": "SA",
+        "account": 1
+      },
+      {
+        "path": "/api/documents",
+        "method": "GET",
+        "status": 200,
+        "role": "SA",
+        "account": 1
+      },
+      {
+        "path": "/api/documents/outputs",
+        "method": "GET",
+        "status": 200,
+        "role": "SA",
+        "account": 1
+      },
+      {
+        "path": "/api/auth/preferences/language",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "SA",
+        "account": 1
+      },
+      {
+        "path": "/api/auth/preferences/language",
+        "method": "GET",
+        "status": 200,
+        "role": "SA",
+        "account": 1
+      },
+      {
+        "path": "/api/auth/me",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "SA",
+        "account": 1
+      },
+      {
+        "path": "/api/auth/me",
+        "method": "GET",
+        "status": 200,
+        "role": "SA",
+        "account": 1
+      },
+      {
+        "path": "/api/me/assigned-milestones",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "SA",
+        "account": 1
+      },
+      {
+        "path": "/api/notifications",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "SA",
+        "account": 1
+      },
+      {
+        "path": "/api/notifications/unread-count",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "SA",
+        "account": 1
+      },
+      {
+        "path": "/api/me/assigned-milestones",
+        "method": "GET",
+        "status": 200,
+        "role": "SA",
+        "account": 1
+      },
+      {
+        "path": "/api/notifications",
+        "method": "GET",
+        "status": 200,
+        "role": "SA",
+        "account": 1
+      },
+      {
+        "path": "/api/notifications/unread-count",
+        "method": "GET",
+        "status": 200,
+        "role": "SA",
+        "account": 1
+      },
+      {
+        "path": "/api/auth/preferences/language",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "SA",
+        "account": 1
+      },
+      {
+        "path": "/api/auth/preferences/language",
+        "method": "GET",
+        "status": 200,
+        "role": "SA",
+        "account": 1
+      },
+      {
+        "path": "/api/auth/me",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "SA",
+        "account": 1
+      },
+      {
+        "path": "/api/auth/me",
+        "method": "GET",
+        "status": 200,
+        "role": "SA",
+        "account": 1
+      },
+      {
+        "path": "/api/me/assigned-milestones",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "SA",
+        "account": 1
+      },
+      {
+        "path": "/api/notifications",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "SA",
+        "account": 1
+      },
+      {
+        "path": "/api/notifications/unread-count",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "SA",
+        "account": 1
+      },
+      {
+        "path": "/api/dashboard",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "SA",
+        "account": 1
+      },
+      {
+        "path": "/api/projects",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "SA",
+        "account": 1
+      },
+      {
+        "path": "/api/me/assigned-milestones",
+        "method": "GET",
+        "status": 200,
+        "role": "SA",
+        "account": 1
+      },
+      {
+        "path": "/api/notifications",
+        "method": "GET",
+        "status": 200,
+        "role": "SA",
+        "account": 1
+      },
+      {
+        "path": "/api/notifications/unread-count",
+        "method": "GET",
+        "status": 200,
+        "role": "SA",
+        "account": 1
+      },
+      {
+        "path": "/api/dashboard",
+        "method": "GET",
+        "status": 200,
+        "role": "SA",
+        "account": 1
+      },
+      {
+        "path": "/api/auth/preferences/language",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "SA",
+        "account": 1
+      },
+      {
+        "path": "/api/projects",
+        "method": "GET",
+        "status": 200,
+        "role": "SA",
+        "account": 1
+      },
+      {
+        "path": "/api/auth/preferences/language",
+        "method": "GET",
+        "status": 200,
+        "role": "SA",
+        "account": 1
+      },
+      {
+        "path": "/api/auth/preferences/language",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "SA",
+        "account": 1
+      },
+      {
+        "path": "/api/auth/preferences/language",
+        "method": "PUT",
+        "status": 200,
+        "role": "SA",
+        "account": 1
+      },
+      {
+        "path": "/api/auth/me",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "SA",
+        "account": 1
+      },
+      {
+        "path": "/api/auth/me",
+        "method": "GET",
+        "status": 200,
+        "role": "SA",
+        "account": 1
+      },
+      {
+        "path": "/api/me/assigned-milestones",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "SA",
+        "account": 1
+      },
+      {
+        "path": "/api/notifications",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "SA",
+        "account": 1
+      },
+      {
+        "path": "/api/notifications/unread-count",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "SA",
+        "account": 1
+      },
+      {
+        "path": "/api/dashboard",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "SA",
+        "account": 1
+      },
+      {
+        "path": "/api/me/assigned-milestones",
+        "method": "GET",
+        "status": 200,
+        "role": "SA",
+        "account": 1
+      },
+      {
+        "path": "/api/notifications",
+        "method": "GET",
+        "status": 200,
+        "role": "SA",
+        "account": 1
+      },
+      {
+        "path": "/api/projects",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "SA",
+        "account": 1
+      },
+      {
+        "path": "/api/notifications/unread-count",
+        "method": "GET",
+        "status": 200,
+        "role": "SA",
+        "account": 1
+      },
+      {
+        "path": "/api/dashboard",
+        "method": "GET",
+        "status": 200,
+        "role": "SA",
+        "account": 1
+      },
+      {
+        "path": "/api/projects",
+        "method": "GET",
+        "status": 200,
+        "role": "SA",
+        "account": 1
+      },
+      {
+        "path": "/api/auth/preferences/language",
+        "method": "OPTIONS",
+        "status": 204,
+        "role": "SA",
+        "account": 1
+      },
+      {
+        "path": "/api/auth/preferences/language",
+        "method": "GET",
+        "status": 200,
+        "role": "SA",
+        "account": 1
+      }
+    ],
+    "blocked": [
+      {
+        "host": "fonts.googleapis.com",
+        "path": "/css2"
+      },
+      {
+        "host": "fonts.googleapis.com",
+        "path": "/css2"
+      },
+      {
+        "host": "fonts.googleapis.com",
+        "path": "/css2"
+      },
+      {
+        "host": "fonts.googleapis.com",
+        "path": "/css2"
+      },
+      {
+        "host": "fonts.googleapis.com",
+        "path": "/css2"
+      },
+      {
+        "host": "fonts.googleapis.com",
+        "path": "/css2"
+      },
+      {
+        "host": "fonts.googleapis.com",
+        "path": "/css2"
+      },
+      {
+        "host": "fonts.googleapis.com",
+        "path": "/css2"
+      },
+      {
+        "host": "fonts.googleapis.com",
+        "path": "/css2"
+      },
+      {
+        "host": "fonts.googleapis.com",
+        "path": "/css2"
+      },
+      {
+        "host": "fonts.googleapis.com",
+        "path": "/css2"
+      },
+      {
+        "host": "fonts.googleapis.com",
+        "path": "/css2"
+      },
+      {
+        "host": "fonts.googleapis.com",
+        "path": "/css2"
+      },
+      {
+        "host": "fonts.googleapis.com",
+        "path": "/css2"
+      }
+    ],
+    "allowed": [
+      {
+        "path": "/login",
+        "method": "GET"
+      },
+      {
+        "path": "/_next/static/css/app/layout.css",
+        "method": "GET"
+      },
+      {
+        "path": "/_next/static/chunks/webpack.js",
+        "method": "GET"
+      },
+      {
+        "path": "/_next/static/chunks/main-app.js",
+        "method": "GET"
+      },
+      {
+        "path": "/_next/static/chunks/app-pages-internals.js",
+        "method": "GET"
+      },
+      {
+        "path": "/_next/static/chunks/app/layout.js",
+        "method": "GET"
+      },
+      {
+        "path": "/_next/static/chunks/app/login/page.js",
+        "method": "GET"
+      },
+      {
+        "path": "/favicon.ico",
+        "method": "GET"
+      },
+      {
+        "path": "/_next/static/chunks/_app-pages-browser_node_modules_tanstack_query-devtools_build_DevtoolsComponent-CFsAhafd_js.js",
+        "method": "GET"
+      },
+      {
+        "path": "/_next/static/chunks/_app-pages-browser_node_modules_next_dist_client_dev_noop-turbopack-hmr_js.js",
+        "method": "GET"
+      },
+      {
+        "path": "/",
+        "method": "GET"
+      },
+      {
+        "path": "/",
+        "method": "GET"
+      },
+      {
+        "path": "/",
+        "method": "GET"
+      },
+      {
+        "path": "/_next/static/chunks/app/page.js",
+        "method": "GET"
+      },
+      {
+        "path": "/projects",
+        "method": "GET"
+      },
+      {
+        "path": "/_next/static/css/app/layout.css",
+        "method": "GET"
+      },
+      {
+        "path": "/_next/static/chunks/webpack.js",
+        "method": "GET"
+      },
+      {
+        "path": "/_next/static/chunks/main-app.js",
+        "method": "GET"
+      },
+      {
+        "path": "/_next/static/chunks/app-pages-internals.js",
+        "method": "GET"
+      },
+      {
+        "path": "/_next/static/chunks/app/layout.js",
+        "method": "GET"
+      },
+      {
+        "path": "/_next/static/chunks/app/projects/page.js",
+        "method": "GET"
+      },
+      {
+        "path": "/_next/static/chunks/_app-pages-browser_node_modules_tanstack_query-devtools_build_DevtoolsComponent-CFsAhafd_js.js",
+        "method": "GET"
+      },
+      {
+        "path": "/_next/static/chunks/_app-pages-browser_node_modules_next_dist_client_dev_noop-turbopack-hmr_js.js",
+        "method": "GET"
+      },
+      {
+        "path": "/projects/90000000-0000-4000-8000-000000000001",
+        "method": "GET"
+      },
+      {
+        "path": "/_next/static/css/app/layout.css",
+        "method": "GET"
+      },
+      {
+        "path": "/_next/static/chunks/webpack.js",
+        "method": "GET"
+      },
+      {
+        "path": "/_next/static/chunks/main-app.js",
+        "method": "GET"
+      },
+      {
+        "path": "/_next/static/chunks/app-pages-internals.js",
+        "method": "GET"
+      },
+      {
+        "path": "/_next/static/chunks/app/layout.js",
+        "method": "GET"
+      },
+      {
+        "path": "/_next/static/chunks/app/projects/%5Bid%5D/page.js",
+        "method": "GET"
+      },
+      {
+        "path": "/_next/static/chunks/_app-pages-browser_node_modules_tanstack_query-devtools_build_DevtoolsComponent-CFsAhafd_js.js",
+        "method": "GET"
+      },
+      {
+        "path": "/_next/static/chunks/_app-pages-browser_node_modules_next_dist_client_dev_noop-turbopack-hmr_js.js",
+        "method": "GET"
+      },
+      {
+        "path": "/documents",
+        "method": "GET"
+      },
+      {
+        "path": "/_next/static/css/app/layout.css",
+        "method": "GET"
+      },
+      {
+        "path": "/_next/static/chunks/webpack.js",
+        "method": "GET"
+      },
+      {
+        "path": "/_next/static/chunks/main-app.js",
+        "method": "GET"
+      },
+      {
+        "path": "/_next/static/chunks/app-pages-internals.js",
+        "method": "GET"
+      },
+      {
+        "path": "/_next/static/chunks/app/layout.js",
+        "method": "GET"
+      },
+      {
+        "path": "/_next/static/chunks/app/documents/page.js",
+        "method": "GET"
+      },
+      {
+        "path": "/_next/static/chunks/_app-pages-browser_node_modules_tanstack_query-devtools_build_DevtoolsComponent-CFsAhafd_js.js",
+        "method": "GET"
+      },
+      {
+        "path": "/_next/static/chunks/_app-pages-browser_node_modules_next_dist_client_dev_noop-turbopack-hmr_js.js",
+        "method": "GET"
+      },
+      {
+        "path": "/approvals",
+        "method": "GET"
+      },
+      {
+        "path": "/_next/static/css/app/layout.css",
+        "method": "GET"
+      },
+      {
+        "path": "/_next/static/chunks/webpack.js",
+        "method": "GET"
+      },
+      {
+        "path": "/_next/static/chunks/main-app.js",
+        "method": "GET"
+      },
+      {
+        "path": "/_next/static/chunks/app-pages-internals.js",
+        "method": "GET"
+      },
+      {
+        "path": "/_next/static/chunks/app/layout.js",
+        "method": "GET"
+      },
+      {
+        "path": "/_next/static/chunks/app/approvals/page.js",
+        "method": "GET"
+      },
+      {
+        "path": "/_next/static/chunks/_app-pages-browser_node_modules_tanstack_query-devtools_build_DevtoolsComponent-CFsAhafd_js.js",
+        "method": "GET"
+      },
+      {
+        "path": "/_next/static/chunks/_app-pages-browser_node_modules_next_dist_client_dev_noop-turbopack-hmr_js.js",
+        "method": "GET"
+      },
+      {
+        "path": "/",
+        "method": "GET"
+      },
+      {
+        "path": "/_next/static/css/app/layout.css",
+        "method": "GET"
+      },
+      {
+        "path": "/_next/static/chunks/webpack.js",
+        "method": "GET"
+      },
+      {
+        "path": "/_next/static/chunks/main-app.js",
+        "method": "GET"
+      },
+      {
+        "path": "/_next/static/chunks/app-pages-internals.js",
+        "method": "GET"
+      },
+      {
+        "path": "/_next/static/chunks/app/layout.js",
+        "method": "GET"
+      },
+      {
+        "path": "/_next/static/chunks/app/page.js",
+        "method": "GET"
+      },
+      {
+        "path": "/_next/static/chunks/_app-pages-browser_node_modules_tanstack_query-devtools_build_DevtoolsComponent-CFsAhafd_js.js",
+        "method": "GET"
+      },
+      {
+        "path": "/_next/static/chunks/_app-pages-browser_node_modules_next_dist_client_dev_noop-turbopack-hmr_js.js",
+        "method": "GET"
+      },
+      {
+        "path": "/",
+        "method": "GET"
+      },
+      {
+        "path": "/_next/static/css/app/layout.css",
+        "method": "GET"
+      },
+      {
+        "path": "/_next/static/chunks/webpack.js",
+        "method": "GET"
+      },
+      {
+        "path": "/_next/static/chunks/main-app.js",
+        "method": "GET"
+      },
+      {
+        "path": "/_next/static/chunks/app-pages-internals.js",
+        "method": "GET"
+      },
+      {
+        "path": "/_next/static/chunks/app/layout.js",
+        "method": "GET"
+      },
+      {
+        "path": "/_next/static/chunks/app/page.js",
+        "method": "GET"
+      },
+      {
+        "path": "/_next/static/chunks/_app-pages-browser_node_modules_tanstack_query-devtools_build_DevtoolsComponent-CFsAhafd_js.js",
+        "method": "GET"
+      },
+      {
+        "path": "/_next/static/chunks/_app-pages-browser_node_modules_next_dist_client_dev_noop-turbopack-hmr_js.js",
+        "method": "GET"
+      },
+      {
+        "path": "/login",
+        "method": "GET"
+      },
+      {
+        "path": "/login",
+        "method": "GET"
+      },
+      {
+        "path": "/_next/static/chunks/app/login/page.js",
+        "method": "GET"
+      },
+      {
+        "path": "/login",
+        "method": "GET"
+      },
+      {
+        "path": "/_next/static/css/app/layout.css",
+        "method": "GET"
+      },
+      {
+        "path": "/_next/static/chunks/webpack.js",
+        "method": "GET"
+      },
+      {
+        "path": "/_next/static/chunks/main-app.js",
+        "method": "GET"
+      },
+      {
+        "path": "/_next/static/chunks/app-pages-internals.js",
+        "method": "GET"
+      },
+      {
+        "path": "/_next/static/chunks/app/layout.js",
+        "method": "GET"
+      },
+      {
+        "path": "/_next/static/chunks/app/login/page.js",
+        "method": "GET"
+      },
+      {
+        "path": "/_next/static/chunks/_app-pages-browser_node_modules_tanstack_query-devtools_build_DevtoolsComponent-CFsAhafd_js.js",
+        "method": "GET"
+      },
+      {
+        "path": "/_next/static/chunks/_app-pages-browser_node_modules_next_dist_client_dev_noop-turbopack-hmr_js.js",
+        "method": "GET"
+      },
+      {
+        "path": "/",
+        "method": "GET"
+      },
+      {
+        "path": "/",
+        "method": "GET"
+      },
+      {
+        "path": "/",
+        "method": "GET"
+      },
+      {
+        "path": "/_next/static/chunks/app/page.js",
+        "method": "GET"
+      },
+      {
+        "path": "/projects",
+        "method": "GET"
+      },
+      {
+        "path": "/_next/static/css/app/layout.css",
+        "method": "GET"
+      },
+      {
+        "path": "/_next/static/chunks/webpack.js",
+        "method": "GET"
+      },
+      {
+        "path": "/_next/static/chunks/main-app.js",
+        "method": "GET"
+      },
+      {
+        "path": "/_next/static/chunks/app-pages-internals.js",
+        "method": "GET"
+      },
+      {
+        "path": "/_next/static/chunks/app/layout.js",
+        "method": "GET"
+      },
+      {
+        "path": "/_next/static/chunks/app/projects/page.js",
+        "method": "GET"
+      },
+      {
+        "path": "/_next/static/chunks/_app-pages-browser_node_modules_tanstack_query-devtools_build_DevtoolsComponent-CFsAhafd_js.js",
+        "method": "GET"
+      },
+      {
+        "path": "/_next/static/chunks/_app-pages-browser_node_modules_next_dist_client_dev_noop-turbopack-hmr_js.js",
+        "method": "GET"
+      },
+      {
+        "path": "/projects/90000000-0000-4000-8000-000000000001",
+        "method": "GET"
+      },
+      {
+        "path": "/_next/static/css/app/layout.css",
+        "method": "GET"
+      },
+      {
+        "path": "/_next/static/chunks/webpack.js",
+        "method": "GET"
+      },
+      {
+        "path": "/_next/static/chunks/main-app.js",
+        "method": "GET"
+      },
+      {
+        "path": "/_next/static/chunks/app-pages-internals.js",
+        "method": "GET"
+      },
+      {
+        "path": "/_next/static/chunks/app/layout.js",
+        "method": "GET"
+      },
+      {
+        "path": "/_next/static/chunks/app/projects/%5Bid%5D/page.js",
+        "method": "GET"
+      },
+      {
+        "path": "/_next/static/chunks/_app-pages-browser_node_modules_tanstack_query-devtools_build_DevtoolsComponent-CFsAhafd_js.js",
+        "method": "GET"
+      },
+      {
+        "path": "/_next/static/chunks/_app-pages-browser_node_modules_next_dist_client_dev_noop-turbopack-hmr_js.js",
+        "method": "GET"
+      },
+      {
+        "path": "/documents",
+        "method": "GET"
+      },
+      {
+        "path": "/_next/static/css/app/layout.css",
+        "method": "GET"
+      },
+      {
+        "path": "/_next/static/chunks/webpack.js",
+        "method": "GET"
+      },
+      {
+        "path": "/_next/static/chunks/main-app.js",
+        "method": "GET"
+      },
+      {
+        "path": "/_next/static/chunks/app-pages-internals.js",
+        "method": "GET"
+      },
+      {
+        "path": "/_next/static/chunks/app/layout.js",
+        "method": "GET"
+      },
+      {
+        "path": "/_next/static/chunks/app/documents/page.js",
+        "method": "GET"
+      },
+      {
+        "path": "/_next/static/chunks/_app-pages-browser_node_modules_tanstack_query-devtools_build_DevtoolsComponent-CFsAhafd_js.js",
+        "method": "GET"
+      },
+      {
+        "path": "/_next/static/chunks/_app-pages-browser_node_modules_next_dist_client_dev_noop-turbopack-hmr_js.js",
+        "method": "GET"
+      },
+      {
+        "path": "/approvals",
+        "method": "GET"
+      },
+      {
+        "path": "/_next/static/css/app/layout.css",
+        "method": "GET"
+      },
+      {
+        "path": "/_next/static/chunks/webpack.js",
+        "method": "GET"
+      },
+      {
+        "path": "/_next/static/chunks/main-app.js",
+        "method": "GET"
+      },
+      {
+        "path": "/_next/static/chunks/app-pages-internals.js",
+        "method": "GET"
+      },
+      {
+        "path": "/_next/static/chunks/app/layout.js",
+        "method": "GET"
+      },
+      {
+        "path": "/_next/static/chunks/app/approvals/page.js",
+        "method": "GET"
+      },
+      {
+        "path": "/_next/static/chunks/_app-pages-browser_node_modules_tanstack_query-devtools_build_DevtoolsComponent-CFsAhafd_js.js",
+        "method": "GET"
+      },
+      {
+        "path": "/_next/static/chunks/_app-pages-browser_node_modules_next_dist_client_dev_noop-turbopack-hmr_js.js",
+        "method": "GET"
+      },
+      {
+        "path": "/",
+        "method": "GET"
+      },
+      {
+        "path": "/_next/static/css/app/layout.css",
+        "method": "GET"
+      },
+      {
+        "path": "/_next/static/chunks/webpack.js",
+        "method": "GET"
+      },
+      {
+        "path": "/_next/static/chunks/main-app.js",
+        "method": "GET"
+      },
+      {
+        "path": "/_next/static/chunks/app-pages-internals.js",
+        "method": "GET"
+      },
+      {
+        "path": "/_next/static/chunks/app/layout.js",
+        "method": "GET"
+      },
+      {
+        "path": "/_next/static/chunks/app/page.js",
+        "method": "GET"
+      },
+      {
+        "path": "/_next/static/chunks/_app-pages-browser_node_modules_tanstack_query-devtools_build_DevtoolsComponent-CFsAhafd_js.js",
+        "method": "GET"
+      },
+      {
+        "path": "/_next/static/chunks/_app-pages-browser_node_modules_next_dist_client_dev_noop-turbopack-hmr_js.js",
+        "method": "GET"
+      },
+      {
+        "path": "/",
+        "method": "GET"
+      },
+      {
+        "path": "/_next/static/css/app/layout.css",
+        "method": "GET"
+      },
+      {
+        "path": "/_next/static/chunks/webpack.js",
+        "method": "GET"
+      },
+      {
+        "path": "/_next/static/chunks/main-app.js",
+        "method": "GET"
+      },
+      {
+        "path": "/_next/static/chunks/app-pages-internals.js",
+        "method": "GET"
+      },
+      {
+        "path": "/_next/static/chunks/app/layout.js",
+        "method": "GET"
+      },
+      {
+        "path": "/_next/static/chunks/app/page.js",
+        "method": "GET"
+      },
+      {
+        "path": "/_next/static/chunks/_app-pages-browser_node_modules_tanstack_query-devtools_build_DevtoolsComponent-CFsAhafd_js.js",
+        "method": "GET"
+      },
+      {
+        "path": "/_next/static/chunks/_app-pages-browser_node_modules_next_dist_client_dev_noop-turbopack-hmr_js.js",
+        "method": "GET"
+      }
+    ],
+    "errors": []
+  },
+  "unknown": []
+}

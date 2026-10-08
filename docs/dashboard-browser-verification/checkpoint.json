@@ -1,0 +1,2175 @@
+{
+  "baseline": "e25cd057d6f94f09d7e78d175f72e0ce50619012",
+  "browser": "Chrome/154.0.8037.98",
+  "recordedAt": "2026-10-08",
+  "finalCases": [
+    {
+      "area": "dashboard",
+      "role": "SALES",
+      "locale": "en",
+      "viewport": 360,
+      "width": 360,
+      "clientWidth": 354,
+      "scrollWidth": 354,
+      "summaryColumns": 1,
+      "activityCount": 8,
+      "workspaceLinks": [],
+      "summary": [
+        {
+          "text": "IDR 25,000,000",
+          "fits": true,
+          "width": 274,
+          "scrollWidth": 274
+        },
+        {
+          "text": "1",
+          "fits": true,
+          "width": 274,
+          "scrollWidth": 274
+        },
+        {
+          "text": "0",
+          "fits": true,
+          "width": 274,
+          "scrollWidth": 274
+        },
+        {
+          "text": "0",
+          "fits": true,
+          "width": 274,
+          "scrollWidth": 274
+        }
+      ],
+      "alerts": [],
+      "evidenceRun": "results.json"
+    },
+    {
+      "area": "dashboard",
+      "role": "SALES",
+      "locale": "en",
+      "viewport": 390,
+      "width": 390,
+      "clientWidth": 384,
+      "scrollWidth": 384,
+      "summaryColumns": 1,
+      "activityCount": 8,
+      "workspaceLinks": [],
+      "summary": [
+        {
+          "text": "IDR 25,000,000",
+          "fits": true,
+          "width": 304,
+          "scrollWidth": 304
+        },
+        {
+          "text": "1",
+          "fits": true,
+          "width": 304,
+          "scrollWidth": 304
+        },
+        {
+          "text": "0",
+          "fits": true,
+          "width": 304,
+          "scrollWidth": 304
+        },
+        {
+          "text": "0",
+          "fits": true,
+          "width": 304,
+          "scrollWidth": 304
+        }
+      ],
+      "alerts": [],
+      "evidenceRun": "results.json"
+    },
+    {
+      "area": "dashboard",
+      "role": "SALES",
+      "locale": "en",
+      "viewport": 1440,
+      "width": 1440,
+      "clientWidth": 1434,
+      "scrollWidth": 1434,
+      "summaryColumns": 4,
+      "activityCount": 8,
+      "workspaceLinks": [],
+      "summary": [
+        {
+          "text": "IDR 25,000,000",
+          "fits": true,
+          "width": 216,
+          "scrollWidth": 216
+        },
+        {
+          "text": "1",
+          "fits": true,
+          "width": 216,
+          "scrollWidth": 216
+        },
+        {
+          "text": "0",
+          "fits": true,
+          "width": 216,
+          "scrollWidth": 216
+        },
+        {
+          "text": "0",
+          "fits": true,
+          "width": 216,
+          "scrollWidth": 216
+        }
+      ],
+      "alerts": [],
+      "evidenceRun": "results.json"
+    },
+    {
+      "area": "dashboard",
+      "role": "SALES",
+      "locale": "id",
+      "viewport": 360,
+      "width": 360,
+      "clientWidth": 354,
+      "scrollWidth": 354,
+      "summaryColumns": 1,
+      "activityCount": 8,
+      "workspaceLinks": [],
+      "summary": [
+        {
+          "text": "Rp 25.000.000",
+          "fits": true,
+          "width": 274,
+          "scrollWidth": 274
+        },
+        {
+          "text": "1",
+          "fits": true,
+          "width": 274,
+          "scrollWidth": 274
+        },
+        {
+          "text": "0",
+          "fits": true,
+          "width": 274,
+          "scrollWidth": 274
+        },
+        {
+          "text": "0",
+          "fits": true,
+          "width": 274,
+          "scrollWidth": 274
+        }
+      ],
+      "alerts": [],
+      "evidenceRun": "results.json"
+    },
+    {
+      "area": "dashboard",
+      "role": "SALES",
+      "locale": "id",
+      "viewport": 390,
+      "width": 390,
+      "clientWidth": 384,
+      "scrollWidth": 384,
+      "summaryColumns": 1,
+      "activityCount": 8,
+      "workspaceLinks": [],
+      "summary": [
+        {
+          "text": "Rp 25.000.000",
+          "fits": true,
+          "width": 304,
+          "scrollWidth": 304
+        },
+        {
+          "text": "1",
+          "fits": true,
+          "width": 304,
+          "scrollWidth": 304
+        },
+        {
+          "text": "0",
+          "fits": true,
+          "width": 304,
+          "scrollWidth": 304
+        },
+        {
+          "text": "0",
+          "fits": true,
+          "width": 304,
+          "scrollWidth": 304
+        }
+      ],
+      "alerts": [],
+      "evidenceRun": "results.json"
+    },
+    {
+      "area": "dashboard",
+      "role": "SALES",
+      "locale": "id",
+      "viewport": 1440,
+      "width": 1440,
+      "clientWidth": 1434,
+      "scrollWidth": 1434,
+      "summaryColumns": 4,
+      "activityCount": 8,
+      "workspaceLinks": [],
+      "summary": [
+        {
+          "text": "Rp 25.000.000",
+          "fits": true,
+          "width": 216,
+          "scrollWidth": 216
+        },
+        {
+          "text": "1",
+          "fits": true,
+          "width": 216,
+          "scrollWidth": 216
+        },
+        {
+          "text": "0",
+          "fits": true,
+          "width": 216,
+          "scrollWidth": 216
+        },
+        {
+          "text": "0",
+          "fits": true,
+          "width": 216,
+          "scrollWidth": 216
+        }
+      ],
+      "alerts": [],
+      "evidenceRun": "results.json"
+    },
+    {
+      "area": "drawer",
+      "role": "SALES",
+      "viewport": 360,
+      "focus": true,
+      "escape": true,
+      "scrollRestored": true,
+      "links": [
+        "/",
+        "/projects",
+        "/documents",
+        "/settings"
+      ],
+      "evidenceRun": "results.json"
+    },
+    {
+      "area": "activity",
+      "role": "SALES",
+      "items": [
+        8,
+        8,
+        1
+      ],
+      "nextPrevious": true,
+      "localeRetainsPage": true,
+      "lastNextDisabled": true,
+      "firstPreviousDisabled": true,
+      "loading": true,
+      "evidenceRun": "results.json"
+    },
+    {
+      "area": "route",
+      "role": "SALES",
+      "route": "/projects",
+      "locale": "id",
+      "viewport": 360,
+      "width": 360,
+      "clientWidth": 354,
+      "scrollWidth": 354,
+      "summaryColumns": null,
+      "activityCount": 0,
+      "workspaceLinks": [],
+      "summary": [],
+      "alerts": [],
+      "evidenceRun": "results.json"
+    },
+    {
+      "area": "route",
+      "role": "SALES",
+      "route": "/projects",
+      "locale": "id",
+      "viewport": 390,
+      "width": 390,
+      "clientWidth": 384,
+      "scrollWidth": 384,
+      "summaryColumns": null,
+      "activityCount": 0,
+      "workspaceLinks": [],
+      "summary": [],
+      "alerts": [],
+      "evidenceRun": "results.json"
+    },
+    {
+      "area": "route",
+      "role": "SALES",
+      "route": "/projects",
+      "locale": "id",
+      "viewport": 1440,
+      "width": 1440,
+      "clientWidth": 1440,
+      "scrollWidth": 1440,
+      "summaryColumns": null,
+      "activityCount": 0,
+      "workspaceLinks": [],
+      "summary": [],
+      "alerts": [],
+      "evidenceRun": "results.json"
+    },
+    {
+      "area": "route",
+      "role": "SALES",
+      "route": "/projects/90000000-0000-4000-8000-000000000001",
+      "locale": "id",
+      "viewport": 360,
+      "width": 360,
+      "clientWidth": 354,
+      "scrollWidth": 354,
+      "summaryColumns": null,
+      "activityCount": 0,
+      "workspaceLinks": [],
+      "summary": [],
+      "alerts": [],
+      "evidenceRun": "results.json"
+    },
+    {
+      "area": "route",
+      "role": "SALES",
+      "route": "/projects/90000000-0000-4000-8000-000000000001",
+      "locale": "id",
+      "viewport": 390,
+      "width": 390,
+      "clientWidth": 384,
+      "scrollWidth": 384,
+      "summaryColumns": null,
+      "activityCount": 0,
+      "workspaceLinks": [],
+      "summary": [],
+      "alerts": [],
+      "evidenceRun": "results.json"
+    },
+    {
+      "area": "route",
+      "role": "SALES",
+      "route": "/projects/90000000-0000-4000-8000-000000000001",
+      "locale": "id",
+      "viewport": 1440,
+      "width": 1440,
+      "clientWidth": 1434,
+      "scrollWidth": 1434,
+      "summaryColumns": null,
+      "activityCount": 0,
+      "workspaceLinks": [],
+      "summary": [],
+      "alerts": [],
+      "evidenceRun": "results.json"
+    },
+    {
+      "area": "route",
+      "role": "SALES",
+      "route": "/documents",
+      "locale": "id",
+      "viewport": 360,
+      "width": 360,
+      "clientWidth": 354,
+      "scrollWidth": 354,
+      "summaryColumns": null,
+      "activityCount": 0,
+      "workspaceLinks": [],
+      "summary": [],
+      "alerts": [],
+      "evidenceRun": "results.json"
+    },
+    {
+      "area": "route",
+      "role": "SALES",
+      "route": "/documents",
+      "locale": "id",
+      "viewport": 390,
+      "width": 390,
+      "clientWidth": 384,
+      "scrollWidth": 384,
+      "summaryColumns": null,
+      "activityCount": 0,
+      "workspaceLinks": [],
+      "summary": [],
+      "alerts": [],
+      "evidenceRun": "results.json"
+    },
+    {
+      "area": "route",
+      "role": "SALES",
+      "route": "/documents",
+      "locale": "id",
+      "viewport": 1440,
+      "width": 1440,
+      "clientWidth": 1440,
+      "scrollWidth": 1440,
+      "summaryColumns": null,
+      "activityCount": 0,
+      "workspaceLinks": [],
+      "summary": [],
+      "alerts": [],
+      "evidenceRun": "results.json"
+    },
+    {
+      "area": "dashboard",
+      "role": "HEAD_SA",
+      "locale": "en",
+      "viewport": 360,
+      "width": 360,
+      "clientWidth": 354,
+      "scrollWidth": 354,
+      "summaryColumns": 1,
+      "activityCount": 8,
+      "workspaceLinks": [
+        "/projects/90000000-0000-4000-8000-000000000001#milestone-outputs-90000000-0000-4000-8000-000000000002"
+      ],
+      "summary": [
+        {
+          "text": "1",
+          "fits": true,
+          "width": 274,
+          "scrollWidth": 274
+        },
+        {
+          "text": "1",
+          "fits": true,
+          "width": 274,
+          "scrollWidth": 274
+        },
+        {
+          "text": "1",
+          "fits": true,
+          "width": 274,
+          "scrollWidth": 274
+        },
+        {
+          "text": "0",
+          "fits": true,
+          "width": 274,
+          "scrollWidth": 274
+        }
+      ],
+      "alerts": [],
+      "evidenceRun": "remaining-roles/results.json"
+    },
+    {
+      "area": "dashboard",
+      "role": "HEAD_SA",
+      "locale": "en",
+      "viewport": 390,
+      "width": 390,
+      "clientWidth": 384,
+      "scrollWidth": 384,
+      "summaryColumns": 1,
+      "activityCount": 8,
+      "workspaceLinks": [
+        "/projects/90000000-0000-4000-8000-000000000001#milestone-outputs-90000000-0000-4000-8000-000000000002"
+      ],
+      "summary": [
+        {
+          "text": "1",
+          "fits": true,
+          "width": 304,
+          "scrollWidth": 304
+        },
+        {
+          "text": "1",
+          "fits": true,
+          "width": 304,
+          "scrollWidth": 304
+        },
+        {
+          "text": "1",
+          "fits": true,
+          "width": 304,
+          "scrollWidth": 304
+        },
+        {
+          "text": "0",
+          "fits": true,
+          "width": 304,
+          "scrollWidth": 304
+        }
+      ],
+      "alerts": [],
+      "evidenceRun": "remaining-roles/results.json"
+    },
+    {
+      "area": "dashboard",
+      "role": "HEAD_SA",
+      "locale": "en",
+      "viewport": 1440,
+      "width": 1440,
+      "clientWidth": 1434,
+      "scrollWidth": 1434,
+      "summaryColumns": 4,
+      "activityCount": 8,
+      "workspaceLinks": [
+        "/projects/90000000-0000-4000-8000-000000000001#milestone-outputs-90000000-0000-4000-8000-000000000002"
+      ],
+      "summary": [
+        {
+          "text": "1",
+          "fits": true,
+          "width": 216,
+          "scrollWidth": 216
+        },
+        {
+          "text": "1",
+          "fits": true,
+          "width": 216,
+          "scrollWidth": 216
+        },
+        {
+          "text": "1",
+          "fits": true,
+          "width": 216,
+          "scrollWidth": 216
+        },
+        {
+          "text": "0",
+          "fits": true,
+          "width": 216,
+          "scrollWidth": 216
+        }
+      ],
+      "alerts": [],
+      "evidenceRun": "remaining-roles/results.json"
+    },
+    {
+      "area": "dashboard",
+      "role": "HEAD_SA",
+      "locale": "id",
+      "viewport": 360,
+      "width": 360,
+      "clientWidth": 354,
+      "scrollWidth": 354,
+      "summaryColumns": 1,
+      "activityCount": 8,
+      "workspaceLinks": [
+        "/projects/90000000-0000-4000-8000-000000000001#milestone-outputs-90000000-0000-4000-8000-000000000002"
+      ],
+      "summary": [
+        {
+          "text": "1",
+          "fits": true,
+          "width": 274,
+          "scrollWidth": 274
+        },
+        {
+          "text": "1",
+          "fits": true,
+          "width": 274,
+          "scrollWidth": 274
+        },
+        {
+          "text": "1",
+          "fits": true,
+          "width": 274,
+          "scrollWidth": 274
+        },
+        {
+          "text": "0",
+          "fits": true,
+          "width": 274,
+          "scrollWidth": 274
+        }
+      ],
+      "alerts": [],
+      "evidenceRun": "remaining-roles/results.json"
+    },
+    {
+      "area": "dashboard",
+      "role": "HEAD_SA",
+      "locale": "id",
+      "viewport": 390,
+      "width": 390,
+      "clientWidth": 384,
+      "scrollWidth": 384,
+      "summaryColumns": 1,
+      "activityCount": 8,
+      "workspaceLinks": [
+        "/projects/90000000-0000-4000-8000-000000000001#milestone-outputs-90000000-0000-4000-8000-000000000002"
+      ],
+      "summary": [
+        {
+          "text": "1",
+          "fits": true,
+          "width": 304,
+          "scrollWidth": 304
+        },
+        {
+          "text": "1",
+          "fits": true,
+          "width": 304,
+          "scrollWidth": 304
+        },
+        {
+          "text": "1",
+          "fits": true,
+          "width": 304,
+          "scrollWidth": 304
+        },
+        {
+          "text": "0",
+          "fits": true,
+          "width": 304,
+          "scrollWidth": 304
+        }
+      ],
+      "alerts": [],
+      "evidenceRun": "remaining-roles/results.json"
+    },
+    {
+      "area": "dashboard",
+      "role": "HEAD_SA",
+      "locale": "id",
+      "viewport": 1440,
+      "width": 1440,
+      "clientWidth": 1434,
+      "scrollWidth": 1434,
+      "summaryColumns": 4,
+      "activityCount": 8,
+      "workspaceLinks": [
+        "/projects/90000000-0000-4000-8000-000000000001#milestone-outputs-90000000-0000-4000-8000-000000000002"
+      ],
+      "summary": [
+        {
+          "text": "1",
+          "fits": true,
+          "width": 216,
+          "scrollWidth": 216
+        },
+        {
+          "text": "1",
+          "fits": true,
+          "width": 216,
+          "scrollWidth": 216
+        },
+        {
+          "text": "1",
+          "fits": true,
+          "width": 216,
+          "scrollWidth": 216
+        },
+        {
+          "text": "0",
+          "fits": true,
+          "width": 216,
+          "scrollWidth": 216
+        }
+      ],
+      "alerts": [],
+      "evidenceRun": "remaining-roles/results.json"
+    },
+    {
+      "area": "drawer",
+      "role": "HEAD_SA",
+      "viewport": 360,
+      "focus": true,
+      "escape": true,
+      "scrollRestored": true,
+      "links": [
+        "/",
+        "/projects",
+        "/milestones",
+        "/approvals",
+        "/documents",
+        "/settings"
+      ],
+      "evidenceRun": "remaining-roles/results.json"
+    },
+    {
+      "area": "activity",
+      "role": "HEAD_SA",
+      "items": [
+        8,
+        8,
+        1
+      ],
+      "nextPrevious": true,
+      "localeRetainsPage": true,
+      "lastNextDisabled": true,
+      "firstPreviousDisabled": true,
+      "loading": true,
+      "evidenceRun": "remaining-roles/results.json"
+    },
+    {
+      "area": "route",
+      "role": "HEAD_SA",
+      "route": "/projects",
+      "locale": "id",
+      "viewport": 360,
+      "width": 360,
+      "clientWidth": 354,
+      "scrollWidth": 354,
+      "summaryColumns": null,
+      "activityCount": 0,
+      "workspaceLinks": [],
+      "summary": [],
+      "alerts": [],
+      "evidenceRun": "remaining-roles/results.json"
+    },
+    {
+      "area": "route",
+      "role": "HEAD_SA",
+      "route": "/projects",
+      "locale": "id",
+      "viewport": 390,
+      "width": 390,
+      "clientWidth": 384,
+      "scrollWidth": 384,
+      "summaryColumns": null,
+      "activityCount": 0,
+      "workspaceLinks": [],
+      "summary": [],
+      "alerts": [],
+      "evidenceRun": "remaining-roles/results.json"
+    },
+    {
+      "area": "route",
+      "role": "HEAD_SA",
+      "route": "/projects",
+      "locale": "id",
+      "viewport": 1440,
+      "width": 1440,
+      "clientWidth": 1440,
+      "scrollWidth": 1440,
+      "summaryColumns": null,
+      "activityCount": 0,
+      "workspaceLinks": [],
+      "summary": [],
+      "alerts": [],
+      "evidenceRun": "remaining-roles/results.json"
+    },
+    {
+      "area": "route",
+      "role": "HEAD_SA",
+      "route": "/projects/90000000-0000-4000-8000-000000000001",
+      "locale": "id",
+      "viewport": 360,
+      "width": 360,
+      "clientWidth": 354,
+      "scrollWidth": 354,
+      "summaryColumns": null,
+      "activityCount": 0,
+      "workspaceLinks": [],
+      "summary": [],
+      "alerts": [],
+      "evidenceRun": "remaining-roles/results.json"
+    },
+    {
+      "area": "route",
+      "role": "HEAD_SA",
+      "route": "/projects/90000000-0000-4000-8000-000000000001",
+      "locale": "id",
+      "viewport": 390,
+      "width": 390,
+      "clientWidth": 384,
+      "scrollWidth": 384,
+      "summaryColumns": null,
+      "activityCount": 0,
+      "workspaceLinks": [],
+      "summary": [],
+      "alerts": [],
+      "evidenceRun": "remaining-roles/results.json"
+    },
+    {
+      "area": "route",
+      "role": "HEAD_SA",
+      "route": "/projects/90000000-0000-4000-8000-000000000001",
+      "locale": "id",
+      "viewport": 1440,
+      "width": 1440,
+      "clientWidth": 1434,
+      "scrollWidth": 1434,
+      "summaryColumns": null,
+      "activityCount": 0,
+      "workspaceLinks": [],
+      "summary": [],
+      "alerts": [],
+      "evidenceRun": "remaining-roles/results.json"
+    },
+    {
+      "area": "route",
+      "role": "HEAD_SA",
+      "route": "/documents",
+      "locale": "id",
+      "viewport": 360,
+      "width": 360,
+      "clientWidth": 354,
+      "scrollWidth": 354,
+      "summaryColumns": null,
+      "activityCount": 0,
+      "workspaceLinks": [],
+      "summary": [],
+      "alerts": [],
+      "evidenceRun": "remaining-roles/results.json"
+    },
+    {
+      "area": "route",
+      "role": "HEAD_SA",
+      "route": "/documents",
+      "locale": "id",
+      "viewport": 390,
+      "width": 390,
+      "clientWidth": 384,
+      "scrollWidth": 384,
+      "summaryColumns": null,
+      "activityCount": 0,
+      "workspaceLinks": [],
+      "summary": [],
+      "alerts": [],
+      "evidenceRun": "remaining-roles/results.json"
+    },
+    {
+      "area": "route",
+      "role": "HEAD_SA",
+      "route": "/documents",
+      "locale": "id",
+      "viewport": 1440,
+      "width": 1440,
+      "clientWidth": 1440,
+      "scrollWidth": 1440,
+      "summaryColumns": null,
+      "activityCount": 0,
+      "workspaceLinks": [],
+      "summary": [],
+      "alerts": [],
+      "evidenceRun": "remaining-roles/results.json"
+    },
+    {
+      "area": "route",
+      "role": "HEAD_SA",
+      "route": "/approvals",
+      "locale": "id",
+      "viewport": 360,
+      "width": 360,
+      "clientWidth": 354,
+      "scrollWidth": 354,
+      "summaryColumns": null,
+      "activityCount": 0,
+      "workspaceLinks": [],
+      "summary": [],
+      "alerts": [],
+      "evidenceRun": "remaining-roles/results.json"
+    },
+    {
+      "area": "route",
+      "role": "HEAD_SA",
+      "route": "/approvals",
+      "locale": "id",
+      "viewport": 390,
+      "width": 390,
+      "clientWidth": 384,
+      "scrollWidth": 384,
+      "summaryColumns": null,
+      "activityCount": 0,
+      "workspaceLinks": [],
+      "summary": [],
+      "alerts": [],
+      "evidenceRun": "remaining-roles/results.json"
+    },
+    {
+      "area": "route",
+      "role": "HEAD_SA",
+      "route": "/approvals",
+      "locale": "id",
+      "viewport": 1440,
+      "width": 1440,
+      "clientWidth": 1440,
+      "scrollWidth": 1440,
+      "summaryColumns": null,
+      "activityCount": 0,
+      "workspaceLinks": [],
+      "summary": [],
+      "alerts": [],
+      "evidenceRun": "remaining-roles/results.json"
+    },
+    {
+      "area": "empty",
+      "role": "HEAD_SA",
+      "viewport": 360,
+      "locale": "en",
+      "width": 360,
+      "clientWidth": 354,
+      "scrollWidth": 354,
+      "summaryColumns": 1,
+      "activityCount": 0,
+      "workspaceLinks": [],
+      "summary": [
+        {
+          "text": "0",
+          "fits": true,
+          "width": 218,
+          "scrollWidth": 218
+        },
+        {
+          "text": "0",
+          "fits": true,
+          "width": 218,
+          "scrollWidth": 218
+        },
+        {
+          "text": "0",
+          "fits": true,
+          "width": 218,
+          "scrollWidth": 218
+        },
+        {
+          "text": "0",
+          "fits": true,
+          "width": 218,
+          "scrollWidth": 218
+        }
+      ],
+      "alerts": [],
+      "evidenceRun": "remaining-roles/results.json"
+    },
+    {
+      "area": "dashboard",
+      "role": "SA",
+      "locale": "en",
+      "viewport": 360,
+      "width": 360,
+      "clientWidth": 354,
+      "scrollWidth": 354,
+      "summaryColumns": 1,
+      "activityCount": 8,
+      "workspaceLinks": [
+        "/projects/90000000-0000-4000-8000-000000000001#milestone-outputs-90000000-0000-4000-8000-000000000002"
+      ],
+      "summary": [
+        {
+          "text": "1",
+          "fits": true,
+          "width": 274,
+          "scrollWidth": 274
+        },
+        {
+          "text": "0",
+          "fits": true,
+          "width": 274,
+          "scrollWidth": 274
+        },
+        {
+          "text": "0",
+          "fits": true,
+          "width": 274,
+          "scrollWidth": 274
+        },
+        {
+          "text": "0",
+          "fits": true,
+          "width": 274,
+          "scrollWidth": 274
+        }
+      ],
+      "alerts": [],
+      "evidenceRun": "remaining-roles/results.json"
+    },
+    {
+      "area": "dashboard",
+      "role": "SA",
+      "locale": "en",
+      "viewport": 390,
+      "width": 390,
+      "clientWidth": 384,
+      "scrollWidth": 384,
+      "summaryColumns": 1,
+      "activityCount": 8,
+      "workspaceLinks": [
+        "/projects/90000000-0000-4000-8000-000000000001#milestone-outputs-90000000-0000-4000-8000-000000000002"
+      ],
+      "summary": [
+        {
+          "text": "1",
+          "fits": true,
+          "width": 304,
+          "scrollWidth": 304
+        },
+        {
+          "text": "0",
+          "fits": true,
+          "width": 304,
+          "scrollWidth": 304
+        },
+        {
+          "text": "0",
+          "fits": true,
+          "width": 304,
+          "scrollWidth": 304
+        },
+        {
+          "text": "0",
+          "fits": true,
+          "width": 304,
+          "scrollWidth": 304
+        }
+      ],
+      "alerts": [],
+      "evidenceRun": "remaining-roles/results.json"
+    },
+    {
+      "area": "dashboard",
+      "role": "SA",
+      "locale": "en",
+      "viewport": 1440,
+      "width": 1440,
+      "clientWidth": 1434,
+      "scrollWidth": 1434,
+      "summaryColumns": 4,
+      "activityCount": 8,
+      "workspaceLinks": [
+        "/projects/90000000-0000-4000-8000-000000000001#milestone-outputs-90000000-0000-4000-8000-000000000002"
+      ],
+      "summary": [
+        {
+          "text": "1",
+          "fits": true,
+          "width": 216,
+          "scrollWidth": 216
+        },
+        {
+          "text": "0",
+          "fits": true,
+          "width": 216,
+          "scrollWidth": 216
+        },
+        {
+          "text": "0",
+          "fits": true,
+          "width": 216,
+          "scrollWidth": 216
+        },
+        {
+          "text": "0",
+          "fits": true,
+          "width": 216,
+          "scrollWidth": 216
+        }
+      ],
+      "alerts": [],
+      "evidenceRun": "remaining-roles/results.json"
+    },
+    {
+      "area": "dashboard",
+      "role": "SA",
+      "locale": "id",
+      "viewport": 360,
+      "width": 360,
+      "clientWidth": 354,
+      "scrollWidth": 354,
+      "summaryColumns": 1,
+      "activityCount": 8,
+      "workspaceLinks": [
+        "/projects/90000000-0000-4000-8000-000000000001#milestone-outputs-90000000-0000-4000-8000-000000000002"
+      ],
+      "summary": [
+        {
+          "text": "1",
+          "fits": true,
+          "width": 274,
+          "scrollWidth": 274
+        },
+        {
+          "text": "0",
+          "fits": true,
+          "width": 274,
+          "scrollWidth": 274
+        },
+        {
+          "text": "0",
+          "fits": true,
+          "width": 274,
+          "scrollWidth": 274
+        },
+        {
+          "text": "0",
+          "fits": true,
+          "width": 274,
+          "scrollWidth": 274
+        }
+      ],
+      "alerts": [],
+      "evidenceRun": "remaining-roles/results.json"
+    },
+    {
+      "area": "dashboard",
+      "role": "SA",
+      "locale": "id",
+      "viewport": 390,
+      "width": 390,
+      "clientWidth": 384,
+      "scrollWidth": 384,
+      "summaryColumns": 1,
+      "activityCount": 8,
+      "workspaceLinks": [
+        "/projects/90000000-0000-4000-8000-000000000001#milestone-outputs-90000000-0000-4000-8000-000000000002"
+      ],
+      "summary": [
+        {
+          "text": "1",
+          "fits": true,
+          "width": 304,
+          "scrollWidth": 304
+        },
+        {
+          "text": "0",
+          "fits": true,
+          "width": 304,
+          "scrollWidth": 304
+        },
+        {
+          "text": "0",
+          "fits": true,
+          "width": 304,
+          "scrollWidth": 304
+        },
+        {
+          "text": "0",
+          "fits": true,
+          "width": 304,
+          "scrollWidth": 304
+        }
+      ],
+      "alerts": [],
+      "evidenceRun": "remaining-roles/results.json"
+    },
+    {
+      "area": "dashboard",
+      "role": "SA",
+      "locale": "id",
+      "viewport": 1440,
+      "width": 1440,
+      "clientWidth": 1434,
+      "scrollWidth": 1434,
+      "summaryColumns": 4,
+      "activityCount": 8,
+      "workspaceLinks": [
+        "/projects/90000000-0000-4000-8000-000000000001#milestone-outputs-90000000-0000-4000-8000-000000000002"
+      ],
+      "summary": [
+        {
+          "text": "1",
+          "fits": true,
+          "width": 216,
+          "scrollWidth": 216
+        },
+        {
+          "text": "0",
+          "fits": true,
+          "width": 216,
+          "scrollWidth": 216
+        },
+        {
+          "text": "0",
+          "fits": true,
+          "width": 216,
+          "scrollWidth": 216
+        },
+        {
+          "text": "0",
+          "fits": true,
+          "width": 216,
+          "scrollWidth": 216
+        }
+      ],
+      "alerts": [],
+      "evidenceRun": "remaining-roles/results.json"
+    },
+    {
+      "area": "drawer",
+      "role": "SA",
+      "viewport": 360,
+      "focus": true,
+      "escape": true,
+      "scrollRestored": true,
+      "links": [
+        "/",
+        "/projects",
+        "/milestones",
+        "/documents",
+        "/settings"
+      ],
+      "evidenceRun": "remaining-roles/results.json"
+    },
+    {
+      "area": "activity",
+      "role": "SA",
+      "items": [
+        8,
+        8,
+        1
+      ],
+      "nextPrevious": true,
+      "localeRetainsPage": true,
+      "lastNextDisabled": true,
+      "firstPreviousDisabled": true,
+      "loading": true,
+      "evidenceRun": "remaining-roles/results.json"
+    },
+    {
+      "area": "route",
+      "role": "SA",
+      "route": "/projects",
+      "locale": "id",
+      "viewport": 360,
+      "width": 360,
+      "clientWidth": 354,
+      "scrollWidth": 354,
+      "summaryColumns": null,
+      "activityCount": 0,
+      "workspaceLinks": [],
+      "summary": [],
+      "alerts": [],
+      "evidenceRun": "remaining-roles/results.json"
+    },
+    {
+      "area": "route",
+      "role": "SA",
+      "route": "/projects",
+      "locale": "id",
+      "viewport": 390,
+      "width": 390,
+      "clientWidth": 384,
+      "scrollWidth": 384,
+      "summaryColumns": null,
+      "activityCount": 0,
+      "workspaceLinks": [],
+      "summary": [],
+      "alerts": [],
+      "evidenceRun": "remaining-roles/results.json"
+    },
+    {
+      "area": "route",
+      "role": "SA",
+      "route": "/projects",
+      "locale": "id",
+      "viewport": 1440,
+      "width": 1440,
+      "clientWidth": 1440,
+      "scrollWidth": 1440,
+      "summaryColumns": null,
+      "activityCount": 0,
+      "workspaceLinks": [],
+      "summary": [],
+      "alerts": [],
+      "evidenceRun": "remaining-roles/results.json"
+    },
+    {
+      "area": "route",
+      "role": "SA",
+      "route": "/projects/90000000-0000-4000-8000-000000000001",
+      "locale": "id",
+      "viewport": 360,
+      "width": 360,
+      "clientWidth": 354,
+      "scrollWidth": 354,
+      "summaryColumns": null,
+      "activityCount": 0,
+      "workspaceLinks": [],
+      "summary": [],
+      "alerts": [],
+      "evidenceRun": "remaining-roles/results.json"
+    },
+    {
+      "area": "route",
+      "role": "SA",
+      "route": "/projects/90000000-0000-4000-8000-000000000001",
+      "locale": "id",
+      "viewport": 390,
+      "width": 390,
+      "clientWidth": 384,
+      "scrollWidth": 384,
+      "summaryColumns": null,
+      "activityCount": 0,
+      "workspaceLinks": [],
+      "summary": [],
+      "alerts": [],
+      "evidenceRun": "remaining-roles/results.json"
+    },
+    {
+      "area": "route",
+      "role": "SA",
+      "route": "/projects/90000000-0000-4000-8000-000000000001",
+      "locale": "id",
+      "viewport": 1440,
+      "width": 1440,
+      "clientWidth": 1434,
+      "scrollWidth": 1434,
+      "summaryColumns": null,
+      "activityCount": 0,
+      "workspaceLinks": [],
+      "summary": [],
+      "alerts": [],
+      "evidenceRun": "remaining-roles/results.json"
+    },
+    {
+      "area": "route",
+      "role": "SA",
+      "route": "/documents",
+      "locale": "id",
+      "viewport": 360,
+      "width": 360,
+      "clientWidth": 354,
+      "scrollWidth": 354,
+      "summaryColumns": null,
+      "activityCount": 0,
+      "workspaceLinks": [],
+      "summary": [],
+      "alerts": [],
+      "evidenceRun": "remaining-roles/results.json"
+    },
+    {
+      "area": "route",
+      "role": "SA",
+      "route": "/documents",
+      "locale": "id",
+      "viewport": 390,
+      "width": 390,
+      "clientWidth": 384,
+      "scrollWidth": 384,
+      "summaryColumns": null,
+      "activityCount": 0,
+      "workspaceLinks": [],
+      "summary": [],
+      "alerts": [],
+      "evidenceRun": "remaining-roles/results.json"
+    },
+    {
+      "area": "route",
+      "role": "SA",
+      "route": "/documents",
+      "locale": "id",
+      "viewport": 1440,
+      "width": 1440,
+      "clientWidth": 1440,
+      "scrollWidth": 1440,
+      "summaryColumns": null,
+      "activityCount": 0,
+      "workspaceLinks": [],
+      "summary": [],
+      "alerts": [],
+      "evidenceRun": "remaining-roles/results.json"
+    },
+    {
+      "area": "route",
+      "role": "SA",
+      "route": "/approvals",
+      "locale": "id",
+      "viewport": 360,
+      "width": 360,
+      "clientWidth": 360,
+      "scrollWidth": 360,
+      "summaryColumns": null,
+      "activityCount": 0,
+      "workspaceLinks": [],
+      "summary": [],
+      "alerts": [],
+      "evidenceRun": "remaining-roles/results.json"
+    },
+    {
+      "area": "route",
+      "role": "SA",
+      "route": "/approvals",
+      "locale": "id",
+      "viewport": 390,
+      "width": 390,
+      "clientWidth": 390,
+      "scrollWidth": 390,
+      "summaryColumns": null,
+      "activityCount": 0,
+      "workspaceLinks": [],
+      "summary": [],
+      "alerts": [],
+      "evidenceRun": "remaining-roles/results.json"
+    },
+    {
+      "area": "route",
+      "role": "SA",
+      "route": "/approvals",
+      "locale": "id",
+      "viewport": 1440,
+      "width": 1440,
+      "clientWidth": 1440,
+      "scrollWidth": 1440,
+      "summaryColumns": null,
+      "activityCount": 0,
+      "workspaceLinks": [],
+      "summary": [],
+      "alerts": [],
+      "evidenceRun": "remaining-roles/results.json"
+    },
+    {
+      "area": "dashboard",
+      "role": "SUPER_ADMIN",
+      "locale": "en",
+      "viewport": 360,
+      "width": 360,
+      "clientWidth": 354,
+      "scrollWidth": 354,
+      "summaryColumns": 1,
+      "activityCount": 8,
+      "workspaceLinks": [],
+      "summary": [
+        {
+          "text": "1",
+          "fits": true,
+          "width": 274,
+          "scrollWidth": 274
+        },
+        {
+          "text": "0",
+          "fits": true,
+          "width": 274,
+          "scrollWidth": 274
+        },
+        {
+          "text": "1",
+          "fits": true,
+          "width": 274,
+          "scrollWidth": 274
+        },
+        {
+          "text": "0",
+          "fits": true,
+          "width": 274,
+          "scrollWidth": 274
+        }
+      ],
+      "alerts": [],
+      "evidenceRun": "super-admin/results.json"
+    },
+    {
+      "area": "dashboard",
+      "role": "SUPER_ADMIN",
+      "locale": "en",
+      "viewport": 390,
+      "width": 390,
+      "clientWidth": 384,
+      "scrollWidth": 384,
+      "summaryColumns": 1,
+      "activityCount": 8,
+      "workspaceLinks": [],
+      "summary": [
+        {
+          "text": "1",
+          "fits": true,
+          "width": 304,
+          "scrollWidth": 304
+        },
+        {
+          "text": "0",
+          "fits": true,
+          "width": 304,
+          "scrollWidth": 304
+        },
+        {
+          "text": "1",
+          "fits": true,
+          "width": 304,
+          "scrollWidth": 304
+        },
+        {
+          "text": "0",
+          "fits": true,
+          "width": 304,
+          "scrollWidth": 304
+        }
+      ],
+      "alerts": [],
+      "evidenceRun": "super-admin/results.json"
+    },
+    {
+      "area": "dashboard",
+      "role": "SUPER_ADMIN",
+      "locale": "en",
+      "viewport": 1440,
+      "width": 1440,
+      "clientWidth": 1434,
+      "scrollWidth": 1434,
+      "summaryColumns": 4,
+      "activityCount": 8,
+      "workspaceLinks": [],
+      "summary": [
+        {
+          "text": "1",
+          "fits": true,
+          "width": 216,
+          "scrollWidth": 216
+        },
+        {
+          "text": "0",
+          "fits": true,
+          "width": 216,
+          "scrollWidth": 216
+        },
+        {
+          "text": "1",
+          "fits": true,
+          "width": 216,
+          "scrollWidth": 216
+        },
+        {
+          "text": "0",
+          "fits": true,
+          "width": 216,
+          "scrollWidth": 216
+        }
+      ],
+      "alerts": [],
+      "evidenceRun": "super-admin/results.json"
+    },
+    {
+      "area": "dashboard",
+      "role": "SUPER_ADMIN",
+      "locale": "id",
+      "viewport": 360,
+      "width": 360,
+      "clientWidth": 354,
+      "scrollWidth": 354,
+      "summaryColumns": 1,
+      "activityCount": 8,
+      "workspaceLinks": [],
+      "summary": [
+        {
+          "text": "1",
+          "fits": true,
+          "width": 274,
+          "scrollWidth": 274
+        },
+        {
+          "text": "0",
+          "fits": true,
+          "width": 274,
+          "scrollWidth": 274
+        },
+        {
+          "text": "1",
+          "fits": true,
+          "width": 274,
+          "scrollWidth": 274
+        },
+        {
+          "text": "0",
+          "fits": true,
+          "width": 274,
+          "scrollWidth": 274
+        }
+      ],
+      "alerts": [],
+      "evidenceRun": "super-admin/results.json"
+    },
+    {
+      "area": "dashboard",
+      "role": "SUPER_ADMIN",
+      "locale": "id",
+      "viewport": 390,
+      "width": 390,
+      "clientWidth": 384,
+      "scrollWidth": 384,
+      "summaryColumns": 1,
+      "activityCount": 8,
+      "workspaceLinks": [],
+      "summary": [
+        {
+          "text": "1",
+          "fits": true,
+          "width": 304,
+          "scrollWidth": 304
+        },
+        {
+          "text": "0",
+          "fits": true,
+          "width": 304,
+          "scrollWidth": 304
+        },
+        {
+          "text": "1",
+          "fits": true,
+          "width": 304,
+          "scrollWidth": 304
+        },
+        {
+          "text": "0",
+          "fits": true,
+          "width": 304,
+          "scrollWidth": 304
+        }
+      ],
+      "alerts": [],
+      "evidenceRun": "super-admin/results.json"
+    },
+    {
+      "area": "dashboard",
+      "role": "SUPER_ADMIN",
+      "locale": "id",
+      "viewport": 1440,
+      "width": 1440,
+      "clientWidth": 1434,
+      "scrollWidth": 1434,
+      "summaryColumns": 4,
+      "activityCount": 8,
+      "workspaceLinks": [],
+      "summary": [
+        {
+          "text": "1",
+          "fits": true,
+          "width": 216,
+          "scrollWidth": 216
+        },
+        {
+          "text": "0",
+          "fits": true,
+          "width": 216,
+          "scrollWidth": 216
+        },
+        {
+          "text": "1",
+          "fits": true,
+          "width": 216,
+          "scrollWidth": 216
+        },
+        {
+          "text": "0",
+          "fits": true,
+          "width": 216,
+          "scrollWidth": 216
+        }
+      ],
+      "alerts": [],
+      "evidenceRun": "super-admin/results.json"
+    },
+    {
+      "area": "drawer",
+      "role": "SUPER_ADMIN",
+      "viewport": 360,
+      "focus": true,
+      "escape": true,
+      "scrollRestored": true,
+      "links": [
+        "/",
+        "/projects",
+        "/milestones",
+        "/approvals",
+        "/documents",
+        "/users",
+        "/settings"
+      ],
+      "evidenceRun": "super-admin/results.json"
+    },
+    {
+      "area": "activity",
+      "role": "SUPER_ADMIN",
+      "items": [
+        8,
+        8,
+        1
+      ],
+      "nextPrevious": true,
+      "localeRetainsPage": true,
+      "lastNextDisabled": true,
+      "firstPreviousDisabled": true,
+      "loading": true,
+      "evidenceRun": "super-admin/results.json"
+    },
+    {
+      "area": "route",
+      "role": "SUPER_ADMIN",
+      "route": "/projects",
+      "locale": "id",
+      "viewport": 360,
+      "width": 360,
+      "clientWidth": 354,
+      "scrollWidth": 354,
+      "summaryColumns": null,
+      "activityCount": 0,
+      "workspaceLinks": [],
+      "summary": [],
+      "alerts": [],
+      "evidenceRun": "super-admin/results.json"
+    },
+    {
+      "area": "route",
+      "role": "SUPER_ADMIN",
+      "route": "/projects",
+      "locale": "id",
+      "viewport": 390,
+      "width": 390,
+      "clientWidth": 384,
+      "scrollWidth": 384,
+      "summaryColumns": null,
+      "activityCount": 0,
+      "workspaceLinks": [],
+      "summary": [],
+      "alerts": [],
+      "evidenceRun": "super-admin/results.json"
+    },
+    {
+      "area": "route",
+      "role": "SUPER_ADMIN",
+      "route": "/projects",
+      "locale": "id",
+      "viewport": 1440,
+      "width": 1440,
+      "clientWidth": 1440,
+      "scrollWidth": 1440,
+      "summaryColumns": null,
+      "activityCount": 0,
+      "workspaceLinks": [],
+      "summary": [],
+      "alerts": [],
+      "evidenceRun": "super-admin/results.json"
+    },
+    {
+      "area": "route",
+      "role": "SUPER_ADMIN",
+      "route": "/projects/90000000-0000-4000-8000-000000000001",
+      "locale": "id",
+      "viewport": 360,
+      "width": 360,
+      "clientWidth": 354,
+      "scrollWidth": 354,
+      "summaryColumns": null,
+      "activityCount": 0,
+      "workspaceLinks": [],
+      "summary": [],
+      "alerts": [],
+      "evidenceRun": "super-admin/results.json"
+    },
+    {
+      "area": "route",
+      "role": "SUPER_ADMIN",
+      "route": "/projects/90000000-0000-4000-8000-000000000001",
+      "locale": "id",
+      "viewport": 390,
+      "width": 390,
+      "clientWidth": 384,
+      "scrollWidth": 384,
+      "summaryColumns": null,
+      "activityCount": 0,
+      "workspaceLinks": [],
+      "summary": [],
+      "alerts": [],
+      "evidenceRun": "super-admin/results.json"
+    },
+    {
+      "area": "route",
+      "role": "SUPER_ADMIN",
+      "route": "/projects/90000000-0000-4000-8000-000000000001",
+      "locale": "id",
+      "viewport": 1440,
+      "width": 1440,
+      "clientWidth": 1434,
+      "scrollWidth": 1434,
+      "summaryColumns": null,
+      "activityCount": 0,
+      "workspaceLinks": [],
+      "summary": [],
+      "alerts": [],
+      "evidenceRun": "super-admin/results.json"
+    },
+    {
+      "area": "route",
+      "role": "SUPER_ADMIN",
+      "route": "/documents",
+      "locale": "id",
+      "viewport": 360,
+      "width": 360,
+      "clientWidth": 354,
+      "scrollWidth": 354,
+      "summaryColumns": null,
+      "activityCount": 0,
+      "workspaceLinks": [],
+      "summary": [],
+      "alerts": [],
+      "evidenceRun": "super-admin/results.json"
+    },
+    {
+      "area": "route",
+      "role": "SUPER_ADMIN",
+      "route": "/documents",
+      "locale": "id",
+      "viewport": 390,
+      "width": 390,
+      "clientWidth": 384,
+      "scrollWidth": 384,
+      "summaryColumns": null,
+      "activityCount": 0,
+      "workspaceLinks": [],
+      "summary": [],
+      "alerts": [],
+      "evidenceRun": "super-admin/results.json"
+    },
+    {
+      "area": "route",
+      "role": "SUPER_ADMIN",
+      "route": "/documents",
+      "locale": "id",
+      "viewport": 1440,
+      "width": 1440,
+      "clientWidth": 1440,
+      "scrollWidth": 1440,
+      "summaryColumns": null,
+      "activityCount": 0,
+      "workspaceLinks": [],
+      "summary": [],
+      "alerts": [],
+      "evidenceRun": "super-admin/results.json"
+    },
+    {
+      "area": "route",
+      "role": "SUPER_ADMIN",
+      "route": "/approvals",
+      "locale": "id",
+      "viewport": 360,
+      "width": 360,
+      "clientWidth": 354,
+      "scrollWidth": 354,
+      "summaryColumns": null,
+      "activityCount": 0,
+      "workspaceLinks": [],
+      "summary": [],
+      "alerts": [],
+      "evidenceRun": "super-admin/results.json"
+    },
+    {
+      "area": "route",
+      "role": "SUPER_ADMIN",
+      "route": "/approvals",
+      "locale": "id",
+      "viewport": 390,
+      "width": 390,
+      "clientWidth": 384,
+      "scrollWidth": 384,
+      "summaryColumns": null,
+      "activityCount": 0,
+      "workspaceLinks": [],
+      "summary": [],
+      "alerts": [],
+      "evidenceRun": "super-admin/results.json"
+    },
+    {
+      "area": "route",
+      "role": "SUPER_ADMIN",
+      "route": "/approvals",
+      "locale": "id",
+      "viewport": 1440,
+      "width": 1440,
+      "clientWidth": 1440,
+      "scrollWidth": 1440,
+      "summaryColumns": null,
+      "activityCount": 0,
+      "workspaceLinks": [],
+      "summary": [],
+      "alerts": [],
+      "evidenceRun": "super-admin/results.json"
+    },
+    {
+      "area": "empty",
+      "role": "SUPER_ADMIN",
+      "viewport": 360,
+      "locale": "en",
+      "width": 360,
+      "clientWidth": 354,
+      "scrollWidth": 354,
+      "summaryColumns": 1,
+      "activityCount": 0,
+      "workspaceLinks": [],
+      "summary": [
+        {
+          "text": "0",
+          "fits": true,
+          "width": 274,
+          "scrollWidth": 274
+        },
+        {
+          "text": "0",
+          "fits": true,
+          "width": 274,
+          "scrollWidth": 274
+        },
+        {
+          "text": "0",
+          "fits": true,
+          "width": 274,
+          "scrollWidth": 274
+        },
+        {
+          "text": "0",
+          "fits": true,
+          "width": 274,
+          "scrollWidth": 274
+        }
+      ],
+      "alerts": [],
+      "evidenceRun": "super-admin/results.json"
+    },
+    {
+      "area": "isolation",
+      "unconfigured": [],
+      "apiRequests": 130,
+      "blockedExternal": 7,
+      "nonUiNetworkRequestsForwarded": 0,
+      "evidenceRun": "super-admin/results.json"
+    },
+    {
+      "area": "activity-error",
+      "loading": true,
+      "errorDistinctFromEmpty": true,
+      "retry": true,
+      "items": 8,
+      "evidenceRun": "scenarios/results.json"
+    },
+    {
+      "area": "account-reset",
+      "profileReloaded": true,
+      "page": 1,
+      "noOldCursorRequest": true,
+      "noOldActivityVisible": true,
+      "evidenceRun": "scenarios/results.json"
+    },
+    {
+      "area": "dialog",
+      "width": 360,
+      "clientWidth": 354,
+      "scrollWidth": 354,
+      "dialogWidth": 322,
+      "dialogHeight": 358,
+      "scrollable": true,
+      "buttons": [
+        {
+          "text": "Tutup",
+          "reachable": true
+        },
+        {
+          "text": "Batal",
+          "reachable": true
+        },
+        {
+          "text": "Tinjau perubahan",
+          "reachable": true
+        }
+      ],
+      "inputRetainedAfterLocale": true,
+      "evidenceRun": "scenarios/results.json"
+    },
+    {
+      "area": "dialog",
+      "width": 390,
+      "clientWidth": 384,
+      "scrollWidth": 384,
+      "dialogWidth": 352,
+      "dialogHeight": 358,
+      "scrollable": true,
+      "buttons": [
+        {
+          "text": "Tutup",
+          "reachable": true
+        },
+        {
+          "text": "Batal",
+          "reachable": true
+        },
+        {
+          "text": "Tinjau perubahan",
+          "reachable": true
+        }
+      ],
+      "inputRetainedAfterLocale": true,
+      "evidenceRun": "scenarios/results.json"
+    },
+    {
+      "area": "dialog",
+      "width": 1440,
+      "clientWidth": 1434,
+      "scrollWidth": 1434,
+      "dialogWidth": 512,
+      "dialogHeight": 318,
+      "scrollable": true,
+      "buttons": [
+        {
+          "text": "Tutup",
+          "reachable": true
+        },
+        {
+          "text": "Batal",
+          "reachable": true
+        },
+        {
+          "text": "Tinjau perubahan",
+          "reachable": true
+        }
+      ],
+      "inputRetainedAfterLocale": true,
+      "evidenceRun": "scenarios/results.json"
+    },
+    {
+      "area": "sales-approvals",
+      "content": "Akses DibatasiRole Anda (SALES) tidak memiliki izin untuk melihat atau mengelola halaman ini.Kembali",
+      "approvalFetchForSales": false,
+      "viewport": 1440,
+      "evidenceRun": "scenarios/results.json"
+    },
+    {
+      "area": "sales-empty",
+      "noActivity": true,
+      "viewport": 1440,
+      "evidenceRun": "scenarios/results.json"
+    },
+    {
+      "area": "isolation",
+      "unconfigured": 0,
+      "nonUiNetworkRequestsForwarded": 0,
+      "evidenceRun": "scenarios/results.json"
+    },
+    {
+      "area": "review-dialog",
+      "width": 360,
+      "clientWidth": 354,
+      "scrollWidth": 354,
+      "dialogHeight": 268,
+      "contentHeight": 316,
+      "viewportHeight": 266,
+      "scrolls": true,
+      "buttons": [
+        {
+          "text": "Cancel",
+          "fits": true
+        },
+        {
+          "text": "Yes, approve",
+          "fits": true
+        }
+      ],
+      "evidenceRun": "empty-review/results.json"
+    },
+    {
+      "area": "review-dialog",
+      "width": 390,
+      "clientWidth": 384,
+      "scrollWidth": 384,
+      "dialogHeight": 268,
+      "contentHeight": 316,
+      "viewportHeight": 266,
+      "scrolls": true,
+      "buttons": [
+        {
+          "text": "Cancel",
+          "fits": true
+        },
+        {
+          "text": "Yes, approve",
+          "fits": true
+        }
+      ],
+      "evidenceRun": "empty-review/results.json"
+    },
+    {
+      "area": "review-dialog",
+      "width": 1440,
+      "clientWidth": 1434,
+      "scrollWidth": 1434,
+      "dialogHeight": 238,
+      "contentHeight": 236,
+      "viewportHeight": 236,
+      "scrolls": false,
+      "buttons": [
+        {
+          "text": "Cancel",
+          "fits": true
+        },
+        {
+          "text": "Yes, approve",
+          "fits": true
+        }
+      ],
+      "evidenceRun": "empty-review/results.json"
+    },
+    {
+      "area": "review-cancel",
+      "businessMutations": 0,
+      "evidenceRun": "empty-review/results.json"
+    }
+  ],
+  "diagnostics": [
+    {
+      "file": "remaining-roles/results.json",
+      "area": "failure",
+      "message": "SA empty: page overflow {\"width\":360,\"clientWidth\":354,\"scrollWidth\":377,\"summaryColumns\":1,\"activityCount\":0,\"workspaceLinks\":[],\"summary\":[{\"text\":\"0\",\"fits\":true,\"width\":139,\"scrollWidth\":139},{\"text\":\"0\",\"fits\":true,\"width\":139,\"scrollWidth\":139},{\"text\":\"0\",\"fits\":true,\"width\":139,\"scrollWidth\":139},{\"text\":\"0\",\"fits\":true,\"width\":139,\"scrollWidth\":139}],\"alerts\":[]}",
+      "ui": {
+        "url": "/",
+        "buttons": [
+          {
+            "label": "Open navigation",
+            "controls": "mobile-navigation",
+            "expanded": "false",
+            "rect": {
+              "x": 146.59375,
+              "y": 11.5,
+              "width": 40,
+              "height": 40,
+              "top": 11.5,
+              "right": 186.59375,
+              "bottom": 51.5,
+              "left": 146.59375
+            }
+          }
+        ],
+        "drawerHidden": "true",
+        "alerts": []
+      }
+    }
+  ],
+  "isolation": [
+    {
+      "file": "results.json",
+      "apiRequests": 86,
+      "unconfigured": 0,
+      "exceptions": 0,
+      "externalRequestsBlocked": 5
+    },
+    {
+      "file": "remaining-roles/results.json",
+      "apiRequests": 270,
+      "unconfigured": 0,
+      "exceptions": 0,
+      "externalRequestsBlocked": 14
+    },
+    {
+      "file": "super-admin/results.json",
+      "apiRequests": 130,
+      "unconfigured": 0,
+      "exceptions": 0,
+      "externalRequestsBlocked": 7
+    },
+    {
+      "file": "scenarios/results.json",
+      "apiRequests": 86,
+      "unconfigured": 0,
+      "exceptions": 0,
+      "externalRequestsBlocked": 4
+    },
+    {
+      "file": "empty-review/results.json",
+      "apiRequests": 52,
+      "unconfigured": 0,
+      "exceptions": 0,
+      "externalRequestsBlocked": 2
+    }
+  ],
+  "limitations": [
+    "Synthetic intercepted API; backend authorization/GoTrue/Storage not verified",
+    "External Google Fonts blocked; system font fallback",
+    "Only actual initial and cursor API fixtures, not arbitrary production datasets",
+    "SA empty 360/390/1440 passed in earlier targeted run; screenshots retained, subsequent review-only run replaced its results file"
+  ]
+}

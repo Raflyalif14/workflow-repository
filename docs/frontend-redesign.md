@@ -297,6 +297,8 @@ git log -1 --oneline
 
 ## Workspace summary overflow correction
 
+Full Dashboard browser checks using synthetic session/API fixtures on the actual AuthProvider, pages and app shell are now recorded in [the 2026-10-08 checkpoint](dashboard-browser-verification/README.md). This adds real Chrome coverage for four roles, EN/ID and 360/390/1440px, cursor activity pagination, drawer behavior and selected dialogs. It does not verify live backend authorization or GoTrue/Storage integration.
+
 The mobile two-column metric grid could overflow with IDR 25,000,000. Shared summary/loading grids now use one minmax(0,1fr) column below 640px, two from 640px and the existing four columns from 1280px, with min-width:0 children. Metric values use the full card width below the label/icon row and responsive type, preserving full currency text without truncation or formatting changes.
 
 Chrome verified actual summary-component SSR fixture markup and app CSS for SALES, HEAD_SA, SA and SUPER_ADMIN, EN/ID, at 360/390/1440px. All 24 cases stayed within card/page bounds; the example revenue remained on one line, and 640px separately showed two columns. [Evidence and limitations](visual-verification-2026-10-08/workspace-summary/README.md). This is static component visual verification, not an authenticated full Dashboard session or live integration. Dashboard layout assertions and frontend TypeScript passed; UTF-8/diff checks completed at checkpoint. Existing language-switcher/login evidence remains intact.

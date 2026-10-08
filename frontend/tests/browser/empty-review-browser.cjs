@@ -1,0 +1,22 @@
+'use strict';
+const fs=require('node:fs/promises'),path=require('node:path'),assert=require('node:assert/strict');
+const {createFixture}=require('./fixtures.cjs');const {launch,pause}=require('./cdp.cjs');
+const origin=process.env.WORKFLOW_TEST_ORIGIN||'http://127.0.0.1:3000';
+if(!['localhost','127.0.0.1'].includes(new URL(origin).hostname))throw Error('Only loopback frontend allowed');
+const output=path.resolve('docs/dashboard-browser-verification/empty-review');
+async function main(){await fs.mkdir(output,{recursive:true});const fixture=createFixture(),runtime=await launch(fixture,origin),{cdp,traffic}=runtime,results=[];
+const log=(area,data)=>{results.push({area,...data});console.log(JSON.stringify(results.at(-1)));};
+async function login(role){fixture.state.role=role;await cdp.navigate(origin+'/login');await cdp.wait("document.querySelector('#email')",'login');await cdp.evaluate(`(()=>{for(const [selector,value] of [['#email','${role.toLowerCase()}@fixture.invalid'],['#password','SyntheticOnly!123']]){const e=document.querySelector(selector);Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(e,value);e.dispatchEvent(new Event('input',{bubbles:true}));}})()`);await cdp.click("document.querySelector('form button[type=submit]')");await cdp.wait("document.querySelector('#dashboard-summary-heading')",'dashboard');}
+try{
+ if(!process.env.WORKFLOW_REVIEW_ONLY){fixture.state.empty=true;await login('SA');await pause(500);
+ for(const width of [360,390,1440]){await cdp.viewport(width);const m=await cdp.evaluate("({width:innerWidth,clientWidth:document.documentElement.clientWidth,scrollWidth:document.documentElement.scrollWidth,count:document.querySelector('#dashboard-recent-activity-list')?.children.length||0})");assert(m.scrollWidth<=m.clientWidth);assert.equal(m.count,0);await cdp.screenshot(path.join(output,`sa-empty-${width}.png`));log('sa-empty',m);}
+ // Log out via actual visible menu control; synthetic login again exercises AuthProvider.
+ await cdp.viewport(360);await cdp.evaluate("document.querySelector('button[aria-controls=\"mobile-navigation\"]').focus()");await cdp.key('Enter','Enter',13);await cdp.wait("document.querySelector('#mobile-navigation').getAttribute('aria-hidden')==='false'",'drawer');
+ await cdp.key('Escape','Escape',27);await cdp.click("document.querySelector('button[aria-label=\"Log out\"]')");await cdp.wait("document.querySelector('#email')",'logout');}fixture.state.empty=false;await login('HEAD_SA');
+ await cdp.navigate(origin+`/projects/${fixture.pid}#milestone-outputs-${fixture.mid}`);await cdp.wait("[...document.querySelectorAll('button')].some(e=>e.textContent.trim()==='Approve')",'review workspace');
+ await cdp.click("[...document.querySelectorAll('button')].find(e=>e.textContent.trim()==='Approve')");const dialog="document.querySelector('div.relative.z-50.overflow-y-auto')";await cdp.wait(dialog,'snapshot confirmation');
+ for(const width of [360,390,1440]){await cdp.viewport(width,300);const m=await cdp.evaluate(`(()=>{const e=${dialog};e.scrollTop=e.scrollHeight;const r=e.getBoundingClientRect();return {width:innerWidth,clientWidth:document.documentElement.clientWidth,scrollWidth:document.documentElement.scrollWidth,dialogHeight:r.height,contentHeight:e.scrollHeight,viewportHeight:e.clientHeight,scrolls:e.scrollHeight>e.clientHeight,buttons:[...e.querySelectorAll('button')].slice(-2).map(b=>{const q=b.getBoundingClientRect();return {text:b.textContent.trim(),fits:q.top>=r.top&&q.bottom<=r.bottom}})}})()`);assert(m.scrollWidth<=m.clientWidth);assert(m.dialogHeight<=268);assert(m.buttons.every(x=>x.fits));await cdp.screenshot(path.join(output,`head-review-${width}.png`));log('review-dialog',m);}
+ await cdp.click("[...document.querySelectorAll('button')].find(e=>e.textContent.trim()==='Cancel')");await cdp.wait(`!${dialog}`,'cancel review');assert(!fixture.state.requests.some(x=>!['GET','OPTIONS'].includes(x.method)&&!x.path.startsWith('/auth/')));log('review-cancel',{businessMutations:0});
+ assert.deepEqual(fixture.state.unknown,[]);assert.deepEqual(traffic.errors,[]);
+}catch(error){log('failure',{message:error.message});await cdp.screenshot(path.join(output,'failure.png'));throw error;}finally{await fs.writeFile(path.join(output,'results.json'),JSON.stringify({results,traffic,unknown:fixture.state.unknown},null,2)+'\n');await runtime.cleanup();}}
+main().catch(e=>{console.error(e.stack);process.exitCode=1;});
