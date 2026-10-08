@@ -1,0 +1,116 @@
+{
+  "baseline": "37cdba4",
+  "services": {
+    "GoTrue": "v2.196.0",
+    "PostgREST": "v14.17",
+    "Storage": "v1.74.0",
+    "PostgreSQL": 16
+  },
+  "results": [
+    {
+      "name": "GoTrue login + verified app profile",
+      "status": "PASS",
+      "evidence": "Real provider password grant + PostgREST profile; HTTP 200, matching server actor/role"
+    },
+    {
+      "name": "Inactive account",
+      "status": "PASS",
+      "evidence": "Real GoTrue can authenticate identity; application login/profile deny inactive public account with HTTP 401"
+    },
+    {
+      "name": "Invalid session",
+      "status": "PASS",
+      "evidence": "Actual GoTrue rejection propagated as application HTTP 401"
+    },
+    {
+      "name": "Concurrent 401 / single refresh / at most one replay",
+      "status": "PASS",
+      "evidence": "Actual expired profile + multipart requests share one real refresh; each attempted exactly twice; subsequent committed upload retry returns equal receipt"
+    },
+    {
+      "name": "Upload receipt replay",
+      "status": "PASS",
+      "evidence": "Actual app Multer/controller/Storage upload + RPC: Committed upload retry has one registry row and one stored object"
+    },
+    {
+      "name": "Draft upload / authorized signed download bytes",
+      "status": "PASS",
+      "evidence": "Actual app handler + Storage API private object, signed URL HTTP 200, exact byte equality"
+    },
+    {
+      "name": "Unauthorized / draft privacy",
+      "status": "PASS",
+      "evidence": "Outsider and Sales cannot obtain draft URL; unauthorized read triggers no Storage signing operation"
+    },
+    {
+      "name": "Phase33 API submit and replay",
+      "status": "PASS",
+      "evidence": "Real app submit route invokes installed Phase33 RPC; retry leaves exactly one immutable snapshot"
+    },
+    {
+      "name": "Approved repository access",
+      "status": "PASS",
+      "evidence": "Actual reviewed snapshot: Sales owner gets matching bytes; restricted outsider denied before signing"
+    },
+    {
+      "name": "Approved ZIP bytes",
+      "status": "PASS",
+      "evidence": "Real app ZIP validated with independent Python zipfile CRC/extraction; decompressed bytes exactly match original"
+    },
+    {
+      "name": "Missing object / ZIP fail-safe",
+      "status": "PASS",
+      "evidence": "Removed only owned exact synthetic object; single download fails and ZIP returns error rather than partial archive"
+    },
+    {
+      "name": "GoTrue logout and refresh revocation",
+      "status": "PASS",
+      "evidence": "Actual app logout invokes provider; logged-out refresh token rejected. Access JWT revocation before expiry is not assumed"
+    }
+  ],
+  "counts": {
+    "api": {
+      "/api/auth/login": 15,
+      "/api/auth/me": 5,
+      "/api/projects/3e9111a0-5028-4cf2-b8dd-d35baf40a275/output-documents/proposal_deck_solusi/upload": 3,
+      "/api/auth/refresh": 2,
+      "/api/projects/3e9111a0-5028-4cf2-b8dd-d35baf40a275/output-documents/proposal_deck_solusi/files/fda4f8fc-34e1-4d7c-8ee6-a29d7e39e740/download": 6,
+      "/api/projects/3e9111a0-5028-4cf2-b8dd-d35baf40a275/output-documents/submit": 2,
+      "/api/projects/3e9111a0-5028-4cf2-b8dd-d35baf40a275/output-documents/review": 1,
+      "/api/projects/3e9111a0-5028-4cf2-b8dd-d35baf40a275/output-documents/download-all": 2,
+      "/api/auth/logout": 1
+    },
+    "services": {
+      "storage GET 200": 4,
+      "auth POST 200": 22,
+      "rest GET 200": 84,
+      "auth GET 200": 17,
+      "auth GET 403": 3,
+      "storage POST 200": 4,
+      "rest POST 200": 16,
+      "storage DELETE 200": 1,
+      "storage POST 400": 2,
+      "auth POST 204": 1,
+      "auth POST 400": 1
+    },
+    "storageErrors": [
+      {
+        "status": 400,
+        "code": "NoSuchKey",
+        "error": "not_found",
+        "statusCode": "404",
+        "message": "provider message omitted"
+      },
+      {
+        "status": 400,
+        "code": "NoSuchKey",
+        "error": "not_found",
+        "statusCode": "404",
+        "message": "provider message omitted"
+      }
+    ],
+    "storageSign": 8,
+    "refresh": 2
+  },
+  "scope": "Local real services; reconstructed historical schema prerequisites; Node frontend replay client, not browser AuthProvider lifecycle"
+}
