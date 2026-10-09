@@ -1,3 +1,4 @@
+import { randomUUID } from 'crypto';
 import { supabaseAdmin } from '../config/supabase';
 import { DocumentStorageService, MAX_DOCUMENT_FILE_SIZE_BYTES } from '../utils/storage.util';
 import {
@@ -245,6 +246,7 @@ class QueryMock {
 async function withState<T>(options: ScenarioOptions, action: (state: TestState) => Promise<T>): Promise<T> {
   const state = makeState(options);
   const originalFrom = supabaseAdmin.from;
+  const originalRpc = supabaseAdmin.rpc;
   const originalUpload = DocumentStorageService.upload;
   const originalCopy = DocumentStorageService.copy;
   const originalRemove = DocumentStorageService.remove;
@@ -253,6 +255,37 @@ async function withState<T>(options: ScenarioOptions, action: (state: TestState)
 
   try {
     (supabaseAdmin as any).from = (table: string) => new QueryMock(state, table);
+    const reservations=new Map<string,any>();
+    (supabaseAdmin as any).rpc=async (name:string,input:any)=>{
+      assert(name==='mutate_official_artifact','Mutations must use the single atomic RPC');
+      let r=reservations.get(input.p_request_id);
+      if(r?.state==='COMMITTED')return {data:r,error:null};
+      if(input.p_step==='LOOKUP')return {data:{state:r?.state ?? 'NONE'},error:null};
+      if(input.p_step==='RESERVE'){
+        if(input.p_operation==='PROMOTE'){
+          const a=state.attachments.find(a=>a.id===input.p_payload.attachment_id);
+          if(a?.promotion_status==='PROMOTED')return {data:{state:'COMMITTED',result:{attachment_id:a.id,promotion_status:'PROMOTED',promoted_document_id:a.promoted_document_id,idempotent:true}},error:null};
+          if(a?.promotion_status==='PROMOTING')return {data:null,error:{code:'40001'}};
+        }
+        r={state:'RESERVED',token:randomUUID(),object_id:randomUUID(),files:(input.p_payload.files ?? [{name:'fixture.pdf',mime:'application/pdf',size:128}]).map((f:any)=>({...f,id:randomUUID(),path:(input.p_operation==='CONTRIBUTION'?'milestone-contributions/project-1/milestone-1/':'project-1/')+randomUUID()}))};
+        reservations.set(input.p_request_id,r);return {data:r,error:null};
+      }
+      if(input.p_step==='CANCEL'){r.state='FROZEN';return {data:r,error:null};}
+      if(state.options.activityLogFails || input.p_operation==='PROMOTE' && (state.options.documentInsertFails || state.options.versionInsertFails)) return {data:null,error:{code:'23514'}};
+      if(input.p_operation==='CONTRIBUTION'){
+        const contribution={id:r.object_id,project_id:'project-1',milestone_id:'milestone-1',contributed_by:input.p_actor_id,note:input.p_payload.note,status:'READY',created_at:'2026-09-07T08:00:00Z'};
+        const attachments=r.files.map((f:any)=>({id:f.id,contribution_id:contribution.id,original_filename:f.name,mime_type:f.mime,size_bytes:f.size,storage_path:f.path,promotion_status:'NOT_PROMOTED',promoted_document_id:null,created_at:contribution.created_at}));
+        state.contributions.push(contribution);state.attachments.push(...attachments);
+        r.result={contribution,attachments};
+      }else{
+        const a=state.attachments.find(a=>a.id===input.p_payload.attachment_id)!;
+        state.documents.push({id:r.object_id,project_id:'project-1',milestone_id:'milestone-1',category:'OTHER',status:'APPROVED'});state.versions.push({id:r.files[0].id,document_id:r.object_id,version_number:1,status:'APPROVED',is_latest:true,uploaded_by:salesOwner.userId,changelog:'Promoted from supporting input.'});
+        a.promotion_status='PROMOTED';a.promoted_document_id=r.object_id;
+        r.result={attachment_id:a.id,promotion_status:'PROMOTED',promoted_document_id:r.object_id,idempotent:false};
+      }
+      state.activityLogs.push({action:input.p_operation==='CONTRIBUTION'?'SUPPORTING_INPUT_ADDED':'SUPPORTING_DOCUMENT_PROMOTED'});
+      r.state='COMMITTED';return {data:r,error:null};
+    };
     (DocumentStorageService as any).upload = async (_file: Express.Multer.File, storagePath: string) => {
       state.uploadCount += 1;
       state.uploadedPaths.push(storagePath);
@@ -276,6 +309,7 @@ async function withState<T>(options: ScenarioOptions, action: (state: TestState)
     };
     return await action(state);
   } finally {
+    (supabaseAdmin as any).rpc=originalRpc;
     (supabaseAdmin as any).from = originalFrom;
     (DocumentStorageService as any).upload = originalUpload;
     (DocumentStorageService as any).copy = originalCopy;
@@ -384,7 +418,7 @@ async function run(): Promise<void> {
       'Unable to save milestone supporting input.',
       500
     );
-    assert(state.contributions[0]?.status === 'CLEANUP_FAILED', 'Test 8: failed storage cleanup must retain retryable metadata');
+    assert(state.contributions.length === 0 && state.attachments.length === 0, 'Test 8: failed cleanup must not expose partial business metadata; receipt retains exact paths');
     console.log('Test 8 - Cleanup failure is retained safely without returning success: passed');
   });
 
@@ -442,7 +476,7 @@ async function run(): Promise<void> {
     assert(state.copiedPaths.length === 1 && state.copiedPaths[0].source === state.attachments[0].storage_path, 'Test 11: promotion must copy from the server-owned contribution path');
     assert(state.copiedPaths[0].destination !== state.copiedPaths[0].source && state.copiedPaths[0].destination.startsWith('project-1/'), 'Test 11: official document must have a distinct official storage path');
     assert(!state.removedPaths.includes(state.attachments[0].storage_path), 'Test 11: original supporting input must remain intact');
-    assert(state.activityLogs.length === 1 && state.activityLogs[0].action === 'SUPPORTING_DOCUMENT_PROMOTED', 'Test 11: activity logging must run after durable promotion');
+    assert(state.activityLogs.filter(a=>a.action==='SUPPORTING_DOCUMENT_PROMOTED').length===1 && state.activityLogs.filter(a=>a.action==='SUPPORTING_INPUT_ADDED').length===1, 'Test 11: create and promotion each have exactly one atomic audit');
 
     const idempotent = await MilestoneContributionService.promoteAttachment('milestone-1', created.id, attachment.id, superAdmin);
     assert(idempotent.idempotent && state.documents.length === 1, 'Test 11: SUPER_ADMIN repeat promotion must be idempotent without duplicate documents');
@@ -481,11 +515,13 @@ async function run(): Promise<void> {
     console.log('Test 14 - Metadata failure compensates the copied object and official metadata: passed');
   });
 
-  await withState({ activityLogFails: true }, async (state) => {
-    const created = await MilestoneContributionService.create('milestone-1', salesOwner, [makeFile('activity-fails.pdf')]);
-    const promoted = await MilestoneContributionService.promoteAttachment('milestone-1', created.id, created.attachments[0].id, headSa);
-    assert(promoted.promotion_status === 'PROMOTED' && state.documents.length === 1, 'Test 15: activity logging failure must not fail durable promotion');
-    console.log('Test 15 - Activity log failure is best-effort after durable promotion: passed');
+  await withState({}, async(state)=>{
+    const created=await MilestoneContributionService.create('milestone-1',salesOwner,[makeFile('audit-fails.pdf')]);
+    state.options.activityLogFails=true;
+    await expectError(()=>MilestoneContributionService.promoteAttachment('milestone-1',created.id,created.attachments[0].id,headSa),'Unable to promote supporting attachment.',500);
+    assert(state.documents.length===0 && state.versions.length===0,'Mandatory audit failure leaves no official metadata');
+    assert(state.attachments[0].promotion_status==='NOT_PROMOTED','Audit failure preserves source attachment state');
+    console.log('Test 15 - Audit failure rolls back promotion metadata and preserves source: passed');
   });
 
   await withState({}, async (state) => {

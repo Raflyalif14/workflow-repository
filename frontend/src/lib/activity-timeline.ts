@@ -3,6 +3,12 @@ import type { ProjectActivityPage, ProjectActivityTimelineItem } from "@/types/p
 import { getIntlLocale, translateOutputName, translateOutputStatus, translateProjectStatus, translateApprovalStatus, translateMilestoneStatus, translate, type TranslationKey } from "@/i18n";
 
 const actionLabels: Record<string, TranslationKey> = {
+  DOCUMENT_VERSION_UPLOADED: 'artifactAudit.version',
+  DOCUMENT_APPROVED: 'artifactAudit.approved',
+  DOCUMENT_REJECTED: 'artifactAudit.rejected',
+  DOCUMENT_COMMENT_ADDED: 'artifactAudit.comment',
+  SUPPORTING_INPUT_ADDED: 'artifactAudit.contribution',
+  SUPPORTING_DOCUMENT_PROMOTED: 'artifactAudit.promoted',
   OUTPUT_DRAFT_ADD: "businessAudit.draftAdded",
   OUTPUT_DRAFT_REPLACE: "businessAudit.draftReplaced",
   OUTPUT_DRAFT_REMOVE: "businessAudit.draftRemoved",
@@ -61,6 +67,7 @@ export function formatActivityDescription(action: string, description?: string |
       }
     } catch { /* Keep legacy descriptions unchanged. */ }
   }
+  if (description === action && action.startsWith("DOCUMENT_") || description === action && action.startsWith("SUPPORTING_")) return formatActivityAction(action);
   return description;
 }
 

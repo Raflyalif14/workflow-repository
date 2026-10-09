@@ -1,3 +1,5 @@
+import { useRef } from 'react';
+import { createArtifactRequests } from '@/lib/artifact-request';
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "@/lib/api-client";
 import { milestoneKeys, projectKeys } from "@/lib/query-keys";
@@ -16,6 +18,7 @@ export function useMilestoneContributions(milestoneId: string, enabled: boolean)
 
 export function useCreateMilestoneContribution(milestoneId: string) {
   const queryClient = useQueryClient();
+  const request = useRef(createArtifactRequests()).current;
 
   return useMutation({
     mutationFn: async ({ note, files }: { note?: string; files: File[] }) => {
@@ -24,10 +27,11 @@ export function useCreateMilestoneContribution(milestoneId: string) {
       if (normalizedNote) formData.append("note", normalizedNote);
       files.forEach((file) => formData.append("files", file));
 
-      return apiClient<MilestoneContribution>(`/milestones/${milestoneId}/contributions`, {
+      return request({ milestoneId, note: normalizedNote, files }, requestId => apiClient<MilestoneContribution>(`/milestones/${milestoneId}/contributions`, {
+        headers: { "Idempotency-Key": requestId },
         method: "POST",
         body: formData,
-      });
+      }));
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: milestoneKeys.contributions(milestoneId) });

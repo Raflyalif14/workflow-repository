@@ -1,3 +1,5 @@
+import { artifactRequestId } from '../utils/artifact-request.util';
+import { ArtifactMutationError } from '../services/artifact-mutation.service';
 import { DocumentAccessError } from '../services/document-access.service';
 import { Response } from 'express';
 import { AuthenticatedRequest } from '../middlewares/auth.middleware';
@@ -13,7 +15,7 @@ import {
 } from '../validators/document.validator';
 
 const sendDocumentError = (res: Response, error: unknown, fallback: string): void => {
-  if (error instanceof DocumentServiceError || error instanceof DocumentAccessError) {
+  if (error instanceof ArtifactMutationError || error instanceof DocumentServiceError || error instanceof DocumentAccessError) {
     sendError(res, error.message, null, error.statusCode);
     return;
   }
@@ -71,7 +73,8 @@ export class DocumentController {
         getRouteParam(req, 'id'),
         uploadVersionSchema.parse(req.body),
         req.file,
-        req.user!
+        req.user!,
+        artifactRequestId(req)
       );
       sendSuccess(res, 'New document version uploaded successfully', document, 201);
     } catch (error) {
@@ -82,7 +85,7 @@ export class DocumentController {
   static async reviewVersion(req: AuthenticatedRequest, res: Response): Promise<void> {
     try {
       const input = reviewVersionSchema.parse(req.body);
-      const document = await DocumentService.reviewVersion(getRouteParam(req, 'versionId'), input, req.user!);
+      const document = await DocumentService.reviewVersion(getRouteParam(req, 'versionId'), input, req.user!, artifactRequestId(req));
       sendSuccess(res, `Document version ${input.status.toLowerCase()} successfully`, document);
     } catch (error) {
       sendDocumentError(res, error, 'Failed to review document version');
@@ -94,7 +97,8 @@ export class DocumentController {
       const comment = await DocumentService.addComment(
         getRouteParam(req, 'id'),
         createCommentSchema.parse(req.body),
-        req.user!
+        req.user!,
+        artifactRequestId(req)
       );
       sendSuccess(res, 'Comment added successfully', comment, 201);
     } catch (error) {

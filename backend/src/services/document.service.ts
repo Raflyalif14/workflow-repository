@@ -1,8 +1,8 @@
 import { DocumentAccessService, DocumentAccessError, accessMetadata, RepositoryAccess } from './document-access.service';
-import { randomUUID } from 'crypto';
+import { ArtifactMutationService, ArtifactMutationError, artifactFileManifest } from './artifact-mutation.service';
 import { supabaseAdmin } from '../config/supabase';
 import { canAccessProject } from './project-access.service';
-import { buildDocumentStoragePath, DocumentStorageService } from '../utils/storage.util';
+import { DocumentStorageService } from '../utils/storage.util';
 import {
   CreateCommentInput,
   ListDocumentsQuery,
@@ -472,43 +472,6 @@ export class DocumentService {
     });
   }
 
-  private static async logDocumentActivity(actor: Actor, projectId: string, action: string, description: string): Promise<void> {
-    const { error } = await supabaseAdmin.from('activity_logs').insert({
-      project_id: projectId,
-      user_id: actor.userId,
-      action,
-      description,
-    });
-
-    if (error) throw new DocumentServiceError('Failed to record document activity.', 500);
-  }
-
-  private static async removeUploadedFile(storagePath: string, cleanupErrors: string[]): Promise<void> {
-    try {
-      await DocumentStorageService.remove(storagePath);
-    } catch {
-      cleanupErrors.push('storage');
-    }
-  }
-
-  private static async uploadDocumentFile(
-    file: Express.Multer.File,
-    storagePath: string,
-    fallback: string
-  ): Promise<void> {
-    try {
-      await DocumentStorageService.upload(file, storagePath);
-    } catch {
-      throw new DocumentServiceError(fallback, 500);
-    }
-  }
-
-  private static reportRollbackFailure(operation: string, cleanupErrors: string[]): void {
-    if (cleanupErrors.length) {
-      console.error(`[DocumentService] ${operation} rollback did not fully complete.`);
-    }
-  }
-
   static async listDocuments(query: ListDocumentsQuery, actor: Actor) {
     const authorized = (await DocumentAccessService.list(actor, 'OFFICIAL', { includeSharing: true }))
       .filter(access => !query.projectId || access.project_id === query.projectId);
@@ -545,316 +508,43 @@ export class DocumentService {
     return hydrated;
   }
 
-  static async uploadNewVersion(
-    documentId: string,
-    input: UploadVersionInput,
-    file: Express.Multer.File,
-    actor: Actor
-  ) {
+  static async uploadNewVersion(documentId: string, input: UploadVersionInput, file: Express.Multer.File, actor: Actor, requestId?: string) {
     const document = await this.getRawDocument(documentId);
     const project = await this.assertDocumentAccess(document, actor);
-    const { data: versionsData, error: versionsError } = await supabaseAdmin
-      .from('document_versions')
-      .select('id,version_number,status,is_latest,uploaded_by,changelog')
-      .eq('document_id', documentId)
-      .order('version_number', { ascending: false });
-
-    if (versionsError) throw new DocumentServiceError('Failed to retrieve document data.', 500);
-    const versions = (versionsData || []) as DocumentVersionRow[];
-    const initialVersion = [...versions].sort((left, right) => left.version_number - right.version_number)[0];
-    assertOfficialDocumentVersionUploadAllowed(document, project, initialVersion, actor);
-    const latestVersions = versions.filter((version) => version.is_latest);
-    const { data: approvalData, error: approvalLookupError } = latestVersions.length
-      ? await supabaseAdmin
-          .from('document_version_approvals')
-          .select('id,document_version_id,status')
-          .in('document_version_id', latestVersions.map((version) => version.id))
-      : { data: [], error: null };
-    if (approvalLookupError) throw new DocumentServiceError('Failed to retrieve document data.', 500);
-
-    const lifecyclePlan = buildNewVersionLifecyclePlan(
-      latestVersions,
-      (approvalData || []) as DocumentApprovalLifecycleState[]
-    );
-    const nextVersionNumber = (versions[0]?.version_number || 0) + 1;
-    const versionId = randomUUID();
-    const storagePath = buildDocumentStoragePath(document.project_id, documentId, file.originalname);
-    let demotedLatestVersions: VersionState[] = [];
-    let revisedApprovalIds: string[] = [];
-    let insertedVersion = false;
-    let updatedDocument = false;
-    let submittedAt: string | null = null;
-
-    await this.uploadDocumentFile(file, storagePath, 'Failed to upload document version.');
-
+    const { data, error } = await supabaseAdmin.from('document_versions').select('uploaded_by,changelog,version_number')
+      .eq('document_id', documentId).order('version_number', { ascending: true }).limit(1);
+    if (error) throw new DocumentServiceError('Failed to retrieve document data.', 500);
+    assertOfficialDocumentVersionUploadAllowed(document, project, data?.[0], actor);
     try {
-      if (lifecyclePlan.latestVersionIds.length) {
-        for (const version of latestVersions) {
-          const { data: demotedRow, error: demoteError } = await supabaseAdmin
-            .from('document_versions')
-            .update({ is_latest: false, status: 'SUPERSEDED' })
-            .eq('id', version.id)
-            .eq('is_latest', true)
-            .eq('status', version.status)
-            .select('id')
-            .maybeSingle();
-          if (demoteError) throw new DocumentServiceError('Failed to upload document version.', 500);
-          if (!demotedRow) throw new DocumentServiceError('Document version is no longer latest.', 409);
-          demotedLatestVersions.push(version);
-        }
-      }
-
-      if (lifecyclePlan.pendingApprovalIds.length) {
-        const { data: revisedRows, error: reviseError } = await supabaseAdmin
-          .from('document_version_approvals')
-          .update({ status: 'REVISED' })
-          .in('id', lifecyclePlan.pendingApprovalIds)
-          .eq('status', 'PENDING')
-          .select('id');
-        if (reviseError) throw new DocumentServiceError('Failed to upload document version.', 500);
-        if ((revisedRows || []).length !== lifecyclePlan.pendingApprovalIds.length) {
-          throw new DocumentServiceError('Document version approval is no longer pending.', 409);
-        }
-        revisedApprovalIds = (revisedRows || []).map((approval) => approval.id);
-      }
-
-      const { error: insertError } = await supabaseAdmin.from('document_versions').insert({
-        id: versionId,
-        document_id: documentId,
-        version_number: nextVersionNumber,
-        file_name: file.originalname,
-        storage_path: storagePath,
-        file_size: file.size,
-        mime_type: file.mimetype || 'application/octet-stream',
-        changelog: input.changelog.trim(),
-        status: 'SUBMITTED',
-        is_latest: true,
-        uploaded_by: actor.userId,
-      });
-      if (insertError) throw new DocumentServiceError('Failed to upload document version.', 500);
-      insertedVersion = true;
-
-      submittedAt = new Date().toISOString();
-      const { data: updatedDocumentRow, error: documentError } = await supabaseAdmin
-        .from('documents')
-        .update({ status: 'SUBMITTED', updated_at: submittedAt })
-        .eq('id', documentId)
-        .eq('status', document.status)
-        .eq('updated_at', document.updated_at)
-        .select('id')
-        .maybeSingle();
-      if (documentError) throw new DocumentServiceError('Failed to upload document version.', 500);
-      if (!updatedDocumentRow) throw new DocumentServiceError('Document is no longer available for upload.', 409);
-      updatedDocument = true;
-
-      const { error: approvalError } = await supabaseAdmin.from('document_version_approvals').insert({
-        document_version_id: versionId,
-        status: 'PENDING',
-        action_role: 'HEAD_SA',
-      });
-      if (approvalError) throw new DocumentServiceError('Failed to upload document version.', 500);
-
-      await this.logDocumentActivity(
-        actor,
-        project.id,
-        'DOCUMENT_VERSION_UPLOADED',
-        `${actor.fullName} uploaded v${nextVersionNumber} for document '${document.title}'`
-      );
-    } catch (error) {
-      const cleanupErrors: string[] = [];
-      if (insertedVersion) {
-        const { error: deleteError } = await supabaseAdmin.from('document_versions').delete().eq('id', versionId);
-        if (deleteError) cleanupErrors.push('version');
-      }
-      if (updatedDocument && submittedAt) {
-        const { data: restoredDocument, error: restoreDocumentError } = await supabaseAdmin
-          .from('documents')
-          .update({ status: document.status, updated_at: document.updated_at })
-          .eq('id', documentId)
-          .eq('status', 'SUBMITTED')
-          .eq('updated_at', submittedAt)
-          .select('id')
-          .maybeSingle();
-        if (restoreDocumentError || !restoredDocument) cleanupErrors.push('document');
-      }
-      if (demotedLatestVersions.length) {
-        for (const version of demotedLatestVersions) {
-          const { data: restoredVersion, error: restoreVersionError } = await supabaseAdmin
-            .from('document_versions')
-            .update({ is_latest: true, status: version.status })
-            .eq('id', version.id)
-            .eq('is_latest', false)
-            .eq('status', 'SUPERSEDED')
-            .select('id')
-            .maybeSingle();
-          if (restoreVersionError || !restoredVersion) cleanupErrors.push('previous-version');
-        }
-      }
-      if (revisedApprovalIds.length) {
-        const { data: restoredApprovals, error: restoreApprovalError } = await supabaseAdmin
-          .from('document_version_approvals')
-          .update({ status: 'PENDING' })
-          .in('id', revisedApprovalIds)
-          .eq('status', 'REVISED')
-          .select('id');
-        if (restoreApprovalError || (restoredApprovals || []).length !== revisedApprovalIds.length) {
-          cleanupErrors.push('approval');
-        }
-      }
-      await this.removeUploadedFile(storagePath, cleanupErrors);
-      this.reportRollbackFailure('Document version upload', cleanupErrors);
-      throw toSafeDocumentServiceError(error, 'Failed to upload document version.');
-    }
-
-    // Return an operation receipt instead of re-reading the now-SUBMITTED
-    // document. SALES uploaders intentionally cannot read non-final repository
-    // content, so a post-commit read would turn a successful upload into a 404.
-    return {
-      documentId,
-      versionId,
-      versionNumber: nextVersionNumber,
-      status: 'SUBMITTED' as const,
-    };
+      return await ArtifactMutationService.execute(actor.userId, 'VERSION', {
+        document_id: documentId, changelog: input.changelog, expected_updated_at: document.updated_at,
+        files: artifactFileManifest([file]),
+      }, requestId, async files => { await DocumentStorageService.upload(file, files[0].path); });
+    } catch (error) { throw new DocumentServiceError('Failed to upload document version.', error instanceof ArtifactMutationError ? error.statusCode : 500); }
   }
 
-  static async reviewVersion(versionId: string, input: ReviewVersionInput, actor: Actor) {
+  static async reviewVersion(versionId: string, input: ReviewVersionInput, actor: Actor, requestId?: string) {
     assertDocumentReviewer(actor);
-
     const version = await this.getRawVersion(versionId);
     const document = await this.getRawDocument(version.document_id);
     await this.assertDocumentAccess(document, actor);
-
-    const { data: pendingApproval, error: pendingApprovalError } = await supabaseAdmin
-      .from('document_version_approvals')
-      .select('id,status,feedback,reviewed_by,reviewed_at')
-      .eq('document_version_id', versionId)
-      .eq('status', 'PENDING')
-      .order('created_at', { ascending: false })
-      .maybeSingle();
-    if (pendingApprovalError) throw new DocumentServiceError('Failed to retrieve document data.', 500);
-    const reviewApproval = pendingApproval as Pick<
-      DocumentApprovalRow,
-      'id' | 'status' | 'feedback' | 'reviewed_by' | 'reviewed_at'
-    > | null;
-    assertDocumentVersionReviewable(version, reviewApproval);
-    if (!reviewApproval) throw new DocumentServiceError('Document version has no pending review.', 409);
-    const rollbackState = buildDocumentReviewRollback(version, document, reviewApproval);
-
-    const reviewedAt = new Date().toISOString();
-    let versionUpdated = false;
-    let documentUpdated = false;
-    let approvalUpdated = false;
-
     try {
-      const { data: updatedVersion, error: versionError } = await supabaseAdmin
-        .from('document_versions')
-        .update({ status: input.status })
-        .eq('id', versionId)
-        .eq('status', 'SUBMITTED')
-        .eq('is_latest', true)
-        .select('id')
-        .maybeSingle();
-      if (versionError) throw new DocumentServiceError('Failed to review document version.', 500);
-      if (!updatedVersion) throw new DocumentServiceError('Document version is no longer submitted.', 409);
-      versionUpdated = true;
-
-      const { data: updatedDocument, error: documentError } = await supabaseAdmin
-        .from('documents')
-        .update({ status: input.status, updated_at: reviewedAt })
-        .eq('id', document.id)
-        .eq('status', document.status)
-        .eq('updated_at', document.updated_at)
-        .select('id')
-        .maybeSingle();
-      if (documentError) throw new DocumentServiceError('Failed to review document version.', 500);
-      if (!updatedDocument) throw new DocumentServiceError('Document is no longer available for review.', 409);
-      documentUpdated = true;
-
-      const { data: updatedApproval, error: approvalError } = await supabaseAdmin
-        .from('document_version_approvals')
-        .update({
-          status: input.status,
-          feedback: input.feedback?.trim() || null,
-          reviewed_by: actor.userId,
-          reviewed_at: reviewedAt,
-        })
-        .eq('id', reviewApproval.id)
-        .eq('status', 'PENDING')
-        .select('id')
-        .maybeSingle();
-      if (approvalError) throw new DocumentServiceError('Failed to review document version.', 500);
-      if (!updatedApproval) throw new DocumentServiceError('Document review is no longer pending.', 409);
-      approvalUpdated = true;
-
-      await this.logDocumentActivity(
-        actor,
-        document.project_id,
-        input.status === 'APPROVED' ? 'DOCUMENT_APPROVED' : 'DOCUMENT_REJECTED',
-        `${actor.fullName} ${input.status === 'APPROVED' ? 'approved' : 'rejected'} document '${document.title}' (v${version.version_number})`
-      );
-    } catch (error) {
-      const cleanupErrors: string[] = [];
-      if (approvalUpdated) {
-        const { data: restoredApproval, error: restoreApprovalError } = await supabaseAdmin
-          .from('document_version_approvals')
-          .update(rollbackState.approval)
-          .eq('id', reviewApproval.id)
-          .eq('status', input.status)
-          .eq('reviewed_by', actor.userId)
-          .eq('reviewed_at', reviewedAt)
-          .select('id')
-          .maybeSingle();
-        if (restoreApprovalError || !restoredApproval) cleanupErrors.push('approval');
-      }
-      if (documentUpdated) {
-        const { data: restoredDocument, error: restoreDocumentError } = await supabaseAdmin
-          .from('documents')
-          .update(rollbackState.document)
-          .eq('id', document.id)
-          .eq('status', input.status)
-          .eq('updated_at', reviewedAt)
-          .select('id')
-          .maybeSingle();
-        if (restoreDocumentError || !restoredDocument) cleanupErrors.push('document');
-      }
-      if (versionUpdated) {
-        const { data: restoredVersion, error: restoreVersionError } = await supabaseAdmin
-          .from('document_versions')
-          .update(rollbackState.version)
-          .eq('id', versionId)
-          .eq('status', input.status)
-          .eq('is_latest', true)
-          .select('id')
-          .maybeSingle();
-        if (restoreVersionError || !restoredVersion) cleanupErrors.push('version');
-      }
-      this.reportRollbackFailure('Document review', cleanupErrors);
-      throw toSafeDocumentServiceError(error, 'Failed to review document version.');
-    }
-
+      await ArtifactMutationService.execute(actor.userId, 'REVIEW', { version_id: versionId,
+        status: input.status, feedback: input.feedback?.trim() || null, expected_updated_at: document.updated_at }, requestId);
+    } catch (error) { throw new DocumentServiceError('Failed to review document version.', error instanceof ArtifactMutationError ? error.statusCode : 500); }
     return this.getDocumentById(document.id, actor);
   }
 
-  static async addComment(documentId: string, input: CreateCommentInput, actor: Actor) {
+  static async addComment(documentId: string, input: CreateCommentInput, actor: Actor, requestId?: string) {
     const document = await this.getRawDocument(documentId);
     await this.assertDocumentAccess(document, actor);
     if (input.milestoneId) await this.assertMilestoneBelongsToProject(input.milestoneId, document.project_id);
-
-    const { data, error } = await supabaseAdmin
-      .from('document_comments')
-      .insert({
-        document_id: documentId,
-        milestone_id: input.milestoneId || document.milestone_id,
-        author_id: actor.userId,
-        content: input.content.trim(),
-      })
-      .select(commentFields)
-      .single();
-
-    if (error || !data) throw new DocumentServiceError('Failed to add document comment.', 500);
-    await this.logDocumentActivity(actor, document.project_id, 'DOCUMENT_COMMENT_ADDED', `${actor.fullName} commented on document '${document.title}'`);
-    const users = await this.loadUsers([actor.userId]);
-    return this.mapComment(data as DocumentCommentRow, users);
+    let comment;
+    try {
+      comment = await ArtifactMutationService.execute(actor.userId, 'COMMENT', { document_id: documentId,
+        content: input.content.trim(), milestone_id: input.milestoneId || null }, requestId);
+    } catch (error) { throw new DocumentServiceError('Failed to add document comment.', error instanceof ArtifactMutationError ? error.statusCode : 500); }
+    return this.mapComment(comment as DocumentCommentRow, await this.loadUsers([actor.userId]));
   }
 
   private static async readRepositoryAccess(documentId: string, actor: Actor) {

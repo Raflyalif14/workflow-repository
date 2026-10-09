@@ -1,10 +1,10 @@
 const fields = new Set(['name','customer','scenario_id','estimated_revenue','status','is_postponed','postpone_reason',
   'final_contract_value','loss_reason','selected_keys','start_date','duration_working_days','due_date',
-  'request_note','review_note','version_id','version_number','file_count','phase_id','files','schedule']);
+  'promotion_status','promoted_document_id','contribution_id','comment_id','attachment_count','request_note','review_note','version_id','version_number','file_count','phase_id','files','schedule']);
 export function safeBusinessAudit(value: unknown) {
   if (!value || typeof value !== 'object') return undefined;
   const audit = value as Record<string, any>;
-  if (!['PROJECT','MILESTONE','OUTPUT_DOCUMENT','PROJECT_PLAN'].includes(audit.object_type) || typeof audit.object_id !== 'string') return undefined;
+  if (!['PROJECT','MILESTONE','OUTPUT_DOCUMENT','PROJECT_PLAN','OFFICIAL_DOCUMENT','DOCUMENT_COMMENT','SUPPORTING_CONTRIBUTION'].includes(audit.object_type) || typeof audit.object_id !== 'string') return undefined;
   const project = (source: unknown) => {
     const result: Record<string, unknown> = {};
     if (!source || typeof source !== 'object' || Array.isArray(source)) return result;

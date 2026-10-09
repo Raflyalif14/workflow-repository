@@ -285,262 +285,45 @@ async function verifySignedDownloadErrorSafety(): Promise<void> {
   }
 }
 
+// PostgreSQL run_artifacts.py proves rollback of the actual tables/audit.
+// These service tests prove all mutations are delegated to that one RPC.
 async function verifyReviewRollback(): Promise<void> {
   const service = DocumentService as any;
+  const originalRpc = supabaseAdmin.rpc;
   const originalFrom = supabaseAdmin.from;
-  const originals = {
-    getRawVersion: service.getRawVersion,
-    getRawDocument: service.getRawDocument,
-    assertDocumentAccess: service.assertDocumentAccess,
-    getDocumentById: service.getDocumentById,
-    logDocumentActivity: service.logDocumentActivity,
-  };
-  const updateCalls: Array<{ table: string; value: Record<string, unknown> }> = [];
-  let failureStep = 'version';
-
-  const version = {
-    id: 'version-1',
-    document_id: 'document-1',
-    version_number: 2,
-    status: 'SUBMITTED',
-    is_latest: true,
-  };
-  const document = {
-    id: 'document-1',
-    project_id: 'project-1',
-    title: 'Architecture',
-    status: 'SUBMITTED',
-    updated_at: '2026-09-02T00:00:00.000Z',
-  };
-  const pendingApproval = {
-    id: 'approval-1',
-    status: 'PENDING',
-    feedback: null,
-    reviewed_by: null,
-    reviewed_at: null,
-  };
-
-  const createUpdateQuery = (table: string, value: Record<string, unknown>) => {
-    updateCalls.push({ table, value });
-    const isForwardApproval = value.status === 'APPROVED';
-    const failsHere =
-      isForwardApproval &&
-      ((failureStep === 'version' && table === 'document_versions') ||
-        (failureStep === 'document' && table === 'documents') ||
-        (failureStep === 'approval' && table === 'document_version_approvals'));
-    const query: any = {
-      eq: () => query,
-      select: () => ({
-        maybeSingle: async () =>
-          failsHere ? { data: null, error: { message: 'provider failure' } } : { data: { id: 'updated' }, error: null },
-      }),
-      then: (resolve: (value: unknown) => unknown, reject: (reason: unknown) => unknown) =>
-        Promise.resolve({ error: null }).then(resolve, reject),
-    };
-    return query;
-  };
-
+  const originals = { getRawVersion: service.getRawVersion, getRawDocument: service.getRawDocument,
+    assertDocumentAccess: service.assertDocumentAccess, getDocumentById: service.getDocumentById };
+  let hydrated = 0;
+  const calls: string[] = [];
   try {
-    service.getRawVersion = async () => version;
-    service.getRawDocument = async () => document;
-    service.assertDocumentAccess = async () => ({ id: 'project-1' });
-    service.getDocumentById = async () => ({ id: 'document-1', reviewed: true });
-    service.logDocumentActivity = async () => {
-      if (failureStep === 'activity') throw new Error('activity provider failure');
+    service.getRawVersion = async () => ({ id: 'version-1', document_id: 'document-1' });
+    service.getRawDocument = async () => ({ id: 'document-1', project_id: 'project-1', updated_at: '2026-09-02T00:00:00Z' });
+    service.assertDocumentAccess = async () => project;
+    service.getDocumentById = async () => { hydrated++; return {}; };
+    (supabaseAdmin as any).from = () => { throw new Error('No direct metadata/audit writes allowed'); };
+    (supabaseAdmin as any).rpc = async (name: string, input: any) => {
+      assert(name === 'mutate_official_artifact', 'Review must use atomic artifact RPC');
+      calls.push(input.p_step);
+      return input.p_step === 'LOOKUP' ? { data: { state: 'NONE' }, error: null } : { data: null, error: { code: '23514' } };
     };
-    (supabaseAdmin as any).from = (table: string) => {
-      if (table === 'document_version_approvals') {
-        const pendingQuery: any = {
-          eq: () => pendingQuery,
-          order: () => pendingQuery,
-          maybeSingle: async () => ({ data: pendingApproval, error: null }),
-        };
-        return {
-          select: () => pendingQuery,
-          update: (value: Record<string, unknown>) => createUpdateQuery(table, value),
-        };
-      }
-      if (table === 'document_versions' || table === 'documents') {
-        return { update: (value: Record<string, unknown>) => createUpdateQuery(table, value) };
-      }
-      throw new Error(`Unexpected table: ${table}`);
-    };
-
-    const expectedRollbacks: Record<string, string[]> = {
-      version: [],
-      document: ['document_versions'],
-      approval: ['documents', 'document_versions'],
-      activity: ['document_version_approvals', 'documents', 'document_versions'],
-    };
-    for (const step of Object.keys(expectedRollbacks)) {
-      failureStep = step;
-      updateCalls.length = 0;
-      try {
-        await DocumentService.reviewVersion('version-1', { status: 'APPROVED', feedback: 'Looks good' }, actors.headSa);
-        throw new Error(`Test 11: expected ${step} failure`);
-      } catch (error) {
-        assert(error instanceof DocumentServiceError, `Test 11: ${step} failure must be a safe document error`);
-        assert((error as DocumentServiceError).message === 'Failed to review document version.', `Test 11: ${step} failure must hide provider details`);
-      }
-
-      const rollbackTables = updateCalls
-        .filter((call) => call.value.status === 'SUBMITTED' || call.value.status === 'PENDING')
-        .map((call) => call.table);
-      assert(
-        JSON.stringify(rollbackTables) === JSON.stringify(expectedRollbacks[step]),
-        `Test 11: ${step} failure must restore only prior committed mutations`
-      );
-    }
-  } finally {
-    (supabaseAdmin as any).from = originalFrom;
-    service.getRawVersion = originals.getRawVersion;
-    service.getRawDocument = originals.getRawDocument;
-    service.assertDocumentAccess = originals.assertDocumentAccess;
-    service.getDocumentById = originals.getDocumentById;
-    service.logDocumentActivity = originals.logDocumentActivity;
-  }
+    await expectAsyncDocumentError(() => DocumentService.reviewVersion('version-1', { status: 'APPROVED' }, actors.headSa), 'Failed to review document version.', 500);
+    assert(calls.join(',') === 'LOOKUP,COMMIT', 'Review delegates metadata and audit to a single transaction');
+    assert(hydrated === 0, 'Failed audit must not report a successful review');
+  } finally { Object.assign(service, originals); (supabaseAdmin as any).rpc=originalRpc; (supabaseAdmin as any).from=originalFrom; }
 }
 
 async function verifyRollbackCasMatchDetection(): Promise<void> {
-  const service = DocumentService as any;
-  const originalFrom = supabaseAdmin.from;
-  const originalConsoleError = console.error;
-  const originals = {
-    getRawVersion: service.getRawVersion,
-    getRawDocument: service.getRawDocument,
-    assertDocumentAccess: service.assertDocumentAccess,
-    getDocumentById: service.getDocumentById,
-    logDocumentActivity: service.logDocumentActivity,
-  };
-  const rollbackLogs: unknown[][] = [];
-  const state = {
-    version: { status: 'SUBMITTED', is_latest: true },
-    document: { status: 'SUBMITTED', updated_at: '2026-09-02T00:00:00.000Z' },
-    approval: { status: 'PENDING', feedback: null as string | null, reviewed_by: null as string | null, reviewed_at: null as string | null },
-  };
-  const version = { id: 'version-rollback', document_id: 'document-rollback', version_number: 2, status: 'SUBMITTED', is_latest: true };
-  const document = {
-    id: 'document-rollback',
-    project_id: 'project-rollback',
-    title: 'Rollback CAS',
-    status: 'SUBMITTED',
-    updated_at: '2026-09-02T00:00:00.000Z',
-  };
-  const approval = { id: 'approval-rollback', status: 'PENDING', feedback: null, reviewed_by: null, reviewed_at: null };
-
-  const hasFilter = (filters: Array<[string, unknown]>, field: string, value: unknown): boolean =>
-    filters.some(([filterField, filterValue]) => filterField === field && filterValue === value);
-
-  const createUpdateQuery = (table: string, value: Record<string, unknown>) => {
-    const filters: Array<[string, unknown]> = [];
-    const query: any = {
-      eq: (field: string, filterValue: unknown) => {
-        filters.push([field, filterValue]);
-        return query;
-      },
-      select: () => ({
-        maybeSingle: async () => {
-          if (table === 'document_version_approvals') {
-            const isForward = value.status === 'APPROVED';
-            const matches = isForward
-              ? state.approval.status === 'PENDING'
-              : hasFilter(filters, 'id', approval.id) &&
-                hasFilter(filters, 'status', 'APPROVED') &&
-                hasFilter(filters, 'reviewed_by', actors.headSa.userId) &&
-                hasFilter(filters, 'reviewed_at', state.approval.reviewed_at) &&
-                state.approval.status === 'APPROVED';
-            if (!matches) return { data: null, error: null };
-            state.approval.status = value.status as string;
-            state.approval.feedback = (value.feedback as string | null | undefined) ?? null;
-            state.approval.reviewed_by = (value.reviewed_by as string | null | undefined) ?? null;
-            state.approval.reviewed_at = (value.reviewed_at as string | null | undefined) ?? null;
-            return { data: { id: approval.id }, error: null };
-          }
-
-          if (table === 'documents') {
-            const isForward = value.status === 'APPROVED';
-            const matches = isForward
-              ? state.document.status === 'SUBMITTED'
-              : hasFilter(filters, 'id', document.id) &&
-                hasFilter(filters, 'status', 'APPROVED') &&
-                hasFilter(filters, 'updated_at', state.document.updated_at) &&
-                state.document.status === 'APPROVED';
-            if (!matches) return { data: null, error: null };
-            state.document.status = value.status as string;
-            state.document.updated_at = value.updated_at as string;
-            return { data: { id: document.id }, error: null };
-          }
-
-          const isForward = value.status === 'APPROVED';
-          const matches = isForward
-            ? state.version.status === 'SUBMITTED' && state.version.is_latest
-            : hasFilter(filters, 'id', version.id) &&
-              hasFilter(filters, 'status', 'APPROVED') &&
-              hasFilter(filters, 'is_latest', true) &&
-              state.version.status === 'APPROVED' &&
-              state.version.is_latest;
-          if (!matches) return { data: null, error: null };
-          state.version.status = value.status as string;
-          state.version.is_latest = value.is_latest as boolean | undefined ?? state.version.is_latest;
-          return { data: { id: version.id }, error: null };
-        },
-      }),
-    };
-    return query;
-  };
-
+  const service=DocumentService as any;
+  const originalRpc=supabaseAdmin.rpc;
+  const originals={ getRawVersion:service.getRawVersion,getRawDocument:service.getRawDocument,assertDocumentAccess:service.assertDocumentAccess };
   try {
-    service.getRawVersion = async () => version;
-    service.getRawDocument = async () => document;
-    service.assertDocumentAccess = async () => ({ id: document.project_id });
-    service.getDocumentById = async () => ({ id: document.id });
-    service.logDocumentActivity = async () => {
-      // A concurrent reviewer resolves the version after all forward writes but before rollback.
-      state.version.status = 'REJECTED';
-      throw new Error('activity write failed');
-    };
-    console.error = (...args: unknown[]) => {
-      rollbackLogs.push(args);
-    };
-    (supabaseAdmin as any).from = (table: string) => {
-      if (table === 'document_version_approvals') {
-        const approvalQuery: any = {
-          eq: () => approvalQuery,
-          order: () => approvalQuery,
-          maybeSingle: async () => ({ data: approval, error: null }),
-        };
-        return { select: () => approvalQuery, update: (value: Record<string, unknown>) => createUpdateQuery(table, value) };
-      }
-      if (table === 'documents' || table === 'document_versions') {
-        return { update: (value: Record<string, unknown>) => createUpdateQuery(table, value) };
-      }
-      throw new Error(`Unexpected table: ${table}`);
-    };
-
-    try {
-      await DocumentService.reviewVersion('version-rollback', { status: 'APPROVED', feedback: 'Approved before activity failure.' }, actors.headSa);
-      throw new Error('Test 12b: expected review failure');
-    } catch (error) {
-      assert(error instanceof DocumentServiceError, 'Test 12b: original operation must keep a safe DocumentServiceError');
-      assert((error as DocumentServiceError).message === 'Failed to review document version.', 'Test 12b: rollback conflict must not alter client error');
-    }
-
-    assert(state.approval.status === 'PENDING' && state.approval.reviewed_by === null, 'Test 12b: matched approval rollback must restore the original approval');
-    assert(state.document.status === 'SUBMITTED' && state.document.updated_at === document.updated_at, 'Test 12b: matched document rollback must restore the original document');
-    assert(state.version.status === 'REJECTED' && state.version.is_latest, 'Test 12b: zero-row version rollback must not overwrite a newer concurrent state');
-    assert(
-      rollbackLogs.some((entry) => entry[0] === '[DocumentService] Document review rollback did not fully complete.'),
-      'Test 12b: zero-row rollback must be reported internally as a rollback failure'
-    );
-  } finally {
-    (supabaseAdmin as any).from = originalFrom;
-    console.error = originalConsoleError;
-    service.getRawVersion = originals.getRawVersion;
-    service.getRawDocument = originals.getRawDocument;
-    service.assertDocumentAccess = originals.assertDocumentAccess;
-    service.getDocumentById = originals.getDocumentById;
-    service.logDocumentActivity = originals.logDocumentActivity;
-  }
+    service.getRawVersion=async()=>({document_id:'document-1'});
+    service.getRawDocument=async()=>({id:'document-1',updated_at:'2026-09-02T00:00:00Z'});
+    service.assertDocumentAccess=async()=>project;
+    (supabaseAdmin as any).rpc=async (_name:string,input:any)=>input.p_step==='LOOKUP'
+      ? {data:{state:'NONE'},error:null}:{data:null,error:{code:'40001'}};
+    await expectAsyncDocumentError(()=>DocumentService.reviewVersion('version-1',{status:'APPROVED'},actors.headSa),'Failed to review document version.',409);
+  } finally {Object.assign(service,originals);(supabaseAdmin as any).rpc=originalRpc;}
 }
 
 async function verifySalesDocumentReadFinality(): Promise<void> {
@@ -714,7 +497,8 @@ async function verifyVersionUploadRejectionBeforeMutation(): Promise<void> {
       if (table !== 'document_versions') throw new Error(`Unexpected table before policy decision: ${table}`);
       const readQuery: any = {
         eq: () => readQuery,
-        order: async () => ({ data: [initialVersion], error: null }),
+        order: () => readQuery,
+        limit: async () => ({ data: [initialVersion], error: null }),
       };
       return {
         select: () => readQuery,
@@ -759,123 +543,31 @@ async function verifyVersionUploadRejectionBeforeMutation(): Promise<void> {
 }
 
 async function verifyVersionDemotionCompareAndSet(): Promise<void> {
-  const service = DocumentService as any;
-  const originalFrom = supabaseAdmin.from;
-  const originals = {
-    getRawDocument: service.getRawDocument,
-    assertDocumentAccess: service.assertDocumentAccess,
-    uploadDocumentFile: service.uploadDocumentFile,
-    removeUploadedFile: service.removeUploadedFile,
-  };
-  const demotionFilters: Array<[string, unknown]> = [];
-  const currentVersion = { status: 'SUBMITTED', is_latest: true };
-  const snapshot = {
-    id: 'version-latest',
-    version_number: 1,
-    status: 'SUBMITTED',
-    is_latest: true,
-    uploaded_by: actors.salesOwner.userId,
-    changelog: 'Initial SALES milestone document upload.',
-  };
-
+  const service=DocumentService as any;
+  const originalRpc=supabaseAdmin.rpc, originalFrom=supabaseAdmin.from;
+  const originalUpload=DocumentStorageService.upload, originalRemove=DocumentStorageService.removeMany;
+  const originals={getRawDocument:service.getRawDocument,assertDocumentAccess:service.assertDocumentAccess};
+  const steps:string[]=[];let removed:string[]=[];
   try {
-    service.getRawDocument = async () => ({
-      id: 'document-1',
-      project_id: 'project-1',
-      title: 'Concurrent Review Document',
-      category: 'OTHER',
-      status: 'SUBMITTED',
-      updated_at: '2026-09-02T00:00:00.000Z',
-    });
-    service.assertDocumentAccess = async () => ({ id: 'project-1', ...project });
-    service.uploadDocumentFile = async () => undefined;
-    service.removeUploadedFile = async () => undefined;
-    (supabaseAdmin as any).from = (table: string) => {
-      if (table === 'document_versions') {
-        const versionReadQuery: any = {
-          eq: () => versionReadQuery,
-          order: () => versionReadQuery,
-          then: (resolve: (value: unknown) => unknown, reject: (reason: unknown) => unknown) => {
-            // The concurrent HEAD_SA review completes after upload read the snapshot.
-            currentVersion.status = 'APPROVED';
-            return Promise.resolve({ data: [snapshot], error: null }).then(resolve, reject);
-          },
-        };
-        return {
-          select: () => versionReadQuery,
-          update: (value: { status: string; is_latest: boolean }) => {
-            const demotionQuery: any = {
-              eq: (field: string, filterValue: unknown) => {
-                demotionFilters.push([field, filterValue]);
-                return demotionQuery;
-              },
-              select: () => ({
-                maybeSingle: async () => {
-                  const hasSnapshotStatusGuard = demotionFilters.some(
-                    ([field, filterValue]) => field === 'status' && filterValue === snapshot.status
-                  );
-                  const matchesSnapshot =
-                    hasSnapshotStatusGuard && currentVersion.is_latest && currentVersion.status === snapshot.status;
-                  if (matchesSnapshot) {
-                    currentVersion.status = value.status;
-                    currentVersion.is_latest = value.is_latest;
-                    return { data: { id: snapshot.id }, error: null };
-                  }
-                  return { data: null, error: null };
-                },
-              }),
-            };
-            return demotionQuery;
-          },
-        };
-      }
-
-      if (table === 'document_version_approvals') {
-        const approvalReadQuery: any = {
-          in: () => approvalReadQuery,
-          then: (resolve: (value: unknown) => unknown, reject: (reason: unknown) => unknown) =>
-            Promise.resolve({ data: [], error: null }).then(resolve, reject),
-        };
-        return { select: () => approvalReadQuery };
-      }
-
-      throw new Error(`Unexpected table: ${table}`);
+    service.getRawDocument=async()=>({id:'document-1',updated_at:'2026-09-02T00:00:00Z'});
+    service.assertDocumentAccess=async()=>({id:'project-1',...project});
+    const query:any={eq:()=>query,order:()=>query,limit:async()=>({data:[initialVersions.salesMilestone],error:null})};
+    (supabaseAdmin as any).from=()=>({select:()=>query});
+    (DocumentStorageService as any).upload=async()=>{};
+    (DocumentStorageService as any).removeMany=async(paths:string[])=>{removed=paths;};
+    (supabaseAdmin as any).rpc=async (_name:string,input:any)=>{
+      steps.push(input.p_step);
+      if(input.p_step==='LOOKUP')return {data:{state:'NONE'},error:null};
+      if(input.p_step==='RESERVE')return {data:{state:'RESERVED',token:'owned',files:[{path:'owned-exact-path'}]},error:null};
+      if(input.p_step==='COMMIT')return {data:null,error:{code:'40001'}};
+      return {data:{state:'FROZEN',files:[{path:'owned-exact-path'}]},error:null};
     };
-
-    try {
-      await DocumentService.uploadNewVersion(
-        'document-1',
-        { changelog: 'A new upload racing with document review.' },
-        { originalname: 'document.pdf', size: 1, mimetype: 'application/pdf' } as Express.Multer.File,
-        actors.salesOwner
-      );
-      throw new Error('Test 12: expected stale previous-version conflict');
-    } catch (error) {
-      assert(error instanceof DocumentServiceError, 'Test 12: stale demotion must be a DocumentServiceError');
-      assert((error as DocumentServiceError).statusCode === 409, 'Test 12: stale demotion must return HTTP 409');
-      assert((error as DocumentServiceError).message === 'Document version is no longer latest.', 'Test 12: stale demotion must fail safely');
-    }
-
-    assert(
-      demotionFilters.some(([field, value]) => field === 'id' && value === snapshot.id),
-      'Test 12: demotion must guard the expected version ID'
-    );
-    assert(
-      demotionFilters.some(([field, value]) => field === 'is_latest' && value === true),
-      'Test 12: demotion must guard the latest flag'
-    );
-    assert(
-      demotionFilters.some(([field, value]) => field === 'status' && value === 'SUBMITTED'),
-      'Test 12: demotion must guard the original snapshot status'
-    );
-    assert(currentVersion.status === 'APPROVED' && currentVersion.is_latest, 'Test 12: concurrent APPROVED state must not be overwritten');
-  } finally {
-    (supabaseAdmin as any).from = originalFrom;
-    service.getRawDocument = originals.getRawDocument;
-    service.assertDocumentAccess = originals.assertDocumentAccess;
-    service.uploadDocumentFile = originals.uploadDocumentFile;
-    service.removeUploadedFile = originals.removeUploadedFile;
-  }
+    await expectAsyncDocumentError(()=>DocumentService.uploadNewVersion('document-1',{changelog:'New version'},
+      {originalname:'fixture.pdf',mimetype:'application/pdf',size:12,buffer:Buffer.from('fixture')} as Express.Multer.File,actors.salesOwner), 'Failed to upload document version.',409);
+    assert(steps.join(',')==='LOOKUP,RESERVE,COMMIT,CANCEL','Stale upload must use atomic CAS and cancellation fence');
+    assert(removed.join(',')==='owned-exact-path','Only frozen exact operation-owned bytes can be removed');
+  } finally {Object.assign(service,originals);(supabaseAdmin as any).rpc=originalRpc;(supabaseAdmin as any).from=originalFrom;
+    DocumentStorageService.upload=originalUpload;DocumentStorageService.removeMany=originalRemove;}
 }
 
 async function run(): Promise<void> {
@@ -886,10 +578,10 @@ async function run(): Promise<void> {
   console.log('Test 10b - Signed download provider errors remain generic in storage and document services: passed');
 
   await verifyReviewRollback();
-  console.log('Test 11 - Review writes roll back sequentially on version, document, approval, or activity failure: passed');
+  console.log('Test 11 - Review delegates all writes/audit to atomic RPC and fails safely: passed');
 
   await verifyRollbackCasMatchDetection();
-  console.log('Test 12b - Rollback CAS verifies matched rows and preserves a newer concurrent version state: passed');
+  console.log('Test 12b - Stale review is rejected by database CAS without compensation writes: passed');
 
   await verifySalesDocumentReadFinality();
   console.log('Test 12c - SALES sees approved official documents only while internal non-final document access stays role-scoped: passed');

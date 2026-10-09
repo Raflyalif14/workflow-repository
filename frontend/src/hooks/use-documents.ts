@@ -1,3 +1,5 @@
+import { useRef } from 'react';
+import { createArtifactRequests } from '@/lib/artifact-request';
 import { requireRepositoryArray } from "@/lib/document-repository";
 import { requireRepositorySession, useRepositorySession } from './use-repository-session';
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -71,6 +73,7 @@ export function useUploadSalesMilestoneDocuments(projectId: string, milestoneId:
 
 export function useUploadNewVersion() {
   const queryClient = useQueryClient();
+  const request = useRef(createArtifactRequests()).current;
 
   return useMutation({
     mutationFn: async ({
@@ -80,7 +83,9 @@ export function useUploadNewVersion() {
       documentId: string;
       formData: FormData;
     }) => {
+      return request({ documentId, formData }, async requestId => {
       const response = await authorizedFetch(`/documents/${documentId}/versions`, {
+        headers: { "Idempotency-Key": requestId },
         method: "POST",
         body: formData,
       });
@@ -90,6 +95,7 @@ export function useUploadNewVersion() {
         throw new Error(data.message || "Failed to upload new version");
       }
       return data.data;
+      });
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["documents"] });
@@ -109,6 +115,7 @@ export function useDocumentDownloadUrl() {
 
 export function useAddComment() {
   const queryClient = useQueryClient();
+  const request = useRef(createArtifactRequests()).current;
 
   return useMutation({
     mutationFn: async ({
@@ -118,10 +125,11 @@ export function useAddComment() {
       documentId: string;
       content: string;
     }) => {
-      return apiClient<DocumentComment>(`/documents/${documentId}/comments`, {
+      return request({ documentId, content }, requestId => apiClient<DocumentComment>(`/documents/${documentId}/comments`, {
+        headers: { "Idempotency-Key": requestId },
         method: "POST",
         body: JSON.stringify({ content }),
-      });
+      }));
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["document", variables.documentId] });

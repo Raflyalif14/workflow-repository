@@ -1,3 +1,5 @@
+import { artifactRequestId } from '../utils/artifact-request.util';
+import { ArtifactMutationError } from '../services/artifact-mutation.service';
 import { Response } from 'express';
 import { AuthenticatedRequest } from '../middlewares/auth.middleware';
 import {
@@ -14,11 +16,12 @@ export class MilestoneContributionController {
         getRouteParam(req, 'milestoneId'),
         req.user!,
         Array.isArray(req.files) ? req.files : [],
-        req.body.note
+        req.body.note,
+        artifactRequestId(req)
       );
       sendSuccess(res, 'Milestone supporting input added successfully', result, 201);
     } catch (error) {
-      if (error instanceof MilestoneContributionError) {
+      if (error instanceof MilestoneContributionError || error instanceof ArtifactMutationError) {
         sendError(res, error.message, null, error.statusCode);
         return;
       }
@@ -35,7 +38,7 @@ export class MilestoneContributionController {
       );
       sendSuccess(res, 'Milestone supporting input retrieved successfully', result);
     } catch (error) {
-      if (error instanceof MilestoneContributionError) {
+      if (error instanceof MilestoneContributionError || error instanceof ArtifactMutationError) {
         sendError(res, error.message, null, error.statusCode);
         return;
       }
@@ -54,7 +57,7 @@ export class MilestoneContributionController {
       );
       sendSuccess(res, 'Supporting attachment download URL created successfully', result);
     } catch (error) {
-      if (error instanceof MilestoneContributionError) {
+      if (error instanceof MilestoneContributionError || error instanceof ArtifactMutationError) {
         sendError(res, error.message, null, error.statusCode);
         return;
       }
@@ -69,11 +72,12 @@ export class MilestoneContributionController {
         getRouteParam(req, 'milestoneId'),
         getRouteParam(req, 'contributionId'),
         getRouteParam(req, 'attachmentId'),
-        req.user!
+        req.user!,
+        artifactRequestId(req)
       );
       sendSuccess(res, 'Supporting attachment promoted to the Document Repository', result);
     } catch (error) {
-      if (error instanceof MilestoneContributionError) {
+      if (error instanceof MilestoneContributionError || error instanceof ArtifactMutationError) {
         sendError(res, error.message, null, error.statusCode);
         return;
       }
