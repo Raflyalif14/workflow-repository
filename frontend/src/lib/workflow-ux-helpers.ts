@@ -210,6 +210,27 @@ export function isTimelineComplete(
 }
 
 /**
+ * Presents saved timeline readiness separately from plan submission and review.
+ */
+export function getDraftPlanProgressStatuses(
+  milestones: ProjectMilestonePhase4[],
+  planApproval?: ProjectPlanApproval | null,
+  workflowModel?: string | null,
+  workflowVersion?: number | null
+): Array<"COMPLETED" | "CURRENT" | "UPCOMING" | "REJECTED"> {
+  const timelineReady = isTimelineComplete(milestones, workflowModel, workflowVersion).isComplete;
+  const approved = planApproval?.status === "APPROVED";
+  const pending = planApproval?.status === "PENDING";
+  const rejected = planApproval?.status === "REJECTED";
+  return [
+    timelineReady ? "COMPLETED" : "CURRENT",
+    approved || pending ? "COMPLETED" : rejected || timelineReady ? "CURRENT" : "UPCOMING",
+    approved ? "COMPLETED" : pending ? "CURRENT" : rejected ? "REJECTED" : "UPCOMING",
+    approved ? "COMPLETED" : "UPCOMING",
+  ];
+}
+
+/**
  * Resolves the role-aware Next Action for a project.
  */
 export function resolveNextAction(

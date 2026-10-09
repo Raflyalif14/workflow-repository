@@ -41,8 +41,9 @@ setAuthTokens({ accessToken: 'fixture' });
 
 function navigationChecks() {
   const originals = { context: React.useContext, stats: approvalHooks.useApprovalStats, assigned: projectHooks.useMyAssignedMilestones };
+  let assigned: any[] = [];
   (approvalHooks as any).useApprovalStats = () => ({ data: {} });
-  (projectHooks as any).useMyAssignedMilestones = () => ({ data: [] });
+  (projectHooks as any).useMyAssignedMilestones = () => ({ data: assigned });
   try {
     for (const collapsed of [false, true]) {
       (React as any).useContext = (context: any) => context === PathnameContext ? '/settings' : ({ collapsed, mobileOpen: true, setMobileOpen() {}, setCollapsed() {} });
@@ -65,6 +66,26 @@ function navigationChecks() {
         assert.equal(canReadOperationalHealth(user), role === 'SUPER_ADMIN');
       }
     }
+    for (const locale of ['en', 'id'] as const) {
+      setActiveLanguage(locale);
+      for (const role of ['SA', 'HEAD_SA']) {
+        user = { id: 'account-a', role, isActive: true };
+        for (const [statuses, expected] of [
+          [['IN_REVIEW'], 0], [['SUBMITTED'], 0], [['REVISION_REQUIRED'], 1], [['IN_REVIEW', 'DRAFT'], 1],
+        ] as const) {
+          assigned = [{ status: 'IN_PROGRESS', project: { status: 'ACTIVE', is_postponed: false },
+            outputs: statuses.map(status => ({ status, is_required: true, is_selected: true })) }];
+          const links = elements(Sidebar()).filter(node => node.props.href === '/milestones');
+          assert.equal(links.length, 2, 'Desktop and drawer keep the same milestone link');
+          for (const link of links) {
+            assert.equal(link.props.title, `${translate('nav.milestones')} — ${translate('milestonePage.needsAction')}: ${expected}`);
+            const numbers = elements(link).filter(node => node.type === 'span' && node.props.children === expected);
+            assert.equal(numbers.length, expected > 0 ? 1 : 0, 'Waiting-only has no numeric badge; actionable work has one');
+          }
+        }
+      }
+    }
+    assigned = []; setActiveLanguage('en');
     assert(!canUsePersonalNotificationSettings({ id: 'a', role: 'SALES', isActive: false }));
     assert(!canUsePersonalNotificationSettings({ id: 'a', role: 'SALES', isActive: true, mustChangePassword: true }));
     const base = { id: 'p', name: 'Fixture', sales_id: 'owner', is_postponed: false };

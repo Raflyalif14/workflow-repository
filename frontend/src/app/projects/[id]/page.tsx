@@ -64,9 +64,9 @@ import {
   isMilestoneCompleted,
 } from "@/lib/milestone-ui-state";
 import {
-  formatHumanReadableLabel,
   formatMilestoneStatusLabel,
   formatProjectStatusLabel,
+  getDraftPlanProgressStatuses,
   isDeadlineChangeStepEligible,
   resolveCurrentStage,
   resolveNextAction,
@@ -99,7 +99,7 @@ import {
 } from "@/hooks/use-projects";
 import { flattenActivityPages, formatActivityAction, formatActivityDescription, formatBusinessAudit, formatBusinessAuditValue } from "@/lib/activity-timeline";
 import { calculateProjectMilestoneProgress } from "@/lib/project-milestone-progress";
-import { useDocumentDownloadUrl, useDocuments } from "@/hooks/use-documents";
+import { ProjectDocumentsSection } from "@/components/projects/project-documents-section";
 import { useProjectIntake, useProjectIntakeDownloadUrl } from "@/hooks/use-project-intake";
 import {
   MilestoneApprovalState,
@@ -595,6 +595,8 @@ export default function ProjectDetailPage() {
         <DraftProgressionTracker
           planApproval={planApproval}
           milestones={milestones}
+          workflowModel={project.scenario?.workflow_model}
+          workflowVersion={project.scenario?.workflow_version}
         />
       )}
 
@@ -788,7 +790,7 @@ export default function ProjectDetailPage() {
             <OutputDocumentsSection project={project} milestoneId={milestone.id} milestoneStatus={milestone.status} milestonePicId={milestone.pic_id} milestoneStartDate={milestone.start_date} />
           </div>)}
         </details>)}
-        <ActivityTimeline projectId={project.id} />
+        <ActivityTimeline project={project} milestones={allMilestones} />
       <AssignmentHistoryCard projectId={id} />
 
       {user?.role === "SUPER_ADMIN" && <ProjectDeletionDangerZone project={project} />}
@@ -805,7 +807,7 @@ export default function ProjectDetailPage() {
   );
 }
 
-function ActivityTimeline({ projectId }: { projectId: string }) {
+function ActivityTimeline({ project, milestones }: { project: Project; milestones: ProjectMilestonePhase4[] }) {
   const {
     data,
     isLoading,
@@ -813,8 +815,10 @@ function ActivityTimeline({ projectId }: { projectId: string }) {
     hasNextPage,
     fetchNextPage,
     isFetchingNextPage,
-  } = useProjectActivities(projectId);
+  } = useProjectActivities(project.id);
   const activities = flattenActivityPages(data?.pages);
+  const auditContext = { projectName: project.name, milestones,
+    scenarios: [project.scenario, project.active_scenario].filter((scenario): scenario is NonNullable<typeof scenario> => Boolean(scenario)) };
 
   return (
     <Card>
@@ -845,7 +849,7 @@ function ActivityTimeline({ projectId }: { projectId: string }) {
                     </span>
                     <div className="rounded-md border border-border/40 bg-muted/15 px-2.5 py-2">
                       <p className="text-xs font-semibold text-foreground">{formatActivityAction(activity.action)}</p>
-                      {(activity.businessChange || activity.description || activity.estimatedValueChange || activity.picAssignmentChange) && <p className="mt-0.5 whitespace-pre-wrap break-words text-xs leading-relaxed text-muted-foreground">{activity.businessChange ? formatBusinessAudit(activity.businessChange) : formatActivityDescription(activity.action, activity.description, activity.estimatedValueChange, activity.picAssignmentChange)}</p>}
+                      {(activity.businessChange || activity.description || activity.estimatedValueChange || activity.picAssignmentChange) && <p className="mt-0.5 whitespace-pre-wrap break-words text-xs leading-relaxed text-muted-foreground">{activity.businessChange ? formatBusinessAudit(activity.businessChange, auditContext) : formatActivityDescription(activity.action, activity.description, activity.estimatedValueChange, activity.picAssignmentChange)}</p>}
                       <div className="mt-1.5 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[10px] text-muted-foreground/85">
                         {activity.actor ? (
                           <>
@@ -976,103 +980,6 @@ function ProjectIntakeSection({ projectId }: { projectId: string }) {
   );
 }
 
-function ProjectDocumentsSection({ projectId }: { projectId: string }) {
-  const { data: documents = [], isLoading, isError } = useDocuments({ projectId });
-  const documentDownload = useDocumentDownloadUrl();
-  const [downloadError, setDownloadError] = useState("");
-
-  const handleDownload = async (versionId: string) => {
-    setDownloadError("");
-    try {
-      const { url } = await documentDownload.mutateAsync(versionId);
-      window.open(url, "_blank", "noopener,noreferrer");
-    } catch {
-      setDownloadError("projectDetail.documentDownloadFailed");
-    }
-  };
-
-  return (
-    <Card>
-      <CardHeader className="pb-3">
-        <div className="space-y-1">
-          <CardTitle className="text-base font-semibold tracking-tight">{translateI18n("documents.official")}</CardTitle>
-          <CardDescription className="text-xs">
-            {translateI18n("projectDetail.officialDescription")}
-          </CardDescription>
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        {downloadError && (
-          <p className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
-            {translateStoredError(downloadError)}
-          </p>
-        )}
-        {isLoading ? (
-          <div className="space-y-2">
-            {[1, 2].map((item) => (
-              <div key={item} className="h-16 animate-pulse rounded-xl border border-border/40 bg-muted/20" />
-            ))}
-          </div>
-        ) : isError ? (
-          <p className="py-4 text-center text-xs text-destructive">{translateI18n("documents.loadError")}</p>
-        ) : documents.length === 0 ? (
-          <p className="py-5 text-center text-sm text-muted-foreground">{translateI18n("documents.empty")}</p>
-        ) : (
-          <div className="space-y-2">
-            {documents.map((document) => {
-              const latestVersion = document.versions?.[0];
-              const sourceLabel =
-                document.category === "MOM"
-                  ? "MoM"
-                  : document.milestoneId
-                  ? document.milestone?.name || translateI18n("documentSurface.milestoneDeliverable")
-                  : document.category === "OTHER"
-                  ? translateI18n("documentSurface.projectDocument")
-                  : formatHumanReadableLabel(document.category);
-
-              return (
-                <div
-                  key={document.id}
-                  className="flex flex-col gap-3 rounded-md border border-border/40 bg-muted/10 p-3 sm:flex-row sm:items-center sm:justify-between"
-                >
-                  <div className="min-w-0 space-y-1.5">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <p className="truncate text-sm font-semibold text-foreground">{document.title}</p>
-                      <Badge variant="secondary" className="text-[10px] uppercase">{sourceLabel}</Badge>
-                      {latestVersion && (
-                        <Badge variant="outline" className="text-[10px]">{translateI18n("projectDetail.version", { number: latestVersion.versionNumber })}</Badge>
-                      )}
-                    </div>
-                    <p className="truncate text-xs text-muted-foreground">
-                      {latestVersion?.fileName || translateI18n("projectDetail.noFileVersion")}
-                    </p>
-                    <p className="text-[11px] text-muted-foreground">
-                      {latestVersion?.uploadedBy?.fullName && <>{translateI18n("projectDetail.uploadedBy", { name: latestVersion.uploadedBy.fullName })} - </>}
-                      {formatDate(latestVersion?.createdAt || document.createdAt)}
-                    </p>
-                  </div>
-                  {latestVersion && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="h-8 shrink-0 gap-1.5 self-start text-xs sm:self-auto"
-                      onClick={() => void handleDownload(latestVersion.id)}
-                      disabled={documentDownload.isPending}
-                    >
-                      <Download className="h-3.5 w-3.5" />
-                      <span>{translateI18n("copy.viewDownload")}</span>
-                    </Button>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </CardContent>
-    </Card>
-  );
-}
-
 // ─── Next Action Card Component ───
 function NextActionCard({
   nextAction,
@@ -1101,7 +1008,7 @@ function NextActionCard({
 
   return (
     <section aria-labelledby="next-step-title" className="border-b border-border/60 pb-5">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex min-w-0 flex-col items-start gap-3">
         <div className="min-w-0 space-y-1">
           <p className={`flex items-center gap-2 text-sm font-medium ${nextAction.canPerformAction ? "text-primary" : "text-muted-foreground"}`}>
             {nextAction.isWaiting && <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-muted-foreground/70" aria-hidden="true" />}
@@ -1121,8 +1028,9 @@ function NextActionCard({
             onClick={onAction}
             disabled={isPending}
             aria-label={usesActionLabel ? actionLabel : translateI18n("projectDetail.openTaskNamed", { name: nextAction.title })}
-            className="h-10 w-full shrink-0 shadow-none sm:w-auto"
+            className="h-10 w-full gap-2 shadow-none sm:w-auto"
           >
+            {["SUBMIT_PLAN", "RESUBMIT_PLAN"].includes(nextAction.actionType || "") && <Send className="h-4 w-4 shrink-0" aria-hidden="true" />}
             {isPending ? pendingLabel : actionLabel}
           </Button>
         )}
@@ -1135,28 +1043,29 @@ function NextActionCard({
 function DraftProgressionTracker({
   planApproval,
   milestones,
+  workflowModel,
+  workflowVersion,
 }: {
   planApproval?: ProjectPlanApproval | null;
   milestones: ProjectMilestonePhase4[];
+  workflowModel?: string | null;
+  workflowVersion?: number | null;
 }) {
-  const isPlanSubmitted = Boolean(planApproval);
-  const isPlanApproved = planApproval?.status === "APPROVED";
-  const isPlanPending = planApproval?.status === "PENDING";
-  const isPlanRejected = planApproval?.status === "REJECTED";
+  const statuses = getDraftPlanProgressStatuses(milestones, planApproval, workflowModel, workflowVersion);
 
   const steps = [
-    { number: 1, label: translateI18n("projectDetail.timelineSetup"), status: isPlanSubmitted ? "COMPLETED" : "CURRENT" },
+    { number: 1, label: translateI18n("projectDetail.timelineSetup"), status: statuses[0] },
     {
       number: 2,
       label: translateI18n("projectDetail.planSubmittedStep"),
-      status: isPlanApproved ? "COMPLETED" : isPlanPending ? "COMPLETED" : isPlanRejected ? "CURRENT" : "UPCOMING",
+      status: statuses[1],
     },
     {
       number: 3,
       label: translateI18n("projectDetail.headReviewStep"),
-      status: isPlanApproved ? "COMPLETED" : isPlanPending ? "CURRENT" : isPlanRejected ? "REJECTED" : "UPCOMING",
+      status: statuses[2],
     },
-    { number: 4, label: translateI18n("projectDetail.projectActiveStep"), status: isPlanApproved ? "COMPLETED" : "UPCOMING" },
+    { number: 4, label: translateI18n("projectDetail.projectActiveStep"), status: statuses[3] },
   ];
 
   return (
@@ -2096,18 +2005,20 @@ function PlanReviewDialog({
     const replayingReceipt = confirming && !!intent.current && error === 'picOperation.failed';
     setError("");
     if (!confirming) {
-      if (workflowModel === 'OPERATIONAL_V2' && picRevision === undefined) { setError('picOperation.failed'); return; }
+      if (workflowModel === 'OPERATIONAL_V2' && picRevision === undefined) { setError('picOperation.reviewUnavailable'); return; }
       setReviewedPicName(currentPicName || translateI18n('ui.unassigned')); setReviewedRevision(picRevision); setConfirming(true); return;
     }
+    if (approvalId !== reviewedApprovalId || (approvalStatus !== 'PENDING' && !replayingReceipt)) { setError('reviewConfirm.stale'); return; }
     busy.current = true;
-    if (reviewedRevision !== undefined) intent.current = retainPicRequest(intent.current, reviewedRevision, { approval: reviewedApprovalId, decision, note: note.trim(), picId });
+    let decisionStarted = false;
     try {
-      await runConfirmedDecision({ confirmed: confirming, current: approvalId === reviewedApprovalId && (approvalStatus === "PENDING" || replayingReceipt), reason: note, reasonRequired: decision === "REJECT" }, () => onSubmit(note.trim() || undefined, requiresPic ? picId : undefined, reviewedApprovalId, intent.current?.revision, intent.current?.id));
+      if (reviewedRevision !== undefined) intent.current = retainPicRequest(intent.current, reviewedRevision, { approval: reviewedApprovalId, decision, note: note.trim(), picId });
+      await runConfirmedDecision({ confirmed: confirming, current: true, reason: note, reasonRequired: decision === "REJECT" }, () => { decisionStarted = true; return onSubmit(note.trim() || undefined, requiresPic ? picId : undefined, reviewedApprovalId, intent.current?.revision, intent.current?.id); });
       setNote("");
       setPicId("");
     } catch (reviewError) {
       const code = reviewError instanceof ApiError ? reviewError.code : undefined;
-      setError(reviewError instanceof ApiError && reviewError.status === 409 && !code ? "businessAudit.stale" : picErrorKey(code));
+      setError(!decisionStarted ? 'picOperation.preparationFailed' : reviewError instanceof ApiError && reviewError.status === 409 && !code ? "businessAudit.stale" : picErrorKey(code));
       if (code === 'PIC_CONFLICT') {
         setConfirming(false); intent.current = null;
         try { await onConflictReload(); } catch { setError('picOperation.conflict'); }
@@ -2198,6 +2109,10 @@ function PlanReviewDialog({
           </p>
         )}
         <DialogFooter>
+          {(error === 'picOperation.reviewUnavailable' || error === 'reviewConfirm.stale') && <Button type="button" variant="outline" disabled={isPending} onClick={async () => {
+            try { await onConflictReload(); setConfirming(false); intent.current = null; setReviewedApprovalId(approvalId); setError(''); }
+            catch { setError('picOperation.reviewUnavailable'); }
+          }}>{translateI18n('picOperation.reload')}</Button>}
           <Button
             type="button"
             variant="outline"

@@ -6,6 +6,7 @@ import {
   getApprovalTypeDisplay,
   isDeadlineChangeStepEligible,
   getTimelinePlanningMilestones,
+  getDraftPlanProgressStatuses,
   isTimelineComplete,
   resolveCurrentStage,
   resolveNextAction,
@@ -491,4 +492,30 @@ if (indonesianSaAction.actionLabel !== "Buka output" || indonesianSaAction.actio
 }
 setActiveLanguage("en");
 
+// Saved timeline readiness must not wait for plan submission.
+for (const locale of ["en", "id"] as const) {
+  setActiveLanguage(locale);
+  const expectProgress = (rows: ProjectMilestonePhase4[], status: ProjectPlanApproval["status"] | null, expected: string[]) => {
+    const approval = status ? { status } as ProjectPlanApproval : null;
+    const actual = getDraftPlanProgressStatuses(rows, approval, "LEGACY", 1);
+    if (JSON.stringify(actual) !== JSON.stringify(expected)) throw new Error(`Draft progress mismatch: ${actual}`);
+  };
+  const ready = [milestone1, milestone2, milestone3];
+  expectProgress(ready, null, ["COMPLETED", "CURRENT", "UPCOMING", "UPCOMING"]);
+  expectProgress([milestone1, milestone2, { ...milestone3, start_date: null }], null,
+    ["CURRENT", "UPCOMING", "UPCOMING", "UPCOMING"]);
+  expectProgress([], null, ["CURRENT", "UPCOMING", "UPCOMING", "UPCOMING"]);
+  expectProgress(ready, "PENDING", ["COMPLETED", "COMPLETED", "CURRENT", "UPCOMING"]);
+  expectProgress(ready, "APPROVED", ["COMPLETED", "COMPLETED", "COMPLETED", "COMPLETED"]);
+  expectProgress(ready, "REJECTED", ["COMPLETED", "CURRENT", "REJECTED", "UPCOMING"]);
+  expectProgress([milestone1, milestone2, { ...milestone3, duration_working_days: 0 }], "REJECTED",
+    ["CURRENT", "CURRENT", "REJECTED", "UPCOMING"]);
+  const operational = getDraftPlanProgressStatuses([milestone3], null, "OPERATIONAL_V2", 2);
+  if (operational[0] !== "COMPLETED" || operational[1] !== "CURRENT") throw new Error("Operational saved timeline should lead to submission");
+  const submit = resolveNextAction(baseProject, ready, null, { id: "sales-1", role: "SALES" });
+  if (submit.actionType !== "SUBMIT_PLAN" || submit.actionLabel !== translate("nextAction.submitPlanAction")) {
+    throw new Error("Localized submit label must preserve the existing action");
+  }
+}
+setActiveLanguage("en");
 console.log("All workflow UX helper tests passed successfully!");

@@ -1,0 +1,1889 @@
+{
+  "browser": "Chrome/154.0.8037.98",
+  "checks": [
+    {
+      "role": "HEAD_SA",
+      "language": "en",
+      "viewport": 1440,
+      "sidebar": "open",
+      "panelWidth": 1106,
+      "pageWidth": 1434,
+      "scrollWidth": 1434,
+      "rowCount": 4,
+      "columns": 6,
+      "headerVisible": true,
+      "headerAligned": true,
+      "rowHeights": [
+        84,
+        73,
+        73,
+        73
+      ],
+      "labelsVisible": false,
+      "overflow": false,
+      "nameFits": true,
+      "links": [
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000001",
+          "width": 80.625,
+          "rowWidth": 1106
+        },
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000022",
+          "width": 80.625,
+          "rowWidth": 1106
+        },
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000024",
+          "width": 80.625,
+          "rowWidth": 1106
+        },
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000023",
+          "width": 80.625,
+          "rowWidth": 1106
+        }
+      ],
+      "progress": [
+        "Progress50%1 of 2 stages",
+        "50%"
+      ],
+      "passed": true
+    },
+    {
+      "role": "HEAD_SA",
+      "language": "en",
+      "viewport": 1440,
+      "sidebar": "closed",
+      "panelWidth": 1278,
+      "pageWidth": 1434,
+      "scrollWidth": 1434,
+      "rowCount": 4,
+      "columns": 6,
+      "headerVisible": true,
+      "headerAligned": true,
+      "rowHeights": [
+        72,
+        73,
+        73,
+        73
+      ],
+      "labelsVisible": false,
+      "overflow": false,
+      "nameFits": true,
+      "links": [
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000001",
+          "width": 80.625,
+          "rowWidth": 1278
+        },
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000022",
+          "width": 80.625,
+          "rowWidth": 1278
+        },
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000024",
+          "width": 80.625,
+          "rowWidth": 1278
+        },
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000023",
+          "width": 80.625,
+          "rowWidth": 1278
+        }
+      ],
+      "progress": [
+        "Progress50%1 of 2 stages",
+        "50%"
+      ],
+      "passed": true
+    },
+    {
+      "role": "HEAD_SA",
+      "language": "en",
+      "viewport": 768,
+      "sidebar": "mobile drawer closed",
+      "panelWidth": 698,
+      "pageWidth": 762,
+      "scrollWidth": 762,
+      "rowCount": 4,
+      "columns": 2,
+      "headerVisible": false,
+      "headerAligned": false,
+      "rowHeights": [
+        202,
+        203,
+        203,
+        203
+      ],
+      "labelsVisible": true,
+      "overflow": false,
+      "nameFits": true,
+      "links": [
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000001",
+          "width": 80.625,
+          "rowWidth": 698
+        },
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000022",
+          "width": 80.625,
+          "rowWidth": 698
+        },
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000024",
+          "width": 80.625,
+          "rowWidth": 698
+        },
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000023",
+          "width": 80.625,
+          "rowWidth": 698
+        }
+      ],
+      "progress": [
+        "Progress50%1 of 2 stages",
+        "50%"
+      ],
+      "passed": true
+    },
+    {
+      "role": "HEAD_SA",
+      "language": "en",
+      "viewport": 390,
+      "sidebar": "mobile drawer closed",
+      "panelWidth": 336,
+      "pageWidth": 384,
+      "scrollWidth": 384,
+      "rowCount": 4,
+      "columns": 2,
+      "headerVisible": false,
+      "headerAligned": false,
+      "rowHeights": [
+        244,
+        225,
+        225,
+        225
+      ],
+      "labelsVisible": true,
+      "overflow": false,
+      "nameFits": true,
+      "links": [
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000001",
+          "width": 80.625,
+          "rowWidth": 336
+        },
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000022",
+          "width": 80.625,
+          "rowWidth": 336
+        },
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000024",
+          "width": 80.625,
+          "rowWidth": 336
+        },
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000023",
+          "width": 80.625,
+          "rowWidth": 336
+        }
+      ],
+      "progress": [
+        "Progress50%1 of 2 stages",
+        "50%"
+      ],
+      "passed": true
+    },
+    {
+      "role": "HEAD_SA",
+      "language": "en",
+      "viewport": 360,
+      "sidebar": "mobile drawer closed",
+      "panelWidth": 306,
+      "pageWidth": 354,
+      "scrollWidth": 354,
+      "rowCount": 4,
+      "columns": 2,
+      "headerVisible": false,
+      "headerAligned": false,
+      "rowHeights": [
+        244,
+        225,
+        225,
+        225
+      ],
+      "labelsVisible": true,
+      "overflow": false,
+      "nameFits": true,
+      "links": [
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000001",
+          "width": 80.625,
+          "rowWidth": 306
+        },
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000022",
+          "width": 80.625,
+          "rowWidth": 306
+        },
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000024",
+          "width": 80.625,
+          "rowWidth": 306
+        },
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000023",
+          "width": 80.625,
+          "rowWidth": 306
+        }
+      ],
+      "progress": [
+        "Progress50%1 of 2 stages",
+        "50%"
+      ],
+      "passed": true
+    },
+    {
+      "role": "HEAD_SA",
+      "language": "id",
+      "viewport": 1440,
+      "sidebar": "open",
+      "panelWidth": 1106,
+      "pageWidth": 1434,
+      "scrollWidth": 1434,
+      "rowCount": 4,
+      "columns": 6,
+      "headerVisible": true,
+      "headerAligned": true,
+      "rowHeights": [
+        84,
+        73,
+        73,
+        73
+      ],
+      "labelsVisible": false,
+      "overflow": false,
+      "nameFits": true,
+      "links": [
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000001",
+          "width": 77.28125,
+          "rowWidth": 1106
+        },
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000022",
+          "width": 77.28125,
+          "rowWidth": 1106
+        },
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000024",
+          "width": 77.28125,
+          "rowWidth": 1106
+        },
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000023",
+          "width": 77.28125,
+          "rowWidth": 1106
+        }
+      ],
+      "progress": [
+        "Progres50%1 dari 2 tahap",
+        "50%"
+      ],
+      "passed": true
+    },
+    {
+      "role": "HEAD_SA",
+      "language": "id",
+      "viewport": 1440,
+      "sidebar": "closed",
+      "panelWidth": 1278,
+      "pageWidth": 1434,
+      "scrollWidth": 1434,
+      "rowCount": 4,
+      "columns": 6,
+      "headerVisible": true,
+      "headerAligned": true,
+      "rowHeights": [
+        72,
+        73,
+        73,
+        73
+      ],
+      "labelsVisible": false,
+      "overflow": false,
+      "nameFits": true,
+      "links": [
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000001",
+          "width": 77.28125,
+          "rowWidth": 1278
+        },
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000022",
+          "width": 77.28125,
+          "rowWidth": 1278
+        },
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000024",
+          "width": 77.28125,
+          "rowWidth": 1278
+        },
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000023",
+          "width": 77.28125,
+          "rowWidth": 1278
+        }
+      ],
+      "progress": [
+        "Progres50%1 dari 2 tahap",
+        "50%"
+      ],
+      "passed": true
+    },
+    {
+      "role": "HEAD_SA",
+      "language": "id",
+      "viewport": 768,
+      "sidebar": "mobile drawer closed",
+      "panelWidth": 698,
+      "pageWidth": 762,
+      "scrollWidth": 762,
+      "rowCount": 4,
+      "columns": 2,
+      "headerVisible": false,
+      "headerAligned": false,
+      "rowHeights": [
+        202,
+        203,
+        203,
+        203
+      ],
+      "labelsVisible": true,
+      "overflow": false,
+      "nameFits": true,
+      "links": [
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000001",
+          "width": 77.28125,
+          "rowWidth": 698
+        },
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000022",
+          "width": 77.28125,
+          "rowWidth": 698
+        },
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000024",
+          "width": 77.28125,
+          "rowWidth": 698
+        },
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000023",
+          "width": 77.28125,
+          "rowWidth": 698
+        }
+      ],
+      "progress": [
+        "Progres50%1 dari 2 tahap",
+        "50%"
+      ],
+      "passed": true
+    },
+    {
+      "role": "HEAD_SA",
+      "language": "id",
+      "viewport": 390,
+      "sidebar": "mobile drawer closed",
+      "panelWidth": 336,
+      "pageWidth": 384,
+      "scrollWidth": 384,
+      "rowCount": 4,
+      "columns": 2,
+      "headerVisible": false,
+      "headerAligned": false,
+      "rowHeights": [
+        244,
+        225,
+        225,
+        225
+      ],
+      "labelsVisible": true,
+      "overflow": false,
+      "nameFits": true,
+      "links": [
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000001",
+          "width": 77.28125,
+          "rowWidth": 336
+        },
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000022",
+          "width": 77.28125,
+          "rowWidth": 336
+        },
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000024",
+          "width": 77.28125,
+          "rowWidth": 336
+        },
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000023",
+          "width": 77.28125,
+          "rowWidth": 336
+        }
+      ],
+      "progress": [
+        "Progres50%1 dari 2 tahap",
+        "50%"
+      ],
+      "passed": true
+    },
+    {
+      "role": "HEAD_SA",
+      "language": "id",
+      "viewport": 360,
+      "sidebar": "mobile drawer closed",
+      "panelWidth": 306,
+      "pageWidth": 354,
+      "scrollWidth": 354,
+      "rowCount": 4,
+      "columns": 2,
+      "headerVisible": false,
+      "headerAligned": false,
+      "rowHeights": [
+        244,
+        225,
+        225,
+        225
+      ],
+      "labelsVisible": true,
+      "overflow": false,
+      "nameFits": true,
+      "links": [
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000001",
+          "width": 77.28125,
+          "rowWidth": 306
+        },
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000022",
+          "width": 77.28125,
+          "rowWidth": 306
+        },
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000024",
+          "width": 77.28125,
+          "rowWidth": 306
+        },
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000023",
+          "width": 77.28125,
+          "rowWidth": 306
+        }
+      ],
+      "progress": [
+        "Progres50%1 dari 2 tahap",
+        "50%"
+      ],
+      "passed": true
+    },
+    {
+      "role": "SA",
+      "language": "en",
+      "viewport": 1440,
+      "sidebar": "open",
+      "panelWidth": 1106,
+      "pageWidth": 1434,
+      "scrollWidth": 1434,
+      "rowCount": 4,
+      "columns": 6,
+      "headerVisible": true,
+      "headerAligned": true,
+      "rowHeights": [
+        104,
+        73,
+        73,
+        73
+      ],
+      "labelsVisible": false,
+      "overflow": false,
+      "nameFits": true,
+      "links": [
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000001",
+          "width": 80.625,
+          "rowWidth": 1106
+        },
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000022",
+          "width": 80.625,
+          "rowWidth": 1106
+        },
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000024",
+          "width": 80.625,
+          "rowWidth": 1106
+        },
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000023",
+          "width": 80.625,
+          "rowWidth": 1106
+        }
+      ],
+      "progress": [
+        "Progress50%1 of 2 stages",
+        "50%"
+      ],
+      "passed": true
+    },
+    {
+      "role": "SA",
+      "language": "en",
+      "viewport": 1440,
+      "sidebar": "closed",
+      "panelWidth": 1278,
+      "pageWidth": 1434,
+      "scrollWidth": 1434,
+      "rowCount": 4,
+      "columns": 6,
+      "headerVisible": true,
+      "headerAligned": true,
+      "rowHeights": [
+        84,
+        73,
+        73,
+        73
+      ],
+      "labelsVisible": false,
+      "overflow": false,
+      "nameFits": true,
+      "links": [
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000001",
+          "width": 80.625,
+          "rowWidth": 1278
+        },
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000022",
+          "width": 80.625,
+          "rowWidth": 1278
+        },
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000024",
+          "width": 80.625,
+          "rowWidth": 1278
+        },
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000023",
+          "width": 80.625,
+          "rowWidth": 1278
+        }
+      ],
+      "progress": [
+        "Progress50%1 of 2 stages",
+        "50%"
+      ],
+      "passed": true
+    },
+    {
+      "role": "SA",
+      "language": "en",
+      "viewport": 768,
+      "sidebar": "mobile drawer closed",
+      "panelWidth": 698,
+      "pageWidth": 762,
+      "scrollWidth": 762,
+      "rowCount": 4,
+      "columns": 2,
+      "headerVisible": false,
+      "headerAligned": false,
+      "rowHeights": [
+        236,
+        217,
+        217,
+        217
+      ],
+      "labelsVisible": true,
+      "overflow": false,
+      "nameFits": true,
+      "links": [
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000001",
+          "width": 80.625,
+          "rowWidth": 698
+        },
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000022",
+          "width": 80.625,
+          "rowWidth": 698
+        },
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000024",
+          "width": 80.625,
+          "rowWidth": 698
+        },
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000023",
+          "width": 80.625,
+          "rowWidth": 698
+        }
+      ],
+      "progress": [
+        "Progress50%1 of 2 stages",
+        "50%"
+      ],
+      "passed": true
+    },
+    {
+      "role": "SA",
+      "language": "en",
+      "viewport": 390,
+      "sidebar": "mobile drawer closed",
+      "panelWidth": 336,
+      "pageWidth": 384,
+      "scrollWidth": 384,
+      "rowCount": 4,
+      "columns": 2,
+      "headerVisible": false,
+      "headerAligned": false,
+      "rowHeights": [
+        300,
+        281,
+        281,
+        281
+      ],
+      "labelsVisible": true,
+      "overflow": false,
+      "nameFits": true,
+      "links": [
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000001",
+          "width": 80.625,
+          "rowWidth": 336
+        },
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000022",
+          "width": 80.625,
+          "rowWidth": 336
+        },
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000024",
+          "width": 80.625,
+          "rowWidth": 336
+        },
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000023",
+          "width": 80.625,
+          "rowWidth": 336
+        }
+      ],
+      "progress": [
+        "Progress50%1 of 2 stages",
+        "50%"
+      ],
+      "passed": true
+    },
+    {
+      "role": "SA",
+      "language": "en",
+      "viewport": 360,
+      "sidebar": "mobile drawer closed",
+      "panelWidth": 306,
+      "pageWidth": 354,
+      "scrollWidth": 354,
+      "rowCount": 4,
+      "columns": 2,
+      "headerVisible": false,
+      "headerAligned": false,
+      "rowHeights": [
+        300,
+        281,
+        281,
+        281
+      ],
+      "labelsVisible": true,
+      "overflow": false,
+      "nameFits": true,
+      "links": [
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000001",
+          "width": 80.625,
+          "rowWidth": 306
+        },
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000022",
+          "width": 80.625,
+          "rowWidth": 306
+        },
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000024",
+          "width": 80.625,
+          "rowWidth": 306
+        },
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000023",
+          "width": 80.625,
+          "rowWidth": 306
+        }
+      ],
+      "progress": [
+        "Progress50%1 of 2 stages",
+        "50%"
+      ],
+      "passed": true
+    },
+    {
+      "role": "SA",
+      "language": "id",
+      "viewport": 1440,
+      "sidebar": "open",
+      "panelWidth": 1106,
+      "pageWidth": 1434,
+      "scrollWidth": 1434,
+      "rowCount": 4,
+      "columns": 6,
+      "headerVisible": true,
+      "headerAligned": true,
+      "rowHeights": [
+        104,
+        73,
+        73,
+        73
+      ],
+      "labelsVisible": false,
+      "overflow": false,
+      "nameFits": true,
+      "links": [
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000001",
+          "width": 77.28125,
+          "rowWidth": 1106
+        },
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000022",
+          "width": 77.28125,
+          "rowWidth": 1106
+        },
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000024",
+          "width": 77.28125,
+          "rowWidth": 1106
+        },
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000023",
+          "width": 77.28125,
+          "rowWidth": 1106
+        }
+      ],
+      "progress": [
+        "Progres50%1 dari 2 tahap",
+        "50%"
+      ],
+      "passed": true
+    },
+    {
+      "role": "SA",
+      "language": "id",
+      "viewport": 1440,
+      "sidebar": "closed",
+      "panelWidth": 1278,
+      "pageWidth": 1434,
+      "scrollWidth": 1434,
+      "rowCount": 4,
+      "columns": 6,
+      "headerVisible": true,
+      "headerAligned": true,
+      "rowHeights": [
+        84,
+        73,
+        73,
+        73
+      ],
+      "labelsVisible": false,
+      "overflow": false,
+      "nameFits": true,
+      "links": [
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000001",
+          "width": 77.28125,
+          "rowWidth": 1278
+        },
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000022",
+          "width": 77.28125,
+          "rowWidth": 1278
+        },
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000024",
+          "width": 77.28125,
+          "rowWidth": 1278
+        },
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000023",
+          "width": 77.28125,
+          "rowWidth": 1278
+        }
+      ],
+      "progress": [
+        "Progres50%1 dari 2 tahap",
+        "50%"
+      ],
+      "passed": true
+    },
+    {
+      "role": "SA",
+      "language": "id",
+      "viewport": 768,
+      "sidebar": "mobile drawer closed",
+      "panelWidth": 698,
+      "pageWidth": 762,
+      "scrollWidth": 762,
+      "rowCount": 4,
+      "columns": 2,
+      "headerVisible": false,
+      "headerAligned": false,
+      "rowHeights": [
+        236,
+        217,
+        217,
+        217
+      ],
+      "labelsVisible": true,
+      "overflow": false,
+      "nameFits": true,
+      "links": [
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000001",
+          "width": 77.28125,
+          "rowWidth": 698
+        },
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000022",
+          "width": 77.28125,
+          "rowWidth": 698
+        },
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000024",
+          "width": 77.28125,
+          "rowWidth": 698
+        },
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000023",
+          "width": 77.28125,
+          "rowWidth": 698
+        }
+      ],
+      "progress": [
+        "Progres50%1 dari 2 tahap",
+        "50%"
+      ],
+      "passed": true
+    },
+    {
+      "role": "SA",
+      "language": "id",
+      "viewport": 390,
+      "sidebar": "mobile drawer closed",
+      "panelWidth": 336,
+      "pageWidth": 384,
+      "scrollWidth": 384,
+      "rowCount": 4,
+      "columns": 2,
+      "headerVisible": false,
+      "headerAligned": false,
+      "rowHeights": [
+        300,
+        281,
+        281,
+        281
+      ],
+      "labelsVisible": true,
+      "overflow": false,
+      "nameFits": true,
+      "links": [
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000001",
+          "width": 77.28125,
+          "rowWidth": 336
+        },
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000022",
+          "width": 77.28125,
+          "rowWidth": 336
+        },
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000024",
+          "width": 77.28125,
+          "rowWidth": 336
+        },
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000023",
+          "width": 77.28125,
+          "rowWidth": 336
+        }
+      ],
+      "progress": [
+        "Progres50%1 dari 2 tahap",
+        "50%"
+      ],
+      "passed": true
+    },
+    {
+      "role": "SA",
+      "language": "id",
+      "viewport": 360,
+      "sidebar": "mobile drawer closed",
+      "panelWidth": 306,
+      "pageWidth": 354,
+      "scrollWidth": 354,
+      "rowCount": 4,
+      "columns": 2,
+      "headerVisible": false,
+      "headerAligned": false,
+      "rowHeights": [
+        300,
+        281,
+        281,
+        281
+      ],
+      "labelsVisible": true,
+      "overflow": false,
+      "nameFits": true,
+      "links": [
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000001",
+          "width": 77.28125,
+          "rowWidth": 306
+        },
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000022",
+          "width": 77.28125,
+          "rowWidth": 306
+        },
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000024",
+          "width": 77.28125,
+          "rowWidth": 306
+        },
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000023",
+          "width": 77.28125,
+          "rowWidth": 306
+        }
+      ],
+      "progress": [
+        "Progres50%1 dari 2 tahap",
+        "50%"
+      ],
+      "passed": true
+    },
+    {
+      "role": "SUPER_ADMIN",
+      "language": "en",
+      "viewport": 1440,
+      "sidebar": "open",
+      "panelWidth": 1106,
+      "pageWidth": 1434,
+      "scrollWidth": 1434,
+      "rowCount": 4,
+      "columns": 6,
+      "headerVisible": true,
+      "headerAligned": true,
+      "rowHeights": [
+        104,
+        73,
+        73,
+        73
+      ],
+      "labelsVisible": false,
+      "overflow": false,
+      "nameFits": true,
+      "links": [
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000001",
+          "width": 80.625,
+          "rowWidth": 1106
+        },
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000022",
+          "width": 80.625,
+          "rowWidth": 1106
+        },
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000024",
+          "width": 80.625,
+          "rowWidth": 1106
+        },
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000023",
+          "width": 80.625,
+          "rowWidth": 1106
+        }
+      ],
+      "progress": [
+        "Progress50%1 of 2 stages",
+        "50%"
+      ],
+      "passed": true
+    },
+    {
+      "role": "SUPER_ADMIN",
+      "language": "en",
+      "viewport": 1440,
+      "sidebar": "closed",
+      "panelWidth": 1278,
+      "pageWidth": 1434,
+      "scrollWidth": 1434,
+      "rowCount": 4,
+      "columns": 6,
+      "headerVisible": true,
+      "headerAligned": true,
+      "rowHeights": [
+        84,
+        73,
+        73,
+        73
+      ],
+      "labelsVisible": false,
+      "overflow": false,
+      "nameFits": true,
+      "links": [
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000001",
+          "width": 80.625,
+          "rowWidth": 1278
+        },
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000022",
+          "width": 80.625,
+          "rowWidth": 1278
+        },
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000024",
+          "width": 80.625,
+          "rowWidth": 1278
+        },
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000023",
+          "width": 80.625,
+          "rowWidth": 1278
+        }
+      ],
+      "progress": [
+        "Progress50%1 of 2 stages",
+        "50%"
+      ],
+      "passed": true
+    },
+    {
+      "role": "SUPER_ADMIN",
+      "language": "en",
+      "viewport": 768,
+      "sidebar": "mobile drawer closed",
+      "panelWidth": 698,
+      "pageWidth": 762,
+      "scrollWidth": 762,
+      "rowCount": 4,
+      "columns": 2,
+      "headerVisible": false,
+      "headerAligned": false,
+      "rowHeights": [
+        254,
+        237,
+        237,
+        237
+      ],
+      "labelsVisible": true,
+      "overflow": false,
+      "nameFits": true,
+      "links": [
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000001",
+          "width": 80.625,
+          "rowWidth": 698
+        },
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000022",
+          "width": 80.625,
+          "rowWidth": 698
+        },
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000024",
+          "width": 80.625,
+          "rowWidth": 698
+        },
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000023",
+          "width": 80.625,
+          "rowWidth": 698
+        }
+      ],
+      "progress": [
+        "Progress50%1 of 2 stages",
+        "50%"
+      ],
+      "passed": true
+    },
+    {
+      "role": "SUPER_ADMIN",
+      "language": "en",
+      "viewport": 390,
+      "sidebar": "mobile drawer closed",
+      "panelWidth": 336,
+      "pageWidth": 384,
+      "scrollWidth": 384,
+      "rowCount": 4,
+      "columns": 2,
+      "headerVisible": false,
+      "headerAligned": false,
+      "rowHeights": [
+        318,
+        281,
+        281,
+        281
+      ],
+      "labelsVisible": true,
+      "overflow": false,
+      "nameFits": true,
+      "links": [
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000001",
+          "width": 80.625,
+          "rowWidth": 336
+        },
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000022",
+          "width": 80.625,
+          "rowWidth": 336
+        },
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000024",
+          "width": 80.625,
+          "rowWidth": 336
+        },
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000023",
+          "width": 80.625,
+          "rowWidth": 336
+        }
+      ],
+      "progress": [
+        "Progress50%1 of 2 stages",
+        "50%"
+      ],
+      "passed": true
+    },
+    {
+      "role": "SUPER_ADMIN",
+      "language": "en",
+      "viewport": 360,
+      "sidebar": "mobile drawer closed",
+      "panelWidth": 306,
+      "pageWidth": 354,
+      "scrollWidth": 354,
+      "rowCount": 4,
+      "columns": 2,
+      "headerVisible": false,
+      "headerAligned": false,
+      "rowHeights": [
+        318,
+        281,
+        281,
+        281
+      ],
+      "labelsVisible": true,
+      "overflow": false,
+      "nameFits": true,
+      "links": [
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000001",
+          "width": 80.625,
+          "rowWidth": 306
+        },
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000022",
+          "width": 80.625,
+          "rowWidth": 306
+        },
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000024",
+          "width": 80.625,
+          "rowWidth": 306
+        },
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000023",
+          "width": 80.625,
+          "rowWidth": 306
+        }
+      ],
+      "progress": [
+        "Progress50%1 of 2 stages",
+        "50%"
+      ],
+      "passed": true
+    },
+    {
+      "role": "SUPER_ADMIN",
+      "language": "id",
+      "viewport": 1440,
+      "sidebar": "open",
+      "panelWidth": 1106,
+      "pageWidth": 1434,
+      "scrollWidth": 1434,
+      "rowCount": 4,
+      "columns": 6,
+      "headerVisible": true,
+      "headerAligned": true,
+      "rowHeights": [
+        104,
+        73,
+        73,
+        73
+      ],
+      "labelsVisible": false,
+      "overflow": false,
+      "nameFits": true,
+      "links": [
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000001",
+          "width": 77.28125,
+          "rowWidth": 1106
+        },
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000022",
+          "width": 77.28125,
+          "rowWidth": 1106
+        },
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000024",
+          "width": 77.28125,
+          "rowWidth": 1106
+        },
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000023",
+          "width": 77.28125,
+          "rowWidth": 1106
+        }
+      ],
+      "progress": [
+        "Progres50%1 dari 2 tahap",
+        "50%"
+      ],
+      "passed": true
+    },
+    {
+      "role": "SUPER_ADMIN",
+      "language": "id",
+      "viewport": 1440,
+      "sidebar": "closed",
+      "panelWidth": 1278,
+      "pageWidth": 1434,
+      "scrollWidth": 1434,
+      "rowCount": 4,
+      "columns": 6,
+      "headerVisible": true,
+      "headerAligned": true,
+      "rowHeights": [
+        84,
+        73,
+        73,
+        73
+      ],
+      "labelsVisible": false,
+      "overflow": false,
+      "nameFits": true,
+      "links": [
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000001",
+          "width": 77.28125,
+          "rowWidth": 1278
+        },
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000022",
+          "width": 77.28125,
+          "rowWidth": 1278
+        },
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000024",
+          "width": 77.28125,
+          "rowWidth": 1278
+        },
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000023",
+          "width": 77.28125,
+          "rowWidth": 1278
+        }
+      ],
+      "progress": [
+        "Progres50%1 dari 2 tahap",
+        "50%"
+      ],
+      "passed": true
+    },
+    {
+      "role": "SUPER_ADMIN",
+      "language": "id",
+      "viewport": 768,
+      "sidebar": "mobile drawer closed",
+      "panelWidth": 698,
+      "pageWidth": 762,
+      "scrollWidth": 762,
+      "rowCount": 4,
+      "columns": 2,
+      "headerVisible": false,
+      "headerAligned": false,
+      "rowHeights": [
+        254,
+        237,
+        237,
+        237
+      ],
+      "labelsVisible": true,
+      "overflow": false,
+      "nameFits": true,
+      "links": [
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000001",
+          "width": 77.28125,
+          "rowWidth": 698
+        },
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000022",
+          "width": 77.28125,
+          "rowWidth": 698
+        },
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000024",
+          "width": 77.28125,
+          "rowWidth": 698
+        },
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000023",
+          "width": 77.28125,
+          "rowWidth": 698
+        }
+      ],
+      "progress": [
+        "Progres50%1 dari 2 tahap",
+        "50%"
+      ],
+      "passed": true
+    },
+    {
+      "role": "SUPER_ADMIN",
+      "language": "id",
+      "viewport": 390,
+      "sidebar": "mobile drawer closed",
+      "panelWidth": 336,
+      "pageWidth": 384,
+      "scrollWidth": 384,
+      "rowCount": 4,
+      "columns": 2,
+      "headerVisible": false,
+      "headerAligned": false,
+      "rowHeights": [
+        318,
+        281,
+        281,
+        281
+      ],
+      "labelsVisible": true,
+      "overflow": false,
+      "nameFits": true,
+      "links": [
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000001",
+          "width": 77.28125,
+          "rowWidth": 336
+        },
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000022",
+          "width": 77.28125,
+          "rowWidth": 336
+        },
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000024",
+          "width": 77.28125,
+          "rowWidth": 336
+        },
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000023",
+          "width": 77.28125,
+          "rowWidth": 336
+        }
+      ],
+      "progress": [
+        "Progres50%1 dari 2 tahap",
+        "50%"
+      ],
+      "passed": true
+    },
+    {
+      "role": "SUPER_ADMIN",
+      "language": "id",
+      "viewport": 360,
+      "sidebar": "mobile drawer closed",
+      "panelWidth": 306,
+      "pageWidth": 354,
+      "scrollWidth": 354,
+      "rowCount": 4,
+      "columns": 2,
+      "headerVisible": false,
+      "headerAligned": false,
+      "rowHeights": [
+        318,
+        281,
+        281,
+        281
+      ],
+      "labelsVisible": true,
+      "overflow": false,
+      "nameFits": true,
+      "links": [
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000001",
+          "width": 77.28125,
+          "rowWidth": 306
+        },
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000022",
+          "width": 77.28125,
+          "rowWidth": 306
+        },
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000024",
+          "width": 77.28125,
+          "rowWidth": 306
+        },
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000023",
+          "width": 77.28125,
+          "rowWidth": 306
+        }
+      ],
+      "progress": [
+        "Progres50%1 dari 2 tahap",
+        "50%"
+      ],
+      "passed": true
+    },
+    {
+      "role": "SALES",
+      "language": "en",
+      "viewport": 1440,
+      "sidebar": "open",
+      "panelWidth": 1106,
+      "pageWidth": 1434,
+      "scrollWidth": 1434,
+      "rowCount": 0,
+      "columns": null,
+      "headerVisible": false,
+      "headerAligned": false,
+      "rowHeights": [],
+      "labelsVisible": null,
+      "overflow": false,
+      "nameFits": true,
+      "links": [
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000023",
+          "width": 80.625,
+          "rowWidth": 358
+        },
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000001",
+          "width": 80.625,
+          "rowWidth": 358
+        },
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000022",
+          "width": 80.625,
+          "rowWidth": 358
+        },
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000024",
+          "width": 80.625,
+          "rowWidth": 358
+        }
+      ],
+      "progress": null,
+      "passed": true
+    },
+    {
+      "role": "SALES",
+      "language": "en",
+      "viewport": 1440,
+      "sidebar": "closed",
+      "panelWidth": 1278,
+      "pageWidth": 1434,
+      "scrollWidth": 1434,
+      "rowCount": 0,
+      "columns": null,
+      "headerVisible": false,
+      "headerAligned": false,
+      "rowHeights": [],
+      "labelsVisible": null,
+      "overflow": false,
+      "nameFits": true,
+      "links": [
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000023",
+          "width": 80.625,
+          "rowWidth": 418
+        },
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000001",
+          "width": 80.625,
+          "rowWidth": 418
+        },
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000022",
+          "width": 80.625,
+          "rowWidth": 418
+        },
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000024",
+          "width": 80.625,
+          "rowWidth": 418
+        }
+      ],
+      "progress": null,
+      "passed": true
+    },
+    {
+      "role": "SALES",
+      "language": "en",
+      "viewport": 768,
+      "sidebar": "mobile drawer closed",
+      "panelWidth": 698,
+      "pageWidth": 762,
+      "scrollWidth": 762,
+      "rowCount": 0,
+      "columns": null,
+      "headerVisible": false,
+      "headerAligned": false,
+      "rowHeights": [],
+      "labelsVisible": null,
+      "overflow": false,
+      "nameFits": true,
+      "links": [
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000023",
+          "width": 80.625,
+          "rowWidth": 666
+        },
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000001",
+          "width": 80.625,
+          "rowWidth": 666
+        },
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000022",
+          "width": 80.625,
+          "rowWidth": 666
+        },
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000024",
+          "width": 80.625,
+          "rowWidth": 666
+        }
+      ],
+      "progress": null,
+      "passed": true
+    },
+    {
+      "role": "SALES",
+      "language": "en",
+      "viewport": 390,
+      "sidebar": "mobile drawer closed",
+      "panelWidth": 336,
+      "pageWidth": 384,
+      "scrollWidth": 384,
+      "rowCount": 0,
+      "columns": null,
+      "headerVisible": false,
+      "headerAligned": false,
+      "rowHeights": [],
+      "labelsVisible": null,
+      "overflow": false,
+      "nameFits": true,
+      "links": [
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000023",
+          "width": 80.625,
+          "rowWidth": 304
+        },
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000001",
+          "width": 80.625,
+          "rowWidth": 304
+        },
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000022",
+          "width": 80.625,
+          "rowWidth": 304
+        },
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000024",
+          "width": 80.625,
+          "rowWidth": 304
+        }
+      ],
+      "progress": null,
+      "passed": true
+    },
+    {
+      "role": "SALES",
+      "language": "en",
+      "viewport": 360,
+      "sidebar": "mobile drawer closed",
+      "panelWidth": 306,
+      "pageWidth": 354,
+      "scrollWidth": 354,
+      "rowCount": 0,
+      "columns": null,
+      "headerVisible": false,
+      "headerAligned": false,
+      "rowHeights": [],
+      "labelsVisible": null,
+      "overflow": false,
+      "nameFits": true,
+      "links": [
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000023",
+          "width": 80.625,
+          "rowWidth": 274
+        },
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000001",
+          "width": 80.625,
+          "rowWidth": 274
+        },
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000022",
+          "width": 80.625,
+          "rowWidth": 274
+        },
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000024",
+          "width": 80.625,
+          "rowWidth": 274
+        }
+      ],
+      "progress": null,
+      "passed": true
+    },
+    {
+      "role": "SALES",
+      "language": "id",
+      "viewport": 1440,
+      "sidebar": "open",
+      "panelWidth": 1106,
+      "pageWidth": 1434,
+      "scrollWidth": 1434,
+      "rowCount": 0,
+      "columns": null,
+      "headerVisible": false,
+      "headerAligned": false,
+      "rowHeights": [],
+      "labelsVisible": null,
+      "overflow": false,
+      "nameFits": true,
+      "links": [
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000023",
+          "width": 77.28125,
+          "rowWidth": 358
+        },
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000001",
+          "width": 77.28125,
+          "rowWidth": 358
+        },
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000022",
+          "width": 77.28125,
+          "rowWidth": 358
+        },
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000024",
+          "width": 77.28125,
+          "rowWidth": 358
+        }
+      ],
+      "progress": null,
+      "passed": true
+    },
+    {
+      "role": "SALES",
+      "language": "id",
+      "viewport": 1440,
+      "sidebar": "closed",
+      "panelWidth": 1278,
+      "pageWidth": 1434,
+      "scrollWidth": 1434,
+      "rowCount": 0,
+      "columns": null,
+      "headerVisible": false,
+      "headerAligned": false,
+      "rowHeights": [],
+      "labelsVisible": null,
+      "overflow": false,
+      "nameFits": true,
+      "links": [
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000023",
+          "width": 77.28125,
+          "rowWidth": 418
+        },
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000001",
+          "width": 77.28125,
+          "rowWidth": 418
+        },
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000022",
+          "width": 77.28125,
+          "rowWidth": 418
+        },
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000024",
+          "width": 77.28125,
+          "rowWidth": 418
+        }
+      ],
+      "progress": null,
+      "passed": true
+    },
+    {
+      "role": "SALES",
+      "language": "id",
+      "viewport": 768,
+      "sidebar": "mobile drawer closed",
+      "panelWidth": 698,
+      "pageWidth": 762,
+      "scrollWidth": 762,
+      "rowCount": 0,
+      "columns": null,
+      "headerVisible": false,
+      "headerAligned": false,
+      "rowHeights": [],
+      "labelsVisible": null,
+      "overflow": false,
+      "nameFits": true,
+      "links": [
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000023",
+          "width": 77.28125,
+          "rowWidth": 666
+        },
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000001",
+          "width": 77.28125,
+          "rowWidth": 666
+        },
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000022",
+          "width": 77.28125,
+          "rowWidth": 666
+        },
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000024",
+          "width": 77.28125,
+          "rowWidth": 666
+        }
+      ],
+      "progress": null,
+      "passed": true
+    },
+    {
+      "role": "SALES",
+      "language": "id",
+      "viewport": 390,
+      "sidebar": "mobile drawer closed",
+      "panelWidth": 336,
+      "pageWidth": 384,
+      "scrollWidth": 384,
+      "rowCount": 0,
+      "columns": null,
+      "headerVisible": false,
+      "headerAligned": false,
+      "rowHeights": [],
+      "labelsVisible": null,
+      "overflow": false,
+      "nameFits": true,
+      "links": [
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000023",
+          "width": 77.28125,
+          "rowWidth": 304
+        },
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000001",
+          "width": 77.28125,
+          "rowWidth": 304
+        },
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000022",
+          "width": 77.28125,
+          "rowWidth": 304
+        },
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000024",
+          "width": 77.28125,
+          "rowWidth": 304
+        }
+      ],
+      "progress": null,
+      "passed": true
+    },
+    {
+      "role": "SALES",
+      "language": "id",
+      "viewport": 360,
+      "sidebar": "mobile drawer closed",
+      "panelWidth": 306,
+      "pageWidth": 354,
+      "scrollWidth": 354,
+      "rowCount": 0,
+      "columns": null,
+      "headerVisible": false,
+      "headerAligned": false,
+      "rowHeights": [],
+      "labelsVisible": null,
+      "overflow": false,
+      "nameFits": true,
+      "links": [
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000023",
+          "width": 77.28125,
+          "rowWidth": 274
+        },
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000001",
+          "width": 77.28125,
+          "rowWidth": 274
+        },
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000022",
+          "width": 77.28125,
+          "rowWidth": 274
+        },
+        {
+          "href": "/projects/90000000-0000-4000-8000-000000000024",
+          "width": 77.28125,
+          "rowWidth": 274
+        }
+      ],
+      "progress": null,
+      "passed": true
+    }
+  ],
+  "unknownRequests": [],
+  "runtimeErrors": [],
+  "liveRequests": 0,
+  "limits": "Actual app/AuthProvider in Chrome; synthetic API only. No live backend authorization, GoTrue or Storage integration tested."
+}

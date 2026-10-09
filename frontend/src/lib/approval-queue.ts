@@ -36,6 +36,28 @@ export function outputReviewTarget(hash: string) {
 export const outputReviewIsStale = (target: ReturnType<typeof outputReviewTarget>, document: { id: string; status: string; currentVersionId?: string | null }) =>
   Boolean(target && target.outputId === document.id && (document.status !== 'IN_REVIEW' || target.snapshotId !== document.currentVersionId));
 
+export function resolvedOutputReviewHash(hash: string, saved: { outputId?: string; snapshotId: string }[]): string {
+  const target = outputReviewTarget(hash);
+  if (!target || !saved.some(item => item.outputId === target.outputId && item.snapshotId === target.snapshotId)) return hash;
+  const query = hash.indexOf('?'), params = new URLSearchParams(hash.slice(query + 1));
+  params.delete('output'); params.delete('snapshot');
+  return hash.slice(0, query) + (params.size ? `?${params}` : '');
+}
+
+// Call only with the exact snapshots confirmed successful by this request.
+// A stale deep link opened later, failed review or another snapshot remains stale.
+export function clearResolvedOutputReviewLink(saved: { outputId?: string; snapshotId: string }[]) {
+  if (typeof window === 'undefined') return;
+  try {
+    const hash = window.location.hash, next = resolvedOutputReviewHash(hash, saved);
+    if (next === hash) return;
+    window.history.replaceState(window.history.state, '', `${window.location.pathname}${window.location.search}${next}`);
+    window.dispatchEvent(new Event('hashchange'));
+  } catch {
+    // URL presentation cannot turn a confirmed database success into a failed review.
+  }
+}
+
 export function focusOutputReviewLink(hash: string, milestoneId: string, root: Pick<Document, 'getElementById'>) {
   const linkedOutput = outputReviewTarget(hash);
   const target = (linkedOutput && root.getElementById(`project-output-${linkedOutput.outputId}`))

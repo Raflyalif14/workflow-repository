@@ -110,26 +110,28 @@ export function ApprovalActionDialog({
 
     setError("");
     if (!confirming) {
-      if (item.category === "PROJECT_PLAN" && (isOperationalV2 || projectQuery.data?.active_phase_id) && projectQuery.data?.pic_revision === undefined) { setError('picOperation.failed'); return; }
+      if (item.category === "PROJECT_PLAN" && (isOperationalV2 || projectQuery.data?.active_phase_id) && projectQuery.data?.pic_revision === undefined) { setError('picOperation.reviewUnavailable'); return; }
       setReviewedPicName(projectQuery.data?.pic?.full_name || projectQuery.data?.pic?.fullName || translateI18n('ui.unassigned')); setReviewedRevision(projectQuery.data?.pic_revision); setReviewedItemId(item.id); setConfirming(true); return;
     }
+    if (item.category === 'PROJECT_PLAN' && item.id !== reviewedItemId) { setError('reviewConfirm.stale'); return; }
     busy.current = true;
-    if (item.category === 'PROJECT_PLAN' && reviewedRevision !== undefined) {
-      intent.current = retainPicRequest(intent.current, reviewedRevision, { approval: reviewedItemId, action, feedback: feedback.trim(), picId });
-    }
+    let decisionStarted = false;
     try {
-      await runConfirmedDecision({ confirmed: confirming, current: canProcess && (item.category !== "PROJECT_PLAN" || item.id === reviewedItemId), reason: feedback, reasonRequired: action === "REJECT" }, () => processMutation.mutateAsync({
+      if (item.category === 'PROJECT_PLAN' && reviewedRevision !== undefined) {
+        intent.current = retainPicRequest(intent.current, reviewedRevision, { approval: reviewedItemId, action, feedback: feedback.trim(), picId });
+      }
+      await runConfirmedDecision({ confirmed: confirming, current: canProcess && (item.category !== "PROJECT_PLAN" || item.id === reviewedItemId), reason: feedback, reasonRequired: action === "REJECT" }, () => { decisionStarted = true; return processMutation.mutateAsync({
         item,
         action,
         feedback: feedback.trim() || undefined,
         picId: requiresPic ? picId : undefined,
         expectedPicRevision: intent.current?.revision, requestId: intent.current?.id,
-      }));
+      }); });
       onOpenChange(false);
       setFeedback("");
     } catch (failure) {
       const code = failure instanceof ApiError ? failure.code : undefined;
-      setError(failure instanceof ApiError && failure.status === 409 && code !== 'PIC_CONFLICT' ? 'businessAudit.stale' : item.category === 'PROJECT_PLAN' ? picErrorKey(code) : 'reviewConfirm.failed');
+      setError(!decisionStarted && item.category === 'PROJECT_PLAN' ? 'picOperation.preparationFailed' : failure instanceof ApiError && failure.status === 409 && code !== 'PIC_CONFLICT' ? 'businessAudit.stale' : item.category === 'PROJECT_PLAN' ? picErrorKey(code) : 'reviewConfirm.failed');
       if (code === 'PIC_CONFLICT') { setConfirming(false); intent.current = null; await projectQuery.refetch(); }
     } finally { busy.current = false; }
   };
@@ -308,6 +310,10 @@ export function ApprovalActionDialog({
 
             {confirming && <p className="text-sm">{translateI18n("reviewConfirm.check")} {item.phaseName || projectQuery.data?.active_scenario?.name || projectQuery.data?.scenario?.name}<strong className="block whitespace-pre-wrap">{feedback.trim()}</strong></p>}
             <DialogFooter className="border-t border-border/40 pt-4">
+              {(error === 'picOperation.reviewUnavailable' || error === 'reviewConfirm.stale') && <Button type="button" variant="outline" disabled={processMutation.isPending || projectQuery.isFetching} onClick={async () => {
+                try { await projectQuery.refetch({ throwOnError: true }); setConfirming(false); intent.current = null; setError(''); }
+                catch { setError('picOperation.reviewUnavailable'); }
+              }}>{translateI18n('picOperation.reload')}</Button>}
               <Button
                 type="button"
                 variant="outline"

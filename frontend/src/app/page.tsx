@@ -410,7 +410,7 @@ function ProjectDeliveryRow({
   const openProject = (
     <Link
       href={"/projects/" + project.id}
-      className="inline-flex min-h-10 items-center justify-center gap-1 rounded-md border border-border px-3 text-sm font-medium text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring 2xl:min-h-0 2xl:border-0 2xl:px-0 2xl:text-primary 2xl:hover:bg-transparent 2xl:hover:underline"
+      className="inline-flex min-h-9 w-fit shrink-0 items-center justify-center gap-1 self-center justify-self-end rounded-md border border-primary/20 bg-primary/5 px-3 text-sm font-medium text-primary transition-colors hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >
       {translateI18n("common.open")}
       <ChevronRight className="h-4 w-4" />
@@ -437,76 +437,46 @@ function ProjectDeliveryRow({
     );
   }
 
-  if (role === "HEAD_SA") {
-    return (
-      <div className="delivery-row grid min-w-0 gap-4 px-4 py-4 2xl:grid-cols-[minmax(180px,1.3fr)_minmax(140px,1fr)_minmax(180px,1.1fr)_110px_minmax(150px,1fr)_auto] 2xl:items-center 2xl:px-5">
-        <p className="break-words text-sm font-semibold text-foreground">{project.name}</p>
-        <div><p className="text-xs text-muted-foreground 2xl:hidden">{translateI18n("role.SA")}</p><p className="mt-1 break-words text-sm text-foreground 2xl:mt-0">{project.picName || translateI18n("ui.unassigned")}</p></div>
-        <div><p className="text-xs text-muted-foreground 2xl:hidden">{translateI18n("copy.currentWork")}</p><p className="mt-1 break-words text-sm text-foreground 2xl:mt-0">{project.currentStage || translateI18n("common.notAvailable")}</p></div>
-        <div><p className="text-xs text-muted-foreground 2xl:hidden">{translateI18n("common.status")}</p><span className={["mt-1 inline-flex items-center gap-1.5 rounded-full border px-2 py-1 text-xs font-medium 2xl:mt-0", getProjectStatusClassName(project.status)].join(" ")}><StatusIcon className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />{formatDashboardLabel(project.status)}</span></div>
-        <div><p className="text-xs text-muted-foreground 2xl:hidden">{translateI18n("copy.progress")}</p><p className="mt-1 text-sm text-foreground 2xl:mt-0">{hasProgress ? `${project.percentage}%` : translateI18n("dashboardPage.unknown")}</p><p className="mt-1 text-xs text-muted-foreground">{project.totalMilestones > 0 ? translateI18n("dashboardPage.stages", { done: project.completedMilestones, total: project.totalMilestones }) : translateI18n("dashboardPage.stageUnavailable")}</p></div>
-        {openProject}
-      </div>
-    );
-  }
-
-  if (role === "SA") {
-    return (
-      <div className="delivery-row grid min-w-0 gap-4 px-4 py-4 2xl:grid-cols-[minmax(180px,1.3fr)_minmax(140px,1fr)_minmax(180px,1.1fr)_minmax(140px,0.9fr)_110px_auto] 2xl:items-center 2xl:px-5">
-        <p className="break-words text-sm font-semibold text-foreground">{project.name}</p>
-        <div><p className="text-xs text-muted-foreground 2xl:hidden">{translateI18n("project.customer")}</p><p className="mt-1 break-words text-sm text-foreground 2xl:mt-0">{project.clientName || translateI18n("common.notAvailable")}</p></div>
-        <div><p className="text-xs text-muted-foreground 2xl:hidden">{translateI18n("copy.currentWork")}</p><p className="mt-1 break-words text-sm text-foreground 2xl:mt-0">{project.currentStage || translateI18n("common.notAvailable")}</p></div>
-        <div><p className="text-xs text-muted-foreground 2xl:hidden">{translateI18n("copy.deadline")}</p><p className={["mt-1 text-sm 2xl:mt-0", project.overdueMilestones > 0 ? "text-destructive" : "text-foreground"].join(" ")}>{deadlineLabel}</p></div>
-        <div><p className="text-xs text-muted-foreground 2xl:hidden">{translateI18n("common.status")}</p><span className={["mt-1 inline-flex items-center gap-1.5 rounded-full border px-2 py-1 text-xs font-medium 2xl:mt-0", getProjectStatusClassName(project.status)].join(" ")}><StatusIcon className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />{formatDashboardLabel(project.status)}</span></div>
-        {openProject}
-      </div>
-    );
-  }
-
   return (
-    <div className="delivery-row grid min-w-0 gap-4 px-4 py-4 2xl:grid-cols-[minmax(170px,1.4fr)_minmax(110px,0.9fr)_110px_minmax(145px,1fr)_minmax(135px,1fr)_minmax(110px,0.9fr)_auto] 2xl:items-center 2xl:px-5">
-      <div className="min-w-0">
-        <p className="break-words text-sm font-semibold text-foreground">{project.name}</p>
+    <div className="delivery-row">
+      <div className="delivery-project min-w-0">
+        <p className="break-words text-sm font-semibold text-foreground [overflow-wrap:anywhere]">{project.name}</p>
+        {(role === "SA" || role === "SUPER_ADMIN") && (
+          <p className="mt-1 break-words text-xs text-muted-foreground [overflow-wrap:anywhere]">
+            {translateI18n("project.customer")}: {project.clientName || translateI18n("common.notAvailable")}
+          </p>
+        )}
       </div>
       <div className="min-w-0">
-        <p className="text-xs text-muted-foreground 2xl:hidden">{translateI18n("project.customer")}</p>
-        <p className="mt-1 break-words text-sm text-foreground 2xl:mt-0">{project.clientName || translateI18n("common.notAvailable")}</p>
+        <p className="delivery-cell-label">PIC</p>
+        <p className="break-words text-sm text-foreground [overflow-wrap:anywhere]">{project.picName || translateI18n("ui.unassigned")}</p>
+        {role === "SUPER_ADMIN" && <p className="mt-1 break-words text-xs text-muted-foreground [overflow-wrap:anywhere]">{translateI18n("project.owner")}: {ownerLabel}</p>}
       </div>
-      <div>
-        <p className="text-xs text-muted-foreground 2xl:hidden">{translateI18n("common.status")}</p>
-        <span className={["mt-1 inline-flex items-center gap-1.5 rounded-full border px-2 py-1 text-xs font-medium 2xl:mt-0", getProjectStatusClassName(project.status)].join(" ")}>
-          <StatusIcon className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />{formatDashboardLabel(project.status)}
+      <div className="min-w-0">
+        <p className="delivery-cell-label">{translateI18n("copy.currentWork")}</p>
+        <p className="break-words text-sm text-foreground [overflow-wrap:anywhere]">{project.currentStage || translateI18n("common.notAvailable")}</p>
+        {(role === "SA" || role === "SUPER_ADMIN") && (
+          <p className={["mt-1 break-words text-xs", project.overdueMilestones > 0 ? "text-destructive" : "text-muted-foreground"].join(" ")}>
+            {translateI18n("copy.deadline")}: {deadlineLabel}
+          </p>
+        )}
+        {role === "SUPER_ADMIN" && riskDetail && <p className="mt-0.5 text-xs text-muted-foreground">{riskDetail}</p>}
+      </div>
+      <div className="min-w-0">
+        <p className="delivery-cell-label">{translateI18n("common.status")}</p>
+        <span className={["inline-flex max-w-full items-center gap-1.5 rounded-full border px-2 py-1 text-xs font-medium", getProjectStatusClassName(project.status)].join(" ")}>
+          <StatusIcon className="h-3.5 w-3.5 shrink-0" aria-hidden="true" /><span className="break-words">{formatDashboardLabel(project.status)}</span>
         </span>
       </div>
-      <div>
-        <div className="flex items-center justify-between gap-2 text-xs">
-          <span className="text-muted-foreground 2xl:hidden">{translateI18n("copy.progress")}</span>
-          <span className="text-foreground">{hasProgress ? String(project.percentage) + "%" : translateI18n("dashboardPage.unknown")}</span>
+      <div className="delivery-progress min-w-0">
+        <p className="delivery-cell-label">{translateI18n("copy.progress")}</p>
+        <p className="text-xs font-medium tabular-nums text-foreground">{hasProgress ? String(project.percentage) + "%" : translateI18n("dashboardPage.unknown")}</p>
+        <div className="mt-1.5 h-1.5 rounded-full bg-muted">
+          {hasProgress && <div className="h-full rounded-full bg-primary" style={{ width: String(Math.min(100, Math.max(0, project.percentage || 0))) + "%" }} />}
         </div>
-        <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted">
-          {hasProgress && (
-            <div
-              className="h-full rounded-full bg-primary"
-              style={{ width: String(Math.min(100, Math.max(0, project.percentage || 0))) + "%" }}
-            />
-          )}
-        </div>
-        <p className="mt-1 text-xs text-muted-foreground">
-          {project.totalMilestones > 0
-            ? translateI18n("dashboardPage.stages", { done: project.completedMilestones, total: project.totalMilestones })
-            : translateI18n("dashboardPage.stageUnavailable")}
-        </p>
-      </div>
-      <div>
-        <p className="text-xs text-muted-foreground 2xl:hidden">{translateI18n("copy.deadlineRisk")}</p>
-        <p className={["mt-1 text-sm 2xl:mt-0", project.overdueMilestones > 0 ? "text-destructive" : "text-foreground"].join(" ")}>
-          {deadlineLabel}
-        </p>
-        {riskDetail && <p className="mt-0.5 text-xs text-muted-foreground">{riskDetail}</p>}
-      </div>
-      <div className="min-w-0">
-        <p className="text-xs text-muted-foreground 2xl:hidden">{translateI18n("project.owner")}</p>
-        <p className="mt-1 break-words text-sm text-foreground 2xl:mt-0">{ownerLabel}</p>
+        <p className="mt-1 text-xs text-muted-foreground">{project.totalMilestones > 0
+          ? translateI18n("dashboardPage.stages", { done: project.completedMilestones, total: project.totalMilestones })
+          : translateI18n("dashboardPage.stageUnavailable")}</p>
       </div>
       {openProject}
     </div>
@@ -917,7 +887,7 @@ export default function DashboardPage() {
         />}
       </div>
 
-      <section aria-labelledby="project-delivery-heading" className="dashboard-surface overflow-hidden">
+      <section aria-labelledby="project-delivery-heading" className="project-delivery-layout dashboard-surface">
         <div className="flex flex-col gap-3 border-b border-border px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
           <div>
             <h2 id="project-delivery-heading" className="text-base font-semibold text-foreground">{projectDeliveryTitle}</h2>
@@ -936,17 +906,9 @@ export default function DashboardPage() {
           <div className="hidden grid-cols-[minmax(0,1.6fr)_minmax(0,1.1fr)_minmax(0,1fr)_minmax(0,0.85fr)] gap-4 border-b border-border bg-muted/40 px-5 py-2.5 text-xs font-medium text-muted-foreground lg:grid">
             <span>{translateI18n("nav.projects")}</span><span>{translateI18n("copy.estimatedRevenue")}</span><span>{translateI18n("copy.stage")}</span><span>PIC</span>
           </div>
-        ) : userRole === "HEAD_SA" ? (
-          <div className="delivery-columns hidden grid-cols-[minmax(180px,1.3fr)_minmax(140px,1fr)_minmax(180px,1.1fr)_110px_minmax(150px,1fr)_auto] gap-4 border-b border-border bg-muted/40 px-5 py-3 text-xs font-medium text-muted-foreground 2xl:grid">
-            <span>{translateI18n("nav.projects")}</span><span>{translateI18n("role.SA")}</span><span>{translateI18n("copy.currentTasks")}</span><span>{translateI18n("common.status")}</span><span>{translateI18n("copy.progress")}</span><span>{translateI18n("common.actions")}</span>
-          </div>
-        ) : userRole === "SA" ? (
-          <div className="delivery-columns hidden grid-cols-[minmax(180px,1.3fr)_minmax(140px,1fr)_minmax(180px,1.1fr)_minmax(140px,0.9fr)_110px_auto] gap-4 border-b border-border bg-muted/40 px-5 py-3 text-xs font-medium text-muted-foreground 2xl:grid">
-            <span>{translateI18n("nav.projects")}</span><span>{translateI18n("project.customer")}</span><span>{translateI18n("copy.currentTasks")}</span><span>{translateI18n("copy.deadline")}</span><span>{translateI18n("common.status")}</span><span>{translateI18n("common.actions")}</span>
-          </div>
         ) : (
-          <div className="delivery-columns hidden grid-cols-[minmax(170px,1.4fr)_minmax(110px,0.9fr)_110px_minmax(145px,1fr)_minmax(135px,1fr)_minmax(110px,0.9fr)_auto] gap-4 border-b border-border bg-muted/40 px-5 py-3 text-xs font-medium text-muted-foreground 2xl:grid">
-            <span>{translateI18n("nav.projects")}</span><span>{translateI18n("project.customer")}</span><span>{translateI18n("common.status")}</span><span>{translateI18n("copy.progress")}</span><span>{translateI18n("copy.deadlineRisk")}</span><span>{translateI18n("project.owner")}</span><span>{translateI18n("common.actions")}</span>
+          <div className="delivery-columns border-b border-border bg-muted/40 text-xs font-medium text-muted-foreground">
+            <span>{translateI18n("nav.projects")}</span><span>PIC</span><span>{translateI18n("copy.currentWork")}</span><span>{translateI18n("common.status")}</span><span>{translateI18n("copy.progress")}</span><span className="text-right">{translateI18n("common.open")}</span>
           </div>
         )}
 

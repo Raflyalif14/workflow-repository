@@ -16,7 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { AssignedMilestone, useMyAssignedMilestones } from "@/hooks/use-projects";
 import { useOutputRepository, OutputRepositoryItem } from "@/hooks/use-output-documents";
-import { getAssignedMilestonesNeedingAction, isAssignedProjectPaused } from "@/lib/assigned-milestone-ux";
+import { countAssignedOutputsWaitingReview, getAssignedMilestoneState, getAssignedMilestonesNeedingAction, isAssignedProjectPaused } from "@/lib/assigned-milestone-ux";
 
 type QueueTab = "ACTION" | "REVIEW" | "PENDING_REVIEW" | "COMPLETED" | "ALL";
 
@@ -67,7 +67,7 @@ export default function MilestonesPage() {
   const isSaOrHeadSa = userRole === "SA" || userRole === "HEAD_SA";
   const isHeadSa = userRole === "HEAD_SA";
   const { data: milestones = [], isLoading, isError } = useMyAssignedMilestones(isSaOrHeadSa);
-  const { data: outputFiles = [], isLoading: pendingReviewsLoading, isError: pendingReviewsError } = useOutputRepository(isSaOrHeadSa);
+  const { data: outputFiles = [], isLoading: pendingReviewsLoading, isError: pendingReviewsError } = useOutputRepository(isHeadSa);
   const reviewableOutputs = isHeadSa ? outputFiles.filter((item) => item.status === "IN_REVIEW") : [];
 
   const [activeTab, setActiveTab] = useState<QueueTab>("ACTION");
@@ -76,11 +76,11 @@ export default function MilestonesPage() {
     [milestones]
   );
   const underReview = useMemo(
-    () => milestones.filter((item) => outputFiles.some((output) => output.milestoneId === item.id && output.status === "IN_REVIEW")),
-    [milestones, outputFiles]
+    () => milestones.filter((item) => getAssignedMilestoneState(item) === "WAITING_REVIEW"),
+    [milestones]
   );
   const completed = useMemo(
-    () => milestones.filter((item) => item.status === "COMPLETED" || item.status === "APPROVED"),
+    () => milestones.filter((item) => getAssignedMilestoneState(item) === "COMPLETED"),
     [milestones]
   );
   const filteredMilestones = useMemo(() => {
@@ -248,6 +248,7 @@ function QueueTabButton({
       variant={active ? "secondary" : "ghost"}
       size="sm"
       className="shrink-0 gap-2"
+      aria-pressed={active}
       onClick={onClick}
     >
       {label}
@@ -304,9 +305,18 @@ function HeadSaReviewQueue({ reviewableOutputs, isLoading, isError }: {
 
 function AssignedMilestoneRow({ milestone }: { milestone: AssignedMilestone; isHeadSa?: boolean }) {
   const projectId = milestone.project?.id || milestone.project_id;
+  const state = getAssignedMilestoneState(milestone);
+  const waitingOutputs = countAssignedOutputsWaitingReview(milestone);
+  const statusBadge = state === "WAITING_REVIEW"
+    ? <Badge variant="warning">{translateI18n("milestonePage.underReview")}</Badge>
+    : state === "ACTION" ? <Badge variant="default">{translateI18n("milestonePage.needsAction")}</Badge>
+    : getMilestoneStatusBadge(milestone.status);
   return <div className="flex items-center justify-between gap-3 border-t border-border/60 px-4 py-4 first:border-t-0 sm:px-5">
-    <div className="min-w-0"><div className="flex items-center gap-2"><p className="font-medium">{milestone.name}</p>{getMilestoneStatusBadge(milestone.status)}</div>
+    <div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><p className="font-medium">{milestone.name}</p>{statusBadge}</div>
       <p className="text-xs text-muted-foreground">{milestone.project?.name || translateI18n("copy.projectLabel")}{isAssignedProjectPaused(milestone) ? ` · ${translateI18n("projectStatus.POSTPONED")}` : ""}</p>
+      {state === "ACTION" && waitingOutputs > 0 && <p className="mt-1 text-xs text-muted-foreground">
+        {translateI18n("milestonePage.waitingOutputs", { count: waitingOutputs })}
+      </p>}
     </div>
     {projectId && <Link href={`/projects/${projectId}#project-milestone-${milestone.id}`}><Button size="sm" variant="outline">{translateI18n("milestonePage.openMilestone")} <ArrowRight className="ml-1 h-3.5 w-3.5" /></Button></Link>}
   </div>;

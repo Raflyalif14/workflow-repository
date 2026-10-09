@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { QueryClient, QueryObserver, focusManager } from '@tanstack/react-query';
 import Module from 'node:module';
 import * as queries from '@tanstack/react-query';
-import { approvalQueuePage, planAndDeadlineApprovals, focusOutputReviewLink, outputReviewHref, outputReviewIsStale, outputReviewTarget } from './approval-queue';
+import { approvalQueuePage, planAndDeadlineApprovals, focusOutputReviewLink, outputReviewHref, outputReviewIsStale, outputReviewTarget, resolvedOutputReviewHash } from './approval-queue';
 import { canReadApprovalOverview } from './approval-overview-access';
 import { milestoneIdFromHash, initialExpandedMilestoneIds, reconcileExpandedMilestoneIds } from './milestone-presentation';
 import { approvalKeys, dashboardKeys, projectKeys } from './query-keys';
@@ -40,6 +40,13 @@ assert(reconcileExpandedMilestoneIds(expanded, [{ id: 'closed', status: 'COMPLET
 assert.equal(outputReviewIsStale(target, { id: 'output', status: 'IN_REVIEW', currentVersionId: 'snapshot' }), false);
 assert.equal(outputReviewIsStale(target, { id: 'output', status: 'APPROVED', currentVersionId: 'snapshot' }), true);
 assert.equal(outputReviewIsStale(target, { id: 'output', status: 'IN_REVIEW', currentVersionId: 'new-snapshot' }), true);
+assert.equal(resolvedOutputReviewHash(hash, []), hash, 'Failed/unconfirmed review must retain its stale protection');
+assert.equal(resolvedOutputReviewHash(hash, [{ outputId: 'other', snapshotId: 'snapshot' }]), hash);
+assert.equal(resolvedOutputReviewHash(hash, [{ outputId: 'output', snapshotId: 'new-snapshot' }]), hash, 'Other snapshot cannot resolve the deep link');
+const resolvedHash = resolvedOutputReviewHash(hash, [{ outputId: 'output', snapshotId: 'snapshot' }]);
+assert.equal(resolvedHash, '#project-milestone-closed', 'Own successful review preserves milestone anchor');
+assert.equal(outputReviewIsStale(outputReviewTarget(resolvedHash), { id: 'output', status: 'APPROVED', currentVersionId: 'snapshot' }), false);
+assert.equal(resolvedOutputReviewHash(hash + '&keep=1', [{ outputId: 'output', snapshotId: 'snapshot' }]), '#project-milestone-closed?keep=1');
 const focusEvents: string[] = [];
 const ancestor = { open: false };
 const element = (name: string) => ({ closest: () => ancestor, scrollIntoView: () => { assert(ancestor.open); focusEvents.push(`scroll:${name}`); }, focus: () => focusEvents.push(`focus:${name}`) });
@@ -64,6 +71,9 @@ async function main() {
   let payload: any = { stats: { totalPending: 0, pendingDocs: 0, pendingProjectPlans: 0, pendingDeadlines: 0 }, items: [] };
   const originalLoad = (Module as any)._load;
   (Module as any)._load = function(name: string, ...args: any[]) {
+    if (name.endsWith('/use-business-request')) return { useBusinessRequest: () => Object.assign(() => {
+      throw new Error('Unexpected business mutation in approval queue fixture');
+    }, { prepare() {} }) };
     if (name.endsWith('/api-client')) return { apiClient: async () => { apiCalls++; return payload; } };
     if (name === '@tanstack/react-query') return { ...queries,
       useQuery: (options: any) => { captured.push(options); return {}; },
@@ -95,6 +105,7 @@ async function main() {
       assert(invalidations.some(key => JSON.stringify(key) === JSON.stringify(approvalKeys.all())));
       assert(invalidations.some(key => JSON.stringify(key) === JSON.stringify(dashboardKeys.overview())));
       assert(invalidations.some(key => JSON.stringify(key) === JSON.stringify(projectKeys.milestones('p'))));
+      assert(invalidations.some(key => JSON.stringify(key) === JSON.stringify(outputHooks.outputDocumentKeys.repository())), 'Output approval/submit must refresh repository used by Official Documents');
       invalidations.length = 0; captured[0].onError();
       assert(invalidations.some(key => JSON.stringify(key) === JSON.stringify(approvalKeys.all())), 'An uncertain failed response still refreshes the queue');
     }

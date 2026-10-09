@@ -107,6 +107,7 @@ const mapProject = (row: any) => ({
   sales_id: row.sales_id,
   sales: mapUser(row.sales),
   pic: row.pic ? { ...mapUser(row.pic), role: row.pic.role } : null,
+  pic_revision: row.pic_revision_exact ?? (typeof row.pic_revision === 'string' || Number.isSafeInteger(row.pic_revision) ? String(row.pic_revision) : undefined),
   status: row.status,
   is_postponed: row.is_postponed,
   postponed_at: row.postponed_at,

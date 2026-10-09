@@ -160,7 +160,9 @@ export function Sidebar() {
               key={item.href}
               href={item.href}
               onClick={() => setMobileOpen(false)}
-              title={compact ? t(item.labelKey) : undefined}
+              title={item.href === "/milestones" && isAssignedMilestoneRole
+                ? `${t(item.labelKey)} — ${t("milestonePage.needsAction")}: ${badgeCount}`
+                : compact ? t(item.labelKey) : undefined}
               aria-label={compact ? t(item.labelKey) : undefined}
               aria-current={active ? "page" : undefined}
               className={`

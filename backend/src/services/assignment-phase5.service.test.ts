@@ -121,6 +121,10 @@ async function verifyAvailablePics(): Promise<void> {
 async function verifyAssignedMilestoneProjectMetadata(): Promise<void> {
   const originalFrom = supabaseAdmin.from;
   let selection = '';
+  const filters: Array<[string, unknown]> = [];
+  const rows = [{ id: 'm1', status: 'IN_PROGRESS', outputs: [
+    { status: 'IN_REVIEW', is_required: true, is_selected: true },
+  ] }];
 
   (supabaseAdmin as any).from = (table: string) => {
     assert(table === 'project_milestones', 'Test 14A: assigned milestones must query project_milestones');
@@ -129,18 +133,28 @@ async function verifyAssignedMilestoneProjectMetadata(): Promise<void> {
         selection = value;
         return query;
       },
-      eq: () => query,
-      order: () => Promise.resolve({ data: [], error: null }),
+      eq: (field: string, value: unknown) => { filters.push([field, value]); return query; },
+      order: () => Promise.resolve({ data: rows, error: null }),
     };
     return query;
   };
 
   try {
-    await AssignmentPhase5Service.assignedMilestones({ userId: 'sa-1', role: 'SA', fullName: 'Solution Architect One' });
+    const result = await AssignmentPhase5Service.assignedMilestones({ userId: 'sa-1', role: 'SA', fullName: 'Solution Architect One' });
     assert(
       selection.includes('project:projects!project_milestones_project_id_fkey(id,name,customer,status,is_postponed)'),
       'Test 14A: assigned milestone project metadata must include status and is_postponed'
     );
+    assert(selection.includes('outputs:project_output_documents!project_output_documents_milestone_id_fkey(status,is_required,is_selected)'),
+      'Assigned output metadata must expose only status and selection flags, not files or content');
+    assert(filters.some(([field, value]) => field === 'pic_id' && value === 'sa-1'), 'Assigned scope must remain actor PIC');
+    assert(result === rows, 'Waiting milestones must remain in the assigned list; only action counters filter them');
+    const reads = filters.length;
+    try {
+      await AssignmentPhase5Service.assignedMilestones(sales);
+      throw new Error('Unexpected role access');
+    } catch (error) { assert((error as Error).message === 'Forbidden', 'SALES cannot read assigned milestones'); }
+    assert(filters.length === reads, 'Denied role must not query milestones');
     console.log('Test 14A - Assigned milestones include project pause metadata: passed');
   } finally {
     (supabaseAdmin as any).from = originalFrom;

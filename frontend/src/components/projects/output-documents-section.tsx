@@ -2,7 +2,7 @@
 import { BusinessConfirmation } from "./business-confirmation";
 
 import { prepareReviewRequest, reviewRequestKey, validFileRevisionSelection, type FileRevisionInput } from "@/lib/output-file-revisions";
-import { focusOutputReviewLink, outputReviewIsStale, outputReviewTarget } from "@/lib/approval-queue";
+import { clearResolvedOutputReviewLink, focusOutputReviewLink, outputReviewIsStale, outputReviewTarget } from "@/lib/approval-queue";
 import { captureOutputReview, reviewTargetsAreCurrent, runConfirmedDecision } from "@/lib/phase-review";
 
 import { translate as translateI18n, getIntlLocale, translateOutputStatus, translateProjectStatus, translateOutputName, translateStoredError, translateStoredMessage } from "@/i18n";
@@ -408,6 +408,8 @@ export function OutputDocumentsSection({ project, milestoneId, milestoneStatus, 
     setReviewOperation(operation);
     try {
       const response = await review.mutateAsync({ decision: "APPROVE", items: targets.map(({ document_key, expected_version_id }) => prepareReviewRequest({ document_key, expected_version_id, decision: "APPROVE" }, reviewRequests.current)) });
+      clearResolvedOutputReviewLink(targets.filter(target => response.results.some(result => result.documentKey === target.document_key && result.success))
+        .map(target => ({ outputId: documents.find(document => document.key === target.document_key)?.id, snapshotId: target.expected_version_id })));
       setBatchResults(response.results);
       const failedKeys = response.results.filter((result) => !result.success).map((result) => result.documentKey);
       setApproveSelection(operation.kind === "batch" ? failedKeys : []);
@@ -466,6 +468,7 @@ export function OutputDocumentsSection({ project, milestoneId, milestoneStatus, 
         items: [prepareReviewRequest(input, reviewRequests.current)] });
       setBatchResults(response.results);
       if (response.results[0]?.success) {
+        clearResolvedOutputReviewLink([{ outputId: revisionTarget.id, snapshotId: revisionTarget.currentVersionId }]);
         setRevisionTarget(null); setRevisionFeedback(""); setFileRevisionInputs([]);
       } else { setRevisionError(true); await outputQuery.refetch(); }
     } catch {

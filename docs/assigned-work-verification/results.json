@@ -1,0 +1,38 @@
+{
+  "browser": "Chrome/154.0.8037.98",
+  "role": "SA",
+  "checks": [
+    {
+      "check": "Submitted waiting-only: KPI/tab=1, Needs action/sidebar=0, waiting row visible",
+      "passed": true
+    },
+    {
+      "check": "EN/ID waiting label; locale switch preserves selected review tab",
+      "passed": true
+    },
+    {
+      "check": "Partial submit: Needs action=1, waiting tab=0, row indicates one waiting output",
+      "passed": true
+    },
+    {
+      "check": "Returned revision restores SA action/sidebar",
+      "passed": true
+    },
+    {
+      "check": "Completed uses milestone completion",
+      "passed": true
+    },
+    {
+      "check": "Approved-only never fabricates completion and remains in All assigned",
+      "passed": true
+    },
+    {
+      "check": "Postponed remains visible in All assigned and never becomes waiting; 360px page fits",
+      "passed": true
+    }
+  ],
+  "unknownRequests": [],
+  "runtimeErrors": [],
+  "liveRequests": 0,
+  "limits": "Actual browser with intercepted synthetic API. No backend authorization, database workflow or live project state verification."
+}

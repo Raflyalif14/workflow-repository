@@ -1,0 +1,32 @@
+{
+  "browser": "Chrome/154.0.8037.98",
+  "results": [
+    {
+      "check": "Review decision opens confirmation; Cancel sends no mutation",
+      "passed": true
+    },
+    {
+      "check": "Double confirmation sends one valid request; uncertain retry preserves body/CAS/request ID and input",
+      "passed": true
+    },
+    {
+      "check": "Missing revision blocks before fetch with local error; reload keeps selection/note and restores confirmation",
+      "passed": true
+    },
+    {
+      "check": "Approvals actual dialog opens plan/PIC confirmation and Cancel sends no request",
+      "passed": true
+    },
+    {
+      "check": "Approvals missing-revision error and reload preserve PIC, distinguish pre-fetch failure and send no mutation",
+      "passed": true
+    },
+    {
+      "check": "Approvals confirmation uses actual API client with valid headers/payload and identical request ID on uncertain retry",
+      "passed": true
+    }
+  ],
+  "errors": [],
+  "unknown": [],
+  "mutationCount": 4
+}

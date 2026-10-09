@@ -1,0 +1,114 @@
+{
+  "results": [
+    {
+      "locale": "en",
+      "width": 1440,
+      "clientWidth": 1434,
+      "scrollWidth": 1434,
+      "button": "Submit plan for review",
+      "belowDescription": true,
+      "aligned": true,
+      "progress": [
+        "Timeline setupCompleted",
+        "Plan submittedIn progress",
+        "Head SA reviewWaiting",
+        "Project activeWaiting"
+      ],
+      "dates": [
+        "2026-10-01"
+      ]
+    },
+    {
+      "locale": "en",
+      "width": 360,
+      "clientWidth": 354,
+      "scrollWidth": 354,
+      "button": "Submit plan for review",
+      "belowDescription": true,
+      "aligned": true,
+      "progress": [
+        "Timeline setupCompleted",
+        "Plan submittedIn progress",
+        "Head SA reviewWaiting",
+        "Project activeWaiting"
+      ],
+      "dates": [
+        "2026-10-01"
+      ]
+    },
+    {
+      "locale": "en",
+      "width": 390,
+      "clientWidth": 384,
+      "scrollWidth": 384,
+      "button": "Submit plan for review",
+      "belowDescription": true,
+      "aligned": true,
+      "progress": [
+        "Timeline setupCompleted",
+        "Plan submittedIn progress",
+        "Head SA reviewWaiting",
+        "Project activeWaiting"
+      ],
+      "dates": [
+        "2026-10-01"
+      ]
+    },
+    {
+      "locale": "id",
+      "width": 1440,
+      "clientWidth": 1434,
+      "scrollWidth": 1434,
+      "button": "Ajukan rencana untuk ditinjau",
+      "belowDescription": true,
+      "aligned": true,
+      "progress": [
+        "Penyiapan linimasaSelesai",
+        "Rencana diajukanSedang berjalan",
+        "Tinjauan Head SAMenunggu",
+        "Proyek aktifMenunggu"
+      ],
+      "dates": [
+        "2026-10-01"
+      ]
+    },
+    {
+      "locale": "id",
+      "width": 360,
+      "clientWidth": 354,
+      "scrollWidth": 354,
+      "button": "Ajukan rencana untuk ditinjau",
+      "belowDescription": true,
+      "aligned": true,
+      "progress": [
+        "Penyiapan linimasaSelesai",
+        "Rencana diajukanSedang berjalan",
+        "Tinjauan Head SAMenunggu",
+        "Proyek aktifMenunggu"
+      ],
+      "dates": [
+        "2026-10-01"
+      ]
+    },
+    {
+      "locale": "id",
+      "width": 390,
+      "clientWidth": 384,
+      "scrollWidth": 384,
+      "button": "Ajukan rencana untuk ditinjau",
+      "belowDescription": true,
+      "aligned": true,
+      "progress": [
+        "Penyiapan linimasaSelesai",
+        "Rencana diajukanSedang berjalan",
+        "Tinjauan Head SAMenunggu",
+        "Proyek aktifMenunggu"
+      ],
+      "dates": [
+        "2026-10-01"
+      ]
+    }
+  ],
+  "errors": [],
+  "unknown": []
+}

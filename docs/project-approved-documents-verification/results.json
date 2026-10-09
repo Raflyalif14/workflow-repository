@@ -1,0 +1,29 @@
+{
+  "browser": "Chrome/154.0.8037.98",
+  "role": "HEAD_SA",
+  "viewport": 1440,
+  "language": "en",
+  "checks": [
+    {
+      "check": "Actual approval confirmation sends one synthetic request; repository panel shows both approved snapshot files; own success clears only its review target",
+      "passed": true
+    },
+    {
+      "check": "Approved files remain after refresh despite empty official/legacy source",
+      "passed": true
+    },
+    {
+      "check": "Reopening an old already-decided deep link still warns",
+      "passed": true
+    },
+    {
+      "check": "Later submission/changed snapshot remains stale and is excluded from approved repository; no extra review is sent",
+      "passed": true
+    }
+  ],
+  "syntheticReviews": 1,
+  "unknownRequests": [],
+  "runtimeErrors": [],
+  "liveRequests": 0,
+  "limits": "Actual app in Chrome with fixture API. No live review, database/Storage or real permission integration verified."
+}

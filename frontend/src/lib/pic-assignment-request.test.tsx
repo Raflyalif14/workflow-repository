@@ -105,7 +105,18 @@ async function checkHandlers() {
     review(); review();
     elements(review()).find(e => e.type === 'select' && e.props.value === '')!.props.onChange({ target: { value: 'new' } });
     const submit = () => elements(review()).find(e => e.type === 'form')!.props.onSubmit({ preventDefault() {} });
+    current = { ...current, pic_revision: undefined };
     await submit(); assert.equal(requests.length, 0);
+    assert(text(review()).includes(translate('picOperation.reviewUnavailable')), 'Missing review data is a pre-mutation error, not uncertain success');
+    assert.equal(elements(review()).find(e => e.type === 'select')!.props.value, 'new', 'Missing data retains the selected PIC');
+    current = { ...current, pic_revision: '3' };
+    await submit(); assert.equal(requests.length, 0);
+    const originalUUID = crypto.randomUUID;
+    try {
+      (crypto as any).randomUUID = () => { throw new Error('Synthetic UUID failure'); };
+      await submit(); assert.equal(requests.length, 0);
+      assert(text(review()).includes(translate('picOperation.preparationFailed')), 'Local request preparation failure never claims a mutation was sent');
+    } finally { crypto.randomUUID = originalUUID; }
     current = { ...current, pic_revision: '99' }; setActiveLanguage('id'); review(); setActiveLanguage('en');
     outcome = async () => { throw new ApiError('hidden', 503, 'PIC_UNAVAILABLE'); };
     await submit(); const planIntent = requests[0]; assert.equal(planIntent.expectedPicRevision, '3'); assert(open);

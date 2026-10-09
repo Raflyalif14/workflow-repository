@@ -71,8 +71,23 @@ export function formatActivityDescription(action: string, description?: string |
   return description;
 }
 
-export function formatBusinessAuditValue(key: string, value: unknown): string {
-  if (value === null || value === undefined) return "-";
+export type BusinessAuditDisplayContext = {
+  projectName?: string;
+  milestones?: Array<{ id: string; name: string }>;
+  scenarios?: Array<{ id: string; name: string }>;
+};
+
+function formatScheduleRow(row: Record<string, unknown> | undefined): string {
+  if (!row) return translate('businessAudit.notSet');
+  return ['start_date', 'duration_working_days', 'due_date'].map(key =>
+    `${translate(('businessAuditFields.' + key) as TranslationKey)}: ${formatBusinessAuditValue(key, row[key])}`
+  ).join(' · ');
+}
+
+export function formatBusinessAuditValue(key: string, value: unknown, context: BusinessAuditDisplayContext = {}): string {
+  if (value === null || value === undefined) return translate('businessAudit.notSet');
+  if (key === 'scenario_id') return context.scenarios?.find(row => row.id === value)?.name || translate('common.notAvailable');
+  if (key.endsWith('_id')) return translate('common.notAvailable');
   if (['final_contract_value','estimated_revenue'].includes(key)) return formatEstimatedValue(String(value));
   if (key === 'status' && typeof value === 'string') {
     if (['PENDING','REJECTED'].includes(value)) return translateApprovalStatus(value);
@@ -88,11 +103,30 @@ export function formatBusinessAuditValue(key: string, value: unknown): string {
   if (key === 'files' && Array.isArray(value)) return value.map(item => (item as { name: string }).name).join(', ');
   if (key === 'schedule' && Array.isArray(value)) return value.map(item => {
     const row = item as Record<string, unknown>;
-    return `${row.id}: ${formatBusinessAuditValue('start_date',row.start_date)} / ${row.duration_working_days} -> ${formatBusinessAuditValue('due_date',row.due_date)}`;
+    const name = context.milestones?.find(milestone => milestone.id === row.id)?.name || translate('businessAuditObjects.MILESTONE');
+    return `${name}: ${formatScheduleRow(row)}`;
   }).join('\n');
   return typeof value === 'string' || typeof value === 'number' ? String(value) : '-';
 }
-export function formatBusinessAudit(change: NonNullable<ProjectActivityTimelineItem['businessChange']>): string {
-  return `${translate('businessAudit.object')}: ${translate(('businessAuditObjects.'+change.objectType) as TranslationKey)} ${change.objectType === 'OUTPUT_DOCUMENT' && change.objectKey ? translateOutputName(change.objectKey,change.objectKey) : change.objectId}\n` + change.changedFields.map(key =>
-    `${translate(('businessAuditFields.' + key) as TranslationKey)}: ${formatBusinessAuditValue(key,change.before[key])} -> ${formatBusinessAuditValue(key,change.after[key])}`).join('\n');
+export function formatBusinessAudit(change: NonNullable<ProjectActivityTimelineItem['businessChange']>, context: BusinessAuditDisplayContext = {}): string {
+  const name = change.objectType === 'PROJECT' ? context.projectName
+    : change.objectType === 'MILESTONE' ? context.milestones?.find(row => row.id === change.objectId)?.name
+    : change.objectType === 'OUTPUT_DOCUMENT' && change.objectKey ? translateOutputName(change.objectKey, change.objectKey) : undefined;
+  const object = `${translate(('businessAuditObjects.' + change.objectType) as TranslationKey)}${name ? `: ${name}` : ''}`;
+  const fields = change.changedFields.filter(key => !key.endsWith('_id') || key === 'scenario_id').map(key => {
+    if (key === 'schedule') {
+      const before = (Array.isArray(change.before.schedule) ? change.before.schedule : []) as Record<string, unknown>[];
+      const after = (Array.isArray(change.after.schedule) ? change.after.schedule : []) as Record<string, unknown>[];
+      // IDs only pair audit rows; they are never part of the display text.
+      const ids = [...new Set([...before, ...after].map(row => row.id))];
+      return ids.flatMap(id => {
+        const oldRow = before.find(row => row.id === id), newRow = after.find(row => row.id === id);
+        if (formatScheduleRow(oldRow) === formatScheduleRow(newRow)) return [];
+        const milestone = context.milestones?.find(row => row.id === id)?.name || translate('businessAuditObjects.MILESTONE');
+        return [`${milestone}\n${translate('businessAudit.before')}: ${formatScheduleRow(oldRow)}\n${translate('businessAudit.after')}: ${formatScheduleRow(newRow)}`];
+      }).join('\n');
+    }
+    return `${translate(('businessAuditFields.' + key) as TranslationKey)}: ${formatBusinessAuditValue(key, change.before[key], context)} → ${formatBusinessAuditValue(key, change.after[key], context)}`;
+  }).filter(Boolean);
+  return [object, ...fields].join('\n');
 }

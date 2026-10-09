@@ -82,7 +82,35 @@
   [role="tab"][aria-selected="true"] { @apply bg-card text-primary shadow-sm; }
   .dashboard-table { min-width: 0; overflow-x: auto; }
   .dashboard-table > * { min-width: 0; }
-  @media (min-width: 1536px) {
-    .dashboard-table > .delivery-columns, .dashboard-table .delivery-row { min-width: 980px; }
+  /* Use available panel space, including the sidebar offset, not viewport 2xl. */
+  .project-delivery-layout { container-type: inline-size; container-name: project-delivery; }
+  .delivery-columns { display: none; }
+  .delivery-row {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: start;
+    gap: 12px 16px;
+    padding: 12px 16px;
+    min-width: 0;
+  }
+  .delivery-row > * { min-width: 0; }
+  .delivery-project { grid-column: 1 / -1; }
+  .delivery-row > a { grid-column: 2; }
+  .delivery-cell-label { @apply mb-1 text-xs text-muted-foreground; }
+  @container project-delivery (min-width: 560px) {
+    .delivery-row { padding: 12px 20px; }
+    .delivery-project { grid-column: auto; }
+    .delivery-row > a { align-self: end; }
+  }
+  @container project-delivery (min-width: 960px) {
+    .delivery-columns, .delivery-row {
+      grid-template-columns: minmax(0, 1.6fr) minmax(0, 0.85fr) minmax(0, 1.35fr) minmax(0, 1fr) minmax(0, 1fr) 5.5rem;
+      gap: 16px;
+      padding: 12px 20px;
+      align-items: center;
+    }
+    .delivery-columns { display: grid; }
+    .delivery-row > a { grid-column: auto; align-self: center; }
+    .delivery-cell-label { display: none; }
   }
 }

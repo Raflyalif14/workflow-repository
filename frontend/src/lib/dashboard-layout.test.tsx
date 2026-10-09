@@ -20,7 +20,7 @@ const query = (data: unknown) => ({ data: mode === "ready" || mode === "empty" ?
 (language as any).useLanguage = () => ({ t: translate });
 (projects as any).useProjects = () => query({ projects: mode === "empty" ? [] : [{ id: "p", name: "Fixture project",
   sales_id: "owner", status: role === "SALES" ? "WAITING_RESULT" : "ACTIVE", is_postponed: false,
-  customer: "Fixture customer", estimated_revenue: 100, currentRole: "SA", pic: { id: "sa", fullName: "Fixture SA" } },
+  customer: "Fixture customer", estimated_revenue: 100, currentRole: "SA", currentStage: "Fixture current stage", pic: { id: "sa", fullName: "Fixture SA" } },
   ...(role === "HEAD_SA" ? [{ id: "draft", name: "Fixture waiting", status: "DRAFT", currentRole: "SALES" }] : [])] });
 (projects as any).useMyAssignedMilestones = () => query([]);
 (approvals as any).useApprovals = () => query([]);
@@ -58,6 +58,18 @@ try {
       if (role === "HEAD_SA" || role === "SA") assert(html.includes('href="/projects/p#milestone-outputs-m"'), "Review/revision opens the existing workspace");
       if (role === "HEAD_SA") assert(html.includes(translate("dashboardPage.waitingOnOthers")), "Waiting information is distinguished from actions");
       assert(!html.includes('action="'), "Dashboard never adds direct approval mutations");
+      const deliverySection = html.split('aria-labelledby="project-delivery-heading"')[1].split('id="dashboard-summary-heading"')[0];
+      assert(deliverySection.includes('href="/projects/p"') && deliverySection.includes("Fixture SA"));
+      assert(deliverySection.includes("Fixture current stage"), "Current work remains visible");
+      if (role !== "SALES") {
+        assert(deliverySection.includes('class="delivery-row"') && deliverySection.includes('class="delivery-columns'));
+        assert(deliverySection.includes("30%") && deliverySection.includes(translate("dashboardPage.stages", { done: 1, total: 3 })), "Progress and stage counts are preserved");
+        assert(deliverySection.includes('style="width:30%"'), "Compact bar uses existing progress");
+        assert(!deliverySection.includes("2xl:"), "Delivery layout uses panel width rather than viewport 2xl");
+        assert(deliverySection.includes(translate("common.open")) && deliverySection.includes("w-fit"));
+        if (role === "SA" || role === "SUPER_ADMIN") assert(deliverySection.includes("Fixture customer") && deliverySection.includes(translate("copy.deadline")), "Supplementary customer and deadline remain visible");
+      }
+
     }
     role = "HEAD_SA"; mode = "loading";
     assert(render().includes(translate("dashboardPage.loadingNext")));
