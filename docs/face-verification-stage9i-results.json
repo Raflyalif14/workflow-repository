@@ -1,0 +1,108 @@
+{
+  "stage": "9I",
+  "checkedAt": "2026-10-13T07:20:18.528Z",
+  "git": {
+    "branch": "feat/face-verification",
+    "head": "58bc3d7d4d46642059f69ef49fdc4e533c7f2f9b",
+    "stagingEmpty": true,
+    "existingFilesBefore": 149,
+    "existingUnchanged": 138,
+    "modifiedExisting": [
+      "backend/src/routes/face-pad.routes.ts",
+      "backend/src/routes/face-pad.test.ts",
+      "frontend/src/components/settings/face-pad-panel.tsx",
+      "frontend/src/hooks/use-face-pad.ts",
+      "frontend/src/lib/face-pad.test.tsx",
+      "frontend/src/lib/face-pad.ts",
+      "services/face-anti-spoofing/pad_inference.py",
+      "services/face-anti-spoofing/pad_server.py",
+      "services/face-anti-spoofing/tests/test_pad_camera.py",
+      "frontend/src/i18n/en.ts",
+      "frontend/src/i18n/id.ts"
+    ]
+  },
+  "checks": {
+    "python": {
+      "pass": 19,
+      "skip": 0,
+      "fail": 0,
+      "error": 0,
+      "scope": "affected PAD camera tests, including 8 new diagnostic cases"
+    },
+    "backendValidator": "PASS; center/edge/partial/null/malformed bounds and projection",
+    "nodePythonHttp": "PASS; actual Node route + auth middleware with fixture provider/profile, actual YuNet/MN3 on attributed NASA fixture; new geometry contract, partial failures, safe projection and existing relevant route guards",
+    "frontendHookCsv": "PASS; diagnostic request/photo/account binding, failure mismatch, null/no-backfill, added columns, precision/escaping, stale cancellation",
+    "geometryUi": "PASS static render EN/ID; native details and unknown/zero/edge states. No Stage9I browser/camera test",
+    "backendTsc": "PASS",
+    "frontendTsc": "PASS",
+    "pythonSyntax": "PASS",
+    "utf8Strict": "PASS",
+    "gitDiffCheck": "PASS",
+    "originalUserCsvUnchanged": true,
+    "mn3AdapterUnchanged": true,
+    "identicalBoundaryValidators": true
+  },
+  "startup": {
+    "verifiedPilotRestart": true,
+    "supervisorPid": 15996,
+    "listeners": [
+      {
+        "pid": 28828,
+        "port": 8766,
+        "address": "127.0.0.1"
+      },
+      {
+        "pid": 16216,
+        "port": 8765,
+        "address": "127.0.0.1"
+      },
+      {
+        "pid": 14436,
+        "port": 5000,
+        "address": "127.0.0.1"
+      }
+    ],
+    "health": {
+      "backend": true,
+      "sfaceAuthenticated": true,
+      "padAuthenticated": true
+    },
+    "healthCheckedAt": "2026-10-13T07:20:15.744Z",
+    "frontendPidPreserved": 15172,
+    "backgroundNotificationJobsStarted": false
+  },
+  "contract": {
+    "version": "pad-geometry-v1",
+    "newCsvColumns": 23,
+    "exportFilename": "face-pad-notes-geometry-v1.csv",
+    "oldRows": "blank diagnostic cells; no backfill",
+    "missingValues": "null or blank, never fake zero",
+    "secondDetection": false
+  },
+  "limits": [
+    "No user camera/photo transmission or diagnostic pilot performed",
+    "No raw pixels/landmarks/embeddings/input paths or exception payloads exported",
+    "No diagnosis of lighting/blur or proof of PAD accuracy/liveness",
+    "No inference preprocessing/model/threshold/auth/database/workflow changes",
+    "No previous broad suites, model download or runtime install"
+  ],
+  "files": [
+    "backend/src/routes/face-pad.routes.ts",
+    "backend/src/routes/face-pad.test.ts",
+    "frontend/src/components/settings/face-pad-panel.tsx",
+    "frontend/src/hooks/use-face-pad.ts",
+    "frontend/src/lib/face-pad.test.tsx",
+    "frontend/src/lib/face-pad.ts",
+    "services/face-anti-spoofing/pad_inference.py",
+    "services/face-anti-spoofing/pad_server.py",
+    "services/face-anti-spoofing/tests/test_pad_camera.py",
+    "frontend/src/i18n/en.ts",
+    "frontend/src/i18n/id.ts",
+    "backend/src/utils/face-pad-diagnostics.test.ts",
+    "backend/src/utils/face-pad-diagnostics.ts",
+    "docs/face-verification-stage9i.md",
+    "frontend/src/components/settings/face-pad-geometry.tsx",
+    "frontend/src/lib/face-pad-diagnostics.ts",
+    "docs/face-verification-stage9i-results.json"
+  ]
+}

@@ -17,6 +17,9 @@ import approvalOverviewRoutes from './approval-overview.routes';
 import notificationRoutes from './notification.routes';
 import telegramWebhookRoutes from './telegram-webhook.routes';
 import searchRoutes from './search.routes';
+import faceExperimentRoutes from './face-experiment.routes';
+import facePadRoutes from './face-pad.routes';
+import faceLoginRoutes from './face-login.routes';
 
 const router = Router();
 
@@ -40,6 +43,9 @@ router.use('/me', meRoutes);
 router.use('/notifications', notificationRoutes);
 router.use('/telegram', telegramWebhookRoutes);
 router.use('/search', searchRoutes);
+router.use('/face-experiment', faceExperimentRoutes);
+router.use('/face-pad', facePadRoutes);
+router.use('/face-login', faceLoginRoutes);
 router.use('/deadlines', deadlineRoutes);
 router.use('/milestones', milestoneRoutes);
 router.use('/deadline-approvals', deadlineApprovalRoutes);

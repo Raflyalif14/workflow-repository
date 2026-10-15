@@ -1,0 +1,136 @@
+{
+  "browser": "Chrome/155.0.8059.40",
+  "checks": [
+    {
+      "check": "Browser PNG ROI matches the exact server rectangle of the full captured PNG, unmirrored, native 432x432",
+      "passed": true,
+      "width": 432,
+      "height": 432,
+      "maxDifference": 0
+    },
+    {
+      "check": "EN/ID responsive ROI native dimensions with bounded display and no page overflow",
+      "language": "en",
+      "viewport": 1440,
+      "passed": true,
+      "pageWidth": 1434,
+      "scrollWidth": 1434,
+      "imageWidth": 327,
+      "parentWidth": 327,
+      "nativeWidth": 432,
+      "mirror": "none",
+      "hasLabel": true
+    },
+    {
+      "check": "EN/ID responsive ROI native dimensions with bounded display and no page overflow",
+      "language": "en",
+      "viewport": 390,
+      "passed": true,
+      "pageWidth": 384,
+      "scrollWidth": 384,
+      "imageWidth": 252,
+      "parentWidth": 252,
+      "nativeWidth": 432,
+      "mirror": "none",
+      "hasLabel": true
+    },
+    {
+      "check": "EN/ID responsive ROI native dimensions with bounded display and no page overflow",
+      "language": "en",
+      "viewport": 360,
+      "passed": true,
+      "pageWidth": 354,
+      "scrollWidth": 354,
+      "imageWidth": 222,
+      "parentWidth": 222,
+      "nativeWidth": 432,
+      "mirror": "none",
+      "hasLabel": true
+    },
+    {
+      "check": "EN/ID responsive ROI native dimensions with bounded display and no page overflow",
+      "language": "id",
+      "viewport": 1440,
+      "passed": true,
+      "pageWidth": 1434,
+      "scrollWidth": 1434,
+      "imageWidth": 327,
+      "parentWidth": 327,
+      "nativeWidth": 432,
+      "mirror": "none",
+      "hasLabel": true
+    },
+    {
+      "check": "EN/ID responsive ROI native dimensions with bounded display and no page overflow",
+      "language": "id",
+      "viewport": 390,
+      "passed": true,
+      "pageWidth": 384,
+      "scrollWidth": 384,
+      "imageWidth": 252,
+      "parentWidth": 252,
+      "nativeWidth": 432,
+      "mirror": "none",
+      "hasLabel": true
+    },
+    {
+      "check": "EN/ID responsive ROI native dimensions with bounded display and no page overflow",
+      "language": "id",
+      "viewport": 360,
+      "passed": true,
+      "pageWidth": 354,
+      "scrollWidth": 354,
+      "imageWidth": 222,
+      "parentWidth": 222,
+      "nativeWidth": 432,
+      "mirror": "none",
+      "hasLabel": true
+    },
+    {
+      "check": "No ROI for invalid dimensions",
+      "passed": true
+    },
+    {
+      "check": "No ROI for invalid checksum",
+      "passed": true
+    },
+    {
+      "check": "No ROI for invalid error",
+      "passed": true
+    },
+    {
+      "check": "Metadata edit/delete revoke ROI, close all synthetic image bitmaps; logout clears the page",
+      "passed": true
+    }
+  ],
+  "requests": [
+    {
+      "operation": "PAD inspect",
+      "slot": "A",
+      "fault": null
+    },
+    {
+      "operation": "PAD inspect",
+      "slot": "A",
+      "fault": "dimensions"
+    },
+    {
+      "operation": "PAD inspect",
+      "slot": "A",
+      "fault": "checksum"
+    },
+    {
+      "operation": "PAD inspect",
+      "slot": "A",
+      "fault": "error"
+    },
+    {
+      "operation": "PAD inspect",
+      "slot": "A",
+      "fault": null
+    }
+  ],
+  "unknownRequests": [],
+  "runtimeErrors": [],
+  "limits": "Actual app and Chrome PNG/canvas/resource lifecycle. Synthetic stream, mocked capture detector/auth/PAD API. No physical camera, user photos, PAD inference or backend authorization proof. Browser pixel equality applies only to this synthetic PNG rectangle, not Python tensor equivalence."
+}

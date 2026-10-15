@@ -1,0 +1,89 @@
+{
+  "browser": "Chrome/154.0.8037.98",
+  "checks": [
+    {
+      "check": "Anonymous route uses existing auth redirect; no camera UI",
+      "passed": true
+    },
+    {
+      "check": "Dashboard, Settings and idle camera page never load detector/model/WASM",
+      "passed": true
+    },
+    {
+      "check": "Explicit click requests front-facing video without audio once and attaches a playing synthetic stream",
+      "passed": true
+    },
+    {
+      "check": "Real BlazeFace inference on a blank video frame: zero faces",
+      "passed": true
+    },
+    {
+      "check": "Two real camera-pipeline captures sent via real authenticated Node route to real Python SFace; identical-photo sanity score, not recognition evidence",
+      "passed": true
+    },
+    {
+      "check": "A/B comparison layout without page overflow",
+      "viewport": 1440,
+      "language": "en",
+      "client": 1434,
+      "scroll": 1434,
+      "passed": true
+    },
+    {
+      "check": "A/B comparison layout without page overflow",
+      "viewport": 390,
+      "language": "id",
+      "client": 384,
+      "scroll": 384,
+      "passed": true
+    },
+    {
+      "check": "A/B comparison layout without page overflow",
+      "viewport": 360,
+      "language": "id",
+      "client": 354,
+      "scroll": 354,
+      "passed": true
+    },
+    {
+      "check": "Locale retains both photos, consent and result",
+      "passed": true
+    },
+    {
+      "check": "Delete A revokes its URLs, invalidates result/consent and preserves B",
+      "passed": true
+    },
+    {
+      "check": "Dead real Python service produces safe localized error, no score and retains A/B for retry",
+      "passed": true
+    },
+    {
+      "check": "Logout releases both slots and all camera/model resources",
+      "passed": true
+    }
+  ],
+  "localApiRequests": [
+    {
+      "path": "/capabilities",
+      "method": "GET",
+      "authenticatedHeader": true,
+      "status": 200
+    },
+    {
+      "path": "/compare",
+      "method": "POST",
+      "authenticatedHeader": true,
+      "status": 200
+    },
+    {
+      "path": "/compare",
+      "method": "POST",
+      "authenticatedHeader": true,
+      "status": 503
+    }
+  ],
+  "unknownRequests": [],
+  "runtimeErrors": [],
+  "liveRequests": 0,
+  "limits": "Real app/Chrome with synthetic API and getUserMedia replaced by canvas video. Real CPU/WASM FaceDetector model; licensed 1280x720 photo/blank frames via synthetic canvas stream. Stage 4 Node authentication uses synthetic provider/profile, Python model is real; fixture captures here are identical sanity only. Separate Python/HTTP tests cover different photos of same and different people. Physical camera stage 4 not tested. No physical camera, OS permissions or real GoTrue/Storage tested."
+}

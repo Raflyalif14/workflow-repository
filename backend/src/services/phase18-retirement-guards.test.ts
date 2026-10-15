@@ -1,7 +1,7 @@
 import { strict as assert } from 'assert';
 import { readFileSync } from 'fs';
 import { join } from 'path';
-import { SCENARIO_DOCUMENTS } from '../constants/scenarios';
+import { getProjectDocumentDefinitions, SCENARIO_DOCUMENTS } from '../constants/scenarios';
 
 const preflight = readFileSync(join(__dirname, '../../supabase/phase18-preflight.sql'), 'utf8');
 const retire = readFileSync(join(__dirname, '../../supabase/phase18b-retire-milestone-submissions.sql'), 'utf8');
@@ -54,12 +54,17 @@ const mapping = new Map<string, { stageKey: string; praOnly: boolean }>();
 const mappingBlock = retire.slice(retire.indexOf('with document_stage(document_key, stage_key, pra_only)'),
   retire.indexOf('select 1 from public.project_output_documents od'));
 for (const match of mappingBlock.matchAll(/\('([^']+)','([^']+)',(true|false)\)/g)) {
+  assert(!mapping.has(match[1]), `Guard mapping contains duplicate key ${match[1]}.`);
   mapping.set(match[1], { stageKey: match[2], praOnly: match[3] === 'true' });
 }
-const praKeys = new Set(SCENARIO_DOCUMENTS.PRA_TENDER.map((definition) => definition.key));
+// Phase 18 retires the pre-phase workflow, whose Pra-Tender projects contain
+// both document groups. New phased projects intentionally have only one group.
+const legacyPraDocuments = getProjectDocumentDefinitions('Pra-Tender', false);
+const praKeys = new Set(legacyPraDocuments.map((definition) => definition.key));
+assert.equal(praKeys.size, 17, 'Phase 18 legacy coverage must retain all 17 historical output keys.');
 const onKeys = new Set(SCENARIO_DOCUMENTS.ON_SUBMISSION_TENDER.map((definition) => definition.key));
 assert.equal(mapping.size, praKeys.size, 'Guard mapping must cover each output key exactly once.');
-for (const definition of SCENARIO_DOCUMENTS.PRA_TENDER) {
+for (const definition of legacyPraDocuments) {
   assert.deepEqual(mapping.get(definition.key), {
     stageKey: definition.stageKey, praOnly: !onKeys.has(definition.key),
   }, `Guard mapping differs for ${definition.key}.`);
@@ -81,3 +86,4 @@ assert(!outputValid('Pra-Tender', 'assessment', true, null, 'SA', true));
 assert(!outputValid('Pra-Tender', 'assessment', true, 'ASSESSMENT_REPORT', 'SALES', true));
 assert(!outputValid('Pra-Tender', 'assessment', true, 'ASSESSMENT_REPORT', 'SA', false));
 assert(!outputValid('Pra-Tender', 'unknown', true, 'ASSESSMENT_REPORT', 'SA', true));
+console.log('PASS Phase 18 retirement guards, unique mappings and 17 legacy output keys');

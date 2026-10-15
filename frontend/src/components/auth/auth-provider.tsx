@@ -42,6 +42,7 @@ type AuthContextValue = {
   profileError: "temporary" | "forbidden" | null;
   retryProfile: () => Promise<void>;
   login: (input: LoginInput) => Promise<User>;
+  completeFaceLogin: (result: LoginResponse) => void;
   logout: () => Promise<void>;
   changeInitialPassword: (newPassword: string) => Promise<void>;
 };
@@ -187,6 +188,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     [queryClient]
   );
 
+  const completeFaceLogin = useCallback((result: LoginResponse) => {
+    if (getAuthSession() || user) throw new Error(translate("auth.sessionChanged"));
+    const nextUser = normalizeAuthUser(result.user);
+    if (!result.accessToken || !result.refreshToken || !nextUser.isActive || nextUser.mustChangePassword) throw new Error(translate("auth.loginError"));
+    ++operation.current;
+    setAuthTokens({ accessToken: result.accessToken, refreshToken: result.refreshToken });
+    setProfileError(null); setIsLoading(false); setPasswordChangeCompleted(false); setUser(nextUser); queryClient.clear();
+  }, [queryClient, user]);
+
   const logout = useCallback(async () => {
     const token = getAccessToken();
     ++operation.current;
@@ -229,10 +239,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       profileError,
       retryProfile: loadProfile,
       login,
+      completeFaceLogin,
       logout,
       changeInitialPassword,
     }),
-    [changeInitialPassword, isLoading, loadProfile, login, logout, profileError, user]
+    [changeInitialPassword, completeFaceLogin, isLoading, loadProfile, login, logout, profileError, user]
   );
 
   const canShowPasswordChangeSuccess =

@@ -1,0 +1,200 @@
+{
+  "browser": "Chrome/154.0.8037.98",
+  "checks": [
+    {
+      "check": "Anonymous route uses existing auth redirect; no camera UI",
+      "passed": true
+    },
+    {
+      "check": "Dashboard, Settings and idle camera page never load detector/model/WASM",
+      "passed": true
+    },
+    {
+      "check": "Explicit click requests front-facing video without audio once and attaches a playing synthetic stream",
+      "passed": true
+    },
+    {
+      "check": "Real BlazeFace inference on a blank video frame: zero faces",
+      "passed": true
+    },
+    {
+      "check": "Real overlay: contained preview/SVG coordinates and identical mirror transform",
+      "viewport": 1440,
+      "language": "en",
+      "mirrored": true,
+      "width": 1440,
+      "scrollWidth": 1434,
+      "clientWidth": 1434,
+      "videoRight": 1022,
+      "overlayRight": 1022,
+      "videoTransform": "matrix(-1, 0, 0, 1, 0, 0)",
+      "overlayTransform": "matrix(-1, 0, 0, 1, 0, 0)",
+      "viewBox": "0 0 640 360",
+      "preserve": "xMidYMid meet",
+      "box": {
+        "x": 107,
+        "y": 138,
+        "width": 145,
+        "height": 145
+      },
+      "count": 1,
+      "coordinateError": 0.000020345052007542108,
+      "passed": true
+    },
+    {
+      "check": "Real overlay: contained preview/SVG coordinates and identical mirror transform",
+      "viewport": 1440,
+      "language": "en",
+      "mirrored": false,
+      "width": 1440,
+      "scrollWidth": 1434,
+      "clientWidth": 1434,
+      "videoRight": 1022,
+      "overlayRight": 1022,
+      "videoTransform": "none",
+      "overlayTransform": "none",
+      "viewBox": "0 0 640 360",
+      "preserve": "xMidYMid meet",
+      "box": {
+        "x": 107,
+        "y": 138,
+        "width": 145,
+        "height": 145
+      },
+      "count": 1,
+      "coordinateError": 0.000010172526060614473,
+      "passed": true
+    },
+    {
+      "check": "Real overlay: contained preview/SVG coordinates and identical mirror transform",
+      "viewport": 390,
+      "language": "id",
+      "mirrored": true,
+      "width": 390,
+      "scrollWidth": 384,
+      "clientWidth": 384,
+      "videoRight": 330,
+      "overlayRight": 330,
+      "videoTransform": "matrix(-1, 0, 0, 1, 0, 0)",
+      "overlayTransform": "matrix(-1, 0, 0, 1, 0, 0)",
+      "viewBox": "0 0 640 360",
+      "preserve": "xMidYMid meet",
+      "box": {
+        "x": 107,
+        "y": 138,
+        "width": 145,
+        "height": 145
+      },
+      "count": 1,
+      "coordinateError": 0.000010172526060614473,
+      "passed": true
+    },
+    {
+      "check": "Real overlay: contained preview/SVG coordinates and identical mirror transform",
+      "viewport": 360,
+      "language": "id",
+      "mirrored": true,
+      "width": 360,
+      "scrollWidth": 354,
+      "clientWidth": 354,
+      "videoRight": 300,
+      "overlayRight": 300,
+      "videoTransform": "matrix(-1, 0, 0, 1, 0, 0)",
+      "overlayTransform": "matrix(-1, 0, 0, 1, 0, 0)",
+      "viewBox": "0 0 640 360",
+      "preserve": "xMidYMid meet",
+      "box": {
+        "x": 107,
+        "y": 138,
+        "width": 145,
+        "height": 145
+      },
+      "count": 1,
+      "coordinateError": 0.000010172526060614473,
+      "passed": true
+    },
+    {
+      "check": "Real overlay: contained preview/SVG coordinates and identical mirror transform",
+      "viewport": 360,
+      "language": "id",
+      "mirrored": true,
+      "width": 360,
+      "scrollWidth": 354,
+      "clientWidth": 354,
+      "videoRight": 300,
+      "overlayRight": 300,
+      "videoTransform": "matrix(-1, 0, 0, 1, 0, 0)",
+      "overlayTransform": "matrix(-1, 0, 0, 1, 0, 0)",
+      "viewBox": "0 0 480 640",
+      "preserve": "xMidYMid meet",
+      "box": {
+        "x": 108,
+        "y": 139,
+        "width": 141,
+        "height": 141
+      },
+      "count": 1,
+      "coordinateError": 0,
+      "passed": true
+    },
+    {
+      "check": "Real inference on two copies of the licensed photo returns two boxes and multiple-face warning",
+      "passed": true
+    },
+    {
+      "check": "No frame queue: one frame in flight throughout real inference",
+      "metrics": [
+        {
+          "frames": 45,
+          "maxInFlight": 1,
+          "last": {
+            "count": 2,
+            "boxes": [
+              {
+                "x": 107,
+                "y": 138,
+                "width": 144,
+                "height": 144,
+                "confidence": 0.9388077855110168
+              },
+              {
+                "x": 427,
+                "y": 138,
+                "width": 144,
+                "height": 144,
+                "confidence": 0.9380757212638855
+              }
+            ],
+            "width": 640,
+            "height": 360
+          }
+        }
+      ],
+      "passed": true
+    },
+    {
+      "check": "Stop clears overlay, ends tracks and terminates worker; no further frames",
+      "passed": true
+    },
+    {
+      "check": "Restart creates a fresh worker on the new camera stream and performs real inference",
+      "passed": true
+    },
+    {
+      "check": "Actual model fetch 503 is safe/localized; retry performs real inference on the same stream",
+      "passed": true
+    },
+    {
+      "check": "SPA navigation stops stream and terminates model worker",
+      "passed": true
+    },
+    {
+      "check": "Actual auth-provider logout releases stream and worker",
+      "passed": true
+    }
+  ],
+  "unknownRequests": [],
+  "runtimeErrors": [],
+  "liveRequests": 0,
+  "limits": "Real app/Chrome with synthetic API and getUserMedia replaced by canvas video. Real CPU/WASM FaceDetector model; licensed photo/blank frames via synthetic canvas stream. No physical camera, OS permissions or real GoTrue/Storage tested."
+}

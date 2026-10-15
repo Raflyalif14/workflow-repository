@@ -1,0 +1,852 @@
+{
+  "stage": "9J",
+  "started_at": "2026-10-13T07:55:49.790162+00:00",
+  "status": "PASS",
+  "reason": null,
+  "cases": [
+    {
+      "id": "synthetic-constant",
+      "status": "PASS",
+      "reason": null,
+      "prediction": null,
+      "fixture": {
+        "kind": "synthetic",
+        "pattern": "constant",
+        "rng": "numpy.default_rng PCG64",
+        "seed": null,
+        "pad_ground_truth": null
+      },
+      "tensor": {
+        "shape": [
+          1,
+          3,
+          128,
+          128
+        ],
+        "dtype": "float32",
+        "contiguous": true,
+        "finite": true,
+        "sha256": "4e77ee650a365814304d5c539033970c2b8d63ef8af354078953e0670ac75f64",
+        "unchanged_after_each_call": true,
+        "prepared_once": true
+      },
+      "output_shape": [
+        1,
+        2
+      ],
+      "output_dtype": "float32",
+      "class_order": [
+        "real",
+        "spoof"
+      ],
+      "outputs": {
+        "opencv": [
+          [
+            0.7233853936195374,
+            0.27661460638046265
+          ],
+          [
+            0.7233853936195374,
+            0.27661460638046265
+          ],
+          [
+            0.7233853936195374,
+            0.27661460638046265
+          ]
+        ],
+        "ort": [
+          [
+            0.7233849167823792,
+            0.27661511301994324
+          ],
+          [
+            0.7233849167823792,
+            0.27661511301994324
+          ],
+          [
+            0.7233849167823792,
+            0.27661511301994324
+          ]
+        ]
+      },
+      "differences": [
+        {
+          "absolute": [
+            4.76837158203125e-07,
+            5.066394805908203e-07
+          ],
+          "relative": [
+            6.591748696172707e-07,
+            1.8315683299425975e-06
+          ],
+          "max_absolute": 5.066394805908203e-07,
+          "max_relative": 1.8315683299425975e-06,
+          "within_tolerance": true
+        },
+        {
+          "absolute": [
+            4.76837158203125e-07,
+            5.066394805908203e-07
+          ],
+          "relative": [
+            6.591748696172707e-07,
+            1.8315683299425975e-06
+          ],
+          "max_absolute": 5.066394805908203e-07,
+          "max_relative": 1.8315683299425975e-06,
+          "within_tolerance": true
+        },
+        {
+          "absolute": [
+            4.76837158203125e-07,
+            5.066394805908203e-07
+          ],
+          "relative": [
+            6.591748696172707e-07,
+            1.8315683299425975e-06
+          ],
+          "max_absolute": 5.066394805908203e-07,
+          "max_relative": 1.8315683299425975e-06,
+          "within_tolerance": true
+        }
+      ],
+      "determinism": {
+        "opencv": {
+          "bit_exact_outputs": true,
+          "max_absolute_from_first": 0.0
+        },
+        "ort": {
+          "bit_exact_outputs": true,
+          "max_absolute_from_first": 0.0
+        }
+      },
+      "max_absolute_difference": 5.066394805908203e-07,
+      "max_relative_difference": 1.8315683299425975e-06,
+      "forward_ms": {
+        "opencv": [
+          22.673599887639284,
+          7.10600009188056,
+          7.469399832189083
+        ],
+        "ort": [
+          4.68769995495677,
+          3.1277001835405827,
+          3.2166000455617905
+        ]
+      },
+      "source_patch_unchanged": true
+    },
+    {
+      "id": "synthetic-pattern",
+      "status": "PASS",
+      "reason": null,
+      "prediction": null,
+      "fixture": {
+        "kind": "synthetic",
+        "pattern": "pattern",
+        "rng": "numpy.default_rng PCG64",
+        "seed": null,
+        "pad_ground_truth": null
+      },
+      "tensor": {
+        "shape": [
+          1,
+          3,
+          128,
+          128
+        ],
+        "dtype": "float32",
+        "contiguous": true,
+        "finite": true,
+        "sha256": "29407dd77a0b68cf4883f27b26ccfd1dd9b9a22ef0eb5b8d0f6108510962aae0",
+        "unchanged_after_each_call": true,
+        "prepared_once": true
+      },
+      "output_shape": [
+        1,
+        2
+      ],
+      "output_dtype": "float32",
+      "class_order": [
+        "real",
+        "spoof"
+      ],
+      "outputs": {
+        "opencv": [
+          [
+            0.9326130151748657,
+            0.0673869326710701
+          ],
+          [
+            0.9326130151748657,
+            0.0673869326710701
+          ],
+          [
+            0.9326130151748657,
+            0.0673869326710701
+          ]
+        ],
+        "ort": [
+          [
+            0.9326130151748657,
+            0.06738696992397308
+          ],
+          [
+            0.9326130151748657,
+            0.06738696992397308
+          ],
+          [
+            0.9326130151748657,
+            0.06738696992397308
+          ]
+        ]
+      },
+      "differences": [
+        {
+          "absolute": [
+            0.0,
+            3.725290298461914e-08
+          ],
+          "relative": [
+            0.0,
+            5.528205679324709e-07
+          ],
+          "max_absolute": 3.725290298461914e-08,
+          "max_relative": 5.528205679324709e-07,
+          "within_tolerance": true
+        },
+        {
+          "absolute": [
+            0.0,
+            3.725290298461914e-08
+          ],
+          "relative": [
+            0.0,
+            5.528205679324709e-07
+          ],
+          "max_absolute": 3.725290298461914e-08,
+          "max_relative": 5.528205679324709e-07,
+          "within_tolerance": true
+        },
+        {
+          "absolute": [
+            0.0,
+            3.725290298461914e-08
+          ],
+          "relative": [
+            0.0,
+            5.528205679324709e-07
+          ],
+          "max_absolute": 3.725290298461914e-08,
+          "max_relative": 5.528205679324709e-07,
+          "within_tolerance": true
+        }
+      ],
+      "determinism": {
+        "opencv": {
+          "bit_exact_outputs": true,
+          "max_absolute_from_first": 0.0
+        },
+        "ort": {
+          "bit_exact_outputs": true,
+          "max_absolute_from_first": 0.0
+        }
+      },
+      "max_absolute_difference": 3.725290298461914e-08,
+      "max_relative_difference": 5.528205679324709e-07,
+      "forward_ms": {
+        "opencv": [
+          7.275599986314774,
+          7.0229999255388975,
+          7.316599832847714
+        ],
+        "ort": [
+          2.9381001368165016,
+          2.979299984872341,
+          2.788200043141842
+        ]
+      },
+      "source_patch_unchanged": true
+    },
+    {
+      "id": "synthetic-noise",
+      "status": "PASS",
+      "reason": null,
+      "prediction": null,
+      "fixture": {
+        "kind": "synthetic",
+        "pattern": "noise",
+        "rng": "numpy.default_rng PCG64",
+        "seed": 42,
+        "pad_ground_truth": null
+      },
+      "tensor": {
+        "shape": [
+          1,
+          3,
+          128,
+          128
+        ],
+        "dtype": "float32",
+        "contiguous": true,
+        "finite": true,
+        "sha256": "e7fc41a0d5b1dbcd2f62d181c5b14bfb4ee700fd240b67d61d00affc6153ff26",
+        "unchanged_after_each_call": true,
+        "prepared_once": true
+      },
+      "output_shape": [
+        1,
+        2
+      ],
+      "output_dtype": "float32",
+      "class_order": [
+        "real",
+        "spoof"
+      ],
+      "outputs": {
+        "opencv": [
+          [
+            0.956379771232605,
+            0.04362025111913681
+          ],
+          [
+            0.956379771232605,
+            0.04362025111913681
+          ],
+          [
+            0.956379771232605,
+            0.04362025111913681
+          ]
+        ],
+        "ort": [
+          [
+            0.9563798904418945,
+            0.04362010955810547
+          ],
+          [
+            0.9563798904418945,
+            0.04362010955810547
+          ],
+          [
+            0.9563798904418945,
+            0.04362010955810547
+          ]
+        ]
+      },
+      "differences": [
+        {
+          "absolute": [
+            1.1920928955078125e-07,
+            1.4156103134155273e-07
+          ],
+          "relative": [
+            1.2464637822497575e-07,
+            3.2453158136382518e-06
+          ],
+          "max_absolute": 1.4156103134155273e-07,
+          "max_relative": 3.2453158136382518e-06,
+          "within_tolerance": true
+        },
+        {
+          "absolute": [
+            1.1920928955078125e-07,
+            1.4156103134155273e-07
+          ],
+          "relative": [
+            1.2464637822497575e-07,
+            3.2453158136382518e-06
+          ],
+          "max_absolute": 1.4156103134155273e-07,
+          "max_relative": 3.2453158136382518e-06,
+          "within_tolerance": true
+        },
+        {
+          "absolute": [
+            1.1920928955078125e-07,
+            1.4156103134155273e-07
+          ],
+          "relative": [
+            1.2464637822497575e-07,
+            3.2453158136382518e-06
+          ],
+          "max_absolute": 1.4156103134155273e-07,
+          "max_relative": 3.2453158136382518e-06,
+          "within_tolerance": true
+        }
+      ],
+      "determinism": {
+        "opencv": {
+          "bit_exact_outputs": true,
+          "max_absolute_from_first": 0.0
+        },
+        "ort": {
+          "bit_exact_outputs": true,
+          "max_absolute_from_first": 0.0
+        }
+      },
+      "max_absolute_difference": 1.4156103134155273e-07,
+      "max_relative_difference": 3.2453158136382518e-06,
+      "forward_ms": {
+        "opencv": [
+          7.053999928757548,
+          7.437799824401736,
+          7.229699986055493
+        ],
+        "ort": [
+          2.938699908554554,
+          2.795600099489093,
+          3.070099977776408
+        ]
+      },
+      "source_patch_unchanged": true
+    },
+    {
+      "id": "public-same-person-a",
+      "status": "PASS",
+      "reason": null,
+      "prediction": null,
+      "fixture": {
+        "file": "same-person-a.jpg",
+        "sha256": "b773e77fea6d53f44a1d2e14c850fcf0af07eed159959b7423f646983b422111",
+        "source": "https://images-assets.nasa.gov/image/s97-00690/s97-00690~medium.jpg",
+        "license": "NASA public domain",
+        "license_evidence": "https://commons.wikimedia.org/wiki/File:Individual_Portrait_of_Astronaut_Chris_Hadfield.jpg",
+        "existing_fixture_processing": "Resized to maximum side 1024, JPEG quality 95; distinct NASA photographs, not same-photo augmentation.",
+        "diagnostics": {
+          "version": "pad-geometry-v1",
+          "frame": {
+            "width": 819,
+            "height": 1024
+          },
+          "faceCount": 1,
+          "bbox": {
+            "x": 290.4117473959923,
+            "y": 130.1101318359375,
+            "width": 149.68855588138103,
+            "height": 189.46702880859377,
+            "confidence": 0.9280201196670532
+          },
+          "cropBeforeClip": {
+            "left": 251,
+            "top": 111,
+            "right": 479,
+            "bottom": 339
+          },
+          "cropAfterClip": {
+            "left": 251,
+            "top": 111,
+            "right": 479,
+            "bottom": 339
+          },
+          "roi": {
+            "width": 228,
+            "height": 228
+          },
+          "clipped": {
+            "left": false,
+            "top": false,
+            "right": false,
+            "bottom": false
+          }
+        },
+        "pad_ground_truth": null
+      },
+      "tensor": {
+        "shape": [
+          1,
+          3,
+          128,
+          128
+        ],
+        "dtype": "float32",
+        "contiguous": true,
+        "finite": true,
+        "sha256": "2228ab2e18d7df8fdf34117e23e5da76046d45707af41943e65a8a1dc8b6bc43",
+        "unchanged_after_each_call": true,
+        "prepared_once": true
+      },
+      "output_shape": [
+        1,
+        2
+      ],
+      "output_dtype": "float32",
+      "class_order": [
+        "real",
+        "spoof"
+      ],
+      "outputs": {
+        "opencv": [
+          [
+            0.8580116033554077,
+            0.14198841154575348
+          ],
+          [
+            0.8580116033554077,
+            0.14198841154575348
+          ],
+          [
+            0.8580116033554077,
+            0.14198841154575348
+          ]
+        ],
+        "ort": [
+          [
+            0.8580115437507629,
+            0.14198848605155945
+          ],
+          [
+            0.8580115437507629,
+            0.14198848605155945
+          ],
+          [
+            0.8580115437507629,
+            0.14198848605155945
+          ]
+        ]
+      },
+      "differences": [
+        {
+          "absolute": [
+            5.960464477539063e-08,
+            7.450580596923828e-08
+          ],
+          "relative": [
+            6.946834831013033e-08,
+            5.247313218212878e-07
+          ],
+          "max_absolute": 7.450580596923828e-08,
+          "max_relative": 5.247313218212878e-07,
+          "within_tolerance": true
+        },
+        {
+          "absolute": [
+            5.960464477539063e-08,
+            7.450580596923828e-08
+          ],
+          "relative": [
+            6.946834831013033e-08,
+            5.247313218212878e-07
+          ],
+          "max_absolute": 7.450580596923828e-08,
+          "max_relative": 5.247313218212878e-07,
+          "within_tolerance": true
+        },
+        {
+          "absolute": [
+            5.960464477539063e-08,
+            7.450580596923828e-08
+          ],
+          "relative": [
+            6.946834831013033e-08,
+            5.247313218212878e-07
+          ],
+          "max_absolute": 7.450580596923828e-08,
+          "max_relative": 5.247313218212878e-07,
+          "within_tolerance": true
+        }
+      ],
+      "determinism": {
+        "opencv": {
+          "bit_exact_outputs": true,
+          "max_absolute_from_first": 0.0
+        },
+        "ort": {
+          "bit_exact_outputs": true,
+          "max_absolute_from_first": 0.0
+        }
+      },
+      "max_absolute_difference": 7.450580596923828e-08,
+      "max_relative_difference": 5.247313218212878e-07,
+      "forward_ms": {
+        "opencv": [
+          7.728099822998047,
+          7.844399893656373,
+          7.452199934050441
+        ],
+        "ort": [
+          3.18529992364347,
+          2.993500092998147,
+          2.9902001842856407
+        ]
+      },
+      "source_patch_unchanged": true
+    },
+    {
+      "id": "public-same-person-b",
+      "status": "PASS",
+      "reason": null,
+      "prediction": null,
+      "fixture": {
+        "file": "same-person-b.jpg",
+        "sha256": "a90f4c8a5e2ae04a692b993fa243dad79645d1ef2a0f19262f4bcf52c4176a69",
+        "source": "https://images-assets.nasa.gov/image/iss034e031671/iss034e031671~medium.jpg",
+        "license": "NASA public domain",
+        "license_evidence": "https://commons.wikimedia.org/wiki/File:Expedition_34_crew.jpg",
+        "existing_fixture_processing": "Crop [350,320,520,510] from 1280x850 group photo. NASA caption identifies front-left participant as same public astronaut in 1996 fixture; a distinct 2013 photograph, not augmentation.",
+        "diagnostics": {
+          "version": "pad-geometry-v1",
+          "frame": {
+            "width": 170,
+            "height": 190
+          },
+          "faceCount": 1,
+          "bbox": {
+            "x": 53.510311126708984,
+            "y": 44.494686126708984,
+            "width": 72.26184844970703,
+            "height": 90.91239166259766,
+            "confidence": 0.945961594581604
+          },
+          "cropBeforeClip": {
+            "left": 35,
+            "top": 35,
+            "right": 145,
+            "bottom": 145
+          },
+          "cropAfterClip": {
+            "left": 35,
+            "top": 35,
+            "right": 145,
+            "bottom": 145
+          },
+          "roi": {
+            "width": 110,
+            "height": 110
+          },
+          "clipped": {
+            "left": false,
+            "top": false,
+            "right": false,
+            "bottom": false
+          }
+        },
+        "pad_ground_truth": null
+      },
+      "tensor": {
+        "shape": [
+          1,
+          3,
+          128,
+          128
+        ],
+        "dtype": "float32",
+        "contiguous": true,
+        "finite": true,
+        "sha256": "2478729d13aa443589473df320fba4e4cf6251ef4aa38c8c2e0a89608a7d8814",
+        "unchanged_after_each_call": true,
+        "prepared_once": true
+      },
+      "output_shape": [
+        1,
+        2
+      ],
+      "output_dtype": "float32",
+      "class_order": [
+        "real",
+        "spoof"
+      ],
+      "outputs": {
+        "opencv": [
+          [
+            0.8381041884422302,
+            0.16189590096473694
+          ],
+          [
+            0.8381041884422302,
+            0.16189590096473694
+          ],
+          [
+            0.8381041884422302,
+            0.16189590096473694
+          ]
+        ],
+        "ort": [
+          [
+            0.8381038904190063,
+            0.16189604997634888
+          ],
+          [
+            0.8381038904190063,
+            0.16189604997634888
+          ],
+          [
+            0.8381038904190063,
+            0.16189604997634888
+          ]
+        ]
+      },
+      "differences": [
+        {
+          "absolute": [
+            2.980232238769531e-07,
+            1.4901161193847656e-07
+          ],
+          "relative": [
+            3.55592221064572e-07,
+            9.204153650459379e-07
+          ],
+          "max_absolute": 2.980232238769531e-07,
+          "max_relative": 9.204153650459379e-07,
+          "within_tolerance": true
+        },
+        {
+          "absolute": [
+            2.980232238769531e-07,
+            1.4901161193847656e-07
+          ],
+          "relative": [
+            3.55592221064572e-07,
+            9.204153650459379e-07
+          ],
+          "max_absolute": 2.980232238769531e-07,
+          "max_relative": 9.204153650459379e-07,
+          "within_tolerance": true
+        },
+        {
+          "absolute": [
+            2.980232238769531e-07,
+            1.4901161193847656e-07
+          ],
+          "relative": [
+            3.55592221064572e-07,
+            9.204153650459379e-07
+          ],
+          "max_absolute": 2.980232238769531e-07,
+          "max_relative": 9.204153650459379e-07,
+          "within_tolerance": true
+        }
+      ],
+      "determinism": {
+        "opencv": {
+          "bit_exact_outputs": true,
+          "max_absolute_from_first": 0.0
+        },
+        "ort": {
+          "bit_exact_outputs": true,
+          "max_absolute_from_first": 0.0
+        }
+      },
+      "max_absolute_difference": 2.980232238769531e-07,
+      "max_relative_difference": 9.204153650459379e-07,
+      "forward_ms": {
+        "opencv": [
+          7.677899906411767,
+          7.223800057545304,
+          7.140900008380413
+        ],
+        "ort": [
+          2.825399860739708,
+          2.8472000267356634,
+          3.1777999829500914
+        ]
+      },
+      "source_patch_unchanged": true
+    }
+  ],
+  "prediction": null,
+  "purpose": "NUMERICAL_RUNTIME_PARITY_NOT_PAD_ACCURACY",
+  "policy": {
+    "atol": 1e-05,
+    "rtol": 0.0001,
+    "repeats": 3,
+    "comparison": "abs(OpenCV-ORT) <= atol + rtol*abs(ORT)",
+    "relative_denominator": "max(abs(ORT), float32 epsilon)",
+    "repeat_requirement": "bit-exact outputs within each runtime"
+  },
+  "environment": {
+    "python": "3.10.0",
+    "platform": "Windows-10-10.0.26200-SP0",
+    "machine": "AMD64",
+    "opencv_runtime": "4.13.0",
+    "packages": {
+      "coloredlogs": "15.0.1",
+      "flatbuffers": "25.12.19",
+      "humanfriendly": "10.0",
+      "mpmath": "1.3.0",
+      "numpy": "2.2.6",
+      "onnxruntime": "1.23.2",
+      "opencv-python-headless": "4.13.0.92",
+      "packaging": "26.3",
+      "pillow": "12.3.0",
+      "pip": "26.2",
+      "protobuf": "7.36.2",
+      "pyreadline3": "3.5.4",
+      "setuptools": "84.0.0",
+      "sympy": "1.14.0"
+    }
+  },
+  "model": {
+    "name": "anti-spoof-mn3",
+    "size_bytes": 12270179,
+    "sha256": "c4c99af04603b62d7e44f6f4daeb33e0daeccc696008c0b1d62f6f5cebbb3262",
+    "sha384": "6de4534964b723397b3e8c995cadcf43bc007cc2f9930b95ae25f76adccece5d1d4d058d0b15117b9e4a9f758424f92a",
+    "verified": true,
+    "same_bytes_for_both_runtimes": true,
+    "source": "https://storage.openvinotoolkit.org/repositories/open_model_zoo/public/2022.1/anti-spoof-mn3/anti-spoof-mn3.onnx",
+    "omz_commit": "eda1863a6d60b09551df9d039cff2377d6ddd4d6"
+  },
+  "preprocessing": {
+    "version": "mn3-original-onnx-rgb-cubic-128-v1",
+    "crop_version": "yunet-max-side-square-context-1.2-clip-v1",
+    "detector": "yunet-2023mar",
+    "detector_sha256": "8f2383e4dd3cfbb4553ea8718107fc0423210dc964f9f4280604804ed2552fa4",
+    "method": "existing prepare_patch once, no extra normalization/softmax"
+  },
+  "catalog": {
+    "inputs": [
+      {
+        "name": "actual_input_1",
+        "type": "tensor(float)",
+        "shape": [
+          1,
+          3,
+          128,
+          128
+        ]
+      }
+    ],
+    "outputs": [
+      {
+        "name": "output1",
+        "type": "tensor(float)",
+        "shape": [
+          1,
+          2
+        ]
+      }
+    ],
+    "providers": [
+      "CPUExecutionProvider"
+    ],
+    "opencv": {
+      "backend": "DNN_BACKEND_OPENCV",
+      "target": "DNN_TARGET_CPU",
+      "outputs": [
+        "output1"
+      ],
+      "terminal_layers": [
+        {
+          "name": "onnx_node!Softmax_440",
+          "type": "Softmax"
+        },
+        {
+          "name": "output1",
+          "type": "Identity"
+        }
+      ]
+    },
+    "configuration": {
+      "threads": 1,
+      "execution": "ORT_SEQUENTIAL",
+      "optimization": "ORT_ENABLE_ALL",
+      "fallback_disabled": true
+    }
+  },
+  "summary": {
+    "cases": 5,
+    "passed": 5,
+    "max_absolute_difference": 5.066394805908203e-07,
+    "max_relative_difference": 3.2453158136382518e-06
+  },
+  "completed_at": "2026-10-13T07:55:50.371123+00:00"
+}

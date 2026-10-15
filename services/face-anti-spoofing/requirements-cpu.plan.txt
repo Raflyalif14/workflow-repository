@@ -1,0 +1,8 @@
+# Stage 9B proposed DIRECT pins for a SEPARATE Python 3.10 x64 venv only.
+# Not installed or a complete dependency lock; transitive pins must be resolved
+# and reviewed when setup is authorized. Weight/runtime parity is unverified.
+# Obtain torch from https://download.pytorch.org/whl/cpu (official CPU wheel).
+torch==2.8.0+cpu
+numpy==2.2.6
+opencv-python-headless==4.13.0.92
+# No torchvision/training suite/Pillow needed by this Stage 9B ndarray harness.

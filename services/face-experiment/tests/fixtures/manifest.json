@@ -1,0 +1,30 @@
+[
+  {
+    "file": "same-person-a.jpg",
+    "source": "https://images-assets.nasa.gov/image/s97-00690/s97-00690~medium.jpg",
+    "nasaId": "s97-00690",
+    "sourceSha256": "692a726419bf84300b94db219f25d0b0d38fbdcd7396e7cf5d54738941cbccbe",
+    "sha256": "b773e77fea6d53f44a1d2e14c850fcf0af07eed159959b7423f646983b422111",
+    "license": "NASA public domain",
+    "licenseEvidence": "https://commons.wikimedia.org/wiki/File:Individual_Portrait_of_Astronaut_Chris_Hadfield.jpg",
+    "processing": "Resized to maximum side 1024, JPEG quality 95; distinct NASA photographs, not same-photo augmentation."
+  },
+  {
+    "file": "same-person-b.jpg",
+    "source": "https://images-assets.nasa.gov/image/iss034e031671/iss034e031671~medium.jpg",
+    "nasaId": "ISS034-E-031671",
+    "sourceSha256": "7da20b86c63c3fbcae4c45c660d93ee54f22a56554bbcc9a310a5674335bc1a0",
+    "sha256": "a90f4c8a5e2ae04a692b993fa243dad79645d1ef2a0f19262f4bcf52c4176a69",
+    "license": "NASA public domain",
+    "licenseEvidence": "https://commons.wikimedia.org/wiki/File:Expedition_34_crew.jpg",
+    "processing": "Crop [350,320,520,510] from 1280x850 group photo. NASA caption identifies front-left participant as same public astronaut in 1996 fixture; a distinct 2013 photograph, not augmentation."
+  },
+  {
+    "file": "group-source.jpg",
+    "source": "https://images-assets.nasa.gov/image/iss034e031671/iss034e031671~medium.jpg",
+    "sha256": "7da20b86c63c3fbcae4c45c660d93ee54f22a56554bbcc9a310a5674335bc1a0",
+    "license": "NASA public domain",
+    "licenseEvidence": "https://commons.wikimedia.org/wiki/File:Expedition_34_crew.jpg",
+    "processing": "Unmodified downloaded NASA medium asset; multiple-face negative test."
+  }
+]

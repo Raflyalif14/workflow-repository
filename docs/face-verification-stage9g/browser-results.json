@@ -1,0 +1,99 @@
+{
+  "browser": "Chrome/155.0.8059.40",
+  "checks": [
+    {
+      "check": "Original captures sent only after consent; real Python YuNet/MN3 success A; blank B refused with no probabilities; SFace result remains separate; one PAD row",
+      "passed": true
+    },
+    {
+      "check": "PAD responsive layout/result survives locale",
+      "language": "en",
+      "viewport": 1440,
+      "client": 1434,
+      "scroll": 1434,
+      "passed": true
+    },
+    {
+      "check": "PAD responsive layout/result survives locale",
+      "language": "en",
+      "viewport": 390,
+      "client": 384,
+      "scroll": 384,
+      "passed": true
+    },
+    {
+      "check": "PAD responsive layout/result survives locale",
+      "language": "en",
+      "viewport": 360,
+      "client": 354,
+      "scroll": 354,
+      "passed": true
+    },
+    {
+      "check": "PAD responsive layout/result survives locale",
+      "language": "id",
+      "viewport": 1440,
+      "client": 1434,
+      "scroll": 1434,
+      "passed": true
+    },
+    {
+      "check": "PAD responsive layout/result survives locale",
+      "language": "id",
+      "viewport": 390,
+      "client": 384,
+      "scroll": 384,
+      "passed": true
+    },
+    {
+      "check": "PAD responsive layout/result survives locale",
+      "language": "id",
+      "viewport": 360,
+      "client": 354,
+      "scroll": 354,
+      "passed": true
+    },
+    {
+      "check": "Metadata edits and delete invalidate result; logout removes experiment page",
+      "passed": true
+    }
+  ],
+  "padRequests": [
+    {
+      "path": "/api/face-pad/capabilities",
+      "method": "OPTIONS"
+    },
+    {
+      "path": "/api/face-pad/capabilities",
+      "method": "OPTIONS"
+    },
+    {
+      "path": "/api/face-pad/capabilities",
+      "method": "GET"
+    },
+    {
+      "path": "/api/face-pad/capabilities",
+      "method": "GET"
+    },
+    {
+      "path": "/api/face-pad/inspect",
+      "method": "OPTIONS"
+    },
+    {
+      "path": "/api/face-pad/inspect",
+      "method": "POST"
+    },
+    {
+      "path": "/api/face-pad/inspect",
+      "method": "OPTIONS"
+    },
+    {
+      "path": "/api/face-pad/inspect",
+      "method": "POST"
+    }
+  ],
+  "liveRequests": 0,
+  "unknownRequests": [],
+  "runtimeErrors": [],
+  "limits": "Actual app, Chrome, Node route and Python pretrained YuNet/MN3. Canvas uses attributed NASA fixture and blank frame; browser FaceDetector mocked for capture eligibility. Auth provider/profile mocked. No physical camera, real GoTrue/Storage, PAD accuracy or login verification."
+}

@@ -103,6 +103,21 @@ function navigationChecks() {
     user = { id: 'account-a', role: 'SALES', isActive: true };
     const personal = () => elements(SettingsPage()).filter(node => node.type === PersonalNotificationSettings);
     assert.equal(personal().length, 1, 'Settings mounts exactly one personal form');
+    for (const locale of ['en', 'id'] as const) {
+      setActiveLanguage(locale);
+      for (const role of ['SALES', 'SA', 'HEAD_SA', 'SUPER_ADMIN']) {
+        user = { id: 'account-a', role, isActive: true };
+        const link = elements(SettingsPage()).find(node => node.props.href === '/settings/face-verification');
+        assert(link && Array.isArray(link.props.children) && link.props.children.includes(translate('faceLogin.openSettings')),
+          'All authenticated roles can discover camera preparation in Settings');
+      }
+    }
+    user = { id: 'account-a', role: 'SALES', isActive: false };
+    assert(!elements(SettingsPage()).some(node => node.props.href === '/settings/face-verification'));
+    user = { id: 'account-a', role: 'SALES', isActive: true, mustChangePassword: true };
+    assert(!elements(SettingsPage()).some(node => node.props.href === '/settings/face-verification'));
+    setActiveLanguage('en'); user = { id: 'account-a', role: 'SALES', isActive: true };
+
     const originalKey = personal()[0].key;
     setActiveLanguage('id'); assert.equal(personal()[0].key, originalKey, 'Locale cannot remount the form');
     setActiveLanguage('en'); user = { ...user, id: 'account-b' };

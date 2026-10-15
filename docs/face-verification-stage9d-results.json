@@ -1,0 +1,307 @@
+{
+  "stage": "9D",
+  "started_at": "2026-10-12T10:28:01.716507+00:00",
+  "completed_at": "2026-10-12T10:28:02.415242+00:00",
+  "runtime": {
+    "python": "3.10.0",
+    "bits": 64,
+    "os": "Windows",
+    "venv": ".cache/face-anti-spoofing-cpu",
+    "include_system_site_packages": false,
+    "torch": "2.14.1+cpu",
+    "torch_cuda_version": null,
+    "tensor_device": "cpu",
+    "packages": [
+      {
+        "name": "filelock",
+        "version": "4.1.0"
+      },
+      {
+        "name": "fsspec",
+        "version": "2026.9.0"
+      },
+      {
+        "name": "Jinja2",
+        "version": "3.1.6"
+      },
+      {
+        "name": "MarkupSafe",
+        "version": "3.0.4"
+      },
+      {
+        "name": "mpmath",
+        "version": "1.3.0"
+      },
+      {
+        "name": "networkx",
+        "version": "3.4.2"
+      },
+      {
+        "name": "numpy",
+        "version": "2.2.6"
+      },
+      {
+        "name": "opencv-python-headless",
+        "version": "4.13.0.92"
+      },
+      {
+        "name": "pillow",
+        "version": "12.3.0"
+      },
+      {
+        "name": "pip",
+        "version": "26.2"
+      },
+      {
+        "name": "setuptools",
+        "version": "84.0.0"
+      },
+      {
+        "name": "sympy",
+        "version": "1.14.0"
+      },
+      {
+        "name": "torch",
+        "version": "2.14.1+cpu"
+      },
+      {
+        "name": "typing_extensions",
+        "version": "4.16.0"
+      }
+    ]
+  },
+  "tests": {
+    "run": 24,
+    "pass": 24,
+    "skip": 0,
+    "fail": 0,
+    "error": 0,
+    "records": [
+      {
+        "id": "test_offline_pad.PreprocessingTests.test_16_9_refused_without_modifying_frame",
+        "status": "PASS"
+      },
+      {
+        "id": "test_offline_pad.PreprocessingTests.test_all_edges_and_scale_clamp_match_reference",
+        "status": "PASS"
+      },
+      {
+        "id": "test_offline_pad.PreprocessingTests.test_bgr_float32_nchw_without_normalization_or_mirror",
+        "status": "PASS"
+      },
+      {
+        "id": "test_offline_pad.PreprocessingTests.test_centre_geometry_and_both_scales",
+        "status": "PASS"
+      },
+      {
+        "id": "test_offline_pad.PreprocessingTests.test_invalid_bbox_is_rejected_before_resize",
+        "status": "PASS"
+      },
+      {
+        "id": "test_offline_pad.PreprocessingTests.test_invalid_frame_and_scale",
+        "status": "PASS"
+      },
+      {
+        "id": "test_offline_pad.PreprocessingTests.test_optional_pytorch_ndarray_conversion",
+        "status": "PASS"
+      },
+      {
+        "id": "test_offline_pad.PreprocessingTests.test_random_valid_boxes_match_reference",
+        "status": "PASS"
+      },
+      {
+        "id": "test_offline_pad.PreprocessingTests.test_reference_source_integrity",
+        "status": "PASS"
+      },
+      {
+        "id": "test_offline_pad.RunnerTests.test_bad_trial_code_does_not_echo_input",
+        "status": "PASS"
+      },
+      {
+        "id": "test_offline_pad.RunnerTests.test_cli_temporary_synthetic_frame_only_and_no_output_files",
+        "status": "PASS"
+      },
+      {
+        "id": "test_offline_pad.RunnerTests.test_corrupt_or_missing_input_and_size_limit",
+        "status": "PASS"
+      },
+      {
+        "id": "test_offline_pad.RunnerTests.test_detector_unavailable",
+        "status": "PASS"
+      },
+      {
+        "id": "test_offline_pad.RunnerTests.test_processing_error_is_sanitized_and_resources_cleared",
+        "status": "PASS"
+      },
+      {
+        "id": "test_offline_pad.RunnerTests.test_unavailable_model_retains_trial_but_no_fake_predictions",
+        "status": "PASS"
+      },
+      {
+        "id": "test_offline_pad.SyntheticAggregationTests.test_each_class_mapping",
+        "status": "PASS"
+      },
+      {
+        "id": "test_offline_pad.SyntheticAggregationTests.test_ensemble_uses_both_models_and_correct_denominator",
+        "status": "PASS"
+      },
+      {
+        "id": "test_offline_pad.SyntheticAggregationTests.test_missing_extra_models_and_invalid_scores_never_predict",
+        "status": "PASS"
+      },
+      {
+        "id": "test_offline_pad.SyntheticAggregationTests.test_tie_is_inconclusive_not_upstream_first_index",
+        "status": "PASS"
+      },
+      {
+        "id": "test_tensor_reference.TensorReferenceTests.test_bgr_and_extremes_have_no_normalization",
+        "status": "PASS"
+      },
+      {
+        "id": "test_tensor_reference.TensorReferenceTests.test_patterned_crops_are_identical_to_original_function",
+        "status": "PASS"
+      },
+      {
+        "id": "test_tensor_reference.TensorReferenceTests.test_pinned_reference_integrity",
+        "status": "PASS"
+      },
+      {
+        "id": "test_tensor_reference.TensorReferenceTests.test_reference_accepts_noncontiguous_bgr_input_without_mirroring",
+        "status": "PASS"
+      },
+      {
+        "id": "test_tensor_reference.TensorReferenceTests.test_runtime_is_cpu_and_environment_isolation",
+        "status": "PASS"
+      }
+    ]
+  },
+  "source_checksums": {
+    "tests/test_offline_pad.py": "97043fbc887264ca646e84fab031372edae26ac24715c85b9864c55f0267c488",
+    "tests/test_tensor_reference.py": "c6b0afa13912507c878c5d50de81ca268292fe5ea75f8f7cefe27879092d5247",
+    "reference/functional.py": "8f779a775e01485800368e8a11104c49c8ba602629927e19ea223b74ff946898",
+    "offline_pad.py": "01ab43386c850d3fd6c711ae9e2fe5bb7d9097b2bd661c88d885697930139704"
+  },
+  "upstream_commit": "b6d5f04ad78778917853b25c778acef6d5626d15",
+  "scope": {
+    "synthetic_pixels_only": true,
+    "model_inference": false,
+    "weights_loaded": false,
+    "detector_loaded": false,
+    "participant_photos": false
+  },
+  "installation": {
+    "pip_check": "PASS",
+    "artifact_origins": [
+      "https://pypi.org/simple",
+      "https://download.pytorch.org/whl/cpu/torch/"
+    ],
+    "artifacts": [
+      {
+        "name": "filelock",
+        "version": "4.1.0",
+        "url": "https://files.pythonhosted.org/packages/ee/86/032133892a5de43b5a98200b01aadcad68cc255e274a762f08b8a76d2912/filelock-4.1.0-py3-none-any.whl",
+        "sha256": "2ce9818e3e2d8f284c1a964414447ef148d42a5fd5e2a477a7118e574b293ec1",
+        "filename": "filelock-4.1.0-py3-none-any.whl"
+      },
+      {
+        "name": "fsspec",
+        "version": "2026.9.0",
+        "url": "https://files.pythonhosted.org/packages/6c/c0/a98505f18594f1bce828bb159cec0fcf9860562f1a2c85913409fc8f3d9e/fsspec-2026.9.0-py3-none-any.whl",
+        "sha256": "8dd6e646e99ea382bd85f97a45e6b526a442d79423a7dc673f1e2756d05fcb5f",
+        "filename": "fsspec-2026.9.0-py3-none-any.whl"
+      },
+      {
+        "name": "Jinja2",
+        "version": "3.1.6",
+        "url": "https://files.pythonhosted.org/packages/62/a1/3d680cbfd5f4b8f15abc1d571870c5fc3e594bb582bc3b64ea099db13e56/jinja2-3.1.6-py3-none-any.whl",
+        "sha256": "85ece4451f492d0c13c5dd7c13a64681a86afae63a5f347908daf103ce6d2f67",
+        "filename": "jinja2-3.1.6-py3-none-any.whl"
+      },
+      {
+        "name": "MarkupSafe",
+        "version": "3.0.4",
+        "url": "https://files.pythonhosted.org/packages/50/50/394a1c61c9b9972cb4f76875c332af7109bd39bdad09d3a0ec5327a339dc/markupsafe-3.0.4-cp310-cp310-win_amd64.whl",
+        "sha256": "5c22873ad1f0532ba40fa1727f3c0fc1bbbaab6d373d4cbe3f0dc74b2e2521c7",
+        "filename": "markupsafe-3.0.4-cp310-cp310-win_amd64.whl"
+      },
+      {
+        "name": "mpmath",
+        "version": "1.3.0",
+        "url": "https://files.pythonhosted.org/packages/43/e3/7d92a15f894aa0c9c4b49b8ee9ac9850d6e63b03c9c32c0367a13ae62209/mpmath-1.3.0-py3-none-any.whl",
+        "sha256": "a0b2b9fe80bbcd81a6647ff13108738cfb482d481d826cc0e02f5b35e5c88d2c",
+        "filename": "mpmath-1.3.0-py3-none-any.whl"
+      },
+      {
+        "name": "networkx",
+        "version": "3.4.2",
+        "url": "https://files.pythonhosted.org/packages/b9/54/dd730b32ea14ea797530a4479b2ed46a6fb250f682a9cfb997e968bf0261/networkx-3.4.2-py3-none-any.whl",
+        "sha256": "df5d4365b724cf81b8c6a7312509d0c22386097011ad1abe274afd5e9d3bbc5f",
+        "filename": "networkx-3.4.2-py3-none-any.whl"
+      },
+      {
+        "name": "numpy",
+        "version": "2.2.6",
+        "url": "https://files.pythonhosted.org/packages/a3/dd/4b822569d6b96c39d1215dbae0582fd99954dcbcf0c1a13c61783feaca3f/numpy-2.2.6-cp310-cp310-win_amd64.whl",
+        "sha256": "f0fd6321b839904e15c46e0d257fdd101dd7f530fe03fd6359c1ea63738703f3",
+        "filename": "numpy-2.2.6-cp310-cp310-win_amd64.whl"
+      },
+      {
+        "name": "opencv-python-headless",
+        "version": "4.13.0.92",
+        "url": "https://files.pythonhosted.org/packages/4a/90/b338326131ccb2aaa3c2c85d00f41822c0050139a4bfe723cfd95455bd2d/opencv_python_headless-4.13.0.92-cp37-abi3-win_amd64.whl",
+        "sha256": "77a82fe35ddcec0f62c15f2ba8a12ecc2ed4207c17b0902c7a3151ae29f37fb6",
+        "filename": "opencv_python_headless-4.13.0.92-cp37-abi3-win_amd64.whl"
+      },
+      {
+        "name": "pillow",
+        "version": "12.3.0",
+        "url": "https://files.pythonhosted.org/packages/48/7c/8fa0039574c476d7c6fa57dd7c32a130436877c6ec1e5ce1cc8ec44878c1/pillow-12.3.0-cp310-cp310-win_amd64.whl",
+        "sha256": "300557495eb45ebb8aec96c2da9c4be642fbf7cd937278b4013ba894ea8eb0eb",
+        "filename": "pillow-12.3.0-cp310-cp310-win_amd64.whl"
+      },
+      {
+        "name": "pip",
+        "version": "26.2",
+        "url": "https://files.pythonhosted.org/packages/62/36/a3aed958d60531cb442b7ab4596cda7b3621cfb916f8ae1d6769795c7dc1/pip-26.2-py3-none-any.whl",
+        "sha256": "931c303696af6fa3417112103b1cad26890e5a07eccb5b99783700e33f2b8aad",
+        "filename": "pip-26.2-py3-none-any.whl"
+      },
+      {
+        "name": "setuptools",
+        "version": "84.0.0",
+        "url": "https://files.pythonhosted.org/packages/95/9c/c510029fc6ef33a6275cd2c5d3cecd6613dfd6aa401d57c54f1c18852ccf/setuptools-84.0.0-py3-none-any.whl",
+        "sha256": "51a52592b3b99e102b609654876bd65f19f999935166d1352678931132b0c670",
+        "filename": "setuptools-84.0.0-py3-none-any.whl"
+      },
+      {
+        "name": "sympy",
+        "version": "1.14.0",
+        "url": "https://files.pythonhosted.org/packages/a2/09/77d55d46fd61b4a135c444fc97158ef34a095e5681d0a6c10b75bf356191/sympy-1.14.0-py3-none-any.whl",
+        "sha256": "e091cc3e99d2141a0ba2847328f5479b05d94a6635cb96148ccb3f34671bd8f5",
+        "filename": "sympy-1.14.0-py3-none-any.whl"
+      },
+      {
+        "name": "torch",
+        "version": "2.14.1+cpu",
+        "url": "https://download-r2.pytorch.org/whl/cpu/torch-2.14.1%2Bcpu-cp310-cp310-win_amd64.whl",
+        "sha256": "bda7043ec45539b1b61538af468e19854b72ac6be8d6fde2f51dfd0c91721568",
+        "filename": "torch-2.14.1+cpu-cp310-cp310-win_amd64.whl"
+      },
+      {
+        "name": "typing_extensions",
+        "version": "4.16.0",
+        "url": "https://files.pythonhosted.org/packages/49/d3/b8441a820a491ddfc024b0b0cf0393375b75ea13866d9c66727e54c2fc80/typing_extensions-4.16.0-py3-none-any.whl",
+        "sha256": "481caa481374e813c1b176ada14e97f1f67a4539ce9cfeb3f350d78d6370c2e8",
+        "filename": "typing_extensions-4.16.0-py3-none-any.whl"
+      }
+    ],
+    "hash_lock": "services/face-anti-spoofing/requirements-cpu.stage9d.lock.txt",
+    "hash_lock_sha256": "68cc1b7b2fff0999d306488fb4aeee03c82a80be4ec2004edf4cdd8d54ed6f63",
+    "lock_coverage": 14,
+    "fresh_lock_installation_replayed": false
+  },
+  "identity_environment_check": {
+    "package_inventory_unchanged": true,
+    "pyvenv_config_hash_unchanged": true
+  }
+}

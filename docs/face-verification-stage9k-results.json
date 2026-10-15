@@ -1,0 +1,69 @@
+{
+  "stage": "9K",
+  "branch": "feat/face-verification",
+  "head": "58bc3d7",
+  "scope": "Frontend local temporary ROI only; production PAD pipeline unchanged",
+  "modified": [
+    "frontend/src/components/settings/face-pad-panel.tsx",
+    "frontend/package.json",
+    "frontend/src/i18n/en.ts",
+    "frontend/src/i18n/id.ts"
+  ],
+  "added": [
+    "docs/face-verification-stage9k.md",
+    "docs/face-verification-stage9k/browser-results.json",
+    "docs/face-verification-stage9k/roi-en-1440.png",
+    "docs/face-verification-stage9k/roi-en-360.png",
+    "docs/face-verification-stage9k/roi-en-390.png",
+    "docs/face-verification-stage9k/roi-id-1440.png",
+    "docs/face-verification-stage9k/roi-id-360.png",
+    "docs/face-verification-stage9k/roi-id-390.png",
+    "frontend/src/components/settings/face-pad-roi.tsx",
+    "frontend/src/hooks/use-face-pad-roi.ts",
+    "frontend/src/lib/face-pad-roi.test.tsx",
+    "frontend/src/lib/face-pad-roi.ts",
+    "frontend/tests/browser/face-pad-roi-browser.cjs",
+    "frontend/tests/face-pad-roi.cjs",
+    "docs/face-verification-stage9k-results.json"
+  ],
+  "validation": {
+    "targeted_roi_groups": 10,
+    "pad_hook_csv": "PASS",
+    "frontend_typescript": "PASS",
+    "harness_syntax": "PASS",
+    "browser": "PASS: real Chrome; synthetic capture/auth/PAD API only",
+    "browser_check_count": 11,
+    "browser_evidence": "face-verification-stage9k/browser-results.json",
+    "visual_inspection": [
+      "desktop EN 1440",
+      "mobile ID 360"
+    ],
+    "physical_camera": "NOT_RUN",
+    "model_inference": "NOT_RUN",
+    "browser_version": "Chrome/155.0.8059.40",
+    "strict_utf8": "PASS: 13 changed/new text files",
+    "git_diff_check": "PASS",
+    "new_untracked_file_whitespace": "PASS"
+  },
+  "startup": {
+    "read_only_launcher_status": true,
+    "backend_health": true,
+    "sface_authenticated_health": true,
+    "pad_authenticated_health": true,
+    "python_bind": "127.0.0.1",
+    "restart_performed": false
+  },
+  "retention": {
+    "existing_files": 161,
+    "unchanged_existing_files": 157,
+    "changed_existing_files": [
+      "frontend/src/components/settings/face-pad-panel.tsx",
+      "frontend/package.json",
+      "frontend/src/i18n/en.ts",
+      "frontend/src/i18n/id.ts"
+    ],
+    "model_and_two_csvs_unchanged": true,
+    "staging_empty": true
+  },
+  "limits": "Pixel equality only within Chrome synthetic PNG crop, not Python model tensor equivalence. High spoof cause unresolved."
+}

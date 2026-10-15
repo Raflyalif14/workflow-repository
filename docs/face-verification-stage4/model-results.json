@@ -1,0 +1,7 @@
+{
+  "model": "opencv-sface-2021dec",
+  "identical_sanity": 1.0,
+  "distinct_same_person": 0.6027477979660034,
+  "different_people": 0.10611685365438461,
+  "limits": "Three public-photo examples, not accuracy, identity or liveness validation."
+}
