@@ -258,10 +258,12 @@ function QueueTabButton({
 }
 
 function LoadingRows() {
+  const { t } = useLanguage();
   return (
-    <div>
+    <div role="status" aria-live="polite">
+      <p className="px-5 py-3 text-sm text-muted-foreground">{t("common.loading")}</p>
       {[1, 2, 3].map((item) => (
-        <div key={item} className="h-24 animate-pulse border-t border-border/60 bg-muted/20 first:border-t-0" />
+        <div key={item} aria-hidden="true" className="h-24 motion-safe:animate-pulse border-t border-border/60 bg-muted/20" />
       ))}
     </div>
   );

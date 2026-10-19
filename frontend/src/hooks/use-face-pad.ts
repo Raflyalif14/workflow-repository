@@ -36,12 +36,13 @@ export function useFacePad(owner: string | null, eligible: boolean, a: Temporary
   }, [a, b, cancel]);
   useEffect(() => {
     bound.current = owner; revoked.current = !eligible;
-    const reset = () => { cancel(); inputs.current = {}; recorded.current.clear(); setAttempts({}); setRows([]); setMetadata({ A: emptyPadMetadata(), B: emptyPadMetadata() }); setConsent(false); };
+    const recordedAttempts = recorded.current;
+    const reset = () => { cancel(); inputs.current = {}; recordedAttempts.clear(); setAttempts({}); setRows([]); setMetadata({ A: emptyPadMetadata(), B: emptyPadMetadata() }); setConsent(false); };
     reset();
     const invalidate = () => { revoked.current = true; latest.current.eligible = false; reset(); setAvailability("disabled"); };
     const offClear = onStoredAuthCleared(invalidate), offChange = onAuthSessionChanged(invalidate);
     window.addEventListener("pagehide", invalidate);
-    return () => { revoked.current = true; cancel(); inputs.current = {}; recorded.current.clear(); offClear(); offChange(); window.removeEventListener("pagehide", invalidate); };
+    return () => { revoked.current = true; cancel(); inputs.current = {}; recordedAttempts.clear(); offClear(); offChange(); window.removeEventListener("pagehide", invalidate); };
   }, [owner, eligible, cancel]);
   useEffect(() => {
     setAvailability("loading"); if (!owner || !eligible || revoked.current) { setAvailability("disabled"); return; }

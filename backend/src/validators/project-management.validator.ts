@@ -18,6 +18,9 @@ const parseDocumentKeys = (val: unknown): string[] | undefined => {
 
 export const selectedDocumentKeysSchema = z.preprocess(parseDocumentKeys, z.array(z.string()).optional());
 
+// Work is finished before or after Sales records its business outcome.
+export const PROJECT_DELIVERY_COMPLETED_STATUSES = ['COMPLETED', 'WAITING_RESULT', 'WON', 'LOST'] as const;
+
 export const projectManagementStatusEnum = z.enum([
   'DRAFT',
   'ACTIVE',
@@ -69,7 +72,15 @@ export const projectOutcomeSchema = z.object({
     context.addIssue({ code: z.ZodIssueCode.custom, path: ['final_contract_value'], message: 'Final contract value is only allowed for WON.' });
   }
 });
-export const projectQuerySchema = z.object({ page: z.coerce.number().int().min(1).default(1), limit: z.coerce.number().int().min(1).max(100).default(10), search: z.string().trim().optional(), scenario_id: z.string().uuid().optional(), status: projectManagementStatusEnum.optional(), sales_id: z.string().uuid().optional() });
+export const projectQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(10),
+  search: z.string().trim().optional(),
+  scenario_id: z.string().uuid().optional(),
+  status: projectManagementStatusEnum.optional(),
+  status_group: z.literal('DELIVERY_COMPLETED').optional(),
+  sales_id: z.string().uuid().optional(),
+});
 export const projectDetailQuerySchema = z.object({ include_activity: z.enum(['true', 'false']).default('true') });
 export type CreateProjectManagementInput = z.infer<typeof createProjectManagementSchema>;
 export type UpdateProjectManagementInput = z.infer<typeof updateProjectManagementSchema>;

@@ -23,7 +23,7 @@ Optional `WORKFLOW_TEST_CHROME` selects the existing Chrome executable. `WORKFLO
 ## Isolation
 
 - Fresh temporary `workflow-browser-fixture-*` profile per invocation. No existing browser profile or user process is touched.
-- CDP Fetch interception is enabled before navigation. `/api/*` requests are fulfilled from fixtures; unconfigured reads/writes return HTTP 501 and fail the final check. Non-frontend external HTTP requests are blocked. Host resolution permits only loopback; Google Fonts are blocked, so the system fallback is used.
+- CDP Fetch interception is enabled before navigation. `/api/*` requests are fulfilled from fixtures; unconfigured reads/writes return HTTP 501 and fail the final check. Non-frontend external HTTP requests are blocked. Host resolution permits only loopback. Bundled fonts are served by the local frontend; external font requests remain blocked.
 - Only the specified loopback frontend origin is forwarded, for pages/assets/HMR. This harness must be used with these client-rendered app pages, not arbitrary SSR routes that perform server-side external fetches. It is not an OS firewall or an assertion about an unrelated server process.
 - Fixture responses contain synthetic UUIDs, names, `.invalid` emails, and explicitly fake session tokens. Traffic logs retain methods, paths, status, role, and synthetic account number; no request headers or token values are recorded.
 - Unknown business mutations fail closed. Checked dialogs are cancelled; tests do not submit business changes or obtain download URLs.
@@ -31,6 +31,28 @@ Optional `WORKFLOW_TEST_CHROME` selects the existing Chrome executable. `WORKFLO
 - `finally` closes only the owned Chrome instance and deletes only its verified temporary profile. Screenshots/results remain as evidence.
 
 ## Scope and limitations
+
+The focused rendering check covers Projects/Documents summaries in EN/ID at 1440/390 px, bundled font loading, page overflow, and runtime errors. Projects uses one ACTIVE and one WON fixture: the completed counter must be 1, the completed tab must request `status_group=DELIVERY_COMPLETED`, and only WON must remain visible. Returning to All projects restores both rows. With the frontend running locally, execute from the repository root:
+
+```powershell
+$env:WORKFLOW_TEST_ORIGIN = 'http://127.0.0.1:3035'
+node frontend/tests/browser/frontend-rendering-browser.cjs
+```
+
+Set the port to the actual local frontend port. Results and two screenshots are written to `.cache/frontend-rendering/`. This uses synthetic SALES credentials and intercepts API calls, including disabled camera capabilities; it never requests a real camera or writes to a production account.
+
+### Navigation feedback
+
+With a local production frontend running, execute from the repository root:
+
+```powershell
+$env:WORKFLOW_TEST_ORIGIN = 'http://127.0.0.1:3035'
+node frontend/tests/browser/navigation-feedback-browser.cjs
+```
+
+This check uses a fresh synthetic HEAD_SA session for EN/ID at 1440/390 px. It holds actual route requests, verifies immediate feedback after clicking a sidebar link, closes the mobile drawer, checks same-page clicks and Back, and injects slow/failed API responses. It records click-to-DOM-feedback, click-to-route, and API request durations in `.cache/navigation-feedback/results.json`, plus two screenshots. These are controlled UX measurements, not live database performance results. The optional `--baseline` switch is for a pre-change build without the indicator and writes `baseline.json`.
+
+Do not run `next dev` and `next build`/`next start` against the same `.next` directory concurrently: development may overwrite production chunks. For a standalone build with `outputFileTracingRoot` set to the repository root, the server is `frontend/.next/standalone/frontend/server.js`; copy `.next/static` into its `.next/static` before starting it on the test port. The navigation checks use bundled static assets and synthetic APIs, without camera/model assets from `public`. Use a separate checkout/build directory when rebuilding while development remains active.
 
 Dashboard matrix: four roles × EN/ID × 360/390/1440px, tasks/revision/waiting, workspace links, metric bounds and page overflow. Drawer: keyboard open, focus containment, Tab wrap, Escape, focus/scroll restoration. Other routes: Projects, Project Detail, Documents, Approvals in Indonesian at three widths; SALES/SA Approvals remain restricted. Activity: 17 rows, real cursor requests, 8/8/1, pending/error/retry, locale retention and account reset. Dialogs: actual estimated-value edit and output-review confirmation, including short-height scrolling and cancellation.
 

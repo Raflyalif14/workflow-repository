@@ -130,8 +130,8 @@ export default function ProjectDetailPage() {
   const { user } = useAuth();
   const { data: project, isLoading: projectLoading, isError, refetch: refetchProject } = useProject(id, { includeActivity: false });
   const { data: milestoneData, isLoading: milestonesLoading, isError: milestonesError, refetch: refetchMilestones } = useProjectMilestones(id);
-  const allMilestones = milestoneData ?? [];
-  const milestones = useMemo(() => activePhaseMilestones(project, milestoneData ?? []), [milestoneData, project?.active_phase_id]);
+  const allMilestones = useMemo(() => milestoneData ?? [], [milestoneData]);
+  const milestones = useMemo(() => activePhaseMilestones(project, allMilestones), [allMilestones, project]);
   const outputReadiness = useOutputDocuments(id);
   const progress = !milestonesError && milestoneData ? calculateProjectMilestoneProgress(milestones) : null;
   const { data: planApproval } = useProjectPlanApproval(id);
@@ -154,12 +154,14 @@ export default function ProjectDetailPage() {
   const [expandedMilestones, setExpandedMilestones] = useState<Set<string>>(() => new Set());
   const initializedExpansionProject = useRef<string | null>(null);
   const manuallyToggledMilestones = useRef<Set<string>>(new Set());
-  const milestoneIds = milestones.map((milestone) => milestone.id).join("|");
+  const projectId = project?.id;
+  // Hash navigation depends on membership, not background status updates.
+  const allMilestoneIds = JSON.stringify(allMilestones.map((milestone) => milestone.id));
 
   useEffect(() => {
-    if (!project || milestonesLoading) return;
-    if (initializedExpansionProject.current !== project.id) {
-      initializedExpansionProject.current = project.id;
+    if (!projectId || milestonesLoading) return;
+    if (initializedExpansionProject.current !== projectId) {
+      initializedExpansionProject.current = projectId;
       manuallyToggledMilestones.current.clear();
       setExpandedMilestones(initialExpandedMilestoneIds(milestones, outputReadiness.data?.documents, user?.role));
     } else {
@@ -169,12 +171,13 @@ export default function ProjectDetailPage() {
         return next.size === current.size ? current : next;
       });
     }
-  }, [project?.id, milestonesLoading, milestoneIds, outputReadiness.data, user?.role]);
+  }, [projectId, milestonesLoading, milestones, outputReadiness.data, user?.role]);
 
   useEffect(() => {
-    if (!project || milestonesLoading || typeof window === "undefined") return;
+    if (!projectId || milestonesLoading || typeof window === "undefined") return;
+    const validMilestoneIds: string[] = JSON.parse(allMilestoneIds);
     const openLinkedMilestone = () => {
-      const milestoneId = milestoneIdFromHash(window.location.hash, allMilestones.map((milestone) => milestone.id));
+      const milestoneId = milestoneIdFromHash(window.location.hash, validMilestoneIds);
       if (!milestoneId) return;
       setExpandedMilestones((current) => new Set(current).add(milestoneId));
       window.requestAnimationFrame(() => window.requestAnimationFrame(() => {
@@ -184,7 +187,7 @@ export default function ProjectDetailPage() {
     openLinkedMilestone();
     window.addEventListener("hashchange", openLinkedMilestone);
     return () => window.removeEventListener("hashchange", openLinkedMilestone);
-  }, [project?.id, milestonesLoading, milestoneIds]);
+  }, [projectId, milestonesLoading, allMilestoneIds]);
 
   const approvalByMilestone = useMemo(() => {
     const states = new Map<string, MilestoneApprovalState>();
@@ -1989,7 +1992,7 @@ function PlanReviewDialog({
     setNote("");
     setPicId("");
     setError("");
-  }, [decision, open]);
+  }, [decision, open, targetApprovalId]);
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();

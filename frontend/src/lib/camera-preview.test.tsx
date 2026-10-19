@@ -111,7 +111,7 @@ async function run() {
     (language as any).useLanguage = () => ({ t: translate });
     for (const locale of ["en", "id"] as const) {
       setActiveLanguage(locale); const html = renderToStaticMarkup(React.createElement(CameraPreparation));
-      assert(html.includes(translate("faceVerification.start")) && html.includes(translate("faceCompare.privacy")));
+      assert(html.includes(translate("faceVerification.start")) && html.includes(translate("facePad.cameraPrivacy")));
       assert(html.includes("playsInline") || html.includes("playsinline")); assert(html.includes('muted=""'));
       assert(html.includes('href="/settings"'));
       (auth as any).useAuth = () => ({ user: null, isLoading: false });

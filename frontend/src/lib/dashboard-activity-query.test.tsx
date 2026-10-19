@@ -8,7 +8,7 @@ import { setAuthTokens, getAuthSession } from './auth';
 import { SessionChangedError } from './api-client';
 
 async function run() {
-  const original = { state: React.useRef, effect: React.useEffect, auth: auth.useAuth, query: query.useQuery, client: query.useQueryClient,
+  const original = { state: React.useRef, effect: React.useEffect, memo: React.useMemo, auth: auth.useAuth, query: query.useQuery, client: query.useQueryClient,
     window: globalThis.window, fetch: globalThis.fetch };
   const store = new Map<string, string>();
   (globalThis as any).window = { localStorage: { getItem: (key: string) => store.get(key) || null, setItem: (key: string, value: string) => store.set(key, value), removeItem: (key: string) => store.delete(key) } };
@@ -18,6 +18,11 @@ async function run() {
   const client = new query.QueryClient({ defaultOptions: { queries: { gcTime: Infinity } } });
   (React as any).useRef = (initial: any) => ref || (ref = { current: initial });
   (React as any).useEffect = (effect: () => void) => effects.push(effect);
+  let memo: { deps: unknown[]; value: unknown } | undefined;
+  (React as any).useMemo = (compute: () => unknown, deps: unknown[]) => {
+    if (!memo || deps.some((value, index) => !Object.is(value, memo!.deps[index]))) memo = { deps, value: compute() };
+    return memo.value;
+  };
   (auth as any).useAuth = () => ({ user, isLoading: hydration });
   (query as any).useQueryClient = () => client;
   (query as any).useQuery = (value: any) => { options = value; return { refetch: () => { refetches++; } }; };
@@ -57,7 +62,7 @@ async function run() {
     render('cursor-8'); await assert.rejects(() => options.queryFn({ signal: new AbortController().signal }), /Invalid activity response/, 'Missing page data is not an empty history');
     console.log('Dashboard activity query: role/hydration eligibility, no first-page duplicate, cursor URL, account/session keys, cache removal, mutation invalidation and late-response protection passed');
   } finally {
-    client.clear(); (React as any).useRef = original.state; (React as any).useEffect = original.effect;
+    client.clear(); (React as any).useRef = original.state; (React as any).useEffect = original.effect; (React as any).useMemo = original.memo;
     (auth as any).useAuth = original.auth; (query as any).useQuery = original.query; (query as any).useQueryClient = original.client;
     (globalThis as any).window = original.window; globalThis.fetch = original.fetch;
   }

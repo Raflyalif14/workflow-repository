@@ -6,7 +6,13 @@ Mulai dari daftar ini; tidak perlu membaca seluruh folder. Berkas tes, gambar, d
 | --- | --- |
 | Struktur aplikasi dan cara menjalankan | [README utama](../README.md) |
 | Hasil pemeriksaan dan perapian terbaru | [Audit 15 Oktober 2026](workspace-cleanup-2026-10-15.md) |
+| Pemeriksaan otomatis frontend dan perbaikan pesan | [Hasil tes 16 Oktober 2026](frontend-testing-2026-10-16.md) |
+| Penyelesaian peringatan frontend | [Lint bersih dan tes lanjutan](frontend-lint-followup-2026-10-16.md) |
+| Hitungan proyek selesai dan filter Won | [Koreksi ringkasan proyek](project-completed-counter-fix-2026-10-16.md) |
+| Pembaruan keamanan paket dan temuan tersisa | [Audit dependency 19 Oktober 2026](dependency-security-update-2026-10-19.md) |
+| Respons klik menu dan loading halaman | [Hasil pengujian navigasi](navigation-feedback-2026-10-19.md) |
 | Memahami tabel dan berkas SQL | [Panduan database](../backend/supabase/README.md) |
+| Membuat dan memeriksa cadangan | [Cadangan manual](manual-backup.md) |
 | Memahami Face ID secara singkat | [Laporan login wajah](laporan-login-wajah-ringkas-2026-10-14.md) |
 | Cara kerja login sekali tatap | [Login sekali tatap](face-single-glance-login-2026-10-14.md) |
 | Pengaturan pendaftaran dan browser | [Pengaturan wajah](face-settings-ux-2026-10-14.md), [daftar browser](face-device-management-2026-10-15.md) |

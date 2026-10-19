@@ -35,7 +35,7 @@ async function run() {
   (globalThis as any).document = page;
   const cameraState = { videoRef: { current: {} }, status: 'on', error: null, start: async () => { starts++; }, stop() {} };
   (globalThis as any).window = Object.assign(new EventTarget(), { localStorage: { getItem: () => null, removeItem() {} } });
-  (camera as any).useCameraPreview = () => cameraState;
+  (camera as any).useCameraPreview = () => ({ ...cameraState });
   (auth as any).useAuth = () => ({ user, completeFaceLogin: () => { signedIn++; } });
   (language as any).useLanguage = () => ({ t: (key: string) => key });
   (device as any).getFaceDevice = async () => stored;
@@ -70,9 +70,10 @@ async function run() {
     return enrollment ? { registered: true, deviceId: stored.id } : { accessToken: 'fixture-access', refreshToken: 'fixture-refresh', user: {} };
   };
   function render() {
-    let cursor = 0; const effects: any[] = [], hooks = { useState: React.useState, useRef: React.useRef, useEffect: React.useEffect };
+    let cursor = 0; const effects: any[] = [], hooks = { useState: React.useState, useRef: React.useRef, useEffect: React.useEffect, useCallback: React.useCallback };
     (React as any).useState = (initial: any) => { const slot = slots[cursor++] ??= { value: initial }; return [slot.value, (v: any) => { slot.value = typeof v === 'function' ? v(slot.value) : v; }]; };
     (React as any).useRef = (initial: any) => slots[cursor++] ??= { current: initial };
+    (React as any).useCallback = (fn: any, deps: any[]) => { const i = cursor++; if (!slots[i] || deps.some((v, j) => !Object.is(v, slots[i].deps[j]))) slots[i] = { deps, fn }; return slots[i].fn; };
     (React as any).useEffect = (fn: any, deps?: any[]) => { const i = cursor++; if (!deps || !slots[i]?.deps || deps.length !== slots[i].deps.length || !deps.every((v: any, j: number) => Object.is(v,slots[i].deps[j]))) { slots[i] = { deps }; effects.push(() => { cleanups[i]?.(); cleanups[i] = fn(); }); } };
     let tree: any; try { tree = FaceLogin({ enrollment }); } finally { Object.assign(React,hooks); } effects.forEach(fn => fn()); return tree;
   }

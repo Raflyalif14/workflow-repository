@@ -130,7 +130,7 @@ function OutputDocumentRow({ projectId, document, canUpload, canReview, canReadH
     locate();
     window.addEventListener("hashchange", locate);
     return () => window.removeEventListener("hashchange", locate);
-  }, [document.id, document.currentVersionId, document.status]);
+  }, [document.id, document.milestoneId, document.currentVersionId, document.status]);
   const uploadable = canUpload && ["TO_DO", "DRAFT", "REVISION_REQUIRED"].includes(document.status);
   const submitAction = getOutputDocumentSubmitAction({ ...document, role, canUpload });
   const submittable = Boolean(submitAction);
@@ -312,14 +312,15 @@ export function OutputDocumentsSection({ project, milestoneId, milestoneStatus, 
     if (busy) draftBusyRef.current.add(documentKey); else draftBusyRef.current.delete(documentKey);
     setDraftBusyKeys(Array.from(draftBusyRef.current));
   }, []);
+  const { refetch: refetchOutput } = outputQuery;
   const refreshDraft = useCallback(async (documentKey: string) => {
-    const result = await outputQuery.refetch();
+    const result = await refetchOutput();
     const current = result.data?.documents.find((item) => item.key === documentKey);
     if (!result.isSuccess || !current) throw new Error("Draft refresh failed");
     return current;
-  }, [outputQuery.refetch]);
+  }, [refetchOutput]);
 
-  const documents = outputQuery.data?.documents || [];
+  const documents = useMemo(() => outputQuery.data?.documents ?? [], [outputQuery.data?.documents]);
   const activeDocuments = useMemo(
     () => getActiveOutputDocuments(documents).filter((document) => !milestoneId || document.milestoneId === milestoneId),
     [documents, milestoneId]
@@ -342,11 +343,11 @@ export function OutputDocumentsSection({ project, milestoneId, milestoneStatus, 
     [activeDocuments, isHeadSa]
   );
 
-  const { locale } = useLanguage();
+  useLanguage();
   const groups = useMemo(() => ([
     { key: "PRA_TENDER" as const, title: "Pra-Tender", documents: activeDocuments.filter((document) => document.group === "PRA_TENDER") },
     { key: "ON_SUBMISSION_TENDER" as const, title: "On Submission Tender", documents: activeDocuments.filter((document) => document.group === "ON_SUBMISSION_TENDER") },
-  ]).filter((group) => group.documents.length > 0), [activeDocuments, locale]);
+  ]).filter((group) => group.documents.length > 0), [activeDocuments]);
   const canSeeFullScope = isHeadSa || isAssignedPic;
   const summaryParts = canSeeFullScope
     ? [translateI18n("outputUi.outputCount", { count: activeDocuments.length }),

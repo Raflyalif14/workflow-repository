@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useState } from "react";
 import { ArrowLeft, Camera, CameraOff, LoaderCircle } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
@@ -63,7 +64,7 @@ export function CameraPreparation() {
               const own = target === "A" ? photoA : photoB;
               return <section key={target} className={`min-w-0 space-y-2 rounded-lg border p-3 ${slot === target ? "border-primary bg-primary/5" : "border-border"}`}>
                 <Button variant="outline" aria-pressed={slot === target} onClick={() => { stop(); setSlot(target); }} className="w-full">{t(`faceCompare.photo${target}`)}</Button>
-                {own.photo ? <img data-face-slot={target} src={own.photo.url} alt={t(`faceCompare.photo${target}`)}
+                {own.photo ? <Image unoptimized loading="eager" width={own.photo.width} height={own.photo.height} data-face-slot={target} src={own.photo.url} alt={t(`faceCompare.photo${target}`)}
                   className={`h-28 w-full rounded-md object-contain ${mirrored ? "-scale-x-100" : ""}`} /> : <p className="text-sm text-muted-foreground">{t("faceCompare.empty")}</p>}
                 {own.photo && <div className="flex flex-wrap gap-2">
                   <Button variant="outline" size="sm" onClick={() => retake(target)} disabled={camera.pending}>{t("facePhoto.retake")}</Button>
@@ -115,13 +116,13 @@ export function CameraPreparation() {
             <p role="status" className="text-sm font-medium">{t("facePhoto.ready")}</p>
             <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2">
               <figure className="min-w-0 space-y-2">
-                <img src={photo.photo.url} alt={t("facePhoto.fullAlt")} data-photo-image="full"
-                  className={`max-h-80 w-full rounded-lg border object-contain ${mirrored ? "-scale-x-100" : ""}`} />
+                <Image unoptimized loading="eager" width={photo.photo.width} height={photo.photo.height} src={photo.photo.url} alt={t("facePhoto.fullAlt")} data-photo-image="full"
+                  className={`h-auto max-h-80 w-full rounded-lg border object-contain ${mirrored ? "-scale-x-100" : ""}`} />
                 <figcaption className="text-xs text-muted-foreground">{t("facePhoto.full")}</figcaption>
               </figure>
               <figure className="min-w-0 space-y-2">
-                <img src={photo.photo.cropUrl} alt={t("facePhoto.cropAlt")} data-photo-image="crop"
-                  className={`max-h-80 w-full rounded-lg border object-contain ${mirrored ? "-scale-x-100" : ""}`} />
+                <Image unoptimized loading="eager" width={photo.photo.crop.width} height={photo.photo.crop.height} src={photo.photo.cropUrl} alt={t("facePhoto.cropAlt")} data-photo-image="crop"
+                  className={`h-auto max-h-80 w-full rounded-lg border object-contain ${mirrored ? "-scale-x-100" : ""}`} />
                 <figcaption className="text-xs text-muted-foreground">{t("facePhoto.crop")}</figcaption>
               </figure>
             </div>

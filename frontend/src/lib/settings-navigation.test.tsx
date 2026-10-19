@@ -132,7 +132,7 @@ function navigationChecks() {
 }
 
 async function panelChecks() {
-  const originals = { state: React.useState, ref: React.useRef, memo: React.useMemo, effect: React.useEffect, ...hooks };
+  const originals = { state: React.useState, ref: React.useRef, memo: React.useMemo, callback: React.useCallback, effect: React.useEffect, ...hooks };
   const states: any[] = [], refs: any[] = [];
   let si = 0, ri = 0, fail = false;
   const writes: any[] = [];
@@ -143,6 +143,11 @@ async function panelChecks() {
   (React as any).useState = (initial: any) => { const i = si++; if (!(i in states)) states[i] = initial; return [states[i], (next: any) => { states[i] = typeof next === 'function' ? next(states[i]) : next; }]; };
   (React as any).useRef = (initial: any) => refs[ri++] ??= { current: initial };
   (React as any).useMemo = (fn: any) => fn();
+  let callback: { fn: any; deps: unknown[] } | undefined;
+  (React as any).useCallback = (fn: any, deps: unknown[]) => {
+    if (!callback || deps.some((value, index) => !Object.is(value, callback!.deps[index]))) callback = { fn, deps };
+    return callback.fn;
+  };
   (React as any).useEffect = () => {};
   (hooks as any).useNotificationPreferences = (enabled: boolean) => { assert(enabled); return { data: preferences, refetch() { throw new Error('No refetch needed on open'); } }; };
   for (const [name, operation] of [['useUpdateNotificationPreferences', 'save'], ['useUnlinkTelegram', 'unlink'], ['useCreateTelegramLink', 'link'], ['useInvalidateTelegramLink', 'cancel-link']]) (hooks as any)[name] = () => mutation(operation);
@@ -182,7 +187,7 @@ async function panelChecks() {
     fail = false; button(translate('notificationSettings.disconnect'), dialogs()[1]).props.onClick();
     await new Promise(resolve => setImmediate(resolve)); assert(!dialogs()[1].props.open);
   } finally {
-    for (const key of ['useState', 'useRef', 'useMemo', 'useEffect'] as const) (React as any)[key] = originals[({ useState: 'state', useRef: 'ref', useMemo: 'memo', useEffect: 'effect' } as const)[key]];
+    for (const key of ['useState', 'useRef', 'useMemo', 'useCallback', 'useEffect'] as const) (React as any)[key] = originals[({ useState: 'state', useRef: 'ref', useMemo: 'memo', useCallback: 'callback', useEffect: 'effect' } as const)[key]];
     for (const key of ['useNotificationPreferences', 'useUpdateNotificationPreferences', 'useUnlinkTelegram', 'useCreateTelegramLink', 'useInvalidateTelegramLink'] as const) (hooks as any)[key] = originals[key];
     setActiveLanguage('en');
   }

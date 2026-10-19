@@ -363,11 +363,14 @@ export interface ProjectsResponse {
   };
 }
 
+// A list grouping is not a stored project status.
+export type ProjectListStatusFilter = ProjectStatus | "ALL" | "DELIVERY_COMPLETED";
+
 export interface ProjectFilters {
   page?: number;
   limit?: number;
   search?: string;
-  status?: ProjectStatus | "ALL";
+  status?: ProjectListStatusFilter;
   scenarioId?: string;
   salesId?: string;
 }

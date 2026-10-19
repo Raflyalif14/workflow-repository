@@ -6,7 +6,7 @@ import { useLanguage } from "@/components/i18n/language-provider";
 
 import { translate as translateI18n, translateOutputName, translateStoredError } from "@/i18n";
 
-import { useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
+import { useRef, useState, type FormEvent, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import {
   AlertCircle,
@@ -196,14 +196,9 @@ export default function NewProjectPage() {
   const selectedScenario = scenarios.find((scenario) => scenario.id === scenarioId);
   const scenarioKey = resolveScenarioKey(selectedScenario?.name);
   const scenarioDocuments = scenarioId ? getScenarioDocuments(scenarioKey) : [];
-  const mandatoryKeys = useMemo(
-    () => (scenarioId ? getMandatoryDocumentKeys(scenarioKey) : []),
-    [scenarioId, scenarioKey]
-  );
-  const allSelectedDocumentKeys = useMemo(() => {
-    if (!scenarioId) return [];
-    return Array.from(new Set([...mandatoryKeys, ...selectedOptionalKeys]));
-  }, [scenarioId, mandatoryKeys, selectedOptionalKeys]);
+  const mandatoryKeys = scenarioId ? getMandatoryDocumentKeys(scenarioKey) : [];
+  const allSelectedDocumentKeys = scenarioId
+    ? Array.from(new Set([...mandatoryKeys, ...selectedOptionalKeys])) : [];
 
   const toggleOptionalKey = (key: string) => {
     setSelectedOptionalKeys((current) =>

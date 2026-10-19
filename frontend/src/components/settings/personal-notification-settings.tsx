@@ -3,7 +3,7 @@ import { useLanguage } from "@/components/i18n/language-provider";
 
 import { translate as translateI18n, translateStoredMessage, getIntlLocale } from "@/i18n";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Bell,
   CheckCircle2,
@@ -28,7 +28,7 @@ import {
   useUpdateNotificationPreferences,
 } from "@/hooks/use-notifications";
 import { canUsePersonalNotificationSettings } from "@/lib/settings-access";
-import { getAuthSession, isCurrentSession } from "@/lib/auth";
+import { getAuthSession } from "@/lib/auth";
 
 const TELEGRAM_POLL_INTERVAL_MS = 2_000;
 const TELEGRAM_POLL_MAX_DURATION_MS = 60_000;
@@ -106,14 +106,15 @@ function PreferencesToggle({ id, checked, disabled, label, onCheckedChange }: Pr
 }
 
 export function PersonalNotificationSettings() {
-  const { locale } = useLanguage();
+  useLanguage();
   const { user, isLoading: authLoading } = useAuth();
   const session = getAuthSession();
   const eligible = !authLoading && canUsePersonalNotificationSettings(user) && Boolean(session);
   const mounted = useRef(true);
   const busy = useRef(false);
   useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
-  const isCurrentAccount = () => Boolean(mounted.current && eligible && session && isCurrentSession(session));
+  const sessionId = session?.id;
+  const isCurrentAccount = useCallback(() => Boolean(mounted.current && eligible && sessionId && getAuthSession()?.id === sessionId), [eligible, sessionId]);
   const [preferenceChange, setPreferenceChange] = useState<{ field: "in_app_enabled" | "telegram_enabled"; value: boolean } | null>(null);
   const [isWaitingForTelegram, setIsWaitingForTelegram] = useState(false);
   const [linkExpiresAt, setLinkExpiresAt] = useState<number | null>(null);
@@ -133,10 +134,7 @@ export function PersonalNotificationSettings() {
   const invalidateTelegramLink = useInvalidateTelegramLink();
   const unlinkTelegram = useUnlinkTelegram();
 
-  const linkedAt = useMemo(
-    () => formatLinkedAt(preferences?.telegram_linked_at || null),
-    [preferences?.telegram_linked_at, locale]
-  );
+  const linkedAt = formatLinkedAt(preferences?.telegram_linked_at || null);
   const isAnyMutationPending =
     updatePreferences.isPending ||
     createTelegramLink.isPending ||
@@ -183,7 +181,7 @@ export function PersonalNotificationSettings() {
       window.clearInterval(interval);
       window.clearTimeout(timeout);
     };
-  }, [eligible, session?.id, isWaitingForTelegram, linkExpiresAt, preferences?.telegram_linked, refetchPreferences]);
+  }, [eligible, isCurrentAccount, isWaitingForTelegram, linkExpiresAt, preferences?.telegram_linked, refetchPreferences]);
 
   const handleUpdatePreference = async (
     field: "in_app_enabled" | "telegram_enabled",

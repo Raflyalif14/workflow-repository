@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useAuth } from '@/components/auth/auth-provider';
 import { useLanguage } from '@/components/i18n/language-provider';
 import { useCameraPreview, type CameraError } from '@/hooks/use-camera-preview';
@@ -22,16 +22,17 @@ export function FacePassiveTest() {
   const [cameraFailure, setCameraFailure] = useState<CameraError | null>(null);
   const [results, setResults] = useState<PassiveResult[]>([]);
   const generation = useRef(0), flight = useRef<AbortController | null>(null), allowed = useRef(false), section = useRef<HTMLElement | null>(null);
-  const cancel = () => { ++generation.current; flight.current?.abort(); flight.current=null; camera.stop(); setPhase('idle'); };
+  const { stop: stopCamera } = camera;
+  const cancel = useCallback(() => { ++generation.current; flight.current?.abort(); flight.current=null; stopCamera(); setPhase('idle'); }, [stopCamera]);
   useEffect(() => {
     allowed.current = eligible; setResults([]); setError(''); setCameraFailure(null);
     const invalidate = () => { allowed.current = false; cancel(); setResults([]); setError(''); setCameraFailure(null); };
     const offClear = onStoredAuthCleared(invalidate), offChange = onAuthSessionChanged(invalidate);
     window.addEventListener('pagehide', invalidate);
     return () => { invalidate(); offClear(); offChange(); window.removeEventListener('pagehide', invalidate); };
-  }, [user?.id, eligible]);
+  }, [user?.id, eligible, cancel]);
   useEffect(() => { if (phase === 'scanning') section.current?.scrollIntoView({ block:'center', behavior:'instant' }); }, [phase]);
-  useEffect(() => { if (camera.status === 'error' && flight.current) { setCameraFailure(camera.error || 'failed'); cancel(); } }, [camera.status]);
+  useEffect(() => { if (camera.status === 'error' && flight.current) { setCameraFailure(camera.error || 'failed'); cancel(); } }, [camera.status, camera.error, cancel]);
   const start = async (kind: FaceSample) => {
     if (flight.current || !eligible || !allowed.current) return;
     const own = ++generation.current, abort = new AbortController(); flight.current = abort;

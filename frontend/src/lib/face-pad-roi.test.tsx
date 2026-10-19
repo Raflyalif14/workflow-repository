@@ -143,6 +143,8 @@ async function run() {
         setActiveLanguage(locale); (hook as any).useFacePadRoi = () => ({ status: "ready", url: "blob:synthetic-roi", width: 56, height: 66 });
         const markup = renderToStaticMarkup(React.createElement(FacePadRoi, { owner: "synthetic", eligible: true, slot: "A", photo: photo(), attempt: attempt() }));
         assert(markup.includes('width="56" height="66"')); assert(markup.includes("max-w-full")); assert(!markup.includes("scale-x"));
+        assert(markup.includes('src="blob:synthetic-roi"') && !markup.includes('/_next/image') && !markup.includes('srcSet='),
+          'A temporary camera preview must use its local blob directly, without server optimization');
         assert(markup.includes(locale === "en" ? "Native ROI: 56" : "ROI asli: 56"));
         (hook as any).useFacePadRoi = () => roi.EMPTY_PAD_ROI;
         const unavailable = renderToStaticMarkup(React.createElement(FacePadRoi, { owner: null, eligible: false, slot: "A", photo: null, attempt: attempt() }));

@@ -56,6 +56,8 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
   const changeGeneration = useRef(0);
   const activeUserId = useRef(user?.id);
   activeUserId.current = user?.id;
+  const userId = user?.id;
+  const preferredLanguage = user?.preferredLanguage;
 
   const applyLocale = useCallback((nextLocale: AppLanguage) => {
     setActiveLanguage(nextLocale);
@@ -66,29 +68,29 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     let cancelled = false;
     const generation = ++changeGeneration.current;
-    const cached = readCachedLocale(user?.id);
-    const initial = resolveLanguagePreference(user?.preferredLanguage, cached);
+    const cached = readCachedLocale(userId);
+    const initial = resolveLanguagePreference(preferredLanguage, cached);
     applyLocale(initial);
-    if (!user) return;
+    if (!userId) { setIsLoading(false); setError(null); return; }
 
     setIsLoading(true);
     setError(null);
-    loadLanguagePreference(user.id, getAccessToken(), async () =>
+    loadLanguagePreference(userId, getAccessToken(), async () =>
       (await apiClient<{ language: AppLanguage }>("/auth/preferences/language")).language
     )
       .then((language) => {
-        if (cancelled || !isCurrentLanguagePreferenceRequest(user.id, activeUserId.current, generation, changeGeneration.current)) return;
+        if (cancelled || !isCurrentLanguagePreferenceRequest(userId, activeUserId.current, generation, changeGeneration.current)) return;
         applyLocale(language);
-        cacheLocale(language, user.id);
+        cacheLocale(language, userId);
       })
       .catch(() => {
-        if (!cancelled && isCurrentLanguagePreferenceRequest(user.id, activeUserId.current, generation, changeGeneration.current)) setError("language.loadError");
+        if (!cancelled && isCurrentLanguagePreferenceRequest(userId, activeUserId.current, generation, changeGeneration.current)) setError("language.loadError");
       })
       .finally(() => {
         if (!cancelled) setIsLoading(false);
       });
     return () => { cancelled = true; };
-  }, [applyLocale, user?.id, user?.preferredLanguage]);
+  }, [applyLocale, userId, preferredLanguage]);
 
   const setLocale = useCallback(async (nextLocale: AppLanguage) => {
     const generation = ++changeGeneration.current;

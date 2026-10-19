@@ -440,6 +440,8 @@ export const en = {
   },
   nav: {
     workspaceNavigation: "Workspace navigation", userAccount: "User account",
+    openingPage: "Opening {page}...",
+    loadingPage: "Loading page...",
     dashboard: "Dashboard",
     projects: "Projects",
     milestones: "Milestones",
@@ -1061,7 +1063,9 @@ export const en = {
   },
   userForm: {
     invalidEmail: "Enter a valid email address.", fullNameRequired: "Full name is required.",
-    saveFailed: "Unable to save the user.", editTitle: "Edit user account", createTitle: "Create new user",
+    saveFailed: "The save result could not be confirmed. Your entries are kept here. Check the user list before trying again; if the account appears, do not create it again.",
+    updateFailed: "The changes could not be confirmed as saved. Your entries are kept here; check the user's details before trying again.",
+    editTitle: "Edit user account", createTitle: "Create new user",
     editHelp: "Update user details, role, and account status.", createHelp: "Create an account with a managed role and access status.",
     fullName: "Full name", nameExample: "e.g. John Doe", email: "Email address",
     initialPasswordHelp: "A temporary password will be emailed to the user. They must change it after their first login.",
@@ -1144,7 +1148,7 @@ export const en = {
     projectProgress: "Project progress", progressUnavailable: "Progress is unavailable for this project state",
     assignedArchitect: "Assigned architect", projectOwner: "Project owner",
     matching: "Matching projects", activePage: "Active on this page", planningPage: "Planning on this page",
-    completedPage: "Completed on this page", snapshot: "Project snapshot",
+    completedPage: "Delivery completed on this page", snapshot: "Project snapshot",
     matches: "{count} projects match the current view", searchPlaceholder: "Search project or customer",
     search: "Search projects", scenarioFilter: "Filter projects by scenario", reset: "Reset",
     adjustFilters: "Adjust the current filters to broaden the results.", empty: "No projects are available in this workspace yet.",

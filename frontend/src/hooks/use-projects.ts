@@ -92,7 +92,8 @@ export function useProjects(filters: ProjectFilters = {}) {
     queryFn: () => {
       const params = new URLSearchParams({ page: String(page), limit: String(limit) });
       if (search) params.set("search", search);
-      if (status !== "ALL") params.set("status", status);
+      if (status === "DELIVERY_COMPLETED") params.set("status_group", status);
+      else if (status !== "ALL") params.set("status", status);
       if (scenarioId) params.set("scenario_id", scenarioId);
       if (salesId) params.set("sales_id", salesId);
       return apiClient<ProjectsResponse>(`/projects?${params}`);

@@ -86,7 +86,7 @@ export default function DocumentsPage() {
 }
 
 function DocumentsContent() {
-  const { locale } = useLanguage();
+  useLanguage();
   const { user } = useAuth();
   const repositorySession = useRepositorySession();
   const pageCopy = rolePageCopy[user?.role || ""] || rolePageCopy.SUPER_ADMIN;
@@ -135,15 +135,12 @@ function DocumentsContent() {
   }), [allItems, search, categoryFilter, statusFilter, activeGroup]);
   const paged = useMemo(() => paginateRepositoryItems(visibleItems, page), [visibleItems, page]);
   const documentDownload = useDocumentDownloadUrl();
-  const snapshot = useMemo(
-    () => [
+  const snapshot = [
       { label: translateI18n("documentPage.available"), value: visibleItems.length },
       { label: translateI18n("documentStatus.APPROVED"), value: visibleItems.filter((item) => item.sourceType === "OUTPUT" || item.document.status === "APPROVED").length },
       { label: translateI18n("documentPage.relatedMilestone"), value: visibleItems.filter((item) => item.sourceType === "OUTPUT" || Boolean(item.document.milestoneId)).length },
       { label: translateI18n("documentPage.projectOutputs"), value: visibleItems.filter((item) => item.sourceType === "OUTPUT").length },
-    ],
-    [visibleItems, locale]
-  );
+    ];
   const hasFilters = Boolean(search || categoryFilter !== "ALL" || statusFilter !== "ALL" || activeGroup !== "ALL");
 
   const handleDownload = async (versionId: string) => {

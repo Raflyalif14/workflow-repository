@@ -22,10 +22,13 @@ export function useFaceComparison(owner: string | null, eligible: boolean, a: Te
   const [result, setResult] = useState<SimilarityResult | null>(null), [error, setError] = useState<string | null>(null);
   const [completed, setCompleted] = useState<TrialAttempt | null>(null);
   const resultInput = useRef<{ owner: string | null; a: TemporaryPhoto | null; b: TemporaryPhoto | null; metadata: TrialMetadata } | null>(null);
-  const cancel = useCallback(() => {
+  const abortRequest = useCallback(() => {
     ++generation.current; flight.current?.abort(); flight.current = null; pending.current = false;
-    setBusy(false); setResult(null); setError(null); setCompleted(null); resultInput.current = null;
   }, []);
+  const cancel = useCallback(() => {
+    abortRequest();
+    setBusy(false); setResult(null); setError(null); setCompleted(null); resultInput.current = null;
+  }, [abortRequest]);
   useEffect(() => { cancel(); setConsent(false); }, [owner, eligible, a, b, metadata, cancel]);
   useEffect(() => {
     setAvailability("loading"); if (!owner || !eligible) { setAvailability("disabled"); return; }
@@ -38,10 +41,10 @@ export function useFaceComparison(owner: string | null, eligible: boolean, a: Te
     const offClear = onStoredAuthCleared(invalidate), offChange = onAuthSessionChanged(invalidate);
     window.addEventListener("pagehide", invalidate);
     return () => {
-      alive = false; abort.abort(); ++generation.current; flight.current?.abort(); flight.current = null; pending.current = false;
+      alive = false; abort.abort(); abortRequest();
       offClear(); offChange(); window.removeEventListener("pagehide", invalidate);
     };
-  }, [owner, eligible, attempt, cancel]);
+  }, [owner, eligible, attempt, cancel, abortRequest]);
   const compare = useCallback(async () => {
     const input = { ...latest.current };
     if (revoked.current || !input.eligible || !input.owner || !input.a || !input.b || !consent || availability !== "enabled" || pending.current || trialMetadataError(input.metadata)) return;

@@ -22,7 +22,7 @@ export async function testPassiveUi() {
   let starts=0, scans=0, submits=0, condition:passive.FaceSample='live', delayStart:((v:any)=>void)|null=null, startSignal:AbortSignal|null=null;
   const cameraState={videoRef:{current:{}},status:'on',error:null,start:async()=>{starts++;},stop(){}};
   (globalThis as any).window=Object.assign(new EventTarget(),{localStorage:{getItem:()=>null,removeItem(){}}});
-  (camera as any).useCameraPreview=()=>cameraState;
+  (camera as any).useCameraPreview=()=>({...cameraState});
   (auth as any).useAuth=()=>({user:{id:owner,isActive:true},completeFaceLogin(){throw Error('A passive test must never sign in');}});
   (language as any).useLanguage=()=>({t:(key:string)=>key});
   (device as any).getFaceDevice=async()=>stored;
@@ -37,9 +37,10 @@ export async function testPassiveUi() {
       checks:{pad:accepted,identity:true,position:true},frames:Array.from({length:3},()=>({classes:[[.01,.98,.01],[.01,.98,.01]],identity:.8,consistency:.9,yaw:0}))};
   };
   function render(){
-    let cursor=0;const effects:any[]=[],hooks={useState:React.useState,useRef:React.useRef,useEffect:React.useEffect};
+    let cursor=0;const effects:any[]=[],hooks={useState:React.useState,useRef:React.useRef,useEffect:React.useEffect,useCallback:React.useCallback};
     (React as any).useState=(initial:any)=>{const slot=slots[cursor++]??={value:initial};return[slot.value,(v:any)=>{slot.value=typeof v==='function'?v(slot.value):v;}];};
     (React as any).useRef=(initial:any)=>slots[cursor++]??={current:initial};
+    (React as any).useCallback=(fn:any,deps:any[])=>{const i=cursor++;if(!slots[i]||deps.some((v,j)=>!Object.is(v,slots[i].deps[j])))slots[i]={deps,fn};return slots[i].fn;};
     (React as any).useEffect=(fn:any,deps?:any[])=>{const i=cursor++;if(!deps||!slots[i]?.deps||deps.some((v:any,j:number)=>!Object.is(v,slots[i].deps[j]))){slots[i]={deps};effects.push(()=>{cleanups[i]?.();cleanups[i]=fn();});}};
     let tree:any;try{tree=FacePassiveTest();}finally{Object.assign(React,hooks);}effects.forEach(fn=>fn());return tree;
   }

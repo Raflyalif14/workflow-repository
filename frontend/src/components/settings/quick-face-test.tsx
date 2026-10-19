@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+import Image from "next/image";
 import { useMemo } from "react";
 import { ArrowLeft, Camera, CameraOff, CheckCircle2, LoaderCircle } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
@@ -42,7 +43,7 @@ export function QuickFaceResult({ owner, eligible, photo, result }: {
     </dl>
     <p className="text-sm leading-6">{t(result.probabilities.spoof > result.probabilities.real ? "faceQuick.spoofHigher" : "faceQuick.scoreHelp")}</p>
     {roi.status === "ready" && roi.url && <figure className="space-y-2">
-      <img src={roi.url} width={roi.width!} height={roi.height!} alt={t("faceQuick.cropAlt")} className="h-auto max-h-64 max-w-full rounded-lg border object-contain" />
+      <Image unoptimized loading="eager" src={roi.url} width={roi.width!} height={roi.height!} alt={t("faceQuick.cropAlt")} className="h-auto max-h-64 max-w-full rounded-lg border object-contain" />
       <figcaption className="text-xs text-muted-foreground">{t("faceQuick.cropCaption")}</figcaption>
     </figure>}
     <details className="text-xs text-muted-foreground">
@@ -93,7 +94,7 @@ export function QuickFaceTest() {
             {t(camera.pending ? "faceVerification.requesting" : "faceVerification.off")}
           </div>}
         </div>
-        {photo.photo && <img src={photo.photo.url} alt={t("faceQuick.photoAlt")} className="max-h-72 w-full rounded-xl border object-contain" />}
+        {photo.photo && <Image unoptimized loading="eager" width={photo.photo.width} height={photo.photo.height} src={photo.photo.url} alt={t("faceQuick.photoAlt")} className="h-auto max-h-72 w-full rounded-xl border object-contain" />}
         {camera.error && <p role="alert" className="text-sm text-destructive">{t(`faceVerification.${camera.error}`)}</p>}
         {photo.error && <p role="alert" className="text-sm text-destructive">{t(`facePhoto.${photo.error}`)}</p>}
         {camera.status === "on" && <p role="status" className="text-sm">{t(detection.status === "error" ? "faceDetection.failed" : detection.status !== "ready" ? "faceDetection.loading" : `faceDetection.${faceCountStatus(detection.boxes.length)}`)}</p>}

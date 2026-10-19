@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { CheckCircle2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -36,7 +36,8 @@ export function FaceLogin({ enrollment = false }: { enrollment?: boolean }) {
   const sectionRef = useRef<HTMLElement | null>(null);
   const [capturingNow, setCapturingNow] = useState(false);
   const [automatic, setAutomatic] = useState(true);
-  const cancel = () => { ++generation.current; captureSession.current = null; flight.current?.abort(); flight.current = null; frames.current = []; capturing.current = false; setCapturingNow(false); camera.stop(); setChallenge(null); setPhase('idle'); setStep(0); setPassword(''); setRemoved(false); };
+  const { stop: stopCamera } = camera;
+  const cancel = useCallback(() => { ++generation.current; captureSession.current = null; flight.current?.abort(); flight.current = null; frames.current = []; capturing.current = false; setCapturingNow(false); stopCamera(); setChallenge(null); setPhase('idle'); setStep(0); setPassword(''); setRemoved(false); }, [stopCamera]);
   const errorText = (value: unknown) => {
     const code = value instanceof ApiError ? value.code : value instanceof Error ? value.message : undefined;
     return knownErrors.includes(code || '') ? code! : 'FACE_PROCESS_FAILED';
@@ -59,7 +60,7 @@ export function FaceLogin({ enrollment = false }: { enrollment?: boolean }) {
     const offClear = onStoredAuthCleared(invalidate), offChange = onAuthSessionChanged(invalidate);
     window.addEventListener('pagehide', invalidate);
     return () => { invalidate(); offClear(); offChange(); window.removeEventListener('pagehide', invalidate); };
-  }, [owner, enrollment, loadAttempt]);
+  }, [owner, enrollment, loadAttempt, cancel]);
   const submit = async (captured: Blob[], currentDevice: FaceDevice, currentChallenge: FaceChallenge, abort: AbortController, own: number) => {
     captureSession.current = null; camera.stop(); setPhase('checking');
     const proof = await faceProof(currentDevice, currentChallenge, captured);
@@ -131,14 +132,14 @@ export function FaceLogin({ enrollment = false }: { enrollment?: boolean }) {
     if (camera.status === 'error' && (flight.current || captureSession.current !== null)) {
       setCameraFailure(camera.error || 'failed'); cancel();
     }
-  }, [camera.status]);
+  }, [camera.status, camera.error, cancel]);
   useEffect(() => {
     if (phase !== 'capture' || !challenge) return;
     const expire = () => { cancel(); setError('FACE_CHALLENGE_EXPIRED'); };
     const remaining = Date.parse(challenge.expiresAt) - Date.now();
     const timeout = setTimeout(expire, Number.isFinite(remaining) ? Math.max(0, remaining) : 0);
     return () => clearTimeout(timeout);
-  }, [phase, challenge]);
+  }, [phase, challenge, cancel]);
   const devicesRemoved = async (deviceId: string | null) => {
     if (!device || deviceId && deviceId !== device.id || device.owner && device.owner !== owner) return;
     const own = generation.current, saved = { ...device, registered: false, owner: undefined };

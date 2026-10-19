@@ -1,4 +1,5 @@
 "use client";
+import Image from "next/image";
 import { useLanguage } from "@/components/i18n/language-provider";
 import { useFacePadRoi } from "@/hooks/use-face-pad-roi";
 import type { PadAttempt, PadSlot } from "@/lib/face-pad";
@@ -14,7 +15,7 @@ export function FacePadRoi({ owner, eligible, slot, photo, attempt }: {
       <p className="text-muted-foreground">{t("facePad.roiDescription")}</p>
     </figcaption>
     {roi.status === "ready" && roi.url && roi.width && roi.height ? <>
-      <img src={roi.url} width={roi.width} height={roi.height} alt={t("facePad.roiAlt", { slot })}
+      <Image unoptimized loading="eager" src={roi.url} width={roi.width} height={roi.height} alt={t("facePad.roiAlt", { slot })}
         className="block h-auto max-w-full rounded-md border" />
       <p className="text-xs text-muted-foreground">{t("facePad.roiSize", { width: roi.width, height: roi.height })}</p>
     </> : <p role="status" className="text-xs text-muted-foreground">{t(roi.status === "loading" ? "facePad.roiLoading" : "facePad.roiUnavailable")}</p>}

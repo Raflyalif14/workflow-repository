@@ -100,7 +100,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setProfileError(result.kind);
     }
     setIsLoading(false);
-  }, []);
+  }, [queryClient]);
 
   useEffect(() => {
     void loadProfile();

@@ -11,14 +11,15 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useProjects, useScenarios } from "@/hooks/use-projects";
-import { Project, ProjectStatus } from "@/types/project";
+import { Project, ProjectStatus, ProjectListStatusFilter } from "@/types/project";
+import { isProjectDeliveryCompleted } from "@/lib/project-list-status";
 
-const statuses: Array<{ key: ProjectStatus | "ALL"; label: TranslationKey }> = [
+const statuses: Array<{ key: ProjectListStatusFilter; label: TranslationKey }> = [
   { key: "ALL", label: "projectsList.allProjects" },
   { key: "ACTIVE", label: "common.active" },
   { key: "DRAFT", label: "projectStatus.DRAFT" },
   { key: "POSTPONED", label: "projectStatus.POSTPONED" },
-  { key: "COMPLETED", label: "projectStatus.COMPLETED" },
+  { key: "DELIVERY_COMPLETED", label: "projectsList.deliveryComplete" },
 ];
 
 const rolePageCopy: Record<string, { eyebrow: TranslationKey; title: TranslationKey; description: TranslationKey }> = {
@@ -99,7 +100,7 @@ function getProgressPresentation(project: Project) {
       showDeliveryProgress: false,
     };
   }
-  if (["ACTIVE", "COMPLETED", "WAITING_RESULT", "WON", "LOST"].includes(project.status)) {
+  if (project.status === "ACTIVE" || isProjectDeliveryCompleted(project.status)) {
     return {
       label: translateI18n(project.status === "ACTIVE" ? "projectsList.deliveryProgress" : "projectsList.deliveryComplete"),
       detail: null,
@@ -239,13 +240,13 @@ function ProjectRow({ project, role }: { project: Project; role: string }) {
 }
 
 export default function ProjectsPage() {
-  const { locale } = useLanguage();
+  useLanguage();
   const { user } = useAuth();
   const userRole = user?.role || "GUEST";
   const pageCopy = rolePageCopy[userRole] || rolePageCopy.SUPER_ADMIN;
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
-  const [status, setStatus] = useState<ProjectStatus | "ALL">("ALL");
+  const [status, setStatus] = useState<ProjectListStatusFilter>("ALL");
   const [scenarioId, setScenarioId] = useState("");
 
   const { data, isLoading, isError } = useProjects({
@@ -261,7 +262,7 @@ export default function ProjectsPage() {
   const pagination = data?.pagination;
   const orderedProjects = useMemo(
     () =>
-      projects
+      (data?.projects ?? [])
         .map((project, index) => ({ project, index }))
         .sort(
           (left, right) =>
@@ -270,17 +271,14 @@ export default function ProjectsPage() {
             left.index - right.index
         )
         .map(({ project }) => project),
-    [projects, userRole]
+    [data?.projects, userRole]
   );
-  const snapshot = useMemo(
-    () => [
+  const snapshot = [
       { label: translateI18n("projectsList.matching"), value: pagination?.total || 0 },
       { label: translateI18n("projectsList.activePage"), value: projects.filter((item) => item.status === "ACTIVE").length },
       { label: translateI18n("projectsList.planningPage"), value: projects.filter((item) => item.status === "DRAFT").length },
-      { label: translateI18n("projectsList.completedPage"), value: projects.filter((item) => item.status === "COMPLETED").length },
-    ],
-    [pagination?.total, projects, locale]
-  );
+      { label: translateI18n("projectsList.completedPage"), value: projects.filter((item) => isProjectDeliveryCompleted(item.status)).length },
+    ];
   const hasFilters = Boolean(search || scenarioId || status !== "ALL");
 
   const resetFilters = () => {
@@ -409,9 +407,10 @@ export default function ProjectsPage() {
         )}
 
         {isLoading ? (
-          <div className="space-y-0">
+          <div role="status" aria-live="polite" className="space-y-0">
+            <p className="px-5 py-3 text-sm text-muted-foreground">{translateI18n("common.loading")}</p>
             {[1, 2, 3, 4].map((item) => (
-              <div key={item} className="h-24 animate-pulse border-t border-border/60 bg-muted/20 first:border-t-0" />
+              <div key={item} aria-hidden="true" className="h-24 motion-safe:animate-pulse border-t border-border/60 bg-muted/20" />
             ))}
           </div>
         ) : isError ? (

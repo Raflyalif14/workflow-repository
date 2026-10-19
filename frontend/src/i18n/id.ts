@@ -415,6 +415,8 @@ export const id = {
   },
   nav: {
     workspaceNavigation: "Navigasi ruang kerja", userAccount: "Akun pengguna",
+    openingPage: "Membuka {page}...",
+    loadingPage: "Memuat halaman...",
     dashboard: "Dasbor", projects: "Proyek", milestones: "Milestone", approvals: "Persetujuan", documents: "Dokumen", users: "Pengguna", settings: "Pengaturan", logout: "Keluar", expandSidebar: "Perluas sidebar", collapseSidebar: "Ciutkan sidebar", openNavigation: "Buka navigasi", closeNavigation: "Tutup navigasi", openSearch: "Buka pencarian global", searchPlaceholder: "Cari proyek, dokumen...",
   },
   language: {
@@ -866,7 +868,9 @@ export const id = {
   },
   userForm: {
     invalidEmail: "Masukkan alamat email yang valid.", fullNameRequired: "Nama lengkap wajib diisi.",
-    saveFailed: "Pengguna gagal disimpan.", editTitle: "Ubah akun pengguna", createTitle: "Buat pengguna baru",
+    saveFailed: "Hasil penyimpanan belum bisa dipastikan. Isianmu tetap ada di formulir ini. Periksa daftar pengguna sebelum mencoba lagi; jika akun sudah muncul, tidak perlu dibuat ulang.",
+    updateFailed: "Perubahan belum bisa dipastikan tersimpan. Isianmu tetap ada; periksa data pengguna sebelum mencoba lagi.",
+    editTitle: "Ubah akun pengguna", createTitle: "Buat pengguna baru",
     editHelp: "Perbarui data pengguna, peran, dan status akun.", createHelp: "Buat akun dengan peran dan status akses yang dikelola sistem.",
     fullName: "Nama lengkap", nameExample: "Contoh: Budi Santoso", email: "Alamat email",
     initialPasswordHelp: "Kata sandi sementara akan dikirim ke email pengguna. Pengguna harus mengubahnya setelah masuk pertama kali.",
@@ -949,7 +953,7 @@ export const id = {
     projectProgress: "Progres proyek", progressUnavailable: "Progres tidak tersedia untuk status proyek ini",
     assignedArchitect: "Arsitek yang ditugaskan", projectOwner: "Pemilik proyek",
     matching: "Proyek yang cocok", activePage: "Aktif di halaman ini", planningPage: "Direncanakan di halaman ini",
-    completedPage: "Selesai di halaman ini", snapshot: "Ringkasan proyek",
+    completedPage: "Pelaksanaan selesai di halaman ini", snapshot: "Ringkasan proyek",
     matches: "{count} proyek cocok dengan tampilan saat ini", searchPlaceholder: "Cari proyek atau pelanggan",
     search: "Cari proyek", scenarioFilter: "Filter proyek menurut skenario", reset: "Atur ulang",
     adjustFilters: "Ubah filter untuk memperluas hasil.", empty: "Belum ada proyek di ruang kerja ini.",
