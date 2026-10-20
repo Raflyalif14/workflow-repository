@@ -6,6 +6,7 @@ import { setActiveLanguage, getActiveLanguage, translate } from '../i18n';
 
 const originalLoad = (Module as any)._load;
 let user: any = { id: 'head', role: 'HEAD_SA' };
+let dialogCanReview: boolean | undefined;
 let query: any = { data: { stats: { totalPending: 1, pendingDocs: 1, pendingProjectPlans: 0, pendingDeadlines: 0 }, items: [{
   id: 'output:o', category: 'OUTPUT_DOCUMENT', status: 'PENDING', isCurrentApproval: true,
   projectId: 'p', projectName: 'User project with a long unmodified name', projectCode: 'p', clientName: 'Customer',
@@ -17,7 +18,7 @@ let query: any = { data: { stats: { totalPending: 1, pendingDocs: 1, pendingProj
   if (name.endsWith('/auth-provider') || name === './auth-provider') return { useAuth: () => ({ user, isLoading: false }) };
   if (name.endsWith('/language-provider')) return { useLanguage: () => ({ t: translate, locale: getActiveLanguage() }) };
   if (name.endsWith('/use-approvals')) return { useApprovalOverview: (enabled: boolean) => { assert(enabled); return query; } };
-  if (name.endsWith('/approval-action-dialog')) return { ApprovalActionDialog: () => null };
+  if (name.endsWith('/approval-action-dialog')) return { ApprovalActionDialog: (props: { canReview: boolean }) => { dialogCanReview = props.canReview; return null; } };
   // Icons are presentation-only in this Node fixture; no browser layout is asserted.
   if (name === 'lucide-react') return new Proxy({}, { get: (_, key) => key === '__esModule' ? true : (props: any) => React.createElement('span', { ...props, 'aria-hidden': true }) });
   if (name === 'next/navigation') return { useRouter: () => ({ push: () => { throw new Error('Rendering must not navigate'); } }) };
@@ -29,6 +30,7 @@ try {
   for (const locale of ['en', 'id'] as const) {
     setActiveLanguage(locale);
     let html = render();
+    assert.equal(dialogCanReview, true, 'Head SA retains dialog review permission');
     assert(html.includes(translate('outputQueue.category')));
     assert(html.includes(translate('outputQueue.openReview')));
     assert(html.includes(translate('outputQueue.snapshot', { version: 2, count: 3 })));
@@ -48,5 +50,6 @@ try {
   user = { id: 'admin', role: 'SUPER_ADMIN' };
   query = { ...query, isError: false, data: { stats: { totalPending: 0, pendingDocs: 0, pendingProjectPlans: 0, pendingDeadlines: 0 }, items: [] } };
   assert(render().includes(translate('approvalUi.queueClear')));
+  assert.equal(dialogCanReview, false, 'Super Admin only opens read-only approval details');
   console.log('Approvals actual page isolated render: EN/ID output rows, snapshot/unknown submitter, no inline decisions, blocked/stale/error/loading/empty states and role guard passed.');
 } finally { (Module as any)._load = originalLoad; setActiveLanguage('en'); }

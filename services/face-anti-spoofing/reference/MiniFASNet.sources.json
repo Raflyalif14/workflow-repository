@@ -1,0 +1,8 @@
+{
+    "commit":  "b6d5f04ad78778917853b25c778acef6d5626d15",
+    "source":  "https://raw.githubusercontent.com/minivision-ai/Silent-Face-Anti-Spoofing/b6d5f04ad78778917853b25c778acef6d5626d15/src/model_lib/MiniFASNet.py",
+    "upstream_path":  "src/model_lib/MiniFASNet.py",
+    "license":  "Apache-2.0",
+    "representation":  "UTF-8 without BOM; LF",
+    "sha256_lf_utf8":  "e498c4ec5e1ddfaba62b941a126c19d65aa564999f3309661fe43ee8bf38acd7"
+}

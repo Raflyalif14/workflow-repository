@@ -1,0 +1,94 @@
+{
+  "stage": "9G",
+  "checkedAt": "2026-10-13T04:50:17.259Z",
+  "git": {
+    "branch": "feat/face-verification",
+    "head": "58bc3d7d4d46642059f69ef49fdc4e533c7f2f9b",
+    "stagingEmpty": true,
+    "existingFilesBefore": 128,
+    "existingUnchanged": 123,
+    "existingModifiedForIntegration": [
+      "frontend/src/components/settings/camera-preparation.tsx",
+      "backend/src/routes/index.ts",
+      "frontend/package.json",
+      "frontend/src/i18n/en.ts",
+      "frontend/src/i18n/id.ts"
+    ],
+    "unexpectedExistingChanges": []
+  },
+  "tests": {
+    "python": {
+      "pass": 11,
+      "skip": 0,
+      "fail": 0,
+      "error": 0,
+      "scope": "new synthetic crop/full-frame guards/lifecycle/real process deadline tests"
+    },
+    "nodeHttp": {
+      "status": "PASS",
+      "scope": "actual Node auth middleware, synthetic provider/profile, actual loopback Python YuNet and pretrained MN3 on attributed NASA fixture; failures, concurrency, timeout and response binding"
+    },
+    "frontendHookCsv": {
+      "status": "PASS",
+      "scope": "mock lifecycle/transport; consent, image/request binding, stale timeout/cancel, metadata/account isolation, export, EN/ID"
+    },
+    "chrome": {
+      "status": "PASS",
+      "evidence": "browser-results.json",
+      "viewports": [
+        360,
+        390,
+        1440
+      ],
+      "locales": [
+        "en",
+        "id"
+      ],
+      "realPythonModels": true,
+      "syntheticCamera": true,
+      "syntheticBrowserDetector": true,
+      "syntheticAuthProvider": true,
+      "physicalCameraVerified": false
+    },
+    "backendTsc": "PASS",
+    "frontendTsc": "PASS",
+    "utf8Strict": "PASS",
+    "pythonSyntax": "PASS",
+    "powershellStartupSyntax": "PASS; parsed only, not executed",
+    "gitDiffCheck": "PASS"
+  },
+  "limits": [
+    "No user physical-camera PAD pilot performed",
+    "No real GoTrue/Storage integration verified",
+    "No PAD accuracy/liveness/login decision or threshold calibration",
+    "Stage9F adapter, identity inference/environment and London threshold not modified"
+  ],
+  "files": [
+    "frontend/src/components/settings/camera-preparation.tsx",
+    "backend/src/routes/index.ts",
+    "frontend/package.json",
+    "frontend/src/i18n/en.ts",
+    "frontend/src/i18n/id.ts",
+    "backend/src/routes/face-pad.routes.ts",
+    "backend/src/routes/face-pad.test.ts",
+    "backend/tests/face-pad-fixture.cjs",
+    "docs/face-verification-stage9g.md",
+    "docs/face-verification-stage9g/browser-results.json",
+    "docs/face-verification-stage9g/pad-en-1440.png",
+    "docs/face-verification-stage9g/pad-en-360.png",
+    "docs/face-verification-stage9g/pad-en-390.png",
+    "docs/face-verification-stage9g/pad-id-1440.png",
+    "docs/face-verification-stage9g/pad-id-360.png",
+    "docs/face-verification-stage9g/pad-id-390.png",
+    "frontend/src/components/settings/face-pad-panel.tsx",
+    "frontend/src/hooks/use-face-pad.ts",
+    "frontend/src/lib/face-pad.test.tsx",
+    "frontend/src/lib/face-pad.ts",
+    "frontend/tests/browser/face-pad-browser.cjs",
+    "frontend/tests/face-pad.cjs",
+    "services/face-anti-spoofing/pad_inference.py",
+    "services/face-anti-spoofing/pad_server.py",
+    "services/face-anti-spoofing/tests/test_pad_camera.py",
+    "docs/face-verification-stage9g/validation-results.json"
+  ]
+}

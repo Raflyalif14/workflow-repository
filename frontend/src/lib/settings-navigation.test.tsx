@@ -103,6 +103,21 @@ function navigationChecks() {
     user = { id: 'account-a', role: 'SALES', isActive: true };
     const personal = () => elements(SettingsPage()).filter(node => node.type === PersonalNotificationSettings);
     assert.equal(personal().length, 1, 'Settings mounts exactly one personal form');
+    for (const locale of ['en', 'id'] as const) {
+      setActiveLanguage(locale);
+      for (const role of ['SALES', 'SA', 'HEAD_SA', 'SUPER_ADMIN']) {
+        user = { id: 'account-a', role, isActive: true };
+        const link = elements(SettingsPage()).find(node => node.props.href === '/settings/face-verification');
+        assert(link && Array.isArray(link.props.children) && link.props.children.includes(translate('faceLogin.openSettings')),
+          'All authenticated roles can discover camera preparation in Settings');
+      }
+    }
+    user = { id: 'account-a', role: 'SALES', isActive: false };
+    assert(!elements(SettingsPage()).some(node => node.props.href === '/settings/face-verification'));
+    user = { id: 'account-a', role: 'SALES', isActive: true, mustChangePassword: true };
+    assert(!elements(SettingsPage()).some(node => node.props.href === '/settings/face-verification'));
+    setActiveLanguage('en'); user = { id: 'account-a', role: 'SALES', isActive: true };
+
     const originalKey = personal()[0].key;
     setActiveLanguage('id'); assert.equal(personal()[0].key, originalKey, 'Locale cannot remount the form');
     setActiveLanguage('en'); user = { ...user, id: 'account-b' };
@@ -117,7 +132,7 @@ function navigationChecks() {
 }
 
 async function panelChecks() {
-  const originals = { state: React.useState, ref: React.useRef, memo: React.useMemo, effect: React.useEffect, ...hooks };
+  const originals = { state: React.useState, ref: React.useRef, memo: React.useMemo, callback: React.useCallback, effect: React.useEffect, ...hooks };
   const states: any[] = [], refs: any[] = [];
   let si = 0, ri = 0, fail = false;
   const writes: any[] = [];
@@ -128,6 +143,11 @@ async function panelChecks() {
   (React as any).useState = (initial: any) => { const i = si++; if (!(i in states)) states[i] = initial; return [states[i], (next: any) => { states[i] = typeof next === 'function' ? next(states[i]) : next; }]; };
   (React as any).useRef = (initial: any) => refs[ri++] ??= { current: initial };
   (React as any).useMemo = (fn: any) => fn();
+  let callback: { fn: any; deps: unknown[] } | undefined;
+  (React as any).useCallback = (fn: any, deps: unknown[]) => {
+    if (!callback || deps.some((value, index) => !Object.is(value, callback!.deps[index]))) callback = { fn, deps };
+    return callback.fn;
+  };
   (React as any).useEffect = () => {};
   (hooks as any).useNotificationPreferences = (enabled: boolean) => { assert(enabled); return { data: preferences, refetch() { throw new Error('No refetch needed on open'); } }; };
   for (const [name, operation] of [['useUpdateNotificationPreferences', 'save'], ['useUnlinkTelegram', 'unlink'], ['useCreateTelegramLink', 'link'], ['useInvalidateTelegramLink', 'cancel-link']]) (hooks as any)[name] = () => mutation(operation);
@@ -167,7 +187,7 @@ async function panelChecks() {
     fail = false; button(translate('notificationSettings.disconnect'), dialogs()[1]).props.onClick();
     await new Promise(resolve => setImmediate(resolve)); assert(!dialogs()[1].props.open);
   } finally {
-    for (const key of ['useState', 'useRef', 'useMemo', 'useEffect'] as const) (React as any)[key] = originals[({ useState: 'state', useRef: 'ref', useMemo: 'memo', useEffect: 'effect' } as const)[key]];
+    for (const key of ['useState', 'useRef', 'useMemo', 'useCallback', 'useEffect'] as const) (React as any)[key] = originals[({ useState: 'state', useRef: 'ref', useMemo: 'memo', useCallback: 'callback', useEffect: 'effect' } as const)[key]];
     for (const key of ['useNotificationPreferences', 'useUpdateNotificationPreferences', 'useUnlinkTelegram', 'useCreateTelegramLink', 'useInvalidateTelegramLink'] as const) (hooks as any)[key] = originals[key];
     setActiveLanguage('en');
   }

@@ -1,0 +1,19 @@
+{
+    "commit":  "b6d5f04ad78778917853b25c778acef6d5626d15",
+    "license":  "Apache-2.0",
+    "hash_encoding":  "UTF-8 without BOM; LF line endings",
+    "files":  [
+                  {
+                      "path":  "generate_patches.py",
+                      "upstream_path":  "src/generate_patches.py",
+                      "source":  "https://raw.githubusercontent.com/minivision-ai/Silent-Face-Anti-Spoofing/b6d5f04ad78778917853b25c778acef6d5626d15/src/generate_patches.py",
+                      "sha256_lf_utf8":  "cd33552d5ca920088143daafceba3c19b7a64bf9aac125241803e1b4af698d65"
+                  },
+                  {
+                      "path":  "LICENSE",
+                      "upstream_path":  "LICENSE",
+                      "source":  "https://raw.githubusercontent.com/minivision-ai/Silent-Face-Anti-Spoofing/b6d5f04ad78778917853b25c778acef6d5626d15/LICENSE",
+                      "sha256_lf_utf8":  "daf94bf1dc9cc5700fe5af2c7c0cbd1836e70d509ed78fd0bebef7432edee6fb"
+                  }
+              ]
+}

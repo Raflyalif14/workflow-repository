@@ -3,7 +3,7 @@
 import { translate as translateI18n, translateRole } from "@/i18n";
 import { useLanguage } from "@/components/i18n/language-provider";
 
-import { useEffect, useMemo, useState, useRef } from "react";
+import { useMemo, useState, useRef } from "react";
 import { AlertCircle, CheckCircle2, Search, UserCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -40,15 +40,16 @@ export function PicAssignmentCard({
   const { data: pics = [], isLoading } = useSolutionArchitects(canAssign && open);
   const assign = useAssignPic(project.id);
 
-  useEffect(() => {
-    if (open) {
+  // Capture what the user reviewed when opening. A server refresh must not
+  // silently replace the revision used by the conflict check or clear input.
+  const openAssignment = () => {
       setSelected("");
       setSearch("");
       setReason("");
       setSubmitError(""); setConfirming(false); intent.current = null;
       setBaseline({ revision: project.pic_revision, id: project.pic?.id || null, name: project.pic?.full_name || project.pic?.fullName || translateI18n('ui.unassigned') });
-    }
-  }, [open]);
+      setOpen(true);
+  };
 
   const options = useMemo(() => {
     const term = search.trim().toLowerCase();
@@ -113,7 +114,7 @@ export function PicAssignmentCard({
             ) : null}
           </div>
           {canAssign && (
-            <Button className="h-10 w-full gap-2 shadow-none sm:w-auto" variant="outline" onClick={() => setOpen(true)}>
+            <Button className="h-10 w-full gap-2 shadow-none sm:w-auto" variant="outline" onClick={openAssignment}>
               <UserCheck className="h-4 w-4" />
               {translateI18n(currentPic ? "projectAction.changePic" : "projectAction.assignPic")}
             </Button>

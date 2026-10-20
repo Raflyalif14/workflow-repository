@@ -8,7 +8,7 @@ import {
   isAllowedDocumentFileName,
   MAX_DOCUMENT_FILE_SIZE_BYTES,
 } from '../utils/storage.util';
-import { CreateProjectManagementInput, ProjectOutcomeInput, ProjectQuery, UpdateProjectManagementInput } from '../validators/project-management.validator';
+import { CreateProjectManagementInput, ProjectOutcomeInput, ProjectQuery, UpdateProjectManagementInput, PROJECT_DELIVERY_COMPLETED_STATUSES } from '../validators/project-management.validator';
 import { MilestoneService, resolveWorkflowInitializationMode } from './milestone.service';
 import { applyProjectAccessScope, canAccessProject } from './project-access.service';
 import { RequestTiming, timeOperation } from '../utils/request-timing';
@@ -169,6 +169,7 @@ export class ProjectManagementService {
     if (!['SALES', 'SA'].includes(actor.role) && query.sales_id) request = request.eq('sales_id', query.sales_id);
     if (query.scenario_id) request = request.eq('scenario_id', query.scenario_id);
     if (query.status) request = request.eq('status', query.status);
+    if (query.status_group === 'DELIVERY_COMPLETED') request = request.in('status', [...PROJECT_DELIVERY_COMPLETED_STATUSES]);
     if (query.search) request = request.or(`name.ilike.%${query.search}%,customer.ilike.%${query.search}%`);
     const { data, error, count } = await timeOperation(trace, 'projects.list.rows', () => request);
     if (error) throw new Error(error.message);
@@ -193,7 +194,7 @@ export class ProjectManagementService {
       for (const p of projects as any[]) {
         const pMilestones = phaseRows(milestonesByProject.get(p.id) || [], p.active_phase_id);
         const totalMilestones = pMilestones.length;
-        const deliveryFinished = ['COMPLETED', 'WAITING_RESULT', 'WON', 'LOST'].includes(p.status);
+        const deliveryFinished = PROJECT_DELIVERY_COMPLETED_STATUSES.includes(p.status);
         const completedMilestones = deliveryFinished
           ? totalMilestones
           : pMilestones.filter((m) => ['COMPLETED', 'APPROVED'].includes(m.status)).length;

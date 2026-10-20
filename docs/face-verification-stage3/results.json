@@ -1,0 +1,171 @@
+{
+  "browser": "Chrome/154.0.8037.98",
+  "checks": [
+    {
+      "check": "Anonymous route uses existing auth redirect; no camera UI",
+      "passed": true
+    },
+    {
+      "check": "Dashboard, Settings and idle camera page never load detector/model/WASM",
+      "passed": true
+    },
+    {
+      "check": "Explicit click requests front-facing video without audio once and attaches a playing synthetic stream",
+      "passed": true
+    },
+    {
+      "check": "Real BlazeFace inference on a blank video frame: zero faces",
+      "passed": true
+    },
+    {
+      "check": "Fresh native captured frame with 0 faces rejected despite previous one-face preview",
+      "actual": {
+        "count": 0,
+        "boxes": [],
+        "width": 1280,
+        "height": 720
+      },
+      "passed": true
+    },
+    {
+      "check": "Fresh native captured frame with 2 faces rejected despite previous one-face preview",
+      "actual": {
+        "count": 2,
+        "boxes": [
+          {
+            "x": 216,
+            "y": 277,
+            "width": 289,
+            "height": 289,
+            "confidence": 0.9365227222442627
+          },
+          {
+            "x": 857,
+            "y": 277,
+            "width": 288,
+            "height": 288,
+            "confidence": 0.9362327456474304
+          }
+        ],
+        "width": 1280,
+        "height": 720
+      },
+      "passed": true
+    },
+    {
+      "check": "One-face capture uses native 1280x720 frame, exact matching crop pixels with margin, display-only mirror, two URLs and automatic camera/worker stop; double click cannot duplicate",
+      "full": [
+        1280,
+        720
+      ],
+      "crop": [
+        406,
+        406
+      ],
+      "expected": [
+        406,
+        406
+      ],
+      "cropMatchesSameFrame": true,
+      "box": {
+        "x": 216,
+        "y": 277,
+        "width": 290,
+        "height": 290,
+        "confidence": 0.9374003410339355
+      },
+      "urls": 2,
+      "transforms": [
+        "matrix(-1, 0, 0, 1, 0, 0)",
+        "matrix(-1, 0, 0, 1, 0, 0)"
+      ],
+      "passed": true
+    },
+    {
+      "check": "Photo/crop layout has no overflow",
+      "viewport": 1440,
+      "language": "en",
+      "client": 1434,
+      "scroll": 1434,
+      "images": [
+        {
+          "right": 658,
+          "width": 353
+        },
+        {
+          "right": 1023,
+          "width": 353
+        }
+      ],
+      "passed": true
+    },
+    {
+      "check": "Photo/crop layout has no overflow",
+      "viewport": 390,
+      "language": "id",
+      "client": 384,
+      "scroll": 384,
+      "images": [
+        {
+          "right": 331,
+          "width": 278
+        },
+        {
+          "right": 331,
+          "width": 278
+        }
+      ],
+      "passed": true
+    },
+    {
+      "check": "Photo/crop layout has no overflow",
+      "viewport": 360,
+      "language": "id",
+      "client": 354,
+      "scroll": 354,
+      "images": [
+        {
+          "right": 301,
+          "width": 248
+        },
+        {
+          "right": 301,
+          "width": 248
+        }
+      ],
+      "passed": true
+    },
+    {
+      "check": "Locale retains photo and mirror toggle changes display without re-encoding or allocating URLs",
+      "passed": true
+    },
+    {
+      "check": "Delete revokes both URLs and leaves camera off",
+      "passed": true
+    },
+    {
+      "check": "Retake clears/revokes photo and explicitly starts a fresh camera stream",
+      "passed": true
+    },
+    {
+      "check": "Stop while bitmap capture is pending produces no photo and terminates loop",
+      "passed": true
+    },
+    {
+      "check": "Leaving page with a photo revokes both object URLs",
+      "passed": true
+    },
+    {
+      "check": "Capture completing after unmount creates no preview or URLs",
+      "passed": true
+    },
+    {
+      "check": "Actual AuthProvider logout revokes photo URLs and leaves no active worker/stream",
+      "passed": true
+    }
+  ],
+  "unknownRequests": [],
+  "runtimeErrors": [],
+  "liveRequests": 0,
+  "limits": "Real app/Chrome with synthetic API and getUserMedia replaced by canvas video. Real CPU/WASM FaceDetector model; licensed 1280x720 photo/blank frames via synthetic canvas stream. Stage 3 physical-camera capture not tested. No physical camera, OS permissions or real GoTrue/Storage tested."
+}

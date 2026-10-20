@@ -1,0 +1,89 @@
+{
+  "stage": "9K follow-up",
+  "branch": "feat/face-verification",
+  "head": "58bc3d7",
+  "diagnosis": "Existing user tab has no ROI component element, while the current server chunk and a fresh isolated client include/render it. Retained prior client rendering is the supported explanation; exact cache/HMR mechanism was not independently identified.",
+  "actual_user_tab": {
+    "read_only": true,
+    "refreshed": false,
+    "photo_pixels_or_blobs_read": false,
+    "pad_panel_present": true,
+    "success_visible": true,
+    "geometry_present": true,
+    "roi_element_count": 0,
+    "roi_title_present": false,
+    "preview_unavailable_text_present": false,
+    "notes_rows": 7
+  },
+  "frontend": {
+    "port": 3000,
+    "verified_repo_frontend_process": true,
+    "owner_current": true,
+    "localhost_and_127_chunks_identical": true,
+    "roi_integration_present_in_served_chunk": true
+  },
+  "fixture": {
+    "browser": "Chrome/155.0.8059.40",
+    "source": "Synthetic canvas capture; actual app/AuthProvider/PAD panel; auth/detector/PAD response fixtures",
+    "frame": {
+      "width": 640,
+      "height": 480
+    },
+    "crop_after": {
+      "left": 120,
+      "top": 58,
+      "right": 534,
+      "bottom": 472
+    },
+    "native_roi": {
+      "width": 414,
+      "height": 414
+    },
+    "browser_png_crop_max_difference": 0,
+    "locale": "id",
+    "viewport": 1440,
+    "roi_visible": true,
+    "page_overflow": false,
+    "api_fixture_requests": 1,
+    "live_pad_requests": 0,
+    "unknown_requests": 0,
+    "browser_exceptions": 0,
+    "profile_cleaned": true,
+    "checks": [
+      {
+        "check": "Browser PNG ROI matches the exact server rectangle of the full captured PNG, unmirrored, native 414x414",
+        "passed": true,
+        "width": 414,
+        "height": 414,
+        "maxDifference": 0
+      },
+      {
+        "check": "EN/ID responsive ROI native dimensions with bounded display and no page overflow",
+        "language": "id",
+        "viewport": 1440,
+        "passed": true,
+        "pageWidth": 1434,
+        "scrollWidth": 1434,
+        "imageWidth": 327,
+        "parentWidth": 327,
+        "nativeWidth": 414,
+        "mirror": "none",
+        "hasLabel": true
+      }
+    ]
+  },
+  "changes": {
+    "application_code": [],
+    "tests": [],
+    "old_reports": [],
+    "new_reports": [
+      "docs/face-verification-stage9k-runtime-check.md",
+      "docs/face-verification-stage9k-runtime-check-results.json"
+    ]
+  },
+  "limits": [
+    "Original user tab has not been refreshed; visibility after user reload not yet verified.",
+    "Do not refresh before exporting pending notes.",
+    "No camera, user photo processing, PAD inference or spoof-cause claim."
+  ]
+}

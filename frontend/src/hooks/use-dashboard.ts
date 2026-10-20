@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { getAuthSession, isCurrentSession } from "@/lib/auth";
 import { apiClient, SessionChangedError } from "@/lib/api-client";
@@ -21,7 +21,7 @@ export function useDashboardActivity(cursor: string | null, enabled = true) {
   const { user, isLoading } = useAuth();
   const session = getAuthSession();
   const client = useQueryClient();
-  const scope = dashboardKeys.activityScope(user?.id || "anonymous", session?.id || "none", user?.role || "unknown");
+  const scope = useMemo(() => dashboardKeys.activityScope(user?.id || "anonymous", session?.id || "none", user?.role || "unknown"), [user?.id, session?.id, user?.role]);
   const scopeKey = JSON.stringify(scope);
   const previousScope = useRef(scope);
   useEffect(() => {
@@ -32,7 +32,7 @@ export function useDashboardActivity(cursor: string | null, enabled = true) {
       client.removeQueries({ queryKey: old });
       previousScope.current = scope;
     }
-  }, [client, scopeKey]);
+  }, [client, scopeKey, scope]);
   const canRead = !isLoading && Boolean(user?.id && user.isActive && !user.mustChangePassword && session
     && ["SALES", "SA", "HEAD_SA", "SUPER_ADMIN"].includes(user.role));
   const query = useQuery<DashboardActivityPage>({

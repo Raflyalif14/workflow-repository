@@ -1,0 +1,43 @@
+name: Frontend checks
+
+on:
+  push:
+    paths:
+      - 'frontend/**'
+      - 'backend/**'
+      - '.github/workflows/frontend-checks.yml'
+  pull_request:
+    paths:
+      - 'frontend/**'
+      - 'backend/**'
+      - '.github/workflows/frontend-checks.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  frontend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      NEXT_TELEMETRY_DISABLED: '1'
+      SUPABASE_URL: 'https://example.invalid'
+      SUPABASE_SERVICE_ROLE_KEY: 'test-service-key'
+      SUPABASE_ANON_KEY: 'test-anon-key'
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: |
+            frontend/package-lock.json
+            backend/package-lock.json
+      # One frontend HTTP contract test imports the backend with mocked providers.
+      - run: npm ci --prefix backend
+      - run: npm ci --prefix frontend
+      - run: npm run check --prefix frontend
+      - run: npm run build --prefix frontend

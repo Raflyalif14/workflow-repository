@@ -1,7 +1,16 @@
 import type { Metadata } from "next";
+import localFont from "next/font/local";
 import "./globals.css";
 import { Providers } from "./providers";
 import { AppFrame } from "@/components/auth/app-frame";
+
+const plusJakartaSans = localFont({
+  src: "./fonts/PlusJakartaSans-Variable.ttf",
+  weight: "200 800",
+  style: "normal",
+  display: "swap",
+  variable: "--font-jakarta",
+});
 
 export const metadata: Metadata = {
   title: "Workflow Repository Management System",
@@ -15,12 +24,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
-      </head>
-      <body>
+      <body className={plusJakartaSans.variable}>
         <Providers>
           <AppFrame>{children}</AppFrame>
         </Providers>

@@ -1,5 +1,17 @@
 import { getIntlLocale, translate, translateDocumentStatus, translateRole } from "@/i18n";
+import type { DocumentCategory } from "@/types/document";
 export type DocumentSurfaceSource = "OFFICIAL_DOCUMENT" | "PROJECT_INTAKE";
+
+const categoryLabels = {
+  PROPOSAL: "documentCategory.proposal", ARCHITECTURE_DESIGN: "documentCategory.architecture",
+  SIZING_SHEET: "documentCategory.sizing", MOM: "documentCategory.mom",
+  ASSESSMENT_REPORT: "documentCategory.assessment", BOQ: "documentCategory.boq",
+  DELIVERABLE: "documentCategory.deliverable", OTHER: "documentCategory.other",
+} as const;
+
+export function formatDocumentCategory(category: DocumentCategory): string {
+  return translate(categoryLabels[category]);
+}
 
 const mimeLabels: Record<string, string> = {
   "application/pdf": "PDF",

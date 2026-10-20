@@ -1,0 +1,39 @@
+{
+  "package": "@mediapipe/tasks-vision",
+  "version": "1.1.0",
+  "packageSource": "https://registry.npmjs.org/@mediapipe/tasks-vision/-/tasks-vision-1.1.0.tgz",
+  "modelSource": "https://storage.googleapis.com/mediapipe-models/face_detector/blaze_face_short_range/float16/1/blaze_face_short_range.tflite",
+  "modelCard": "https://storage.googleapis.com/mediapipe-assets/MediaPipe%20BlazeFace%20Model%20Card%20(Short%20Range).pdf",
+  "license": "Apache-2.0",
+  "licenseSource": "https://github.com/google-ai-edge/mediapipe/blob/master/LICENSE",
+  "files": {
+    "blaze_face_short_range-float16-v1.tflite": {
+      "bytes": 229746,
+      "sha256": "b4578f35940bf5a1a655214a1cce5cab13eba73c1297cd78e1a04c2380b0152f"
+    },
+    "LICENSE": {
+      "bytes": 12331,
+      "sha256": "8707eef0533987efc5b155d64761eeb6e20793f50b9bd1a68dad1cf4719d0ed8"
+    },
+    "vision_bundle.js": {
+      "bytes": 156161,
+      "sha256": "022cbbfcdb74bae18e4bbc722e429e046d5fdd35f6183f1359c56b652b8b87f7"
+    },
+    "wasm/vision_wasm_internal.js": {
+      "bytes": 335393,
+      "sha256": "7c652617b5bef832f42878ce8c5f752b0724bca6054e4bc1013a37d4b1949723"
+    },
+    "wasm/vision_wasm_internal.wasm": {
+      "bytes": 12997248,
+      "sha256": "782eda3ec1f414fdb4f1d66a8b59093eb4d5ab437e06117796abf05962d68eef"
+    },
+    "wasm/vision_wasm_nosimd_internal.js": {
+      "bytes": 335196,
+      "sha256": "510fc70a170eb8b46767a7abab2af89a7a8341fa5b3ebfb8a5de41a79b7fa9df"
+    },
+    "wasm/vision_wasm_nosimd_internal.wasm": {
+      "bytes": 12168316,
+      "sha256": "b802041d105876865d6a0806f2ff7c4419a7f1b80bc01340fe36e759c2030011"
+    }
+  }
+}

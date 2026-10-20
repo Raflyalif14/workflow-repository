@@ -2,6 +2,7 @@ import { DeadlineApprovalController } from './deadline-approval.controller';
 import { DeadlineController } from './deadline.controller';
 import { DeadlineApprovalService } from '../services/deadline-approval.service';
 import { DeadlineService } from '../services/deadline.service';
+import { BusinessAuditError } from '../services/business-audit.service';
 import {
   DeadlineError,
   toSafeDeadlineError,
@@ -55,6 +56,11 @@ async function run(): Promise<void> {
   assert(!hiddenProviderError.message.includes('PostgREST'), 'Test 2: client error must not expose provider detail');
   console.log('Test 2 - Unknown provider errors map to a generic 500 response: passed');
 
+  const businessError = new BusinessAuditError('The project changed. Refresh and try again.', 409);
+  assert(toSafeDeadlineError(businessError, 'Failed to save milestone deadline.') === businessError,
+    'Test 2b: trusted DeadlineError subclasses must retain their safe message and status');
+  console.log('Test 2b - Trusted business error subclasses remain supported: passed');
+
   const originalSave = DeadlineService.saveMilestoneDeadline;
   const originalReject = DeadlineApprovalService.rejectDeadlineApproval;
   const originalConsoleError = console.error;
@@ -101,6 +107,40 @@ async function run(): Promise<void> {
     );
     assert(successfulReviewResponse.statusCode === 200 && successfulReviewResponse.body?.data?.review_note === 'Keep the existing deadline.', 'Test 4: successful rejection response must retain the review note');
     console.log('Test 4 - Successful deadline request/rejection responses remain unchanged and retain review notes: passed');
+
+    const namedErrors = [
+      Object.assign(new Error(providerMessage), { name: 'DeadlineError' }),
+      { name: 'DeadlineError', message: providerMessage, statusCode: 409 },
+    ];
+    for (const namedError of namedErrors) {
+      const loggedBefore = serverErrors.length;
+      (DeadlineService as any).saveMilestoneDeadline = async () => { throw namedError; };
+      (DeadlineApprovalService as any).rejectDeadlineApproval = async () => { throw namedError; };
+
+      const saveResponse = createResponseCapture();
+      await DeadlineController.saveMilestoneDeadline(
+        { params: { milestoneId: 'milestone-1' }, body: {}, headers: {}, user: { userId: 'sales-1', role: 'SALES' } } as any,
+        saveResponse as any
+      );
+      const rejectResponse = createResponseCapture();
+      await DeadlineApprovalController.reject(
+        { params: { approvalId: 'approval-1' }, body: { note: 'Keep deadline.' }, headers: {}, user: { userId: 'head-sa-1', role: 'HEAD_SA' } } as any,
+        rejectResponse as any
+      );
+
+      assert(saveResponse.statusCode === 500 && rejectResponse.statusCode === 500,
+        'Test 5: an unknown error named DeadlineError must not choose the HTTP status');
+      assert(saveResponse.body?.message === 'Failed to save milestone deadline.',
+        'Test 5: saving must use its generic fallback for an unknown named error');
+      assert(rejectResponse.body?.message === 'Failed to reject deadline approval.',
+        'Test 5: reviewing must use its generic fallback for an unknown named error');
+      assert(!JSON.stringify([saveResponse.body, rejectResponse.body]).includes(providerMessage),
+        'Test 5: neither controller may expose the internal message of an unknown named error');
+      const newLogs = serverErrors.slice(loggedBefore);
+      assert(newLogs.length === 2 && newLogs.every(entry => JSON.stringify(entry).includes(providerMessage)),
+        'Test 5: both controllers must retain the unknown error detail in server-side logs');
+    }
+    console.log('Test 5 - Error names and lookalike objects cannot bypass either controller sanitizer: passed');
   } finally {
     (DeadlineService as any).saveMilestoneDeadline = originalSave;
     (DeadlineApprovalService as any).rejectDeadlineApproval = originalReject;

@@ -3,9 +3,10 @@
 import { translate as translateI18n, translateStoredError } from "@/i18n";
 import { useLanguage } from "@/components/i18n/language-provider";
 
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { Loader2 } from "lucide-react";
 import {
   Dialog,
   DialogHeader,
@@ -38,6 +39,7 @@ export function UserFormDialog({
   const isEditing = !!userToEdit;
   const createUserMutation = useCreateUser();
   const updateUserMutation = useUpdateUser();
+  const [saveFailed, setSaveFailed] = useState(false);
 
   const {
     register,
@@ -55,6 +57,7 @@ export function UserFormDialog({
   });
 
   useEffect(() => {
+    setSaveFailed(false);
     if (userToEdit) {
       reset({
         email: userToEdit.email,
@@ -73,6 +76,7 @@ export function UserFormDialog({
   }, [userToEdit, reset, open]);
 
   const onSubmit = async (data: CreateUserFormValues) => {
+    setSaveFailed(false);
     try {
       if (isEditing && userToEdit) {
         await updateUserMutation.mutateAsync({
@@ -88,7 +92,7 @@ export function UserFormDialog({
       }
       onOpenChange(false);
     } catch {
-      alert(translateI18n("userForm.saveFailed"));
+      setSaveFailed(true);
     }
   };
 
@@ -104,6 +108,11 @@ export function UserFormDialog({
       </DialogHeader>
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+        {saveFailed && (
+          <p role="alert" className="rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2.5 text-sm text-destructive">
+            {translateI18n(isEditing ? "userForm.updateFailed" : "userForm.saveFailed")}
+          </p>
+        )}
         <div>
           <label className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1">
             {translateI18n("userForm.fullName")} *
@@ -168,6 +177,7 @@ export function UserFormDialog({
           <input
             type="checkbox"
             id="isActive"
+            disabled={isSubmitting}
             {...register("isActive")}
             className="rounded border-border text-primary focus:ring-primary h-4 w-4 bg-background"
           />
@@ -185,8 +195,15 @@ export function UserFormDialog({
           >
             {translateI18n("common.cancel")}
           </Button>
-          <Button type="submit" disabled={isSubmitting}>
-            {translateI18n(isSubmitting ? "common.saving" : isEditing ? "userForm.update" : "userForm.create")}
+          <Button type="submit" disabled={isSubmitting} className="gap-2">
+            {isSubmitting ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                {translateI18n("common.saving")}
+              </>
+            ) : (
+              translateI18n(isEditing ? "userForm.update" : "userForm.create")
+            )}
           </Button>
         </DialogFooter>
       </form>

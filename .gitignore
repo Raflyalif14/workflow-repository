@@ -52,6 +52,10 @@ coverage/
 *.tsbuildinfo
 .eslintcache
 .cache/
+.private/
+# Locally saved Supabase account dashboard; keep outside repository uploads.
+/backend/Users _ Authentication _ Raflyalif14's Project _ Workflow Repository System _ Supabase.html
+/backend/Users _ Authentication _ Raflyalif14's Project _ Workflow Repository System _ Supabase_files/
 
 # =========================================
 # OS Generated Files

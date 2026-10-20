@@ -1,22 +1,18 @@
 "use client";
 import { useLanguage } from "@/components/i18n/language-provider";
 
-import { translate as translateI18n, getIntlLocale, translateOutputName, translateMilestoneStatus, type TranslationKey } from "@/i18n";
+import { translate as translateI18n, type TranslationKey } from "@/i18n";
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import {
-  ArrowRight,
-  CheckCircle2,
-  FolderKanban,
-  Milestone,
-} from "lucide-react";
+import { FolderKanban } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { AssignedMilestone, useMyAssignedMilestones } from "@/hooks/use-projects";
-import { useOutputRepository, OutputRepositoryItem } from "@/hooks/use-output-documents";
-import { countAssignedOutputsWaitingReview, getAssignedMilestoneState, getAssignedMilestonesNeedingAction, isAssignedProjectPaused } from "@/lib/assigned-milestone-ux";
+import { useMyAssignedMilestones } from "@/hooks/use-projects";
+import { useOutputRepository } from "@/hooks/use-output-documents";
+import { getAssignedMilestoneState, getAssignedMilestonesNeedingAction } from "@/lib/assigned-milestone-ux";
+
+import { AssignedMilestoneQueue, HeadSaReviewQueue } from "@/components/milestones/milestone-queues";
 
 type QueueTab = "ACTION" | "REVIEW" | "PENDING_REVIEW" | "COMPLETED" | "ALL";
 
@@ -42,22 +38,6 @@ const rolePageCopy: Record<string, { eyebrow: TranslationKey; title: Translation
     description: "milestonePage.adminDescription",
   },
 };
-
-function getMilestoneStatusBadge(status: string) {
-  switch (status) {
-    case "COMPLETED":
-    case "APPROVED":
-      return <Badge variant="success">{translateI18n("projectStatus.COMPLETED")}</Badge>;
-    case "IN_PROGRESS":
-      return <Badge variant="default">{translateI18n("milestoneStatus.IN_PROGRESS")}</Badge>;
-    case "SUBMITTED":
-      return <Badge variant="warning">{translateI18n("milestoneStatus.SUBMITTED")}</Badge>;
-    case "REJECTED":
-      return <Badge variant="destructive">{translateI18n("milestoneStatus.REVISION_REQUIRED")}</Badge>;
-    default:
-      return <Badge variant="outline">{translateMilestoneStatus(status)}</Badge>;
-  }
-}
 
 export default function MilestonesPage() {
   useLanguage();
@@ -201,29 +181,13 @@ export default function MilestonesPage() {
                 isLoading={pendingReviewsLoading}
                 isError={pendingReviewsError}
               />
-            ) : isLoading ? (
-              <LoadingRows />
-            ) : isError ? (
-              <ErrorState message={translateI18n("milestonePage.loadFailed")} />
-            ) : filteredMilestones.length === 0 ? (
-              <EmptyState
-                actionQueue={activeTab === "ACTION"}
-                message={
-                  activeTab === "ACTION"
-                    ? translateI18n("milestonePage.noAction")
-                    : translateI18n("milestonePage.noMatches")
-                }
-              />
             ) : (
-              <div>
-                {filteredMilestones.map((milestone) => (
-                  <AssignedMilestoneRow
-                    key={milestone.id}
-                    milestone={milestone}
-                    isHeadSa={isHeadSa}
-                  />
-                ))}
-              </div>
+              <AssignedMilestoneQueue
+                milestones={filteredMilestones}
+                isLoading={isLoading}
+                isError={isError}
+                actionQueue={activeTab === "ACTION"}
+              />
             )}
           </section>
         </>
@@ -255,69 +219,4 @@ function QueueTabButton({
       <span className="text-[11px] text-muted-foreground">{count}</span>
     </Button>
   );
-}
-
-function LoadingRows() {
-  return (
-    <div>
-      {[1, 2, 3].map((item) => (
-        <div key={item} className="h-24 animate-pulse border-t border-border/60 bg-muted/20 first:border-t-0" />
-      ))}
-    </div>
-  );
-}
-
-function ErrorState({ message }: { message: string }) {
-  return (
-    <div className="px-5 py-14 text-center">
-      <p className="font-medium text-destructive">{message}</p>
-      <p className="mt-1 text-xs text-muted-foreground">{translateI18n("copy.refreshTryAgain")}</p>
-    </div>
-  );
-}
-
-function EmptyState({ actionQueue, message }: { actionQueue: boolean; message: string }) {
-  const Icon = actionQueue ? CheckCircle2 : Milestone;
-  return (
-    <div className="px-5 py-14 text-center">
-      <Icon className="mx-auto h-8 w-8 text-muted-foreground" />
-      <p className="mt-3 font-medium text-foreground">{message}</p>
-      <p className="mt-1 text-xs text-muted-foreground">
-        {translateI18n("milestonePage.newWorkHelp")}
-      </p>
-    </div>
-  );
-}
-
-function HeadSaReviewQueue({ reviewableOutputs, isLoading, isError }: {
-  reviewableOutputs: OutputRepositoryItem[]; isLoading: boolean; isError: boolean;
-}) {
-  if (isLoading) return <LoadingRows />;
-  if (isError) return <ErrorState message={translateI18n("milestonePage.reviewLoadFailed")} />;
-  if (!reviewableOutputs.length) return <EmptyState actionQueue message={translateI18n("milestonePage.noReviewOutputs")} />;
-  return <div>{reviewableOutputs.map((item) =>
-    <div key={`${item.projectId}:${item.documentKey}`} className="flex items-center justify-between gap-3 border-t border-border/60 px-4 py-4 first:border-t-0 sm:px-5">
-      <div><p className="font-medium">{translateOutputName(item.documentKey, item.name)}</p><p className="text-xs text-muted-foreground">{item.projectName}</p></div>
-      <Link href={`/projects/${item.projectId}#milestone-outputs-${item.milestoneId}`}><Button size="sm" variant="outline">{translateI18n("milestonePage.reviewOutput")} <ArrowRight className="ml-1 h-3.5 w-3.5" /></Button></Link>
-    </div>
-  )}</div>;
-}
-
-function AssignedMilestoneRow({ milestone }: { milestone: AssignedMilestone; isHeadSa?: boolean }) {
-  const projectId = milestone.project?.id || milestone.project_id;
-  const state = getAssignedMilestoneState(milestone);
-  const waitingOutputs = countAssignedOutputsWaitingReview(milestone);
-  const statusBadge = state === "WAITING_REVIEW"
-    ? <Badge variant="warning">{translateI18n("milestonePage.underReview")}</Badge>
-    : state === "ACTION" ? <Badge variant="default">{translateI18n("milestonePage.needsAction")}</Badge>
-    : getMilestoneStatusBadge(milestone.status);
-  return <div className="flex items-center justify-between gap-3 border-t border-border/60 px-4 py-4 first:border-t-0 sm:px-5">
-    <div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><p className="font-medium">{milestone.name}</p>{statusBadge}</div>
-      <p className="text-xs text-muted-foreground">{milestone.project?.name || translateI18n("copy.projectLabel")}{isAssignedProjectPaused(milestone) ? ` · ${translateI18n("projectStatus.POSTPONED")}` : ""}</p>
-      {state === "ACTION" && waitingOutputs > 0 && <p className="mt-1 text-xs text-muted-foreground">
-        {translateI18n("milestonePage.waitingOutputs", { count: waitingOutputs })}
-      </p>}
-    </div>
-    {projectId && <Link href={`/projects/${projectId}#project-milestone-${milestone.id}`}><Button size="sm" variant="outline">{translateI18n("milestonePage.openMilestone")} <ArrowRight className="ml-1 h-3.5 w-3.5" /></Button></Link>}
-  </div>;
 }

@@ -5,6 +5,7 @@ import {
 } from "./milestone-contribution-access";
 import { readFileSync } from "fs";
 import { join } from "path";
+import { translate } from "../i18n";
 
 const assert = (condition: boolean, message: string): void => {
   if (!condition) throw new Error(message);
@@ -75,19 +76,23 @@ assert(
   "Test 8: only HEAD_SA and SUPER_ADMIN can promote supporting documents"
 );
 
-const projectDetailPage = readFileSync(join(__dirname, "../app/projects/[id]/page.tsx"), "utf8");
+const milestoneRow = readFileSync(join(__dirname, "../components/projects/project-milestone-row.tsx"), "utf8");
 const contributionsPanel = readFileSync(join(__dirname, "../components/milestones/milestone-contributions-panel.tsx"), "utf8");
 assert(
-  projectDetailPage.includes(
-    'const canSubmit = projectIsActive && stageRole === "SA" && isAssignedPic && milestoneStatus === "IN_PROGRESS";'
-  ),
-  "Test 9: existing PIC-only Submit Work eligibility must remain unchanged"
+  milestoneRow.includes('stageRole === "SA" && isAssignedPic && hasNoSelectedOutput') &&
+    milestoneRow.includes('!isInitialSubmissionBeforeEffectiveStart(milestone.start_date, false)'),
+  "Test 9: direct SA completion remains PIC-only, without selected outputs, and gated by effective start"
 );
 assert(
-  contributionsPanel.includes("Supporting Document") &&
-    contributionsPanel.includes("Promote to Repository") &&
-    contributionsPanel.includes("In Repository"),
+  contributionsPanel.includes('translateI18n("contribution.supportingDocument")') &&
+    contributionsPanel.includes('translateI18n("copy.promoteRepository")') &&
+    contributionsPanel.includes('translateI18n("copy.inRepository")'),
   "Test 10: supporting attachment UI presents non-official and promoted repository labels"
 );
+for (const language of ["en", "id"] as const) {
+  for (const key of ["contribution.supportingDocument", "copy.promoteRepository", "copy.inRepository"] as const) {
+    assert(translate(key, {}, language) !== key, `Supporting document label must resolve in ${language}`);
+  }
+}
 
 console.log("Milestone contribution access tests passed.");

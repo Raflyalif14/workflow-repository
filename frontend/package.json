@@ -6,11 +6,15 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
-    "test": "npx tsx src/i18n/i18n.test.ts && npx tsx src/lib/artifact-request.test.ts && npx tsx src/lib/language-preference-request.test.ts && npx tsx src/lib/document-file-selection.test.ts && npx tsx src/lib/document-surface-ux.test.ts && npx tsx src/lib/document-repository.test.ts && npx tsx src/lib/output-document-ux.test.ts && npx tsx src/lib/output-document-draft.test.ts && npx tsx src/lib/output-archive-error.test.ts && npx tsx src/lib/assigned-milestone-ux.test.ts && npx tsx src/lib/assigned-work-page.test.tsx && npx tsx src/lib/project-documents-panel.test.tsx && npx tsx src/lib/milestone-contribution-access.test.ts && npx tsx src/lib/sales-milestone-document-ux.test.ts && npx tsx src/lib/project-deletion-danger-zone.test.ts && npx tsx src/lib/milestone-ui-state.test.ts && npx tsx src/lib/phase-review.test.ts && npx tsx src/lib/pra-tender-decision.test.ts && npx tsx src/lib/project-milestone-progress.test.ts && npx tsx src/lib/milestone-presentation.test.ts && npx tsx src/lib/review-surface-ux.test.ts && npx tsx src/lib/workflow-ux-helpers.test.ts && npx tsx src/lib/settings-access.test.ts && npx tsx src/lib/settings-navigation.test.tsx && npx tsx src/lib/document-access.test.tsx && npx tsx src/lib/auth-registration-regression.test.ts && npx tsx src/lib/global-search.test.ts && npx tsx src/lib/approval-overview-access.test.ts && npx tsx src/lib/activity-timeline.test.ts && npx tsx src/lib/business-audit.test.tsx && npx tsx src/lib/operational-health.test.ts && npx tsx src/lib/head-sa-project-values.test.ts && npx tsx src/lib/dashboard-phase-status.test.ts && npx tsx src/lib/dashboard-layout.test.tsx && npx tsx src/lib/dashboard-recent-activity.test.tsx && npx tsx src/lib/dashboard-activity-query.test.tsx && npx tsx src/lib/auth-session.test.ts && npx tsx src/lib/auth-upload-http.test.ts && npx tsx src/lib/auth-provider.test.tsx && npx tsx src/lib/project-estimated-value.test.tsx && npx tsx src/lib/pic-assignment-request.test.tsx && npx tsx src/lib/approval-queue.test.ts && npx tsx src/lib/approval-queue-ui.test.tsx && npx tsx src/lib/output-file-revisions.test.tsx && npx tsx src/lib/project-create-request.test.tsx && npx tsx src/lib/project-deletion-cache.test.tsx && npx tsx src/lib/document-repository-cache.test.tsx && npx tsx src/lib/document-repository-page.test.tsx"
+    "lint": "eslint src",
+    "test:face-quick": "node tests/run.cjs quick-face-test",
+    "test": "node tests/run.cjs",
+    "typecheck": "tsc --noEmit",
+    "check": "npm run typecheck && npm run lint && npm test"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
+    "@mediapipe/tasks-vision": "1.1.0",
     "@tanstack/react-query": "^5.66.0",
     "@tanstack/react-query-devtools": "^5.66.0",
     "class-variance-authority": "^0.7.1",
@@ -26,15 +30,21 @@
     "zod": "^3.24.2"
   },
   "devDependencies": {
+    "@eslint/eslintrc": "3.3.7",
     "@types/node": "^22.13.5",
     "@types/react": "^19.0.8",
     "@types/react-dom": "^19.0.3",
     "autoprefixer": "^10.4.20",
+    "eslint": "9.39.5",
+    "eslint-config-next": "15.5.27",
     "postcss": "^8.5.2",
     "tailwindcss": "^3.4.17",
+    "ts-node": "10.9.2",
+    "tsconfig-paths": "4.2.0",
     "typescript": "^5.7.3"
   },
   "overrides": {
+    "postcss-selector-parser": "7.1.6",
     "next": {
       "postcss": "8.5.28"
     }

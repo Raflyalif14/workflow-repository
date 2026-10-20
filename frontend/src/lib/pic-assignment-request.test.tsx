@@ -100,8 +100,13 @@ async function checkHandlers() {
 
     reset(); current = { ...p, status: 'DRAFT', pic: null };
     const item = { id: 'approval', category: 'PROJECT_PLAN', projectId: 'p', projectName: 'Project', title: 'Plan', status: 'PENDING', isCurrentApproval: true, submittedAt: '2026-10-06T00:00:00Z' } as ApprovalItem;
-    let open = true;
-    const review = () => run(() => ApprovalActionDialog({ open, onOpenChange: value => { open = value; }, item }));
+    let open = true, canReview = false;
+    const review = () => run(() => ApprovalActionDialog({ open, onOpenChange: value => { open = value; }, item, canReview }));
+    review(); review();
+    assert(!elements(review()).some(e => e.type === 'form'), 'Read-only viewers cannot process a pending approval');
+    assert(!elements(review()).some(e => e.type === 'select'), 'Read-only viewers cannot select a PIC');
+    assert.equal(requests.length, 0);
+    canReview = true;
     review(); review();
     elements(review()).find(e => e.type === 'select' && e.props.value === '')!.props.onChange({ target: { value: 'new' } });
     const submit = () => elements(review()).find(e => e.type === 'form')!.props.onSubmit({ preventDefault() {} });

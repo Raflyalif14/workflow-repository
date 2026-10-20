@@ -1,0 +1,75 @@
+{
+  "retrieved_on": "2026-10-13",
+  "omz_commit": "eda1863a6d60b09551df9d039cff2377d6ddd4d6",
+  "original_commit": "82a2c26bacff5462c6f9320c34ae0363ccbed497",
+  "asset": {
+    "name": "anti-spoof-mn3.onnx",
+    "size": 12270179,
+    "sha384": "6de4534964b723397b3e8c995cadcf43bc007cc2f9930b95ae25f76adccece5d1d4d058d0b15117b9e4a9f758424f92a",
+    "sha256": "c4c99af04603b62d7e44f6f4daeb33e0daeccc696008c0b1d62f6f5cebbb3262",
+    "source": "https://storage.openvinotoolkit.org/repositories/open_model_zoo/public/2022.1/anti-spoof-mn3/anti-spoof-mn3.onnx",
+    "omz_commit": "eda1863a6d60b09551df9d039cff2377d6ddd4d6",
+    "original_commit": "82a2c26bacff5462c6f9320c34ae0363ccbed497",
+    "reused_identical_asset": false
+  },
+  "model_yml_license": {
+    "repository": "kirillProkofiev/training_extensions",
+    "commit": "84459ca1c32967c145f5feb27d2ad84aa64960e8",
+    "source": "https://raw.githubusercontent.com/kirillProkofiev/training_extensions/84459ca1c32967c145f5feb27d2ad84aa64960e8/LICENSE",
+    "sha256": "4d10fe5f3aa176b05b229a248866bad70b834c173f1252a814ff4748d8a13837"
+  },
+  "references": [
+    {
+      "name": "README.md",
+      "url": "https://raw.githubusercontent.com/openvinotoolkit/open_model_zoo/eda1863a6d60b09551df9d039cff2377d6ddd4d6/models/public/anti-spoof-mn3/README.md",
+      "sha256_raw_bytes": "89f718ffee13bdc8a7e9625fddc0c9862c6bb479ddaee751d6f223b3e0238b74"
+    },
+    {
+      "name": "model.yml",
+      "url": "https://raw.githubusercontent.com/openvinotoolkit/open_model_zoo/eda1863a6d60b09551df9d039cff2377d6ddd4d6/models/public/anti-spoof-mn3/model.yml",
+      "sha256_raw_bytes": "463e1ec4a3c287e09052d06557f4681b396bbcc9b7773f586fe60fdc50b28730"
+    },
+    {
+      "name": "accuracy-check.yml",
+      "url": "https://raw.githubusercontent.com/openvinotoolkit/open_model_zoo/eda1863a6d60b09551df9d039cff2377d6ddd4d6/models/public/anti-spoof-mn3/accuracy-check.yml",
+      "sha256_raw_bytes": "3ee0b4fbb11ef7deb319c20aa25b2c3362e0dc6a821b51927e066920f234ae33"
+    },
+    {
+      "name": "checksum-tool",
+      "url": "https://raw.githubusercontent.com/openvinotoolkit/open_model_zoo/eda1863a6d60b09551df9d039cff2377d6ddd4d6/tools/model_tools/src/omz_tools/download_engine/cache.py",
+      "sha256_raw_bytes": "aaa962c73501b4e01c323f963474f59ec7efc022c55528caa7ca75377624e3dd"
+    },
+    {
+      "name": "original-license",
+      "url": "https://raw.githubusercontent.com/kprokofi/light-weight-face-anti-spoofing/82a2c26bacff5462c6f9320c34ae0363ccbed497/LICENSE",
+      "sha256_raw_bytes": "36bbbe52e0602c3ce36f4ecfd6f8cd7d1ae334217e436ed4692a8de27e3de6a8"
+    },
+    {
+      "name": "original-crop",
+      "url": "https://raw.githubusercontent.com/kprokofi/light-weight-face-anti-spoofing/82a2c26bacff5462c6f9320c34ae0363ccbed497/demo_tools/wrapers.py",
+      "sha256_raw_bytes": "8ef69701215778c3dd542e92ffedbaf33646cb7e9f51319ee6f55629162ebd97"
+    },
+    {
+      "name": "original-demo",
+      "url": "https://raw.githubusercontent.com/kprokofi/light-weight-face-anti-spoofing/82a2c26bacff5462c6f9320c34ae0363ccbed497/demo/demo.py",
+      "sha256_raw_bytes": "5e46165e6bfcdb92048a6072b01295e849b357d362df250df0fac616ea26186f"
+    },
+    {
+      "name": "omz-detector-crop",
+      "url": "https://raw.githubusercontent.com/openvinotoolkit/open_model_zoo/eda1863a6d60b09551df9d039cff2377d6ddd4d6/demos/interactive_face_detection_demo/cpp/detectors.cpp",
+      "sha256_raw_bytes": "816312b5254f78751d319eb9adf0d4fb128ecddc923934db37d8f0f5439b0933"
+    },
+    {
+      "name": "omz-demo",
+      "url": "https://raw.githubusercontent.com/openvinotoolkit/open_model_zoo/eda1863a6d60b09551df9d039cff2377d6ddd4d6/demos/interactive_face_detection_demo/cpp/main.cpp",
+      "sha256_raw_bytes": "b698476ab119d25f5b28c54c0dc33dec75595c576a0f82c0323f22fb1fb4fba3"
+    }
+  ],
+  "intel_license_statement": {
+    "url": "https://community.intel.com/t5/Intel-Distribution-of-OpenVINO/Anti-spoof-mn3/m-p/1721874",
+    "author": "Zulkifli_Intel",
+    "role": "Moderator",
+    "posted_on": "2025-10-01",
+    "scope": "Explicit ONNX weights licensing answer; not a model accuracy/security guarantee"
+  }
+}

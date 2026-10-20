@@ -20,6 +20,7 @@ import { useAuth } from "@/components/auth/auth-provider";
 import { useLanguage } from "@/components/i18n/language-provider";
 import { LanguageSwitcher } from "@/components/language-switcher";
 import type { TranslationKey } from "@/i18n";
+import { FaceLogin } from "@/components/auth/face-login";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -168,7 +169,7 @@ export default function LoginPage() {
                 </Link>
               </div>
             </form>
-
+            <div className="mt-5"><FaceLogin /></div>
           </CardContent>
         </Card>
       </div>

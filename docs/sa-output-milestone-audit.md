@@ -1,5 +1,7 @@
 # SA output milestone audit (2026-09-29)
 
+> Historical audit: the baseline and "Current duplicate" paragraph below describe the start of the September work, not today's active flow. See the [October 2026 audit](workspace-cleanup-2026-10-15.md) and [database guide](../backend/supabase/README.md) for the latest inspection. Original evidence and limits are retained below.
+
 Baseline: `main` at `44e0ba3678ceaf40b53387bea280c33017572de8`. Worktree already contains unrelated auth, notification, and frontend localization edits; preserve them. Latest available migration: `phase17-user-language-preference.sql` (application not verified).
 
 Operational V2 stage sequence comes from Phase 11g/11j, carried into canonical Pra-Tender / On Submission Tender scenarios by Phase 12. Pra-Tender: Customer Assessment (SA), Assessment Report (SA), Requirement Gathering (SA), Pain Point Analysis (SA), Proposal Solution (SA), Deliverables (SA), Technical Proposal & BOQ (SA), Tender Process (Sales). On Submission Tender: Requirement Gathering (SA), Pain Point Analysis (SA), Proposal Solution (SA), Deliverables (SA), Technical Proposal & BOQ (SA), Tender Process (Sales). Project plan, PIC assignment and final Sales outcome have separate gates.

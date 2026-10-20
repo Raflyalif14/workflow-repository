@@ -1,0 +1,73 @@
+{
+  "browser": "Chrome/154.0.8037.98",
+  "checks": [
+    {
+      "check": "Anonymous route uses existing auth redirect; no camera UI",
+      "passed": true
+    },
+    {
+      "check": "Explicit click requests front-facing video without audio once and attaches a playing synthetic stream",
+      "passed": true
+    },
+    {
+      "check": "Responsive preview",
+      "viewport": 1440,
+      "language": "en",
+      "width": 1440,
+      "clientWidth": 1440,
+      "scrollWidth": 1440,
+      "videoWidth": 716,
+      "videoRight": 1022,
+      "status": "Camera is on - local preview only",
+      "passed": true
+    },
+    {
+      "check": "Responsive preview",
+      "viewport": 390,
+      "language": "id",
+      "width": 390,
+      "clientWidth": 390,
+      "scrollWidth": 390,
+      "videoWidth": 282,
+      "videoRight": 336,
+      "status": "Kamera aktif - hanya preview lokal",
+      "passed": true
+    },
+    {
+      "check": "Responsive preview",
+      "viewport": 360,
+      "language": "id",
+      "width": 360,
+      "clientWidth": 360,
+      "scrollWidth": 360,
+      "videoWidth": 252,
+      "videoRight": 306,
+      "status": "Kamera aktif - hanya preview lokal",
+      "passed": true
+    },
+    {
+      "check": "Stop releases every track; locale change retains the running preview without another request",
+      "passed": true
+    },
+    {
+      "check": "Denied permission shows localized safe retry guidance without raw diagnostic",
+      "passed": true
+    },
+    {
+      "check": "Leaving through the actual Settings link releases the active stream",
+      "passed": true
+    },
+    {
+      "check": "Permission completing after route unmount immediately releases its late stream",
+      "passed": true
+    },
+    {
+      "check": "Actual auth-provider logout unmounts preview and stops all tracks",
+      "passed": true
+    }
+  ],
+  "unknownRequests": [],
+  "runtimeErrors": [],
+  "liveRequests": 0,
+  "limits": "Real app/Chrome with synthetic API and getUserMedia replaced by canvas video. No physical camera, OS permissions or real GoTrue/Storage tested."
+}

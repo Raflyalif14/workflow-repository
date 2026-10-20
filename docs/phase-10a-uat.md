@@ -1,5 +1,7 @@
 # Phase 10A Workflow Simplification UAT and Regression Matrix
 
+> Historical snapshot of Phase 10A. PASS entries describe checks at that time, not the current application. For current navigation, see the [documentation index](README.md) and [October 2026 workspace audit](workspace-cleanup-2026-10-15.md). Original results are retained below.
+
 ## Status legend
 
 - PASS: verified by an automated or static check in this phase.

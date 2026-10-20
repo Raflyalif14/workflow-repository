@@ -1,6 +1,6 @@
 "use client";
 
-import { RadioTower, Server, Settings, Shield, Workflow } from "lucide-react";
+import { Camera, RadioTower, Server, Settings, Shield, Workflow } from "lucide-react";
 import Link from "next/link";
 import { useAuth } from "@/components/auth/auth-provider";
 import { useLanguage } from "@/components/i18n/language-provider";
@@ -39,6 +39,14 @@ export default function SettingsPage() {
       </Card>
 
       <PersonalNotificationSettings key={`${user?.id ?? "anonymous"}:${getAuthSession()?.id ?? "none"}`} />
+
+      {user?.isActive && !user.mustChangePassword && <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base"><Camera className="h-4 w-4 text-primary" aria-hidden="true" />{t("faceLogin.settingsTitle")}</CardTitle>
+          <CardDescription>{t("faceLogin.settingsDescription")}</CardDescription>
+        </CardHeader>
+        <CardContent><Link href="/settings/face-verification" className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary-deep"><Camera className="h-4 w-4" aria-hidden="true" />{t("faceLogin.openSettings")}</Link></CardContent>
+      </Card>}
 
       {isSystemAdmin && (
         <section className="space-y-4" aria-labelledby="system-settings-title">

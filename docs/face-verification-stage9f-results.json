@@ -1,0 +1,230 @@
+{
+  "schema_version": 1,
+  "stage": "9F",
+  "trial_id": "stage9f-synthetic",
+  "started_at": "2026-10-13T03:26:32.503267+00:00",
+  "status": "SUCCESS",
+  "reason": null,
+  "prediction": null,
+  "evidence": "SYNTHETIC_SMOKE_ONLY",
+  "cases": [
+    {
+      "name": "constant",
+      "status": "PASS",
+      "runs": 3,
+      "output_shape": [
+        1,
+        2
+      ],
+      "finite_probabilities": true,
+      "probability_sum_valid": true,
+      "max_abs_repeat_difference": 0.0,
+      "forward_ms": [
+        24.801600025966763,
+        5.9917999897152185,
+        5.444899899885058
+      ],
+      "source_unchanged": true,
+      "prediction": null
+    },
+    {
+      "name": "pattern",
+      "status": "PASS",
+      "runs": 3,
+      "output_shape": [
+        1,
+        2
+      ],
+      "finite_probabilities": true,
+      "probability_sum_valid": true,
+      "max_abs_repeat_difference": 0.0,
+      "forward_ms": [
+        5.8432999067008495,
+        5.701999878510833,
+        7.468299940228462
+      ],
+      "source_unchanged": true,
+      "prediction": null
+    },
+    {
+      "name": "noise",
+      "status": "PASS",
+      "runs": 3,
+      "output_shape": [
+        1,
+        2
+      ],
+      "finite_probabilities": true,
+      "probability_sum_valid": true,
+      "max_abs_repeat_difference": 0.0,
+      "forward_ms": [
+        5.812499905005097,
+        5.8633999433368444,
+        5.247600143775344
+      ],
+      "source_unchanged": true,
+      "prediction": null
+    }
+  ],
+  "provenance": {
+    "model": "anti-spoof-mn3",
+    "omz_commit": "eda1863a6d60b09551df9d039cff2377d6ddd4d6",
+    "source": "https://storage.openvinotoolkit.org/repositories/open_model_zoo/public/2022.1/anti-spoof-mn3/anti-spoof-mn3.onnx",
+    "sha384": "6de4534964b723397b3e8c995cadcf43bc007cc2f9930b95ae25f76adccece5d1d4d058d0b15117b9e4a9f758424f92a",
+    "sha256": "c4c99af04603b62d7e44f6f4daeb33e0daeccc696008c0b1d62f6f5cebbb3262",
+    "model_loaded": true,
+    "model_inference_executed": true,
+    "runtime": "OpenCV DNN",
+    "backend": "DNN_BACKEND_OPENCV",
+    "target": "DNN_TARGET_CPU",
+    "python": "3.10.0",
+    "opencv_distribution": "4.13.0.92",
+    "opencv_runtime": "4.13.0",
+    "numpy": "2.2.6",
+    "preprocessing_version": "mn3-original-onnx-rgb-cubic-128-v1",
+    "input": {
+      "name": "actual_input_1",
+      "shape": [
+        1,
+        3,
+        128,
+        128
+      ],
+      "dtype": "float32",
+      "color": "RGB",
+      "mean": [
+        151.2405,
+        119.595,
+        107.8395
+      ],
+      "std": [
+        63.0105,
+        56.457,
+        55.0035
+      ],
+      "resize": "INTER_CUBIC",
+      "formula": "(RGB_byte_scale - mean) / std"
+    },
+    "output": {
+      "name": "output1",
+      "shape": [
+        1,
+        2
+      ],
+      "classes": [
+        "real",
+        "spoof"
+      ],
+      "softmax_added": false
+    },
+    "detector_loaded": false,
+    "participant_photos": false
+  },
+  "load_ms": 78.4703001845628,
+  "terminal_layers": [
+    {
+      "name": "onnx_node!Softmax_440",
+      "type": "Softmax"
+    },
+    {
+      "name": "output1",
+      "type": "Identity"
+    }
+  ],
+  "duration_ms": 356.6476998385042,
+  "validation": {
+    "checked_at": "2026-10-13T03:32:55.288605+00:00",
+    "unit_tests": {
+      "run": 14,
+      "pass": 14,
+      "skip": 0,
+      "fail": 0,
+      "error": 0,
+      "records": [
+        {
+          "id": "test_mn3_offline.Mn3Tests.test_bad_output_rejected",
+          "status": "PASS"
+        },
+        {
+          "id": "test_mn3_offline.Mn3Tests.test_cli_error_and_refusal_to_overwrite_evidence",
+          "status": "PASS"
+        },
+        {
+          "id": "test_mn3_offline.Mn3Tests.test_exception_does_not_expose_private_payload",
+          "status": "PASS"
+        },
+        {
+          "id": "test_mn3_offline.Mn3Tests.test_forward_failure_clears_tensor_and_returns_no_scores",
+          "status": "PASS"
+        },
+        {
+          "id": "test_mn3_offline.Mn3Tests.test_invalid_forward_output_is_not_a_prediction",
+          "status": "PASS"
+        },
+        {
+          "id": "test_mn3_offline.Mn3Tests.test_invalid_patch_before_resize",
+          "status": "PASS"
+        },
+        {
+          "id": "test_mn3_offline.Mn3Tests.test_invalid_patch_in_adapter_returns_empty_error",
+          "status": "PASS"
+        },
+        {
+          "id": "test_mn3_offline.Mn3Tests.test_missing_model_is_error_without_prediction",
+          "status": "PASS"
+        },
+        {
+          "id": "test_mn3_offline.Mn3Tests.test_pattern_resize_is_cubic_and_not_mirrored",
+          "status": "PASS"
+        },
+        {
+          "id": "test_mn3_offline.Mn3Tests.test_probabilities_are_not_softmaxed_twice",
+          "status": "PASS"
+        },
+        {
+          "id": "test_mn3_offline.Mn3Tests.test_rgb_channel_mean_std_exactly_once",
+          "status": "PASS"
+        },
+        {
+          "id": "test_mn3_offline.Mn3Tests.test_trial_id_is_sanitized_before_model_load",
+          "status": "PASS"
+        },
+        {
+          "id": "test_mn3_offline.Mn3Tests.test_wrong_checksum_rejected_before_import",
+          "status": "PASS"
+        },
+        {
+          "id": "test_mn3_offline.Mn3Tests.test_wrong_size_rejected_before_import",
+          "status": "PASS"
+        }
+      ],
+      "result_source": "Completed unittest run: Ran 14 tests, OK; no test rerun during metadata assembly"
+    },
+    "syntax": "PASS",
+    "utf8_strict": "PASS",
+    "diff_check": "PASS",
+    "existing_files_checked": 120,
+    "existing_files_unchanged": true,
+    "index_unchanged": true,
+    "pad_dependency_inventory_unchanged": true,
+    "new_files": [
+      "docs/face-verification-stage9f-results.json",
+      "docs/face-verification-stage9f.md",
+      "services/face-anti-spoofing/mn3_offline.py",
+      "services/face-anti-spoofing/reference/mn3/LICENSE",
+      "services/face-anti-spoofing/reference/mn3/MODEL-YML-APACHE-LICENSE",
+      "services/face-anti-spoofing/reference/mn3/NOTICE.md",
+      "services/face-anti-spoofing/reference/mn3/sources.json",
+      "services/face-anti-spoofing/tests/test_mn3_offline.py"
+    ],
+    "source_checksums": {
+      "docs/face-verification-stage9f.md": "29fb3442310ed5a7c79f19f2992bc8e9c1a82162e1232872fcd5dc43c9e0d011",
+      "services/face-anti-spoofing/mn3_offline.py": "c52a5af75dfdd83cfbb146a83a528d3ceeff5c346ba12b2140e9c4ff4ee61680",
+      "services/face-anti-spoofing/reference/mn3/LICENSE": "36bbbe52e0602c3ce36f4ecfd6f8cd7d1ae334217e436ed4692a8de27e3de6a8",
+      "services/face-anti-spoofing/reference/mn3/MODEL-YML-APACHE-LICENSE": "4d10fe5f3aa176b05b229a248866bad70b834c173f1252a814ff4748d8a13837",
+      "services/face-anti-spoofing/reference/mn3/NOTICE.md": "752fb185409a0087ab1af1fb9f298c3b10d5d2a17b27c6f9878aec21bd2a115f",
+      "services/face-anti-spoofing/reference/mn3/sources.json": "59f92939563b45f8889a7ab68726a3dc08f5b19b5b71dba4b3cd03e8e4d37bd1",
+      "services/face-anti-spoofing/tests/test_mn3_offline.py": "f8f19aa283122a9d41f841323c45b196fbf1247048940fc7db2f96d4f66fdff2"
+    }
+  }
+}

@@ -29,6 +29,7 @@ import { useLanguage } from "@/components/i18n/language-provider";
 import { PERSONAL_SETTINGS_ALLOWED_ROLES, canShowNavigationItem } from "@/lib/settings-access";
 import type { TranslationKey } from "@/i18n";
 import { GlobalSearchDialog } from "@/components/global-search-dialog";
+import { NavigationLinkFeedback } from "@/components/navigation-feedback";
 import { formatActorRoleLabel } from "@/lib/workflow-ux-helpers";
 import { countAssignedMilestonesNeedingAction } from "@/lib/assigned-milestone-ux";
 
@@ -208,6 +209,7 @@ export function Sidebar() {
                   )}
                 </div>
               )}
+              <NavigationLinkFeedback label={t(item.labelKey)} />
             </Link>
           );
         })}

@@ -4,7 +4,23 @@
 
 Workflow Repository Management System is an internal project and workflow repository for `SUPER_ADMIN`, `SALES`, `HEAD_SA`, and `SA` users. It manages the project lifecycle, workflow stages and milestones, Project Plan approval, PIC assignment, deadline management and approvals, postpone/resume actions, a document repository, dashboard reporting, in-app notifications, Telegram notifications, and user/authentication administration.
 
-## Architecture
+## Where to start
+
+- [Documentation index](docs/README.md): current feature guides and historical reports.
+- [Database guide](backend/supabase/README.md): tables grouped by purpose and how to read migration files.
+- [Latest workspace audit](docs/workspace-cleanup-2026-10-15.md): archived code, findings, and verification limits.
+
+| Folder | Purpose |
+| --- | --- |
+| `frontend/src` | Pages, UI components, and frontend tests. |
+| `backend/src` | API routes, business rules, and backend tests. |
+| `backend/supabase` | Database changes and diagnostic SQL; these are not all active tables. |
+| `services`, `scripts` | Local inference services and supporting tools; includes Face ID. |
+| `docs` | Guides and retained verification evidence; start with its index. |
+| `.cache`, `.private` | Local runtime/model files and sensitive local data; do not bulk-delete. |
+| `node_modules`, `.next`, `dist` | Installed dependencies and generated build output. |
+
+## Runtime architecture
 
 | Layer | Current runtime |
 | --- | --- |
@@ -22,7 +38,7 @@ The frontend uses the authenticated backend API. Privileged Supabase access, inc
 
 - `SUPER_ADMIN`: manages users and system settings, including Telegram delivery-health monitoring.
 - `SALES`: creates and owns projects, drafts the initial timeline, submits Project Plans, completes Sales-owned stages, requests applicable deadline changes, and postpones/resumes permitted projects.
-- `HEAD_SA`: reviews Project Plans, assigns or reassigns SA PICs, reviews SA milestone submissions, and performs HEAD_SA workflow stages.
+- `HEAD_SA`: reviews Project Plans, assigns or reassigns SA PICs, reviews SA output documents, and performs HEAD_SA workflow stages.
 - `SA`: works only on assigned stages and projects, submits work for review, and revises rejected work.
 
 Server-side authorization is the source of truth for these permissions.
@@ -43,7 +59,7 @@ DRAFT
 
 - A rejected Project Plan remains available for correction and resubmission according to the current approval flow.
 - SA-owned stages require PIC assignment before SA work can proceed.
-- An SA submits completed work for HEAD_SA review. HEAD_SA approval completes that milestone; rejection returns it to the SA revision flow.
+- An SA submits output documents for HEAD_SA review. Milestone completion follows the required output approvals; rejected output returns for revision. Stages with no selected outputs have a separate completion action.
 - SALES and HEAD_SA stages progress under the responsible-role rules in the current workflow engine.
 - Completion of the final stage completes the project.
 - Where the current workflow code reads historical status, `APPROVED` is treated as completed-equivalent alongside `COMPLETED`.
@@ -103,7 +119,7 @@ SQL files under `backend/supabase/` are incremental migration and schema-history
 
 Do not sort these filenames lexicographically and execute them blindly: names such as `phase10...` sort before `phase2...`. Apply migrations according to the relevant project phase and dependency order. Fresh-database ordering should be verified before production initialization.
 
-Recent relevant files include:
+Foundational files include (see the [database guide](backend/supabase/README.md) for later phases through Phase 34):
 
 | Capability | Migration file |
 | --- | --- |
@@ -168,8 +184,6 @@ Copy-Item frontend/.env.example frontend/.env
 
 ```env
 NEXT_PUBLIC_API_URL=http://localhost:5000/api
-NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
 ```
 
 Never add a Supabase service-role key, SMTP secret, Telegram bot token, or webhook secret to frontend environment files.

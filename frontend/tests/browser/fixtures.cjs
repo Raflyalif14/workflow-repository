@@ -22,6 +22,7 @@ function createFixture(){
   if(p==='/auth/preferences/language'&&method==='GET')return ok({language:state.locale});
   if(p==='/auth/preferences/language'&&method==='PUT'){state.locale=JSON.parse(body).language;return ok({language:state.locale});}
   if(method!=='GET'){state.unknown.push({path:p,method});return {status:501,body:{success:false,message:'Unconfigured fixture mutation',errors:{code:'FIXTURE_UNHANDLED'}}};}
+  if(p==='/face-login/capabilities')return ok({enabled:false});
   if(p==='/dashboard')return ok(dashboard());
   if(p==='/dashboard/activity'){const offset=u.searchParams.get('cursor')==='fixture-cursor-16'?16:8;const a=activities();if(state.activityFailure)return {status:503,delay:state.activityDelay,body:{success:false,message:'Synthetic temporary activity failure'}};return {...ok({items:a.slice(offset,offset+8),pageSize:8,nextCursor:a.length>offset+8?'fixture-cursor-'+(offset+8):null}),delay:state.activityDelay};}
   if(p==='/projects'){let list=projects();if(u.searchParams.has('status'))list=list.filter(x=>x.status===u.searchParams.get('status'));return ok({projects:list,pagination:{page:1,limit:100,total:list.length,totalPages:1,hasNextPage:false,hasPrevPage:false}});}
