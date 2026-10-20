@@ -6,6 +6,7 @@ import { useLanguage } from "@/components/i18n/language-provider";
 import React, { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { Loader2 } from "lucide-react";
 import {
   Dialog,
   DialogHeader,
@@ -194,8 +195,15 @@ export function UserFormDialog({
           >
             {translateI18n("common.cancel")}
           </Button>
-          <Button type="submit" disabled={isSubmitting}>
-            {translateI18n(isSubmitting ? "common.saving" : isEditing ? "userForm.update" : "userForm.create")}
+          <Button type="submit" disabled={isSubmitting} className="gap-2">
+            {isSubmitting ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                {translateI18n("common.saving")}
+              </>
+            ) : (
+              translateI18n(isEditing ? "userForm.update" : "userForm.create")
+            )}
           </Button>
         </DialogFooter>
       </form>

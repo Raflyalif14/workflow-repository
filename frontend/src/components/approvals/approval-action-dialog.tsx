@@ -1,6 +1,6 @@
 "use client";
 
-import { translate as translateI18n, translateStoredError, translateRole, getIntlLocale } from "@/i18n";
+import { translate as translateI18n, translateStoredError, translateRole } from "@/i18n";
 import { ApiError } from '@/lib/api-client';
 import { picErrorKey, retainPicRequest, type PicRequest } from '@/lib/pic-assignment-request';
 import { runConfirmedDecision } from "@/lib/phase-review";
@@ -25,12 +25,13 @@ import {
   ClipboardCheck,
   AlertCircle,
 } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import { ApprovalRequestSummary } from "./approval-request-summary";
 
 interface ApprovalActionDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   item: ApprovalItem | null;
+  canReview: boolean;
   initialAction?: "APPROVE" | "REJECT" | null;
 }
 
@@ -38,6 +39,7 @@ export function ApprovalActionDialog({
   open,
   onOpenChange,
   item,
+  canReview,
   initialAction = "APPROVE",
 }: ApprovalActionDialogProps) {
   useLanguage();
@@ -63,7 +65,7 @@ export function ApprovalActionDialog({
   const requiresPic = isProjectPlanApproval && isOperationalV2;
   const projectModelUnavailable = isProjectPlanApproval && (projectQuery.isLoading || projectQuery.isError || (!isLegacy && !isOperationalV2));
   const { data: pics = [], isLoading: picsLoading, isError: picsError } = useSolutionArchitects(
-    open && requiresPic
+    open && canReview && requiresPic
   );
 
   // Sync action state when dialog opens or initialAction prop changes
@@ -89,7 +91,7 @@ export function ApprovalActionDialog({
   const isPending = item.status === "PENDING";
   const recoveringReceipt = confirming && (item.category === 'DEADLINE' || !!intent.current)
     && item.id === reviewedItemId && (error === (item.category === 'DEADLINE' ? 'reviewConfirm.failed' : 'picOperation.failed') || busy.current || processMutation.isPending);
-  const canProcess = (isPending && item.isCurrentApproval !== false) || recoveringReceipt;
+  const canProcess = canReview && ((isPending && item.isCurrentApproval !== false) || recoveringReceipt);
 
   const handleDecision = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -155,44 +157,7 @@ export function ApprovalActionDialog({
 
       {confirming && requiresPic && <p className="mb-2 text-sm">{translateI18n('picOperation.reviewPic', { before: reviewedPicName, after: pics.find(pic => pic.id === picId)?.full_name || picId })}</p>}
       <div className="space-y-4">
-        {/* Ticket Summary Box */}
-        <div className="space-y-3 rounded-xl border border-border/60 bg-muted/10 p-4 text-xs shadow-sm">
-          <div className="flex items-center justify-between">
-            <Badge variant="outline" className="font-semibold">
-              {translateI18n(item.category === "PROJECT_PLAN" ? "approvalUi.projectPlans" : "approvalUi.deadlineChanges")}
-            </Badge>
-            <span className="text-muted-foreground">
-              {translateI18n("approvalDialog.submittedAt", { date: new Date(item.submittedAt).toLocaleString(getIntlLocale(), { dateStyle: "medium", timeStyle: "short" }) })}
-            </span>
-          </div>
-
-          <h3 className="text-sm font-semibold tracking-tight text-foreground">{item.title}</h3>
-          <p className="text-muted-foreground">{item.details}</p>
-
-          {item.category === "DEADLINE" && (
-            <div className="grid gap-2 sm:grid-cols-2">
-              <DeadlineBox title={translateI18n("approvalDialog.effectiveDeadline")} deadline={item.currentDeadline} />
-              <DeadlineBox title={translateI18n("approvalDialog.proposedDeadline")} deadline={item.proposedDeadline} />
-            </div>
-          )}
-
-          {item.category === "PROJECT_PLAN" && (
-            <div className="space-y-1 rounded-xl border border-border/40 bg-card p-3">
-              <p>{translateI18n("copy.projectColon")} <strong className="text-foreground">{item.projectName}</strong></p>
-              {item.phaseName && <p>{translateI18n("projectPhase.label", { phase: item.phaseName })}</p>}
-              {item.requestNote && <p>{translateI18n("copy.planNote")} <strong className="text-foreground">&quot;{item.requestNote}&quot;</strong></p>}
-              {item.reviewNote && <p>{translateI18n("copy.reviewNoteLabel")} <strong className="text-foreground">&quot;{item.reviewNote}&quot;</strong></p>}
-            </div>
-          )}
-
-
-          <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border/40 pt-3 text-[11px] text-muted-foreground">
-            <span>{translateI18n("copy.requestedBy")} <strong className="text-foreground">{item.submittedBy}</strong></span>
-            {item.deadline && (
-              <span>{translateI18n("copy.targetLabel")} <strong className="text-foreground">{new Date(item.deadline).toLocaleDateString(getIntlLocale(), { dateStyle: "medium" })}</strong></span>
-            )}
-          </div>
-        </div>
+        <ApprovalRequestSummary item={item} />
 
         {/* Decision Form */}
         {canProcess ? (
@@ -254,7 +219,8 @@ export function ApprovalActionDialog({
                     value={picId}
                     onChange={(event) => {
                       setConfirming(false);
-                      setPicId(event.target.value); setConfirming(false); intent.current = null;
+                      setPicId(event.target.value);
+                      intent.current = null;
                       setError("");
                     }}
                     className="flex h-10 w-full rounded-lg border border-input bg-card px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
@@ -330,7 +296,7 @@ export function ApprovalActionDialog({
                 className={action === "APPROVE" ? "h-9 rounded-lg bg-emerald-500 font-semibold text-black hover:bg-emerald-600" : "h-9 rounded-lg"}
               >
                 {processMutation.isPending ? translateI18n("approvalDialog.processing") : !confirming ? translateI18n("reviewConfirm.continue") : item.category === "PROJECT_PLAN"
-                  ? translateI18n(!confirming ? "reviewConfirm.continue" : action === "APPROVE" ? "reviewConfirm.approve" : "reviewConfirm.reject")
+                  ? translateI18n(action === "APPROVE" ? "reviewConfirm.approve" : "reviewConfirm.reject")
                   : translateI18n(action === "APPROVE" ? "approvalDialog.confirmApprove" : "approvalDialog.confirmReject")}
               </Button>
             </DialogFooter>
@@ -352,33 +318,5 @@ export function ApprovalActionDialog({
         )}
       </div>
     </Dialog>
-  );
-}
-
-function formatDate(value?: string | null) {
-  if (!value) return "-";
-  return new Date(`${value.slice(0,10)}T00:00:00Z`).toLocaleDateString(getIntlLocale(), { dateStyle: "medium", timeZone: "UTC" });
-}
-
-function DeadlineBox({
-  title,
-  deadline,
-}: {
-  title: string;
-  deadline?: {
-    start_date?: string | null;
-    duration_working_days?: number | null;
-    due_date?: string | null;
-    change_reason?: string | null;
-  } | null;
-}) {
-  return (
-    <div className="space-y-0.5 rounded-xl border border-border/40 bg-card p-3 text-[11px]">
-      <p className="font-semibold text-foreground">{title}</p>
-      <p>{translateI18n("approvalDialog.startDate", { date: formatDate(deadline?.start_date) })}</p>
-      <p>{translateI18n("approvalDialog.duration", { count: deadline?.duration_working_days || "-" })}</p>
-      <p>{translateI18n("approvalDialog.dueDate", { date: formatDate(deadline?.due_date) })}</p>
-      {deadline?.change_reason && <p className="text-muted-foreground italic">{translateI18n("approvalDialog.reason", { reason: deadline.change_reason })}</p>}
-    </div>
   );
 }

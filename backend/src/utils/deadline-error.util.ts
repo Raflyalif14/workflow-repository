@@ -27,6 +27,7 @@ const domainErrorStatus = new Map<string, number>([
 ]);
 
 export function toSafeDeadlineError(error: unknown, fallback: string): DeadlineError {
+  // An error name alone does not make its message safe to expose.
   if (error instanceof DeadlineError) return error;
 
   const message = error instanceof Error ? error.message : '';

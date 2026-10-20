@@ -76,11 +76,11 @@ assert(
   "Test 8: only HEAD_SA and SUPER_ADMIN can promote supporting documents"
 );
 
-const projectDetailPage = readFileSync(join(__dirname, "../app/projects/[id]/page.tsx"), "utf8");
+const milestoneRow = readFileSync(join(__dirname, "../components/projects/project-milestone-row.tsx"), "utf8");
 const contributionsPanel = readFileSync(join(__dirname, "../components/milestones/milestone-contributions-panel.tsx"), "utf8");
 assert(
-  projectDetailPage.includes('stageRole === "SA" && isAssignedPic && hasNoSelectedOutput') &&
-    projectDetailPage.includes('!isInitialSubmissionBeforeEffectiveStart(milestone.start_date, false)'),
+  milestoneRow.includes('stageRole === "SA" && isAssignedPic && hasNoSelectedOutput') &&
+    milestoneRow.includes('!isInitialSubmissionBeforeEffectiveStart(milestone.start_date, false)'),
   "Test 9: direct SA completion remains PIC-only, without selected outputs, and gated by effective start"
 );
 assert(

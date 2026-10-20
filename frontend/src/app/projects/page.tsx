@@ -1,249 +1,30 @@
 "use client";
-import { useLanguage } from "@/components/i18n/language-provider";
-
-import { translate as translateI18n, translateRole, translateProjectStatus, type TranslationKey } from "@/i18n";
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { ArrowRight, FolderKanban, Plus, Search, X } from "lucide-react";
+import { FolderKanban, Plus, Search, X } from "lucide-react";
+import { useLanguage } from "@/components/i18n/language-provider";
 import { useAuth } from "@/components/auth/auth-provider";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useProjects, useScenarios } from "@/hooks/use-projects";
-import { Project, ProjectStatus, ProjectListStatusFilter } from "@/types/project";
+import { ProjectListRow } from "@/components/projects/project-list-row";
 import { isProjectDeliveryCompleted } from "@/lib/project-list-status";
-
-const statuses: Array<{ key: ProjectListStatusFilter; label: TranslationKey }> = [
-  { key: "ALL", label: "projectsList.allProjects" },
-  { key: "ACTIVE", label: "common.active" },
-  { key: "DRAFT", label: "projectStatus.DRAFT" },
-  { key: "POSTPONED", label: "projectStatus.POSTPONED" },
-  { key: "DELIVERY_COMPLETED", label: "projectsList.deliveryComplete" },
-];
-
-const rolePageCopy: Record<string, { eyebrow: TranslationKey; title: TranslationKey; description: TranslationKey }> = {
-  SALES: {
-    eyebrow: "projectsList.salesWorkspace",
-    title: "projectsList.yourProjects",
-    description: "projectsList.salesDescription",
-  },
-  HEAD_SA: {
-    eyebrow: "projectsList.deliveryOversight",
-    title: "projectsList.projectOversight",
-    description: "projectsList.headDescription",
-  },
-  SA: {
-    eyebrow: "projectsList.deliveryWorkspace",
-    title: "projectsList.assignedProjects",
-    description: "projectsList.saDescription",
-  },
-  SUPER_ADMIN: {
-    eyebrow: "projectsList.operationsOverview",
-    title: "projectsList.projectPortfolio",
-    description: "projectsList.adminDescription",
-  },
-};
-
-function getStatusBadge(projectStatus: ProjectStatus) {
-  switch (projectStatus) {
-    case "ACTIVE":
-      return <Badge variant="default">{translateI18n("common.active")}</Badge>;
-    case "DRAFT":
-      return <Badge variant="outline">{translateI18n("projectStatus.DRAFT")}</Badge>;
-    case "POSTPONED":
-      return <Badge variant="warning">{translateI18n("projectStatus.POSTPONED")}</Badge>;
-    case "COMPLETED":
-      return <Badge variant="success">{translateI18n("projectStatus.COMPLETED")}</Badge>;
-    case "WAITING_RESULT":
-      return <Badge variant="warning">{translateI18n("copy.waitingResult")}</Badge>;
-    case "WON":
-      return <Badge variant="success">{translateI18n("projectStatus.WON")}</Badge>;
-    case "LOST":
-      return <Badge variant="destructive">{translateI18n("projectStatus.LOST")}</Badge>;
-    case "CANCELLED":
-      return <Badge variant="destructive">{translateI18n("projectStatus.CANCELLED")}</Badge>;
-    default:
-      return <Badge variant="outline">{translateProjectStatus(projectStatus)}</Badge>;
-  }
-}
-
-function getProjectState(project: Project, role: string) {
-  if (project.status === "DRAFT") {
-    return translateI18n(project.currentRole === "HEAD_SA" ? "projectsList.awaitingPlan" : "projectsList.planningProgress");
-  }
-  if (project.status === "ACTIVE" && !project.pic && role === "HEAD_SA") {
-    return translateI18n("projectsList.waitingAssignment");
-  }
-  if (project.status === "ACTIVE") return translateI18n("projectsList.deliveryProgress");
-  return translateProjectStatus(project.status);
-}
-
-function getProgressPresentation(project: Project) {
-  if (project.status === "DRAFT") {
-    return project.currentRole === "HEAD_SA"
-      ? {
-          label: translateI18n("projectsList.awaitingPlan"),
-          detail: translateI18n("projectsList.headReviewing"),
-          showDeliveryProgress: false,
-        }
-      : {
-          label: translateI18n("projectsList.projectPlanning"),
-          detail: translateI18n("projectsList.afterApproval"),
-          showDeliveryProgress: false,
-        };
-  }
-  if (project.status === "POSTPONED" || project.status === "ON_HOLD") {
-    return {
-      label: translateI18n("projectsList.deliveryPaused"),
-      detail: translateI18n("projectsList.resumeHelp"),
-      showDeliveryProgress: false,
-    };
-  }
-  if (project.status === "ACTIVE" || isProjectDeliveryCompleted(project.status)) {
-    return {
-      label: translateI18n(project.status === "ACTIVE" ? "projectsList.deliveryProgress" : "projectsList.deliveryComplete"),
-      detail: null,
-      showDeliveryProgress: true,
-    };
-  }
-  return {
-    label: translateI18n("projectsList.projectProgress"),
-    detail: translateI18n("projectsList.progressUnavailable"),
-    showDeliveryProgress: false,
-  };
-}
-
-function getProjectPriority(project: Project, role: string) {
-  const priorityFrom = (values: Partial<Record<ProjectStatus, number>>, fallback: number) =>
-    values[project.status] ?? fallback;
-
-  if (role === "SALES") {
-    return priorityFrom(
-      { WAITING_RESULT: 0, DRAFT: 1, ACTIVE: 2, POSTPONED: 3, WON: 4, LOST: 4, COMPLETED: 4, CANCELLED: 5 },
-      6
-    );
-  }
-  if (role === "HEAD_SA") {
-    if (project.status === "ACTIVE" && !project.pic) return 0;
-    return priorityFrom(
-      { DRAFT: 1, ACTIVE: 2, POSTPONED: 3, WAITING_RESULT: 4, WON: 5, LOST: 5, COMPLETED: 5, CANCELLED: 6 },
-      7
-    );
-  }
-  if (role === "SA") {
-    return priorityFrom(
-      { ACTIVE: 0, POSTPONED: 1, DRAFT: 2, WAITING_RESULT: 3, WON: 4, LOST: 4, COMPLETED: 4, CANCELLED: 5 },
-      6
-    );
-  }
-  if (project.status === "POSTPONED") return 0;
-  if (project.status === "ACTIVE" && !project.pic) return 1;
-  return priorityFrom({ ACTIVE: 2, DRAFT: 3, WAITING_RESULT: 4, WON: 5, LOST: 5, COMPLETED: 5, CANCELLED: 6 }, 7);
-}
-
-function getResponsibleLabel(project: Project) {
-  if (project.pic) {
-    return {
-      role: translateRole(project.pic.role || "SA"),
-      name: project.pic.fullName || project.pic.full_name || translateI18n("projectsList.assignedArchitect"),
-    };
-  }
-
-  if (project.sales) {
-    return {
-      role: translateRole(project.sales.role || "SALES"),
-      name: project.sales.fullName || project.sales.full_name || translateI18n("projectsList.projectOwner"),
-    };
-  }
-
-  return { role: translateI18n("copy.responsible"), name: translateI18n("ui.noOwner") };
-}
-
-function ProjectRow({ project, role }: { project: Project; role: string }) {
-  const progress = typeof project.progress === "number" ? project.progress : null;
-  const responsible = getResponsibleLabel(project);
-  const progressPresentation = getProgressPresentation(project);
-
-  return (
-    <div className="grid gap-4 border-t border-border/60 px-4 py-4 first:border-t-0 sm:px-5 xl:grid-cols-[minmax(220px,2fr)_minmax(130px,1fr)_minmax(150px,1.1fr)_minmax(150px,1fr)_auto] xl:items-center">
-      <div className="min-w-0">
-        <Link
-          href={`/projects/${project.id}`}
-          className="font-semibold text-foreground transition-colors hover:text-primary"
-        >
-          {project.name}
-        </Link>
-        <p className="mt-1 truncate text-xs text-muted-foreground">
-          {project.customer}
-          {project.scenario?.name ? ` | ${project.scenario.name}` : ""}
-        </p>
-      </div>
-
-      <div className="flex min-w-0 items-center justify-between gap-3 xl:block">
-        <span className="text-[11px] font-medium text-muted-foreground xl:hidden">{translateI18n("copy.state")}</span>
-        <div className="min-w-0 text-right xl:text-left">
-          {getStatusBadge(project.status)}
-          <p className="mt-1 truncate text-xs text-muted-foreground">
-            {getProjectState(project, role)}
-          </p>
-        </div>
-      </div>
-
-      <div className="min-w-0">
-        <div className="flex items-center justify-between gap-3 text-xs">
-          <span className="text-muted-foreground">{progressPresentation.label}</span>
-          {progressPresentation.showDeliveryProgress && (
-            <span className="font-medium text-foreground">
-              {progress === null ? translateI18n("common.notAvailable") : `${progress}%`}
-            </span>
-          )}
-        </div>
-        {progressPresentation.showDeliveryProgress && progress !== null && (
-          <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted">
-            <div
-              className="h-full rounded-full bg-primary"
-              style={{ width: `${Math.max(0, Math.min(progress, 100))}%` }}
-            />
-          </div>
-        )}
-        {progressPresentation.showDeliveryProgress &&
-          typeof project.totalMilestones === "number" &&
-          typeof project.completedMilestones === "number" && (
-          <p className="mt-1.5 text-[11px] text-muted-foreground">
-            {translateI18n("projectDetail.stagesFinished", { done: project.completedMilestones, total: project.totalMilestones })}
-          </p>
-        )}
-        {progressPresentation.detail && (
-          <p className="mt-1.5 text-[11px] text-muted-foreground">
-            {progressPresentation.detail}
-          </p>
-        )}
-      </div>
-
-      <div className="flex min-w-0 items-center justify-between gap-3 xl:block">
-        <span className="text-[11px] font-medium text-muted-foreground xl:hidden">{translateI18n("copy.responsible")}</span>
-        <div className="min-w-0 text-right xl:text-left">
-          <p className="truncate text-sm font-medium text-foreground">{responsible.name}</p>
-          <p className="truncate text-xs text-muted-foreground">{responsible.role}</p>
-        </div>
-      </div>
-
-      <Link href={`/projects/${project.id}`} className="justify-self-stretch xl:justify-self-end">
-        <Button variant="ghost" size="sm" className="w-full gap-1.5 xl:w-auto">
-          {translateI18n("common.open")}
-          <ArrowRight className="h-3.5 w-3.5" />
-        </Button>
-      </Link>
-    </div>
-  );
-}
+import { translate as translateI18n } from "@/i18n";
+import type { ProjectListStatusFilter } from "@/types/project";
+import {
+  PROJECT_LIST_STATUS_TABS,
+  ROLE_PAGE_COPY,
+  getProjectPriority,
+} from "@/lib/project-list-format";
 
 export default function ProjectsPage() {
   useLanguage();
   const { user } = useAuth();
   const userRole = user?.role || "GUEST";
-  const pageCopy = rolePageCopy[userRole] || rolePageCopy.SUPER_ADMIN;
+  const pageCopy = ROLE_PAGE_COPY[userRole] || ROLE_PAGE_COPY.SUPER_ADMIN;
+
+  // Filter & pagination state
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<ProjectListStatusFilter>("ALL");
@@ -260,6 +41,7 @@ export default function ProjectsPage() {
 
   const projects = data?.projects || [];
   const pagination = data?.pagination;
+
   const orderedProjects = useMemo(
     () =>
       (data?.projects ?? [])
@@ -273,12 +55,14 @@ export default function ProjectsPage() {
         .map(({ project }) => project),
     [data?.projects, userRole]
   );
+
   const snapshot = [
-      { label: translateI18n("projectsList.matching"), value: pagination?.total || 0 },
-      { label: translateI18n("projectsList.activePage"), value: projects.filter((item) => item.status === "ACTIVE").length },
-      { label: translateI18n("projectsList.planningPage"), value: projects.filter((item) => item.status === "DRAFT").length },
-      { label: translateI18n("projectsList.completedPage"), value: projects.filter((item) => isProjectDeliveryCompleted(item.status)).length },
-    ];
+    { label: translateI18n("projectsList.matching"), value: pagination?.total || 0 },
+    { label: translateI18n("projectsList.activePage"), value: projects.filter((item) => item.status === "ACTIVE").length },
+    { label: translateI18n("projectsList.planningPage"), value: projects.filter((item) => item.status === "DRAFT").length },
+    { label: translateI18n("projectsList.completedPage"), value: projects.filter((item) => isProjectDeliveryCompleted(item.status)).length },
+  ];
+
   const hasFilters = Boolean(search || scenarioId || status !== "ALL");
 
   const resetFilters = () => {
@@ -290,11 +74,18 @@ export default function ProjectsPage() {
 
   return (
     <div className="mx-auto w-full max-w-[1600px] space-y-5 px-4 py-6 sm:px-6 xl:px-8">
+      {/* Page Header */}
       <header className="flex flex-col gap-4 border-b border-border/60 pb-5 sm:flex-row sm:items-end sm:justify-between">
         <div className="max-w-2xl">
-          <p className="text-xs font-semibold uppercase text-primary">{translateI18n(pageCopy.eyebrow)}</p>
-          <h1 className="mt-1 text-2xl font-semibold text-foreground sm:text-3xl">{translateI18n(pageCopy.title)}</h1>
-          <p className="mt-1 text-sm text-muted-foreground">{translateI18n(pageCopy.description)}</p>
+          <p className="text-xs font-semibold uppercase tracking-wider text-primary">
+            {translateI18n(pageCopy.eyebrow)}
+          </p>
+          <h1 className="mt-1 text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
+            {translateI18n(pageCopy.title)}
+          </h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {translateI18n(pageCopy.description)}
+          </p>
         </div>
         {userRole === "SALES" && (
           <Link href="/projects/new" className="self-start sm:self-auto">
@@ -306,6 +97,7 @@ export default function ProjectsPage() {
         )}
       </header>
 
+      {/* Snapshot Summary Cards */}
       <section
         aria-label={translateI18n("projectsList.snapshot")}
         className="grid grid-cols-2 overflow-hidden page-surface xl:grid-cols-4"
@@ -325,8 +117,10 @@ export default function ProjectsPage() {
         ))}
       </section>
 
+      {/* Project Table & Filters */}
       <section className="overflow-hidden page-surface">
         <div className="space-y-4 border-b border-border/60 p-4 sm:p-5">
+          {/* Header & Status Tabs */}
           <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
             <div>
               <h2 className="text-base font-semibold text-foreground">{translateI18n("nav.projects")}</h2>
@@ -335,7 +129,7 @@ export default function ProjectsPage() {
               </p>
             </div>
             <div className="flex gap-2 overflow-x-auto pb-1 xl:pb-0">
-              {statuses.map((item) => (
+              {PROJECT_LIST_STATUS_TABS.map((item) => (
                 <Button
                   key={item.key}
                   variant={status === item.key ? "secondary" : "ghost"}
@@ -353,6 +147,7 @@ export default function ProjectsPage() {
             </div>
           </div>
 
+          {/* Search Bar & Scenario Filter */}
           <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_240px_auto]">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -396,8 +191,9 @@ export default function ProjectsPage() {
           </div>
         </div>
 
+        {/* Table Column Headers (Desktop) */}
         {!isLoading && !isError && projects.length > 0 && (
-          <div className="hidden grid-cols-[minmax(220px,2fr)_minmax(130px,1fr)_minmax(150px,1.1fr)_minmax(150px,1fr)_auto] gap-4 border-b border-border/60 px-5 py-2.5 text-[11px] font-semibold uppercase text-muted-foreground xl:grid">
+          <div className="hidden grid-cols-[minmax(220px,2fr)_minmax(130px,1fr)_minmax(150px,1.1fr)_minmax(150px,1fr)_auto] gap-4 border-b border-border/60 px-5 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground xl:grid">
             <span>{translateI18n("copy.projectLabel")}</span>
             <span>{translateI18n("copy.state")}</span>
             <span>{translateI18n("copy.progress")}</span>
@@ -406,6 +202,7 @@ export default function ProjectsPage() {
           </div>
         )}
 
+        {/* Project Rows or States */}
         {isLoading ? (
           <div role="status" aria-live="polite" className="space-y-0">
             <p className="px-5 py-3 text-sm text-muted-foreground">{translateI18n("common.loading")}</p>
@@ -429,11 +226,12 @@ export default function ProjectsPage() {
         ) : (
           <div>
             {orderedProjects.map((project) => (
-              <ProjectRow key={project.id} project={project} role={userRole} />
+              <ProjectListRow key={project.id} project={project} role={userRole} />
             ))}
           </div>
         )}
 
+        {/* Pagination Bar */}
         {!isLoading && !isError && projects.length > 0 && (
           <div className="flex flex-col gap-3 border-t border-border/60 px-4 py-3 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between sm:px-5">
             <span>

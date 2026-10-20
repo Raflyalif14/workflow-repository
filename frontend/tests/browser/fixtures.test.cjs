@@ -3,7 +3,10 @@ const test=require('node:test'),assert=require('node:assert/strict');
 const {createFixture}=require('./fixtures.cjs');
 const get=(f,p)=>f.respond('http://localhost:5000/api'+p,'GET');
 test('Unknown reads and writes fail closed; no generic success fallback',()=>{
- const f=createFixture();assert.equal(get(f,'/not-configured').status,501);
+ const f=createFixture();
+ assert.deepEqual(get(f,'/face-login/capabilities').body.data,{enabled:false});
+ assert.equal(f.state.unknown.length,0,'Camera availability is explicitly disabled for UI fixtures');
+ assert.equal(get(f,'/not-configured').status,501);
  assert.equal(f.respond('http://localhost:5000/api/projects/fixture','DELETE').status,501);
  assert.equal(f.state.unknown.length,2);
 });

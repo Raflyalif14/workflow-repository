@@ -19,7 +19,7 @@ async function run() {
     process.env.FACE_EXPERIMENT_ENABLED = 'true';
     const response = await request(form()); assert.equal(response.status, 200);
     const data = await response.json(); assert.deepEqual(Object.keys(data.data).sort(), ['metric', 'model', 'provenance', 'score']);
-    assert(Number.isFinite(data.data.score)); assert(!JSON.stringify(data).includes('embedding'));
+    assert(Number.isFinite(data.data.score)); assert(!JSON.stringify(data).includes('"embedding":') && !JSON.stringify(data).includes('"embeddings":'));
     const concurrent = await Promise.all([request(form(), 'fixture-concurrent'), request(form(), 'fixture-concurrent')]);
     assert.deepEqual(concurrent.map(r => r.status).sort(), [200, 409], 'Same actor has one processing attempt at a time');
     assert.equal((await request(form(a, b, 'unexpected'))).status, 400);

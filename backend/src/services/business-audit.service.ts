@@ -5,9 +5,10 @@ import { DeadlineError } from '../utils/deadline-error.util';
 
 export type BusinessRequestContext = { requestId?: string; expectedUpdatedAt?: string };
 export class BusinessAuditError extends DeadlineError {}
-export function businessRequestContext(headers: Record<string, unknown>): BusinessRequestContext {
-  const requestId = headers['x-business-request-id'];
-  const expectedUpdatedAt = headers['x-business-expected-updated-at'];
+export function businessRequestContext(headers: Record<string, unknown> = {}): BusinessRequestContext {
+  const safeHeaders = headers || {};
+  const requestId = safeHeaders['x-business-request-id'];
+  const expectedUpdatedAt = safeHeaders['x-business-expected-updated-at'];
   const parsed = z.object({ requestId: z.string().uuid().optional(),
     expectedUpdatedAt: z.string().datetime({ offset: true }).optional() }).safeParse({ requestId, expectedUpdatedAt });
   if (!parsed.success) throw new BusinessAuditError('Invalid business request.', 422);
