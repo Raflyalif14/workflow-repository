@@ -1,5 +1,7 @@
 # Respons perpindahan halaman — 19 Oktober 2026
 
+Lanjutan 20 Oktober: [status saat data cache diperbarui dan pengukuran route/data](navigation-refresh-feedback-2026-10-20.md).
+
 ## Audit dan rencana
 
 Menu memakai Next Link, tetapi hanya menutup drawer saat diklik dan belum menampilkan status perpindahan. Tidak ada `app/loading.tsx`. Halaman data sudah memiliki skeleton/error masing-masing; status perpindahan route perlu dibedakan dari pengambilan data API.

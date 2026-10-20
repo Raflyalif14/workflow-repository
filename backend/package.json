@@ -6,6 +6,8 @@
   "scripts": {
     "dev": "node --watch -r ts-node/register/transpile-only src/server.ts",
     "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "test:ci": "node tests/run-ci.cjs",
     "start": "node dist/server.js",
     "test": "node -e \"const fs = require('fs'); const { execSync } = require('child_process'); function findTests(dir) { let results = []; for (const file of fs.readdirSync(dir, { withFileTypes: true })) { const full = dir + '/' + file.name; if (file.isDirectory()) results = results.concat(findTests(full)); else if (file.name.endsWith('.test.ts')) results.push(full); } return results; } for (const test of findTests('src')) { console.log('Testing: ' + test); execSync('npx ts-node ' + test, { stdio: 'inherit' }); }\""
   },

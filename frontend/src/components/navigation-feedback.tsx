@@ -5,6 +5,28 @@ import { createPortal } from "react-dom";
 import { LoaderCircle } from "lucide-react";
 import { useLanguage } from "@/components/i18n/language-provider";
 
+/** Keep the header stable while cached page data refreshes. */
+export function PageDataFeedback({ refreshing }: { refreshing: boolean }) {
+  const { t } = useLanguage();
+
+  return (
+    <p
+      role="status"
+      aria-live="polite"
+      aria-atomic="true"
+      data-page-refresh-status={refreshing ? "" : undefined}
+      className="mt-2 flex min-h-5 items-center gap-2 text-xs text-muted-foreground"
+    >
+      {refreshing && (
+        <>
+          <LoaderCircle aria-hidden="true" className="h-3.5 w-3.5 shrink-0 text-primary motion-safe:animate-spin" />
+          {t("nav.refreshingData")}
+        </>
+      )}
+    </p>
+  );
+}
+
 /** Render inside Link so the router owns the pending lifecycle. */
 export function NavigationLinkFeedback({ label }: { label: string }) {
   const { pending } = useLinkStatus();

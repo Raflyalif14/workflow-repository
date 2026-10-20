@@ -67,6 +67,15 @@ This check uses a fresh synthetic HEAD_SA session for EN/ID at 1440/390 px. It h
 
 Do not run `next dev` and `next build`/`next start` against the same `.next` directory concurrently: development may overwrite production chunks. For a standalone build with `outputFileTracingRoot` set to the repository root, the server is `frontend/.next/standalone/frontend/server.js`; copy `.next/static` into its `.next/static` before starting it on the test port. The navigation checks use bundled static assets and synthetic APIs, without camera/model assets from `public`. Use a separate checkout/build directory when rebuilding while development remains active.
 
+### Cached page refresh feedback
+
+```powershell
+$env:WORKFLOW_TEST_ORIGIN = 'http://127.0.0.1:3036'
+node frontend/tests/browser/navigation-refresh-browser.cjs
+```
+
+Runs 16 cached-data cases: Projects/Milestones × EN/ID × 1440/390 px × success/error. API responses are delayed by 900 ms to separate route commit from query completion. Checks retained cached content, visible refresh status, unchanged header height, mobile drawer closure, one successful shared request, the existing one-retry error policy, cleanup of indicators and overflow/runtime errors. All accounts/APIs are synthetic. Results are in `.cache/navigation-refresh-2026-10-20/results.json`. `--baseline` checks a build without the new cached-data indicator. `--capture` runs a smaller screenshot matrix and writes `visual-results.json`; do not use those screenshot-instrumented timings for performance comparisons.
+
 ### Project detail refactor
 
 ```powershell
@@ -103,7 +112,15 @@ node frontend/tests/browser/documents-browser.cjs
 
 Runs 24 scenarios: four roles × EN/ID × 1440/390 px, plus eight denied-detail/retry/error/empty flows. Covers combined official/output results, approved-output deduplication, category/status/search filters, keyboard access tabs, pagination, private-project links, version history visibility, upload-dialog cancellation, and exact version/file download requests. Downloads use dummy URLs and a synthetic archive response; the browser captures download intentions without opening tabs or saving files. This verifies frontend download handling, not actual Storage files, ZIP contents, or server authorization. Evidence is under `.cache/clean-code-documents/browser/`. No business writes are allowed.
 
-Dashboard matrix: four roles × EN/ID × 360/390/1440px, tasks/revision/waiting, workspace links, metric bounds and page overflow. Drawer: keyboard open, focus containment, Tab wrap, Escape, focus/scroll restoration. Other routes: Projects, Project Detail, Documents, Approvals in Indonesian at three widths; SALES/SA Approvals remain restricted. Activity: 17 rows, real cursor requests, 8/8/1, pending/error/retry, locale retention and account reset. Dialogs: actual estimated-value edit and output-review confirmation, including short-height scrolling and cancellation.
+### Recent activity page numbers and direct jump
+
+Run `node frontend/tests/browser/activity-pagination-browser.cjs` with `WORKFLOW_TEST_ORIGIN` set to the loopback frontend. Covers EN/ID at 360/1440 px, exact page totals, direct page 1 → 3 via Enter, bounds, loading locks, Next/Previous, failure/retry and account reset. Uses synthetic APIs; server scope/count behavior is tested separately. Evidence: `.cache/activity-pagination-2026-10-20/`.
+
+### Recent activity filters
+
+Run `node frontend/tests/browser/activity-filters-browser.cjs` against the same loopback frontend. Covers EN/ID at 360/390/1440 px, combined project/type/date filters, Apply versus draft changes, count/pagination, Reset, empty/error/retry and account isolation. Uses synthetic API responses; actual filtering and authorization are tested in the backend dashboard tests. Evidence: `.cache/activity-filters-2026-10-20/`. `--mobile-preview` reruns only the 360 px Indonesian case after a visual adjustment, keeping the full matrix results separately.
+
+Dashboard matrix: four roles × EN/ID × 360/390/1440px, tasks/revision/waiting, workspace links, metric bounds and page overflow. Drawer: keyboard open, focus containment, Tab wrap, Escape, focus/scroll restoration. Other routes: Projects, Project Detail, Documents, Approvals in Indonesian at three widths; SALES/SA Approvals remain restricted. Activity: 17 rows, numbered page requests, 8/8/1, pending/error/retry, locale retention and account reset. Dialogs: actual estimated-value edit and output-review confirmation, including short-height scrolling and cancellation.
 
 Fixtures test frontend behavior, not server authorization, database invariants, GoTrue, Storage, real downloads, all possible statuses, or all application dialogs. Page overflow checks do not ban intentional scrolling within tables/filter toolbars. Screenshots use desktop Chrome emulated viewport dimensions, not real mobile hardware. Do not infer production performance from these runs.
 

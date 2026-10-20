@@ -28,6 +28,20 @@ test('Activity fixtures have 17 distinct ordered items across actual 8/8/1 curso
  f.state.activityFailure=true;assert.equal(get(f,'/dashboard/activity').status,503);
  f.state.activityFailure=false;f.state.empty=true;assert.equal(get(f,'/dashboard').body.data.recentActivity.length,0);
 });
+test('Numbered activity fixture pages include exact totals and direct last-page access',()=>{
+ const f=createFixture(),first=get(f,'/dashboard').body.data.recentActivityPagination;
+ assert.equal(first.total,17);assert.equal(first.totalPages,3);assert.equal(first.page,1);
+ const last=get(f,'/dashboard/activity?page=3').body.data;
+ assert.equal(last.page,3);assert.equal(last.items.length,1);assert.equal(last.total,17);
+ assert.equal(get(f,'/dashboard/activity?page=999').body.data.page,3);
+});
+test('Activity filter fixtures combine project, kind and date before count and paging',()=>{
+ const f=createFixture();Object.assign(f.state,{activityCount:33,activityMixed:true});
+ const data=get(f,`/dashboard/activity?page=2&projectId=${f.pid}&kind=DOCUMENT&from=2026-10-08T00:00:00Z&to=2026-10-09T00:00:00Z`).body.data;
+ assert.equal(data.total,9);assert.equal(data.totalPages,2);assert.equal(data.items.length,1);
+ assert(data.items.every(a=>a.project.id===f.pid&&a.action==='OUTPUT_DRAFT_ADD'));
+ assert.equal(get(f,'/dashboard/activity?page=1&kind=ASSIGNMENT').body.data.total,0);
+});
 test('Role fixtures provide review/revision links without pretending to verify backend authorization',()=>{
  const f=createFixture();for(const role of ['SALES','SA','HEAD_SA','SUPER_ADMIN']){
   f.state.role=role;const d=get(f,'/dashboard').body.data;

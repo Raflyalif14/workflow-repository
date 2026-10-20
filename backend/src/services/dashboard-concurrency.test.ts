@@ -11,8 +11,8 @@ function deferred<T>() {
   return { promise, resolve };
 }
 
-type QueryResult = { data: any[]; error: null };
-const result = (data: any[] = []): QueryResult => ({ data, error: null });
+type QueryResult = { data: any[]; error: null; count: number };
+const result = (data: any[] = []): QueryResult => ({ data, error: null, count: data.length });
 
 async function run() {
   const originalFrom = supabaseAdmin.from;

@@ -171,7 +171,7 @@ console.log('Test 23b - Retired manual Start Stage responds with HTTP 410');
 
 const assignmentSource = readFileSync(join(__dirname, 'assignment-phase5.service.ts'), 'utf8');
 const dashboardSource = readFileSync(join(__dirname, 'dashboard.service.ts'), 'utf8');
-assert(assignmentSource.includes('completeAssignPicStageIfCurrent') && dashboardSource.includes("from('project_plan_approvals')") && !dashboardSource.includes("from('milestone_initiation_approvals')"), 'Test 24: assignment auto-completes current Assign PIC and dashboard excludes initiation');
-console.log('Test 24 - Assign PIC and dashboard use simplified workflow behavior');
+assert(assignmentSource.includes("runPicMutation('assign_project_pic_atomic'") && dashboardSource.includes("from('project_plan_approvals')") && !dashboardSource.includes("from('milestone_initiation_approvals')"), 'Test 24: assignment uses the atomic PIC RPC and dashboard excludes initiation');
+console.log('Test 24 - Assign PIC uses the current atomic mutation contract and dashboard excludes initiation');
 
 assert(projectPlanConstants.PROJECT_CREATION_STEP_ORDER === 1 && projectPlanConstants.TIMELINE_PLANNING_STEP_ORDER === 2, 'Planning step constants must remain stable');

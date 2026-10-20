@@ -1,0 +1,41 @@
+name: Backend checks
+
+on:
+  push:
+    paths:
+      - 'backend/**'
+      - 'frontend/src/lib/face-pad-analysis.ts'
+      - 'frontend/src/lib/face-pad-candidate.ts'
+      - '.github/workflows/backend-checks.yml'
+  pull_request:
+    paths:
+      - 'backend/**'
+      - 'frontend/src/lib/face-pad-analysis.ts'
+      - 'frontend/src/lib/face-pad-candidate.ts'
+      - '.github/workflows/backend-checks.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - name: Install locked backend dependencies
+        run: npm ci --prefix backend
+      - name: Check backend types
+        run: npm run typecheck --prefix backend
+      - name: Build backend
+        run: npm run build --prefix backend
+      - name: Run isolated backend tests
+        run: npm run test:ci --prefix backend

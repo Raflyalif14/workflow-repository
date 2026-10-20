@@ -5,7 +5,7 @@ const origin=process.env.WORKFLOW_TEST_ORIGIN||'http://127.0.0.1:3000';
 if(!['localhost','127.0.0.1'].includes(new URL(origin).hostname))throw Error('Only loopback frontend allowed');
 const output=path.resolve('docs/dashboard-browser-verification/scenarios');
 async function main(){await fs.mkdir(output,{recursive:true});const fixture=createFixture(),runtime=await launch(fixture,origin),{cdp,traffic}=runtime,results=[];
-const recent=`document.querySelector('section[aria-labelledby="recent-activity-heading"]')`,button=i=>`${recent}.querySelectorAll('nav button')[${i}]`;
+const recent=`document.querySelector('section[aria-labelledby="recent-activity-heading"]')`,button=i=>`${recent}.querySelectorAll('nav button[type=button]')[${i}]`;
 const log=(area,data)=>{results.push({area,...data});console.log(JSON.stringify(results.at(-1)));};
 const locale=async value=>{await cdp.evaluate(`(()=>{const e=document.querySelector('select[aria-label]');e.value='${value}';e.dispatchEvent(new Event('change',{bubbles:true}));})()`);await cdp.wait(`document.documentElement.lang==='${value}'`,'locale');};
 const namedButton=text=>`[...document.querySelectorAll('button')].find(e=>e.textContent.trim()===${JSON.stringify(text)})`;

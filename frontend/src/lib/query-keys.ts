@@ -1,3 +1,5 @@
+import type { DashboardActivityFilters } from "@/types/dashboard";
+
 export const projectKeys = {
   all: () => ["projects"] as const,
   list: (filters?: unknown) => ["projects", filters ?? "all"] as const,
@@ -34,11 +36,11 @@ export const assignmentKeys = {
 
 export const dashboardKeys = {
   overview: () => ["dashboard", "overview"] as const,
-  // Keep cursor pages under the existing overview invalidation prefix.
+  // Keep activity pages under the existing overview invalidation prefix.
   activityScope: (userId: string, sessionId: string, role: string) =>
     [...dashboardKeys.overview(), "activity", userId, sessionId, role] as const,
-  activityPage: (userId: string, sessionId: string, role: string, cursor: string | null) =>
-    [...dashboardKeys.activityScope(userId, sessionId, role), cursor] as const,
+  activityPage: (userId: string, sessionId: string, role: string, page: number | null, filters: DashboardActivityFilters = {}) =>
+    [...dashboardKeys.activityScope(userId, sessionId, role), page, filters] as const,
 
 };
 

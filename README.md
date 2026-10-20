@@ -8,7 +8,7 @@ Workflow Repository Management System is an internal project and workflow reposi
 
 - [Documentation index](docs/README.md): current feature guides and historical reports.
 - [Database guide](backend/supabase/README.md): tables grouped by purpose and how to read migration files.
-- [Latest workspace audit](docs/workspace-cleanup-2026-10-15.md): archived code, findings, and verification limits.
+- [Latest workspace audit](docs/workspace-cleanup-2026-10-20.md): unused packages, retained source files, and verification results.
 
 | Folder | Purpose |
 | --- | --- |

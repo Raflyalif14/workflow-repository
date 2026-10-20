@@ -10,8 +10,8 @@ export class DashboardController {
   static async getActivityPage(req: AuthenticatedRequest, res: Response): Promise<void> {
     if (!req.user) { sendError(res, 'Unauthorized: User authentication required', null, 401); return; }
     try {
-      const { cursor } = dashboardActivityQuerySchema.parse(req.query);
-      const data = await DashboardService.getActivityPage({ userId: req.user.userId, role: req.user.role }, cursor, getRequestTiming(req));
+      const { cursor, page, ...filters } = dashboardActivityQuerySchema.parse(req.query);
+      const data = await DashboardService.getActivityPage({ userId: req.user.userId, role: req.user.role }, page ?? cursor, getRequestTiming(req), filters);
       sendSuccess(res, 'Recent activities retrieved successfully', data);
     } catch (error) {
       if (error instanceof ZodError) { sendError(res, 'Invalid activity query.', null, 422); return; }

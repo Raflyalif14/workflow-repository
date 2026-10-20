@@ -83,6 +83,7 @@ class QueryMock {
   private payload: any;
   private readonly filters: Array<{ column: string; value: unknown }> = [];
   private readonly inFilters: Array<{ column: string; values: unknown[] }> = [];
+  private window?: [number, number];
 
   constructor(private readonly state: State, private readonly table: string) {
     state.tablesTouched.push(table);
@@ -94,6 +95,7 @@ class QueryMock {
   eq(column: string, value: unknown): this { this.filters.push({ column, value }); return this; }
   in(column: string, values: unknown[]): this { this.inFilters.push({ column, values }); return this; }
   order(): this { return this; }
+  range(from: number, to: number): this { this.window = [from, to]; return this; }
   maybeSingle(): Promise<{ data: any; error: any }> { return Promise.resolve(this.execute(true)); }
   single(): Promise<{ data: any; error: any }> { return Promise.resolve(this.execute(true)); }
   then<TResult1 = { data: any; error: any }, TResult2 = never>(
@@ -152,9 +154,12 @@ class QueryMock {
     }
 
     const projectId = this.value('project_id');
-    const documents = projectId
+    let documents = projectId
       ? this.state.documents.filter((document) => document.project_id === projectId)
       : this.state.documents;
+    documents = documents.filter(document => this.filters.every(filter => document[filter.column] === filter.value) &&
+      this.inFilters.every(filter => filter.values.includes(document[filter.column])));
+    if (this.window) documents = documents.slice(this.window[0], this.window[1] + 1);
     return { data: single ? documents[0] || null : documents, error: null };
   }
 
@@ -179,11 +184,22 @@ class QueryMock {
 async function withScenario<T>(scenario: Scenario, action: (state: State) => Promise<T>): Promise<T> {
   const state = makeState(scenario);
   const originalFrom = supabaseAdmin.from;
+  const originalRpc = supabaseAdmin.rpc;
   const originalUpload = DocumentStorageService.upload;
   const originalRemoveMany = DocumentStorageService.removeMany;
 
   try {
     (supabaseAdmin as any).from = (table: string) => new QueryMock(state, table);
+    (supabaseAdmin as any).rpc = (name: string, input: Record<string, unknown>) => {
+      assert(name === 'list_document_repository_access' && input.p_source_type === 'OFFICIAL', 'Listing uses the repository access RPC');
+      assert(input.p_actor_id === salesOwner.userId, 'Repository access uses the authenticated Sales owner');
+      return { order: () => ({ range: async (from: number, to: number) => ({
+        data: state.documents.slice(from, to + 1).map(document => ({
+          source_id: document.id, project_id: document.project_id, access_mode: 'RESTRICTED',
+          revision: 0, project_access: true, can_manage: false, approved: document.status === 'APPROVED',
+        })), error: null,
+      }) }) };
+    };
     (DocumentStorageService as any).upload = async (_file: Express.Multer.File, storagePath: string) => {
       state.uploadCount += 1;
       state.uploadedPaths.push(storagePath);
@@ -195,6 +211,7 @@ async function withScenario<T>(scenario: Scenario, action: (state: State) => Pro
     return await action(state);
   } finally {
     (supabaseAdmin as any).from = originalFrom;
+    (supabaseAdmin as any).rpc = originalRpc;
     (DocumentStorageService as any).upload = originalUpload;
     (DocumentStorageService as any).removeMany = originalRemoveMany;
   }

@@ -380,6 +380,12 @@ async function run(): Promise<void> {
       await dispatchGate;
     };
     (supabaseAdmin as any).from = (table: string) => {
+      if (table === 'users') {
+        return { select: () => ({ eq: (key: string, value: string) => {
+          assert(key === 'id' && value === 'recipient-from-notification', 'Test 10: language lookup uses the trusted recipient');
+          return { maybeSingle: async () => ({ data: { preferred_language: 'en' }, error: null }) };
+        } }) };
+      }
       if (table === 'notifications') {
         return {
           insert: () => ({

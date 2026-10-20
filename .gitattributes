@@ -1,0 +1,3 @@
+# Vendored assets have pinned byte lengths and SHA-256 hashes in manifest.json.
+# Preserve upstream bytes on Windows as well as Linux/macOS.
+frontend/public/vendor/** -text

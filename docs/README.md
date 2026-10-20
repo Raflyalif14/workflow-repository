@@ -5,12 +5,14 @@ Mulai dari daftar ini; tidak perlu membaca seluruh folder. Berkas tes, gambar, d
 | Kebutuhan | Buka |
 | --- | --- |
 | Struktur aplikasi dan cara menjalankan | [README utama](../README.md) |
-| Hasil pemeriksaan dan perapian terbaru | [Audit 15 Oktober 2026](workspace-cleanup-2026-10-15.md) |
+| Hasil pemeriksaan dan perapian terbaru | [Audit 20 Oktober 2026](workspace-cleanup-2026-10-20.md), [arsip source lama](workspace-cleanup-2026-10-15.md) |
 | Pemeriksaan otomatis frontend dan perbaikan pesan | [Hasil tes 16 Oktober 2026](frontend-testing-2026-10-16.md) |
+| Pemeriksaan backend saat push ke GitHub | [Tes backend otomatis](backend-ci-2026-10-20.md) |
 | Penyelesaian peringatan frontend | [Lint bersih dan tes lanjutan](frontend-lint-followup-2026-10-16.md) |
 | Hitungan proyek selesai dan filter Won | [Koreksi ringkasan proyek](project-completed-counter-fix-2026-10-16.md) |
+| Halaman dan filter Aktivitas terbaru | [Paginasi aktivitas dashboard](dashboard-activity-pagination-2026-10-20.md), [filter proyek/jenis/tanggal](dashboard-activity-filters-2026-10-20.md) |
 | Pembaruan keamanan paket dan temuan tersisa | [Audit dependency 19 Oktober 2026](dependency-security-update-2026-10-19.md) |
-| Respons klik menu dan loading halaman | [Hasil pengujian navigasi](navigation-feedback-2026-10-19.md) |
+| Respons klik menu dan loading halaman | [Indikator navigasi](navigation-feedback-2026-10-19.md), [pembaruan data halaman](navigation-refresh-feedback-2026-10-20.md) |
 | Perapian kode halaman detail proyek | [Pemisahan komponen dan tes regresi](clean-code-project-detail-2026-10-19.md) |
 | Perapian kode halaman Buat Proyek | [Validasi, anti-duplikasi, dan modularitas](clean-code-project-create-2026-10-19.md) |
 | Perapian kode halaman Daftar Proyek | [Pemisahan logika format dan komponen baris](clean-code-project-list-2026-10-19.md) |

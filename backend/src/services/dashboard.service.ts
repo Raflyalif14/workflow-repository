@@ -2,6 +2,8 @@ import { supabaseAdmin } from '../config/supabase';
 import { getDateOnlyKeyInTimeZone } from '../utils/dates';
 import { UserRole } from '../validators/auth.validator';
 import { RequestTiming, timeOperation } from '../utils/request-timing';
+import { DASHBOARD_ACTIVITY_ACTIONS } from '../constants/dashboard-activity';
+import type { DashboardActivityFilters } from '../validators/dashboard-activity.validator';
 
 export const DASHBOARD_ACTIVITY_PAGE_SIZE = 8;
 
@@ -251,6 +253,7 @@ export type DashboardSourceRows = {
   deadlineApprovals: DashboardApprovalRow[];
   projectPlanApprovals: DashboardProjectPlanApprovalRow[];
   activityLogs: DashboardActivityRow[];
+  activityTotal?: number;
   users: DashboardUserRow[];
   outputDocuments?: DashboardOutputDocumentRow[];
   saUsers?: DashboardSaUserRow[];
@@ -459,6 +462,10 @@ export function buildDashboardOverviewFromRows(
   const activityPage = activityRows.slice(0, DASHBOARD_ACTIVITY_PAGE_SIZE);
   const recentActivity = activityPage.map(activity => mapRecentActivity(activity, projectMap, userMap));
   const recentActivityPagination = {
+    projects: projects.map(project => ({ id: project.id, name: project.name })),
+    page: 1,
+    total: rows.activityTotal ?? activityRows.length,
+    totalPages: Math.max(1, Math.ceil((rows.activityTotal ?? activityRows.length) / DASHBOARD_ACTIVITY_PAGE_SIZE)),
     pageSize: DASHBOARD_ACTIVITY_PAGE_SIZE,
     nextCursor: activityRows.length > DASHBOARD_ACTIVITY_PAGE_SIZE
       ? encodeActivityCursor(activityPage[activityPage.length - 1]) : null,
@@ -633,6 +640,7 @@ async function getRowsByProjectIds(projectIds: string[], trace?: RequestTiming) 
       milestones: [],
       scenarios: [],
       activityLogs: [],
+      activityTotal: 0,
       users: [],
       deadlineApprovals: [],
       projectPlanApprovals: [],
@@ -659,7 +667,7 @@ async function getRowsByProjectIds(projectIds: string[], trace?: RequestTiming) 
       .select('id,name'),
     supabaseAdmin
       .from('activity_logs')
-      .select('id,project_id,user_id,action,description,created_at')
+      .select('id,project_id,user_id,action,description,created_at', { count: 'exact' })
       .in('project_id', projectIds)
       .neq('action', 'DOCUMENT_ACCESS_CHANGED')
       .order('created_at', { ascending: false })
@@ -674,6 +682,9 @@ async function getRowsByProjectIds(projectIds: string[], trace?: RequestTiming) 
   if (milestoneResult.error) throw toSafeDashboardError(milestoneResult.error, 'project_milestones');
   if (scenarioResult.error) throw toSafeDashboardError(scenarioResult.error, 'scenarios');
   if (activityResult.error) throw toSafeDashboardError(activityResult.error, 'activity_logs');
+  if (!Number.isSafeInteger(activityResult.count) || activityResult.count! < 0) {
+    throw toSafeDashboardError(new Error('Missing activity count'), 'activity_logs');
+  }
   if (outputDocumentResult.error) throw toSafeDashboardError(outputDocumentResult.error, 'project_output_documents');
 
   const milestones = (milestoneResult.data || []) as DashboardMilestoneRow[];
@@ -711,6 +722,7 @@ async function getRowsByProjectIds(projectIds: string[], trace?: RequestTiming) 
     milestones,
     scenarios: (scenarioResult.data || []) as DashboardScenarioRow[],
     activityLogs: (activityResult.data || []) as DashboardActivityRow[],
+    activityTotal: activityResult.count!,
     users: (userResult.data || []) as DashboardUserRow[],
     deadlineApprovals: (deadlineResult.data || []) as DashboardApprovalRow[],
     projectPlanApprovals: (projectPlanResult.data || []) as DashboardProjectPlanApprovalRow[],
@@ -719,21 +731,40 @@ async function getRowsByProjectIds(projectIds: string[], trace?: RequestTiming) 
 }
 
 export class DashboardService {
-  static async getActivityPage(actor: DashboardActor, cursorValue?: string, trace?: RequestTiming) {
+  static async getActivityPage(actor: DashboardActor, cursorValue?: string | number, trace?: RequestTiming, filters: DashboardActivityFilters = {}) {
     if (!actor.userId || !['SALES', 'SA', 'HEAD_SA', 'SUPER_ADMIN'].includes(actor.role)) {
       throw new DashboardActivityError('Access denied.', 403);
     }
-    const cursor = decodeActivityCursor(cursorValue);
+    const numbered = typeof cursorValue === 'number';
+    if (numbered && (!Number.isSafeInteger(cursorValue) || cursorValue < 1)) throw new DashboardActivityError('Invalid activity page.', 422);
+    const cursor = decodeActivityCursor(numbered ? undefined : cursorValue);
     const projects = await timeOperation(trace, 'dashboard.projects', () => getScopedProjects(actor, true));
-    if (!projects.length) return { items: [], nextCursor: null, pageSize: DASHBOARD_ACTIVITY_PAGE_SIZE };
+    const projectOptions = projects.map(project => ({ id: project.id, name: project.name }));
+    const scopedProjects = filters.projectId ? projects.filter(project => project.id === filters.projectId) : projects;
+    if (!scopedProjects.length) return { items: [], nextCursor: null, pageSize: DASHBOARD_ACTIVITY_PAGE_SIZE, page: 1, total: 0, totalPages: 1, projects: projectOptions };
+    // Count and rows use identical access filters. Only a single page of rows is downloaded.
+    const scopedActivity = (options?: { count: 'exact'; head: true }) => {
+      let query = supabaseAdmin.from('activity_logs')
+        .select('id,project_id,user_id,action,description,created_at', options).in('project_id', scopedProjects.map(project => project.id))
+        .neq('action', 'DOCUMENT_ACCESS_CHANGED');
+      if (filters.kind) query = query.in('action', [...DASHBOARD_ACTIVITY_ACTIONS[filters.kind]]);
+      if (filters.from) query = query.gte('created_at', filters.from);
+      if (filters.to) query = query.lt('created_at', filters.to);
+      return query;
+    };
+    let pageNumber = 1, total: number | undefined, totalPages: number | undefined;
+    if (numbered) {
+      const result = await timeOperation(trace, 'dashboard.activity_count', async () => await scopedActivity({ count: 'exact', head: true }));
+      if (result.error || !Number.isSafeInteger(result.count) || result.count! < 0) throw toSafeDashboardError(result.error || new Error('Missing activity count'), 'activity_count');
+      total = result.count!;
+      totalPages = Math.max(1, Math.ceil(total / DASHBOARD_ACTIVITY_PAGE_SIZE));
+      pageNumber = Math.min(cursorValue, totalPages);
+    }
     // Scope is recalculated for every page; a cursor never grants project access.
-    let query = supabaseAdmin.from('activity_logs')
-      .select('id,project_id,user_id,action,description,created_at')
-      .in('project_id', projects.map(project => project.id))
-      // Same private-audit rule as ProjectActivityService; no recipients/ACL details.
-      .neq('action', 'DOCUMENT_ACCESS_CHANGED')
-      .order('created_at', { ascending: false }).order('id', { ascending: false })
-      .limit(DASHBOARD_ACTIVITY_PAGE_SIZE + 1);
+    let query = scopedActivity()
+      .order('created_at', { ascending: false }).order('id', { ascending: false });
+    query = numbered ? query.range((pageNumber - 1) * DASHBOARD_ACTIVITY_PAGE_SIZE, pageNumber * DASHBOARD_ACTIVITY_PAGE_SIZE - 1)
+      : query.limit(DASHBOARD_ACTIVITY_PAGE_SIZE + 1);
     if (cursor) query = query.or(`created_at.lt.${cursor.createdAt},and(created_at.eq.${cursor.createdAt},id.lt.${cursor.id})`);
     const { data, error } = await timeOperation(trace, 'dashboard.base_queries', async () => await query);
     if (error || !Array.isArray(data)) throw toSafeDashboardError(error || new Error('Missing activity rows'), 'activity_logs');
@@ -749,8 +780,10 @@ export class DashboardService {
     const projectMap = new Map(projects.map(project => [project.id, project]));
     return {
       items: page.map(row => mapRecentActivity(row, projectMap, users)),
-      nextCursor: rows.length > DASHBOARD_ACTIVITY_PAGE_SIZE ? encodeActivityCursor(page[page.length - 1]) : null,
+      nextCursor: page.length > 0 && (numbered ? pageNumber < totalPages! : rows.length > DASHBOARD_ACTIVITY_PAGE_SIZE) ? encodeActivityCursor(page[page.length - 1]) : null,
       pageSize: DASHBOARD_ACTIVITY_PAGE_SIZE,
+      projects: projectOptions,
+      ...(numbered ? { page: pageNumber, total: total!, totalPages: totalPages! } : {}),
     };
   }
 

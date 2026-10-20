@@ -90,7 +90,7 @@ async function run() {
         return query;
       },
       then: (resolve: (value: unknown) => void, reject: (reason: unknown) => void) => {
-        if (table !== 'projects') return Promise.resolve({ data: [], error: null }).then(resolve, reject);
+        if (table !== 'projects') return Promise.resolve({ data: [], error: null, count: 0 }).then(resolve, reject);
         if (range && range[0] === failOffset) {
           return Promise.resolve({ data: null, error: new Error('Test page failure') }).then(resolve, reject);
         }

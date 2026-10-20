@@ -76,12 +76,24 @@ export interface DashboardHeadSaProjectValues {
 }
 
 export interface DashboardActivityPagination {
+  projects?: Array<{ id: string; name: string }>;
+  page: number;
+  total: number;
+  totalPages: number;
   pageSize: number;
   nextCursor: string | null;
 }
 
 export interface DashboardActivityPage extends DashboardActivityPagination {
   items: RecentActivity[];
+}
+
+export type DashboardActivityKind = "PROJECT" | "MILESTONE" | "DOCUMENT" | "APPROVAL" | "ASSIGNMENT";
+export interface DashboardActivityFilters {
+  projectId?: string;
+  kind?: DashboardActivityKind;
+  from?: string;
+  to?: string;
 }
 
 export interface DashboardData {

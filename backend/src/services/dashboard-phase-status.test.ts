@@ -134,7 +134,7 @@ async function main() {
         const scoped = data.filter(row => pageFilters.every(([column, value]) => row[column as keyof DashboardProjectRow] === value));
         const result = table === 'projects'
           ? range[0] === failOffset ? { data: null, error: { code: 'MOCK_PAGE_FAILURE' } } : { data: missingRows ? null : scoped.slice(range[0], range[1] + 1), error: null }
-          : { data: table === 'scenarios' ? scenarios : [], error: null };
+          : { data: table === 'scenarios' ? scenarios : [], error: null, count: 0 };
         return Promise.resolve(result).then(resolve, reject);
       },
     };

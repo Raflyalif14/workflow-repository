@@ -59,6 +59,8 @@ async function withState(action: (state: ReturnType<typeof createState>) => Prom
     (supabaseAdmin as any).from = (table: string) => new QueryMock(state, table);
     (supabaseAdmin as any).rpc = async (name: string, input: Row) => {
       assert.equal(name, 'complete_final_sales_milestone_with_outcome');
+      assert.equal(input.p_milestone_id, 'stage-2');
+      assert.equal(input.p_sales_id, sales.userId);
       state.rpcCalls++;
       if (state.failTransaction) return { data: null, error: { code: 'P0001', message: 'private provider failure' } };
       if (state.project.status === 'ACTIVE') {
@@ -97,10 +99,11 @@ async function run() {
       assert.equal(result.project_status, input.outcome);
       assert.equal(state.project.status, input.outcome);
       assert.equal(state.milestones[1].status, 'COMPLETED');
-      assert.deepEqual(state.logs.map((row) => row.action), ['MILESTONE_COMPLETED', `PROJECT_${input.outcome}`]);
+      // Phase30 owns both audit records inside the RPC transaction; Node must not duplicate them.
+      assert.deepEqual(state.logs, [], 'No separate activity insert after the completion RPC');
       const again = await completeMilestoneStage('stage-2', sales, input);
       assert.equal(again.project_status, input.outcome);
-      assert.equal(state.logs.length, 2);
+      assert.equal(state.logs.length, 0, 'Replaying the RPC must not insert a separate Node activity');
       assert.equal(state.rpcCalls, 2);
       await assert.rejects(() => completeMilestoneStage('stage-2', sales, input.outcome === 'WON'
         ? { outcome: 'WON', final_contract_value: 1 }
@@ -136,7 +139,7 @@ async function run() {
     state.failTransaction = false;
     const retry = await completeMilestoneStage('stage-2', sales, { outcome: 'LOST', loss_reason: 'Lost' });
     assert.equal(retry.project_status, 'LOST');
-    assert.equal(state.logs.length, 2);
+    assert.equal(state.logs.length, 0, 'Retry uses the RPC audit, without a separate Node insert');
   });
   await withState(async (state) => {
     await assert.rejects(() => completeMilestoneStage('stage-2', { ...sales, userId: 'other' }, { outcome: 'WON', final_contract_value: 100 }), /Only the project owner/);
@@ -146,7 +149,13 @@ async function run() {
   assert(sql.includes('begin;') && sql.includes('for update of p') && sql.includes('for update of m'));
   assert(sql.includes("set status = 'COMPLETED'") && sql.includes('set status = p_outcome'));
   assert(sql.includes('pg_catalog.jsonb_array_elements_text(v_project.selected_document_keys)'));
-  console.log('Final Sales outcome: WON, LOST, output gate, idempotency, authorization and transaction failure passed');
+  const auditSql = readFileSync(join(__dirname, '../../supabase/phase30-business-mutation-audit.sql'), 'utf8');
+  const auditWrapper = auditSql.slice(auditSql.indexOf('create function public.complete_final_sales_milestone_with_outcome('),
+    auditSql.indexOf('revoke all on function public.complete_final_sales_milestone_with_outcome('));
+  assert(auditWrapper.includes('if v_result.changed then'));
+  assert(auditWrapper.includes("'PROJECT_'||p_outcome") && auditWrapper.includes("'MILESTONE_COMPLETED'"));
+  assert(auditWrapper.includes('perform public.record_business_change'));
+  console.log('Final Sales outcome: WON, LOST, output gate, replay, authorization, failure and RPC-owned audit contract passed. SQL checked statically, not executed.');
 }
 
 void run().catch((error) => { console.error(error); process.exitCode = 1; });

@@ -13,6 +13,7 @@ import { useOutputRepository } from "@/hooks/use-output-documents";
 import { getAssignedMilestoneState, getAssignedMilestonesNeedingAction } from "@/lib/assigned-milestone-ux";
 
 import { AssignedMilestoneQueue, HeadSaReviewQueue } from "@/components/milestones/milestone-queues";
+import { PageDataFeedback } from "@/components/navigation-feedback";
 
 type QueueTab = "ACTION" | "REVIEW" | "PENDING_REVIEW" | "COMPLETED" | "ALL";
 
@@ -46,8 +47,9 @@ export default function MilestonesPage() {
   const pageCopy = rolePageCopy[userRole] || rolePageCopy.SUPER_ADMIN;
   const isSaOrHeadSa = userRole === "SA" || userRole === "HEAD_SA";
   const isHeadSa = userRole === "HEAD_SA";
-  const { data: milestones = [], isLoading, isError } = useMyAssignedMilestones(isSaOrHeadSa);
-  const { data: outputFiles = [], isLoading: pendingReviewsLoading, isError: pendingReviewsError } = useOutputRepository(isHeadSa);
+  const { data: milestones = [], isLoading, isError, isFetching } = useMyAssignedMilestones(isSaOrHeadSa);
+  const { data: outputFiles = [], isLoading: pendingReviewsLoading, isError: pendingReviewsError,
+    isFetching: pendingReviewsFetching } = useOutputRepository(isHeadSa);
   const reviewableOutputs = isHeadSa ? outputFiles.filter((item) => item.status === "IN_REVIEW") : [];
 
   const [activeTab, setActiveTab] = useState<QueueTab>("ACTION");
@@ -96,6 +98,7 @@ export default function MilestonesPage() {
           <p className="text-xs font-semibold uppercase text-primary">{translateI18n(pageCopy.eyebrow)}</p>
           <h1 className="mt-1 text-2xl font-semibold text-foreground sm:text-3xl">{translateI18n(pageCopy.title)}</h1>
           <p className="mt-1 text-sm text-muted-foreground">{translateI18n(pageCopy.description)}</p>
+          <PageDataFeedback refreshing={isFetching && !isLoading || pendingReviewsFetching && !pendingReviewsLoading} />
         </div>
         <Link href="/projects" className="self-start sm:self-auto">
           <Button variant="outline" className="gap-2">

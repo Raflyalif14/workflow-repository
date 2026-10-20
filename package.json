@@ -18,8 +18,5 @@
     "repository"
   ],
   "author": "",
-  "license": "ISC",
-  "dependencies": {
-    "@supabase/supabase-js": "^2.112.4"
-  }
+  "license": "ISC"
 }

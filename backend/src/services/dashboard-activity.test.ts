@@ -14,15 +14,18 @@ profiles.push({ ...profiles[0], id: id(110), is_active: false }, { ...profiles[0
 const project = (n: number, sales = profiles[0].id, pic = profiles[1].id) => ({ id: id(200 + n), name: 'Fixture project',
   sales_id: sales, pic_id: pic, status: 'ACTIVE', is_postponed: false, scenario_id: null,
   estimated_revenue: null, final_contract_value: null, updated_at: '2026-10-08T00:00:00Z' });
-let projects: Row[] = [], activities: Row[] = [], failActivities = false;
+let projects: Row[] = [], activities: Row[] = [], failActivities = false, missingCount = false;
 const calls: Array<{ table: string; projection: string; scope?: string[]; order: string[]; limit: number; cursor: string }> = [];
 class Query {
   projection = ''; filters: Array<[string, any]> = []; excluded: Array<[string, any]> = [];
-  scope?: string[]; orders: Array<[string, boolean]> = []; max = Infinity; start = 0; end = Infinity; cursor = ''; one = false;
+  bounds: Array<[string, string, 'gte' | 'lt']> = [];
+  scope?: string[]; orders: Array<[string, boolean]> = []; max = Infinity; start = 0; end = Infinity; cursor = ''; one = false; head = false;
   constructor(readonly table: string) {}
-  select(value: string) { this.projection = value; return this; }
+  select(value: string, options?: { count?: string; head?: boolean }) { this.projection = value; this.head = Boolean(options?.head); return this; }
   eq(column: string, value: any) { this.filters.push([column, value]); return this; }
   neq(column: string, value: any) { this.excluded.push([column, value]); return this; }
+  gte(column: string, value: string) { this.bounds.push([column, value, 'gte']); return this; }
+  lt(column: string, value: string) { this.bounds.push([column, value, 'lt']); return this; }
   in(column: string, values: string[]) { this.filters.push([column, values]); if (column === 'project_id') this.scope = values; return this; }
   order(column: string, options: { ascending: boolean }) { this.orders.push([column, options.ascending]); return this; }
   limit(value: number) { this.max = value; return this; }
@@ -35,7 +38,8 @@ class Query {
     if (this.table === 'activity_logs' && failActivities) return { data: null, error: { code: 'FIXTURE_FAILURE' } };
     let rows = [...(this.table === 'projects' ? projects : this.table === 'activity_logs' ? activities : this.table === 'users' ? profiles : [])];
     rows = rows.filter(row => this.filters.every(([col, val]) => Array.isArray(val) ? val.includes(row[col]) : row[col] === val)
-      && this.excluded.every(([col, val]) => row[col] !== val));
+      && this.excluded.every(([col, val]) => row[col] !== val)
+      && this.bounds.every(([col, val, op]) => op === 'gte' ? Date.parse(row[col]) >= Date.parse(val) : Date.parse(row[col]) < Date.parse(val)));
     if (this.cursor) {
       const match = /^created_at\.lt\.(.+),and\(created_at\.eq\.(.+),id\.lt\.([0-9a-f-]+)\)$/.exec(this.cursor)!;
       assert(match && match[1] === match[2], 'Only the validated tuple predicate reaches the query');
@@ -45,14 +49,15 @@ class Query {
       for (const [col, asc] of this.orders) { const result = String(a[col]).localeCompare(String(b[col])); if (result) return asc ? result : -result; }
       return 0;
     });
+    const count = rows.length;
     rows = rows.slice(this.start, Math.min(this.end + 1, this.start + this.max));
     // Enforce the actual projection so tests catch accidental sensitive response fields.
     rows = rows.map(row => Object.fromEntries(this.projection.split(',').map(key => key.trim()).filter(key => !key.includes(':')).map(key => [key, row[key]])));
-    return { data: this.one ? rows[0] || null : rows, error: null };
+    return { data: this.head ? null : this.one ? rows[0] || null : rows, count: missingCount ? null : count, error: null };
   }
 }
 const fixture = (count: number, sameTime = false) => {
-  calls.length = 0; failActivities = false;
+  calls.length = 0; failActivities = false; missingCount = false;
   projects = [project(0), project(1, profiles[5].id, profiles[4].id)];
   activities = Array.from({ length: count }, (_, n) => ({ id: id(count - n), project_id: projects[0].id, user_id: profiles[0].id,
     action: 'PROJECT_CREATED', description: 'Fixture activity', created_at: sameTime ? '2026-10-08T12:00:00.123456+00:00' : new Date(Date.UTC(2026, 9, 8, 12) - n * 60_000).toISOString() }));
@@ -88,6 +93,11 @@ async function run() {
       const reads = calls.filter(call => call.table === 'activity_logs');
       assert(reads.every(call => call.limit === 9 && call.scope?.length === 1 && call.scope[0] === projects[0].id));
       assert(reads.every(call => call.order.join(',') === 'created_at:false,id:false'));
+      const last = await DashboardService.getActivityPage({ userId: profiles[0].id, role: 'SALES' }, 999);
+      assert.equal(last.total, count);
+      assert.equal(last.totalPages, Math.max(1, Math.ceil(count / 8)));
+      assert.equal(last.page, last.totalPages, 'Stale/out-of-range page clamps to the last accessible page');
+      assert.deepEqual(last.items.map(item => item.id), Array.from({ length: count }, (_, n) => id(count - n)).slice((last.page! - 1) * 8));
     }
     fixture(19, true);
     const first = await http('/activity', profiles[0]); assert.equal(first.status, 200);
@@ -115,13 +125,47 @@ async function run() {
     assert.equal((await http(`/activity?cursor=${unsafe}`, profiles[0])).status, 422);
     const overview = await http('/', profiles[0]); assert.equal(overview.status, 200);
     assert.equal(overview.body.data.recentActivity.length, 8, 'Existing overview still returns an array of eight');
-    assert(overview.body.data.recentActivityPagination.nextCursor && !('total' in overview.body.data.recentActivityPagination));
+    assert(overview.body.data.recentActivityPagination.nextCursor);
+    assert.equal(overview.body.data.recentActivityPagination.total, 20, 'Count includes older authorized rows, excludes other projects and private audit');
+    assert.equal(overview.body.data.recentActivityPagination.totalPages, 3);
+    const jump = await http('/activity?page=3', profiles[0]);
+    assert.equal(jump.status, 200); assert.equal(jump.body.data.page, 3);
+    assert.equal(jump.body.data.total, 20); assert.equal(jump.body.data.totalPages, 3);
+    assert.deepEqual(jump.body.data.items.map((row: Row) => row.id), [id(4), id(3), id(2), id(1)]);
+    for (const actor of profiles.slice(0, 6)) {
+      const result = await http('/activity?page=999', actor); assert.equal(result.status, 200);
+      const allowed = projects.filter(p => actor.role === 'HEAD_SA' || actor.role === 'SUPER_ADMIN' || (actor.role === 'SALES' ? p.sales_id : p.pic_id) === actor.id).map(p => p.id);
+      const count = activities.filter(a => allowed.includes(a.project_id) && a.action !== 'DOCUMENT_ACCESS_CHANGED').length;
+      assert.equal(result.body.data.total, count, 'Numbered page count follows current role and project access');
+      assert.equal(result.body.data.totalPages, Math.max(1, Math.ceil(count / 8)));
+      assert(result.body.data.items.every((item: Row) => allowed.includes(item.project.id)));
+    }
+    for (const page of ['0', '-1', '1.5', 'NaN', 'Infinity', '9007199254740992', '']) assert.equal((await http(`/activity?page=${page}`, profiles[0])).status, 422);
+    assert.equal((await http(`/activity?page=2&cursor=${cursor}`, profiles[0])).status, 422);
     fixture(1); projects = Array.from({ length: 251 }, (_, n) => project(n));
     activities[0].project_id = projects[250].id;
     assert.deepEqual((await http('/activity', profiles[0])).body.data.items.map((item: Row) => item.project.id), [projects[1].id, projects[250].id], 'Full scope includes the 251st project while keeping the newer now-authorized row first');
     console.error = () => {}; failActivities = true;
     const failed = await http('/activity', profiles[0]); assert.equal(failed.status, 500); assert.equal(failed.body.success, false); assert.equal(failed.body.data, undefined); assert(!JSON.stringify(failed.body).includes('FIXTURE_FAILURE'));
     failActivities = false; assert.equal((await http('/activity', profiles[0])).status, 200);
+    missingCount = true;
+    assert.equal((await http('/activity?page=2', profiles[0])).status, 500, 'Missing exact count cannot become an invented page total');
+    assert.equal((await http('/', profiles[0])).status, 500, 'Overview also fails safely without a count');
+    missingCount = false;
+    fixture(24);
+    activities.forEach((row, n) => { if (n < 24) row.action = n % 2 ? 'PROJECT_CREATED' : 'OUTPUT_DRAFT_ADD'; });
+    const filterUrl = `/activity?page=2&projectId=${projects[0].id}&kind=DOCUMENT&from=2026-10-08T00%3A00%3A00Z&to=2026-10-09T00%3A00%3A00Z`;
+    const filtered = await http(filterUrl, profiles[0]);
+    assert.equal(filtered.status, 200); assert.equal(filtered.body.data.total, 12); assert.equal(filtered.body.data.totalPages, 2);
+    assert.deepEqual(filtered.body.data.items.map((row: Row) => row.id), [id(8), id(6), id(4), id(2)]);
+    assert.deepEqual(filtered.body.data.projects.map((p: Row) => p.id), [projects[0].id], 'Project options contain only authorized names/IDs');
+    const hidden = await http(`/activity?page=1&projectId=${projects[1].id}`, profiles[0]);
+    assert.equal(hidden.body.data.total, 0); assert.deepEqual(hidden.body.data.items, []);
+    assert(!hidden.body.data.projects.some((p: Row) => p.id === projects[1].id));
+    const empty = await http('/activity?page=1&kind=APPROVAL', profiles[0]); assert.equal(empty.body.data.total, 0);
+    const boundary = await http('/activity?page=1&from=2026-10-08T11%3A58%3A00Z&to=2026-10-08T12%3A00%3A00Z', profiles[0]);
+    assert.deepEqual(boundary.body.data.items.map((row: Row) => row.id), [id(23), id(22)], 'From inclusive and to exclusive, applied before paging/count');
+    for (const query of ['kind=PRIVATE', 'projectId=bad', 'from=bad', 'to=2026-02-30', 'from=2026-10-09T00:00:00Z&to=2026-10-08T00:00:00Z']) assert.equal((await http('/activity?page=1&'+query, profiles[0])).status, 422);
     console.log('Dashboard activity HTTP/service: 0/8/9/17/24, real cursor boundaries, same timestamps/microseconds, scope before paging, account guards, replay, insert/revoke, full scope, compatibility and safe errors passed');
   } finally {
     console.error = originalError; (supabaseAdmin as any).from = originalFrom; (supabaseAdmin.auth as any).getUser = originalGetUser;

@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useProjects, useScenarios } from "@/hooks/use-projects";
 import { ProjectListRow } from "@/components/projects/project-list-row";
+import { PageDataFeedback } from "@/components/navigation-feedback";
 import { isProjectDeliveryCompleted } from "@/lib/project-list-status";
 import { translate as translateI18n } from "@/i18n";
 import type { ProjectListStatusFilter } from "@/types/project";
@@ -30,7 +31,7 @@ export default function ProjectsPage() {
   const [status, setStatus] = useState<ProjectListStatusFilter>("ALL");
   const [scenarioId, setScenarioId] = useState("");
 
-  const { data, isLoading, isError } = useProjects({
+  const { data, isLoading, isError, isFetching } = useProjects({
     page,
     limit: 10,
     search,
@@ -86,6 +87,7 @@ export default function ProjectsPage() {
           <p className="mt-1 text-sm text-muted-foreground">
             {translateI18n(pageCopy.description)}
           </p>
+          <PageDataFeedback refreshing={isFetching && !isLoading} />
         </div>
         {userRole === "SALES" && (
           <Link href="/projects/new" className="self-start sm:self-auto">
