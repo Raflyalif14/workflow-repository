@@ -2,6 +2,43 @@ import type {
  TranslationSchema } from "./types";
 
 export const id = {
+  formDraft: {
+    loading: "Memeriksa draf tersimpan…", empty: "Draf disimpan otomatis", saving: "Menyimpan draf…", saved: "Draf tersimpan di browser ini",
+    error: "Draf belum bisa disimpan atau dibuka", conflict: "Draf diperbarui di tab lain",
+    localHelp: "Isian dan lampiran disimpan untuk akunmu di browser ini, tanpa sinkronisasi ke perangkat lain. Tunggu tulisan “Draf tersimpan” sebelum menutup halaman.",
+    errorHelp: "Isian saat ini masih ada. Kosongkan ruang penyimpanan browser atau izinkan penyimpanan situs, lalu coba lagi. Tunggu penyimpanan berhasil sebelum mengirim atau menutup halaman.",
+    conflictHelp: "Isianmu belum ditimpa. Muat draf terbaru untuk melanjutkan; isian di halaman ini akan diganti.",
+    restored: "Isian dan lampiran sebelumnya sudah dipulihkan.",
+    restoredPending: "Pengiriman sebelumnya dipulihkan. Gunakan Coba lagi untuk memeriksa atau menyelesaikan pembuatan proyek yang sama.",
+    savedTime: "Terakhir disimpan: {time}", reload: "Muat draf terbaru", discard: "Hapus draf",
+    discardHelp: "Hapus seluruh isian dan lampiran dari formulir ini beserta draf tersimpannya?", confirmDiscard: "Ya, hapus draf",
+  },
+  reportExport: {
+    button: "Ekspor laporan", title: "Laporan progres proyek", description: "Unduh ringkasan dan jadwal milestone untuk fase proyek yang sedang berjalan.",
+    excel: "Spreadsheet Excel", excelHelp: "File .xlsx yang bisa diedit, berisi detail proyek dan tabel milestone.",
+    pdf: "Dokumen PDF", pdfHelp: "Laporan dengan format rapi, siap dibaca, dicetak, atau dibagikan.",
+    preparing: "Menyiapkan laporan…", ready: "Unduhan laporan siap.", failed: "Laporan belum bisa dibuat. Periksa koneksi lalu coba lagi.",
+    scope: "Cakupan: fase proyek saat ini. Progres mengikuti milestone yang selesai pada fase ini.",
+    snapshot: "Laporan mengikuti data yang diambil saat ekspor. Perubahan setelahnya tidak ikut tercantum.",
+    project: "Proyek", phase: "Fase", status: "Status", sales: "Sales penanggung jawab", pic: "PIC proyek", progress: "Progres milestone",
+    milestones: "Jadwal milestone", generated: "Diekspor pada", noMilestones: "Belum ada milestone untuk fase ini.",
+    summary: "Laporan proyek", page: "Halaman", of: "dari", number: "No.", milestone: "Milestone", owner: "Penanggung jawab", start: "Tanggal mulai", due: "Tenggat",
+    unassignedRole: "Belum ditetapkan ({role})", cancel: "Batalkan ekspor",
+  },
+  deadlineCalendar: {
+    list: "Daftar", calendar: "Kalender", view: "Tampilan milestone",
+    title: "Kalender tenggat proyek", description: "Jadwal tenggat milestone dari proyek yang dapat kamu akses.",
+    todayButton: "Hari ini", previousMonth: "Bulan sebelumnya", nextMonth: "Bulan berikutnya",
+    total: "Tenggat bulan ini", overdue: "Lewat tenggat", today: "Tenggat hari ini", upcoming: "Mendatang",
+    completed: "Selesai", paused: "Proyek ditunda", closed: "Proyek ditutup",
+    monthLabel: "Tenggat milestone bulanan", selectDay: "Lihat tenggat pada {date}",
+    count: "{count} tenggat", more: "+{count} lainnya", agenda: "Agenda harian",
+    emptyDay: "Tidak ada tenggat hari ini", emptyDayHelp: "Pilih tanggal yang ditandai untuk melihat milestone-nya.",
+    emptyMonth: "Tidak ada tenggat bulan ini", emptyMonthHelp: "Coba bulan lain. Milestone tanpa tanggal tenggat tidak ditampilkan.",
+    note: "Jadwal mengikuti tanggal tenggat setiap milestone. Milestone tanpa tenggat tidak ditampilkan.",
+    loading: "Memuat jadwal tenggat…", error: "Jadwal tenggat belum bisa dimuat. Silakan coba lagi.", retry: "Coba lagi",
+    open: "Buka milestone", updating: "Memperbarui jadwal…",
+  },
   facePassive: {
     title: "Tes sekali tatap", description: "Cukup tatap kamera untuk satu pemindaian singkat. Tidak perlu menoleh atau mengambil foto satu-satu. Uji wajah langsung, lalu foto dan video di layar HP.",
     privacy: "Tes memakai pendaftaran wajah yang sudah ada. Tiga frame diproses sementara di server lokal, tidak menyimpan foto/video, dan tidak membuat sesi login. Hasil ada di tab ini sampai kamu meninggalkan halaman atau keluar akun.",

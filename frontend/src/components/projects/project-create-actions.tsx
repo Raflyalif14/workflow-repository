@@ -11,6 +11,7 @@ export interface ProjectCreateActionsProps {
   submitError: string | null;
   fileSelectionError: string | null;
   onCancel: () => void;
+  disabled?: boolean;
 }
 
 export function ProjectCreateActions({
@@ -20,8 +21,9 @@ export function ProjectCreateActions({
   submitError,
   fileSelectionError,
   onCancel,
+  disabled = false,
 }: ProjectCreateActionsProps) {
-  const isSubmitDisabled = isPending || Boolean(fileSelectionError);
+  const isSubmitDisabled = disabled || isPending || Boolean(fileSelectionError);
 
   return (
     <div className="border-t border-border bg-muted/15 px-5 py-5 sm:px-7">

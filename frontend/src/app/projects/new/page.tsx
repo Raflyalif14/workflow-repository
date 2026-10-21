@@ -14,15 +14,25 @@ import { ProjectCreateChecklist } from "@/components/projects/project-create-che
 import { ProjectCreateActions } from "@/components/projects/project-create-actions";
 import { useCreateProject } from "@/hooks/use-projects";
 import { useScenarios } from "@/hooks/use-scenarios";
-import { getMandatoryDocumentKeys, resolveScenarioKey } from "@/constants/scenarios";
+import { getMandatoryDocumentKeys, getScenarioDocuments, resolveScenarioKey } from "@/constants/scenarios";
 import { formatEstimatedValue } from "@/lib/project-estimated-value";
 import { projectCreateErrorKey, type ProjectCreateInput } from "@/lib/project-create-request";
 import { getProjectRevenueError, getProjectValidationError } from "@/lib/project-create-validation";
+import { useProjectFormDraft } from "@/hooks/use-project-form-draft";
+import { emptyProjectForm, type ProjectFormDraft } from "@/lib/project-form-draft";
+import { ProjectFormDraftStatus } from "@/components/projects/project-form-draft-status";
 
 export default function NewProjectPage() {
+  const { user, isLoading } = useAuth();
+  useLanguage();
+  if (isLoading) return <div className="container py-12" role="status">{translateI18n("formDraft.loading")}</div>;
+  if (!user || user.role !== "SALES" || user.isActive === false || user.mustChangePassword) return <div className="container py-12 text-center text-destructive">{translateI18n("copy.createForbidden")}</div>;
+  return <NewProjectForm key={user.id} accountId={user.id} />;
+}
+
+function NewProjectForm({ accountId }: { accountId: string }) {
   useLanguage();
   const router = useRouter();
-  const { user } = useAuth();
   const scenariosQuery = useScenarios();
   const scenarios = (scenariosQuery.data || []).filter((scenario) => scenario.is_active);
   const create = useCreateProject();
@@ -49,21 +59,25 @@ export default function NewProjectPage() {
   const [fileSelectionError, setFileSelectionError] = useState<string | null>(null);
   const [submitAttempted, setSubmitAttempted] = useState(false);
 
-  // Access control
-  if (!user || user.role !== "SALES") {
-    return (
-      <div className="container py-12 text-center text-destructive">
-        {translateI18n("copy.createForbidden")}
-      </div>
-    );
-  }
+  const formValues = { name, customer, scenarioId, estimatedRevenue, selectedOptionalKeys, mom, photos, documents };
+  const restoreDraft = (record: ProjectFormDraft | null) => {
+    const values = record?.values || emptyProjectForm();
+    setName(values.name); setCustomer(values.customer); setScenarioId(values.scenarioId); setEstimatedRevenue(values.estimatedRevenue);
+    setSelectedOptionalKeys(values.selectedOptionalKeys); setMom(values.mom); setPhotos(values.photos); setDocuments(values.documents);
+    setSubmitError(null); setFileSelectionError(null); setSubmitAttempted(false); setConfirming(false);
+    setCreationFrozen(Boolean(record?.submission));
+    creationInput.current = record?.submission ? { name: values.name.trim(), customer: values.customer.trim(), scenario_id: values.scenarioId,
+      estimated_revenue: Number(values.estimatedRevenue), mom: values.mom!, photos: values.photos, documents: values.documents,
+      selectedDocumentKeys: record.submission.selectedDocumentKeys, creationRequestId: record.submission.requestId } : null;
+  };
+  const draft = useProjectFormDraft(accountId, formValues, restoreDraft);
 
   // Derived scenario & document keys
   const selectedScenario = scenarios.find((scenario) => scenario.id === scenarioId);
   const scenarioKey = resolveScenarioKey(selectedScenario?.name);
   const mandatoryKeys = selectedScenario ? getMandatoryDocumentKeys(scenarioKey) : [];
   const allSelectedDocumentKeys = selectedScenario
-    ? Array.from(new Set([...mandatoryKeys, ...selectedOptionalKeys]))
+    ? Array.from(new Set([...mandatoryKeys, ...selectedOptionalKeys.filter(key => getScenarioDocuments(scenarioKey).some(document => document.key === key))]))
     : [];
 
   const toggleOptionalKey = (key: string) => {
@@ -81,7 +95,7 @@ export default function NewProjectPage() {
   // Step 1: Validate and open confirmation dialog
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (create.isPending || isSubmitting.current) return;
+    if (!draft.ready || draft.status === "conflict" || create.isPending || isSubmitting.current) return;
     setSubmitAttempted(true);
 
     if (creationFrozen) {
@@ -163,8 +177,15 @@ export default function NewProjectPage() {
     isSubmitting.current = true;
 
     try {
+      draft.assertCurrent();
+      if (!input.creationRequestId) {
+        const submission = await draft.freeze(formValues, allSelectedDocumentKeys);
+        input.creationRequestId = submission.requestId;
+      }
+      draft.assertCurrent();
       const project = await create.mutateAsync(input);
       createdProjectId.current = project.id;
+      await draft.complete();
       setMom(null);
       setPhotos([]);
       setDocuments([]);
@@ -184,10 +205,12 @@ export default function NewProjectPage() {
         onBack={() => router.push("/projects")}
         disabled={create.isPending}
       />
+      <ProjectFormDraftStatus status={draft.status} restored={draft.restored} savedAt={draft.savedAt} frozen={creationFrozen}
+        retry={draft.retry} reload={draft.reload} discard={draft.discard} />
 
       <form noValidate onSubmit={submit} className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
         <div className="overflow-hidden page-surface">
-          <fieldset disabled={creationFrozen} className="min-w-0">
+          <fieldset disabled={creationFrozen || !draft.ready} className="min-w-0">
             <ProjectCreateDetails
               name={name}
               customer={customer}
@@ -237,6 +260,7 @@ export default function NewProjectPage() {
           </fieldset>
 
           <ProjectCreateActions
+            disabled={!draft.ready || draft.status === "conflict"}
             isPending={create.isPending}
             creationFrozen={creationFrozen}
             creationRequestId={create.creationRequestId}

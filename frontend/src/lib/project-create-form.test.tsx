@@ -5,6 +5,7 @@ import * as auth from "../components/auth/auth-provider";
 import * as language from "../components/i18n/language-provider";
 import * as projects from "../hooks/use-projects";
 import * as scenarioHooks from "../hooks/use-scenarios";
+import * as draftHooks from "../hooks/use-project-form-draft";
 import { ProjectCreateDetails } from "../components/projects/project-create-details";
 import { ProjectCreateScenario } from "../components/projects/project-create-scenario";
 import { ProjectCreateAttachments } from "../components/projects/project-create-attachments";
@@ -46,7 +47,7 @@ export async function testProjectCreateForm() {
   assert(getProjectValidationError({ ...valid, mom: new File(["bad"], "mom.txt", { type: "text/plain" }) }));
 
   const originals = { state: React.useState, ref: React.useRef, auth: auth.useAuth, language: language.useLanguage,
-    scenarios: scenarioHooks.useScenarios, create: projects.useCreateProject };
+    scenarios: scenarioHooks.useScenarios, create: projects.useCreateProject, draft: draftHooks.useProjectFormDraft };
   let states: any[] = [], refs: any[] = [], si = 0, ri = 0, role = "SALES", fail = true;
   let scenarios = [scenario], hasError = false;
   const writes: ProjectCreateInput[] = [];
@@ -59,12 +60,15 @@ export async function testProjectCreateForm() {
   (auth as any).useAuth = () => ({ user: { id: "owner", role } });
   (language as any).useLanguage = () => ({});
   (scenarioHooks as any).useScenarios = () => ({ data: scenarios, isLoading: false, isError: hasError, refetch() {} });
+  (draftHooks as any).useProjectFormDraft = () => ({ ready: true, status: 'saved', restored: false, savedAt: null,
+    assertCurrent: () => {},
+    freeze: async () => ({ requestId: '00000000-0000-4000-8000-000000000001' }), complete: async () => {}, retry: async () => {}, reload: async () => {}, discard: async () => {} });
   (projects as any).useCreateProject = () => ({ isPending: false, mutateAsync: async (input: ProjectCreateInput) => {
     writes.push(input);
     if (fail) throw new ApiError("Synthetic retry", 503, "CREATE_RETRYABLE");
     return { id: "new-project" };
   } });
-  const tree = () => { si = 0; ri = 0; return Page(); };
+  const tree = () => { si = 0; ri = 0; const root = Page(); return typeof root.type === 'function' ? root.type(root.props) : root; };
   const get = (type: any) => elements(tree()).find(node => node.type === type)!;
   const submit = () => get("form").props.onSubmit({ preventDefault() {} });
   try {
@@ -107,6 +111,7 @@ export async function testProjectCreateForm() {
     (React as any).useState = originals.state; (React as any).useRef = originals.ref;
     (auth as any).useAuth = originals.auth; (language as any).useLanguage = originals.language;
     (scenarioHooks as any).useScenarios = originals.scenarios; (projects as any).useCreateProject = originals.create;
+    (draftHooks as any).useProjectFormDraft = originals.draft;
     setActiveLanguage("en");
   }
   console.log("Project form: validation, active scenarios, confirmation cancellation, frozen retry, success guard and role access passed in EN/ID.");

@@ -5,7 +5,7 @@ import { translate as translateI18n, type TranslationKey } from "@/i18n";
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { FolderKanban } from "lucide-react";
+import { CalendarDays, FolderKanban, List } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { Button } from "@/components/ui/button";
 import { useMyAssignedMilestones } from "@/hooks/use-projects";
@@ -14,6 +14,7 @@ import { getAssignedMilestoneState, getAssignedMilestonesNeedingAction } from "@
 
 import { AssignedMilestoneQueue, HeadSaReviewQueue } from "@/components/milestones/milestone-queues";
 import { PageDataFeedback } from "@/components/navigation-feedback";
+import { DeadlineCalendar } from "@/components/milestones/deadline-calendar";
 
 type QueueTab = "ACTION" | "REVIEW" | "PENDING_REVIEW" | "COMPLETED" | "ALL";
 
@@ -53,6 +54,7 @@ export default function MilestonesPage() {
   const reviewableOutputs = isHeadSa ? outputFiles.filter((item) => item.status === "IN_REVIEW") : [];
 
   const [activeTab, setActiveTab] = useState<QueueTab>("ACTION");
+  const [view, setView] = useState<"LIST" | "CALENDAR">("LIST");
   const needsAction = useMemo(
     () => getAssignedMilestonesNeedingAction(milestones),
     [milestones]
@@ -108,7 +110,14 @@ export default function MilestonesPage() {
         </Link>
       </header>
 
-      {!isSaOrHeadSa ? (
+      {user && ["SA", "HEAD_SA", "SALES", "SUPER_ADMIN"].includes(userRole) && (
+        <div className="inline-flex gap-1 rounded-xl border border-border/60 bg-white p-1" role="group" aria-label={translateI18n("deadlineCalendar.view")}>
+          <Button size="sm" variant={view === "LIST" ? "secondary" : "ghost"} aria-pressed={view === "LIST"} onClick={() => setView("LIST")} className="gap-2"><List className="h-4 w-4" />{translateI18n("deadlineCalendar.list")}</Button>
+          <Button size="sm" variant={view === "CALENDAR" ? "secondary" : "ghost"} aria-pressed={view === "CALENDAR"} onClick={() => setView("CALENDAR")} className="gap-2"><CalendarDays className="h-4 w-4" />{translateI18n("deadlineCalendar.calendar")}</Button>
+        </div>
+      )}
+
+      {view === "CALENDAR" && user && ["SA", "HEAD_SA", "SALES", "SUPER_ADMIN"].includes(userRole) ? <DeadlineCalendar /> : !isSaOrHeadSa ? (
         <section className="page-surface px-5 py-14 text-center">
           <FolderKanban className="mx-auto h-8 w-8 text-muted-foreground" />
           <h2 className="mt-3 font-semibold text-foreground">{translateI18n("copy.milestoneLocation")}</h2>

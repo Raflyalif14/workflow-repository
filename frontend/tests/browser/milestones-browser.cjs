@@ -93,7 +93,7 @@ async function main() {
             }
           } else {
             await cdp.wait(mainIncludes(d.copy.milestoneLocation), 'project-based role guidance');
-            assert.equal(await cdp.evaluate("document.querySelectorAll('main button[aria-pressed]').length"), 0);
+            assert.equal(await cdp.evaluate("document.querySelectorAll('main button[aria-pressed]').length"), 2, 'List/calendar switch remains available');
           }
           assert(await cdp.evaluate('document.documentElement.scrollWidth <= innerWidth + 1'), 'No horizontal page overflow');
           checks.push({ role, locale, width, state: 'ready', tabsAndCounts: assignedRole, roleScoped: true });

@@ -1,6 +1,7 @@
 "use client";
 
 import { ProjectDocumentSharing } from "@/components/projects/project-document-sharing";
+import { ProjectReportExport } from "@/components/projects/project-report-export";
 import { BusinessConfirmation } from "@/components/projects/business-confirmation";
 import { focusOutputReviewLink } from "@/lib/approval-queue";
 import { ApiError } from "@/lib/api-client";
@@ -318,6 +319,7 @@ export default function ProjectDetailPage() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
+          <ProjectReportExport key={id} projectId={id} />
           {isActive && isSalesOwner && (
             <Button size="sm" variant="outline" className="h-9 gap-1.5 rounded-lg" onClick={() => setPostponeOpen(true)}>
               <PauseCircle className="h-4 w-4 text-warning" />
