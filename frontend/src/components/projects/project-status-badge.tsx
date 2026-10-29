@@ -4,13 +4,13 @@ import { translate as translateI18n } from "@/i18n";
 import { Badge } from "@/components/ui/badge";
 import { formatMilestoneStatusLabel, formatProjectStatusLabel } from "@/lib/workflow-ux-helpers";
 
-export function StatusBadge({ status }: { status: string }) {
+export function StatusBadge({ status, label }: { status: string; label?: string }) {
   switch (status) {
     case "COMPLETED":
     case "APPROVED":
       return <Badge variant="success">{translateI18n("projectStatus.COMPLETED")}</Badge>;
     case "ACTIVE":
-      return <Badge variant="default">{translateI18n("common.active")}</Badge>;
+      return <Badge variant="default">{label || translateI18n("common.active")}</Badge>;
     case "IN_PROGRESS":
       return <Badge variant="default">{translateI18n("milestoneStatus.IN_PROGRESS")}</Badge>;
     case "SUBMITTED":

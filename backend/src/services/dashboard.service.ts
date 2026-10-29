@@ -4,6 +4,8 @@ import { UserRole } from '../validators/auth.validator';
 import { RequestTiming, timeOperation } from '../utils/request-timing';
 import { DASHBOARD_ACTIVITY_ACTIONS } from '../constants/dashboard-activity';
 import type { DashboardActivityFilters } from '../validators/dashboard-activity.validator';
+import { compareMilestoneSchedule } from '../utils/milestone-order';
+import { resolveScenarioKey } from '../constants/scenarios';
 
 export const DASHBOARD_ACTIVITY_PAGE_SIZE = 8;
 
@@ -56,6 +58,7 @@ export type DashboardProjectRow = {
   active_phase_id?: string | null;
   phase_migration_state?: string | null;
   active_phase?: { id: string; project_id: string; scenario_id: string; phase_key: string } | null;
+  phases?: Array<{ id: string; project_id: string; scenario_id: string; phase_key: string }>;
   sales_id: string | null;
   pic_id: string | null;
   status: string;
@@ -73,6 +76,11 @@ export type DashboardMilestoneRow = {
   pic_id?: string | null;
   status: string;
   due_date: string | null;
+  name?: string;
+  start_date?: string | null;
+  duration_working_days?: number | null;
+  step_order?: number;
+  workflow_stage?: { default_role: string } | { default_role: string }[] | null;
 };
 
 export type DashboardScenarioRow = {
@@ -131,6 +139,47 @@ export type DashboardSalesResults = {
   won: { count: number; estimatedRevenue: number };
   lost: { count: number; estimatedRevenue: number };
 };
+
+export type DashboardSalesPipeline = {
+  preTender: { active: number; postponed: number; estimatedRevenue: number };
+  submissionTender: { advancedFromPreTender: number; inProgress: number; waitingResult: number; postponed: number; estimatedRevenue: number };
+  results: { won: number; lost: number; finalRevenue: number };
+};
+
+function buildProjectPipeline(projects: DashboardProjectRow[], scenarioMap: Map<string, string>): DashboardSalesPipeline | null {
+  const result: DashboardSalesPipeline = {
+    preTender: { active: 0, postponed: 0, estimatedRevenue: 0 },
+    submissionTender: { advancedFromPreTender: 0, inProgress: 0, waitingResult: 0, postponed: 0, estimatedRevenue: 0 },
+    results: { won: 0, lost: 0, finalRevenue: 0 },
+  };
+  const amount = (value: number | string | null | undefined) => Number.isFinite(Number(value)) && Number(value) > 0 ? Number(value) : 0;
+  for (const project of new Map(projects.map(p => [p.id, p])).values()) {
+    const phase = getWorkStatusPhase(project, scenarioMap);
+    const status = getAllWorkStatusCategory(project);
+    if (phase === undefined || !status) return null;
+    if (phase === null) continue;
+    if (project.active_phase_id && !Array.isArray(project.phases)) return null;
+    const history = project.phases || [];
+    const validHistory = (key: string) => history.some(p => p.project_id === project.id && p.phase_key === key
+      && scenarioMap.get(p.scenario_id) === (key === 'PRA_TENDER' ? 'Pra-Tender' : 'On Submission Tender'));
+    // Count recorded transitions once per project, including finished tender results.
+    // Direct tender projects do not have a Pra-Tender phase and are not transitions.
+    if (validHistory('PRA_TENDER') && validHistory('ON_SUBMISSION_TENDER')) result.submissionTender.advancedFromPreTender++;
+    if (phase === 'PRA_TENDER') {
+      if (status === 'active') result.preTender.active++;
+      if (status === 'postponed') result.preTender.postponed++;
+      if (status === 'active' || status === 'postponed') result.preTender.estimatedRevenue += amount(project.estimated_revenue);
+    } else {
+      if (status === 'active') result.submissionTender.inProgress++;
+      if (status === 'waitingResult') result.submissionTender.waitingResult++;
+      if (status === 'postponed') result.submissionTender.postponed++;
+      if (['active', 'waitingResult', 'postponed'].includes(status)) result.submissionTender.estimatedRevenue += amount(project.estimated_revenue);
+      if (status === 'won') { result.results.won++; result.results.finalRevenue += amount(project.final_contract_value); }
+      if (status === 'lost') result.results.lost++;
+    }
+  }
+  return result;
+}
 
 export type DashboardHeadSaProjectValues = {
   active: { count: number; estimatedRevenue: number };
@@ -357,6 +406,7 @@ function buildSaWorkload(
       });
       const actionableMilestones = saMilestones.filter((milestone) =>
         SA_ACTIONABLE_MILESTONE_STATUSES.has(milestone.status)
+        && (!milestone.workflow_stage || (Array.isArray(milestone.workflow_stage) ? milestone.workflow_stage[0]?.default_role : milestone.workflow_stage.default_role) === 'SA')
       );
       const revisionCount = outputRows.filter((output) => output.project_id && saProjectIds.has(output.project_id) && output.status === 'REVISION_REQUIRED').length;
       const waitingReviewCount = outputRows.filter((output) =>
@@ -410,6 +460,9 @@ function calculateProjectProgress(project: DashboardProjectRow, milestones: Dash
     completedMilestones: completed,
     overdueMilestones: overdue,
     percentage,
+    estimatedRevenue: project.estimated_revenue == null ? null : Number(project.estimated_revenue),
+    finalRevenue: project.status === 'WON' && project.final_contract_value != null ? Number(project.final_contract_value) : null,
+    currentStage: [...milestones].filter(m => !isMilestoneCompletedLike(m.status)).sort(compareMilestoneSchedule)[0]?.name || null,
   };
 }
 
@@ -447,13 +500,12 @@ export function buildDashboardOverviewFromRows(
   const projectProgress = sortNewestFirst(
     projects.filter((project) => ['ACTIVE', 'POSTPONED', 'WAITING_RESULT', 'WON', 'LOST', 'COMPLETED'].includes(project.status))
   )
-    .slice(0, 10)
     .map((project) =>
-      calculateProjectProgress(
+      ({ ...calculateProjectProgress(
         project,
         milestones.filter((milestone) => milestone.project_id === project.id),
         today
-      )
+      ), scenarioKey: project.active_phase?.phase_key || resolveScenarioKey(scenarioMap.get(project.current_scenario_id || project.scenario_id || '')) })
     );
 
   const activityRows = rows.activityLogs
@@ -550,6 +602,13 @@ export function buildDashboardOverviewFromRows(
   const saWorkload = actor.role === 'HEAD_SA'
     ? buildSaWorkload({ ...rows, outputDocuments: outputRows }, projects, milestones, today)
     : [];
+  const planTasks = projects.flatMap(project => {
+    const pending = rows.projectPlanApprovals.some(a => a.project_id === project.id && a.status === 'PENDING');
+    const headTask = ['HEAD_SA','SUPER_ADMIN'].includes(actor.role) && (project.status === 'DRAFT' && pending || project.status === 'ACTIVE' && !project.pic_id);
+    const salesTask = actor.role === 'SALES' && project.sales_id === actor.userId && project.status === 'DRAFT' && !pending;
+    if (!headTask && !salesTask) return [];
+    return [{id:`plan-${project.id}`,projectId:project.id,projectName:project.name,name:salesTask?'Complete Project Plan':pending?'Project Plan Review':'Assign PIC',status:'CREATED',dueDate:null as string|null,startDate:null as string|null,href:`/projects/${project.id}`}];
+  });
 
   return {
     summary: {
@@ -588,7 +647,18 @@ export function buildDashboardOverviewFromRows(
     } satisfies DashboardOutputDocuments,
     saWorkload,
     salesResults,
+    salesPipeline: actor.role === 'SALES' ? buildProjectPipeline(projects, scenarioMap) : null,
+    projectPipeline: actor.role === 'HEAD_SA' ? buildProjectPipeline(projects, scenarioMap) : null,
     headSaProjectValues,
+    workTasks: milestones.filter(m => {
+      const p = projectMap.get(m.project_id);
+      if (!p || p.status !== 'ACTIVE' || p.is_postponed || isMilestoneCompletedLike(m.status) || !m.name) return false;
+      const role = Array.isArray(m.workflow_stage) ? m.workflow_stage[0]?.default_role : m.workflow_stage?.default_role;
+      return actor.role === 'SUPER_ADMIN' || actor.role === 'HEAD_SA'
+        || actor.role === 'SALES' && role === 'SALES' && p.sales_id === actor.userId
+        || actor.role === 'SA' && role === 'SA' && (m.pic_id || p.pic_id) === actor.userId;
+    }).sort((a,b) => (a.due_date || '9999-12-31').localeCompare(b.due_date || '9999-12-31') || compareMilestoneSchedule(a,b))
+      .map(m => ({ id: m.id, projectId: m.project_id, projectName: projectMap.get(m.project_id)!.name, name: m.name!, status: m.status, dueDate: m.due_date, startDate: m.start_date || null, href:`/projects/${m.project_id}#project-milestone-${m.id}` })).concat(planTasks),
   };
 }
 
@@ -605,7 +675,7 @@ async function getScopedProjects(actor: DashboardActor, activityOnly = false) {
   for (let offset = 0; ; offset += pageSize) {
     let query = supabaseAdmin
       .from('projects')
-      .select(activityOnly ? 'id,name,sales_id,pic_id' : 'id,name,customer,scenario_id,current_scenario_id,active_phase_id,phase_migration_state,active_phase:project_phases!projects_active_phase_id_fkey(id,project_id,scenario_id,phase_key),sales_id,pic_id,status,is_postponed,estimated_revenue,final_contract_value,created_at,updated_at')
+      .select(activityOnly ? 'id,name,sales_id,pic_id' : 'id,name,customer,scenario_id,current_scenario_id,active_phase_id,phase_migration_state,active_phase:project_phases!projects_active_phase_id_fkey(id,project_id,scenario_id,phase_key),phases:project_phases!project_phases_project_id_fkey(id,project_id,scenario_id,phase_key),sales_id,pic_id,status,is_postponed,estimated_revenue,final_contract_value,created_at,updated_at')
       .order('updated_at', { ascending: false })
       .order('id', { ascending: true })
       .range(offset, offset + pageSize - 1);
@@ -660,7 +730,7 @@ async function getRowsByProjectIds(projectIds: string[], trace?: RequestTiming) 
   const [milestoneResult, scenarioResult, activityResult, outputDocumentResult] = await timeOperation(trace, 'dashboard.base_queries', () => Promise.all([
     supabaseAdmin
       .from('project_milestones')
-      .select('id,project_id,phase_id,pic_id,status,due_date')
+      .select('id,project_id,phase_id,pic_id,name,status,start_date,duration_working_days,step_order,due_date,workflow_stage:workflow_stages!project_milestones_workflow_stage_id_fkey(default_role)')
       .in('project_id', projectIds),
     supabaseAdmin
       .from('scenarios')

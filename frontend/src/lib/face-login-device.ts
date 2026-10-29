@@ -1,5 +1,5 @@
 /** Private key is non-exportable and stays in IndexedDB on this browser profile. */
-export type FaceDevice = { id: string; privateKey: CryptoKey; publicKey: JsonWebKey; registered: boolean; owner?: string };
+export type FaceDevice = { id: string; privateKey: CryptoKey; publicKey: JsonWebKey; registered: boolean; owner?: string; label?: string };
 const DB_NAME = 'workflow-camera-device-v1', STORE = 'device';
 function database(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
@@ -8,24 +8,32 @@ function database(): Promise<IDBDatabase> {
     open.onsuccess = () => resolve(open.result); open.onerror = () => reject(Error('FACE_DEVICE_UNAVAILABLE'));
   });
 }
-export async function getFaceDevice(): Promise<FaceDevice | null> {
+export async function getFaceDevices(): Promise<FaceDevice[]> {
   const db = await database();
   try { return await new Promise((resolve, reject) => {
-    const request = db.transaction(STORE, 'readonly').objectStore(STORE).get('current');
-    request.onsuccess = () => resolve(request.result || null); request.onerror = () => reject(Error('FACE_DEVICE_UNAVAILABLE'));
+    const request = db.transaction(STORE, 'readonly').objectStore(STORE).getAll();
+    request.onsuccess = () => resolve([...new Map((request.result || []).filter((d): d is FaceDevice => d && typeof d.id === 'string' && d.privateKey && d.publicKey).map(d => [d.id, d])).values()]);
+    request.onerror = () => reject(Error('FACE_DEVICE_UNAVAILABLE'));
   }); } finally { db.close(); }
+}
+export async function getFaceDevice(owner?: string): Promise<FaceDevice | null> {
+  const devices = await getFaceDevices();
+  return (owner ? devices.find(d => d.owner === owner) || devices.find(d => !d.owner && !d.registered) : devices.find(d => d.registered) || devices[0]) || null;
 }
 export async function saveFaceDevice(device: FaceDevice) {
   const db = await database();
   try { await new Promise<void>((resolve, reject) => {
-    const tx = db.transaction(STORE, 'readwrite'); tx.objectStore(STORE).put(device, 'current');
+    const tx = db.transaction(STORE, 'readwrite'), store = tx.objectStore(STORE);
+    store.put(device, device.owner ? `account:${device.owner}` : `device:${device.id}`);
+    if (device.owner) store.delete(`device:${device.id}`);
+    const legacy = store.get('current'); legacy.onsuccess = () => { if (legacy.result?.id === device.id) store.delete('current'); };
     tx.oncomplete = () => resolve(); tx.onerror = tx.onabort = () => reject(Error('FACE_DEVICE_UNAVAILABLE'));
   }); } finally { db.close(); }
 }
-export async function newFaceDevice(): Promise<FaceDevice> {
+export async function newFaceDevice(owner?: string, label?: string): Promise<FaceDevice> {
   if (!window.isSecureContext || !crypto.subtle || !window.indexedDB) throw Error('FACE_DEVICE_UNAVAILABLE');
   const pair = await crypto.subtle.generateKey({ name: 'ECDSA', namedCurve: 'P-256' }, false, ['sign', 'verify']);
-  const device: FaceDevice = { id: crypto.randomUUID(), privateKey: pair.privateKey, publicKey: await crypto.subtle.exportKey('jwk', pair.publicKey), registered: false };
+  const device: FaceDevice = { id: crypto.randomUUID(), privateKey: pair.privateKey, publicKey: await crypto.subtle.exportKey('jwk', pair.publicKey), registered: false, ...(owner ? { owner, label } : {}) };
   await saveFaceDevice(device); return device;
 }
 export type FaceChallenge = { id: string; nonce: string; deviceId: string; action: 'enroll' | 'login' | 'login-passive' | 'passive-test'; direction: 'left' | 'right'; expiresAt: string };

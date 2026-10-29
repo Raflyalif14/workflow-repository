@@ -7,7 +7,8 @@ import { useLanguage } from "@/components/i18n/language-provider";
 import { translate as translateI18n, translateStoredError, type TranslationKey } from "@/i18n";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { FolderArchive, Search, X } from "lucide-react";
+import { CheckCircle2, Files, FolderArchive, Link2, Search, X } from "lucide-react";
+import { ListSummary } from '@/components/list-summary';
 import { DocumentRow, OutputRepositoryRow } from "@/components/documents/document-repository-rows";
 import { formatDocumentCategory } from "@/lib/document-surface-ux";
 import { useAuth } from "@/components/auth/auth-provider";
@@ -100,10 +101,10 @@ function DocumentsContent() {
   const paged = useMemo(() => paginateRepositoryItems(visibleItems, page), [visibleItems, page]);
   const documentDownload = useDocumentDownloadUrl();
   const snapshot = [
-      { label: translateI18n("documentPage.available"), value: visibleItems.length },
-      { label: translateI18n("documentStatus.APPROVED"), value: visibleItems.filter((item) => item.sourceType === "OUTPUT" || item.document.status === "APPROVED").length },
-      { label: translateI18n("documentPage.relatedMilestone"), value: visibleItems.filter((item) => item.sourceType === "OUTPUT" || Boolean(item.document.milestoneId)).length },
-      { label: translateI18n("documentPage.projectOutputs"), value: visibleItems.filter((item) => item.sourceType === "OUTPUT").length },
+      { label: translateI18n("listSummary.documentTotal"), value: visibleItems.length, scope: translateI18n('listSummary.filtered'), icon: FolderArchive, primary: true },
+      { label: translateI18n("listSummary.documentApproved"), value: visibleItems.filter((item) => item.sourceType === "OUTPUT" || item.document.status === "APPROVED").length, scope: translateI18n('listSummary.filtered'), icon: CheckCircle2 },
+      { label: translateI18n("listSummary.documentLinked"), value: visibleItems.filter((item) => item.sourceType === "OUTPUT" || Boolean(item.document.milestoneId)).length, scope: translateI18n('listSummary.filtered'), icon: Link2 },
+      { label: translateI18n("listSummary.documentOutputs"), value: visibleItems.filter((item) => item.sourceType === "OUTPUT").length, scope: translateI18n('listSummary.filtered'), icon: Files },
     ];
   const hasFilters = Boolean(search || categoryFilter !== "ALL" || statusFilter !== "ALL" || activeGroup !== "ALL");
 
@@ -174,24 +175,9 @@ function DocumentsContent() {
         <p className="mt-1 max-w-2xl text-sm text-muted-foreground">{translateI18n(pageCopy.description)}</p>
       </header>
 
-      <section
-        aria-label={translateI18n("documentPage.summary")}
-        className="grid grid-cols-2 overflow-hidden page-surface xl:grid-cols-4"
-      >
-        {snapshot.map((item, index) => (
-          <div
-            key={item.label}
-            className={`border-border/60 px-4 py-3.5 sm:px-5 ${
-              index % 2 === 1 ? "border-l" : ""
-            } ${index >= 2 ? "border-t" : ""} ${
-              index > 0 ? "xl:border-l" : ""
-            } xl:border-t-0`}
-          >
-            <p className="text-2xl font-semibold text-foreground">{loadState === "ready" ? item.value : "—"}</p>
-            <p className="mt-0.5 text-xs text-muted-foreground">{item.label}</p>
-          </div>
-        ))}
-      </section>
+      <ListSummary aria-label={translateI18n('documentPage.summary')} description={translateI18n('listSummary.documentHelp')}
+        items={snapshot} loading={loadState !== 'ready' && !isError} hasError={isError}
+        refreshing={documentsQuery.isFetching || outputsQuery.isFetching} />
 
       <section className="overflow-hidden page-surface">
         <div className="space-y-4 border-b border-border/60 p-4 sm:p-5">

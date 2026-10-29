@@ -17,7 +17,7 @@ const find = (node: any, predicate: (v: any) => boolean): any => {
   for (const child of React.Children.toArray(node.props?.children)) { const value = find(child, predicate); if (value) return value; } return null;
 };
 async function run() {
-  const originals = { window: globalThis.window, api: api.apiClient, get: device.getFaceDevice, save: device.saveFaceDevice, capture: device.captureFaceFrame, burst: passive.captureFaceBurst,
+  const originals = { window: globalThis.window, api: api.apiClient, list: device.getFaceDevices, get: device.getFaceDevice, save: device.saveFaceDevice, capture: device.captureFaceFrame, burst: passive.captureFaceBurst,
     document: globalThis.document, setTimeout: globalThis.setTimeout, clearTimeout: globalThis.clearTimeout,
     useCamera: camera.useCameraPreview, useAuth: auth.useAuth, useLanguage: language.useLanguage };
   const slots: any[] = [], cleanups: any[] = [];
@@ -38,7 +38,8 @@ async function run() {
   (camera as any).useCameraPreview = () => ({ ...cameraState });
   (auth as any).useAuth = () => ({ user, completeFaceLogin: () => { signedIn++; } });
   (language as any).useLanguage = () => ({ t: (key: string) => key });
-  (device as any).getFaceDevice = async () => stored;
+  (device as any).getFaceDevices = async () => [stored];
+  (device as any).getFaceDevice = async (owner?: string) => owner && stored.owner && owner !== stored.owner ? null : stored;
   (device as any).saveFaceDevice = async (value: device.FaceDevice) => { stored = value; };
   (device as any).captureFaceFrame = async () => {
     photos++;
@@ -202,8 +203,8 @@ async function run() {
     assert(!find(render(), n => n.props?.children === 'faceLogin.alreadySetUp'));
     (device as any).saveFaceDevice = async (value: device.FaceDevice) => { stored = value; };
     stored = { ...stored, registered: true, owner: crypto.randomUUID() }; await reset(true);
-    assert(!find(render(), n => n.props?.id === 'face-enroll-password'), 'Another account cannot enter the setup flow for this device');
-    assert(find(render(), n => n.props?.children === 'faceLogin.FACE_DEVICE_OTHER'));
+    assert(find(render(), n => n.props?.id === 'face-enroll-password'), 'A different account can create a separate face registration in this browser');
+    assert(!find(render(), n => n.props?.children === 'faceLogin.FACE_DEVICE_OTHER'));
     const otherManager = find(render(), n => n.type === FaceDeviceManager);
     assert.equal(otherManager.props.currentDeviceId, null);
     await otherManager.props.onRemoved(null);
@@ -212,7 +213,7 @@ async function run() {
   } finally {
     cleanups.forEach(fn=>fn?.()); (globalThis as any).window=originals.window;
     (globalThis as any).document=originals.document; globalThis.setTimeout=originals.setTimeout; globalThis.clearTimeout=originals.clearTimeout;
-    (api as any).apiClient=originals.api; (device as any).getFaceDevice=originals.get; (device as any).saveFaceDevice=originals.save; (device as any).captureFaceFrame=originals.capture;
+    (api as any).apiClient=originals.api; (device as any).getFaceDevices=originals.list; (device as any).getFaceDevice=originals.get; (device as any).saveFaceDevice=originals.save; (device as any).captureFaceFrame=originals.capture;
     (passive as any).captureFaceBurst=originals.burst;
     (camera as any).useCameraPreview=originals.useCamera; (auth as any).useAuth=originals.useAuth; (language as any).useLanguage=originals.useLanguage;
   }

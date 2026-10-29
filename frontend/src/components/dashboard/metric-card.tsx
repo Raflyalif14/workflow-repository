@@ -104,24 +104,24 @@ const getMetricVisual = (label: string): MetricVisual => {
   };
 };
 
-export function MetricCard({ metric }: { metric: SummaryMetric }) {
+export function MetricCard({ metric, compact = false }: { metric: SummaryMetric; compact?: boolean }) {
   const visual = getMetricVisual(metric.label);
   const Icon = visual.icon;
 
   return (
-    <div className="dashboard-surface min-w-0 p-4 sm:p-5">
-      <div className="flex min-w-0 items-start justify-between gap-3">
+    <div className={`dashboard-surface flex h-full min-w-0 flex-1 flex-col p-4 ${compact ? '' : 'sm:p-5'}`}>
+      <div className={`flex min-w-0 items-start justify-between gap-3 ${compact ? '' : 'sm:min-h-10'}`}>
         <div className="min-w-0">
           <p className="text-xs font-medium leading-5 text-muted-foreground">{metricLabels[metric.label] ? translateI18n(metricLabels[metric.label]) : metric.label}</p>
         </div>
-        <span className={["flex h-8 w-8 shrink-0 items-center justify-center rounded-lg sm:h-9 sm:w-9", visual.iconClassName].join(" ")}>
+        <span className={["flex h-8 w-8 shrink-0 items-center justify-center rounded-lg", compact ? '' : 'sm:h-9 sm:w-9', visual.iconClassName].join(" ")}>
           <Icon className="h-4 w-4" />
         </span>
       </div>
-      <p className="mt-1 min-w-0 break-words text-xl font-semibold tabular-nums text-foreground [overflow-wrap:anywhere] sm:text-2xl xl:text-xl 2xl:text-2xl">
+      <p className={`mt-1 min-w-0 flex-1 break-words text-xl font-semibold tabular-nums text-foreground [overflow-wrap:anywhere] ${compact ? '' : 'sm:text-2xl xl:text-xl 2xl:text-2xl'}`}>
         {metric.label === "Total estimated revenue" ? formatRevenue(metric.value) : metric.value}
       </p>
-      <p className="mt-3 hidden text-xs leading-5 text-muted-foreground sm:block">{visual.description}</p>
+      <p className={compact ? 'sr-only' : 'mt-3 hidden text-xs leading-5 text-muted-foreground sm:block sm:min-h-10'}>{visual.description}</p>
     </div>
   );
 }

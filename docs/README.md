@@ -5,6 +5,9 @@ Mulai dari daftar ini; tidak perlu membaca seluruh folder. Berkas tes, gambar, d
 | Kebutuhan | Buka |
 | --- | --- |
 | Struktur aplikasi dan cara menjalankan | [README utama](../README.md) |
+| Penyesuaian workflow, milestone paralel, dan bukti outcome | [Workflow 22-29 Oktober 2026](workflow-requirements-2026-10-22.md) |
+| Dukungan tema gelap (Dark mode) | [Dark mode 22 Oktober 2026](dark-mode-2026-10-22.md) |
+| Penyelarasan ringkasan dashboard dan pipeline | [Ringkasan dashboard 22 Oktober 2026](dashboard-summary-alignment-2026-10-22.md) |
 | Hasil pemeriksaan dan perapian terbaru | [Audit 20 Oktober 2026](workspace-cleanup-2026-10-20.md), [arsip source lama](workspace-cleanup-2026-10-15.md) |
 | Pemeriksaan otomatis frontend dan perbaikan pesan | [Hasil tes 16 Oktober 2026](frontend-testing-2026-10-16.md) |
 | Pemeriksaan backend saat push ke GitHub | [Tes backend otomatis](backend-ci-2026-10-20.md) |

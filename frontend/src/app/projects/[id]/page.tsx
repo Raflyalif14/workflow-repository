@@ -1,4 +1,8 @@
 "use client";
+import { compareMilestoneSchedule, getScheduledWorkStage } from '@/lib/milestone-order';
+import { projectDisplayStatus } from '@/lib/project-display-status';
+import { useOutcomeEvidence } from '@/hooks/use-outcome-evidence';
+import { OutcomeEvidenceField } from '@/components/projects/outcome-evidence-field';
 
 import { ProjectDocumentSharing } from "@/components/projects/project-document-sharing";
 import { ProjectReportExport } from "@/components/projects/project-report-export";
@@ -35,7 +39,6 @@ import { Input } from "@/components/ui/input";
 import { isMilestoneCompleted } from "@/lib/milestone-ui-state";
 import {
   formatProjectStatusLabel,
-  resolveCurrentStage,
   resolveNextAction,
   resolveNextActionTargetId,
 } from "@/lib/workflow-ux-helpers";
@@ -68,7 +71,7 @@ export default function ProjectDetailPage() {
   const { data: project, isLoading: projectLoading, isError, refetch: refetchProject } = useProject(id, { includeActivity: false });
   const { data: milestoneData, isLoading: milestonesLoading, isError: milestonesError, refetch: refetchMilestones } = useProjectMilestones(id);
   const allMilestones = useMemo(() => milestoneData ?? [], [milestoneData]);
-  const milestones = useMemo(() => activePhaseMilestones(project, allMilestones), [allMilestones, project]);
+  const milestones = useMemo(() => [...activePhaseMilestones(project, allMilestones)].sort(compareMilestoneSchedule), [allMilestones, project]);
   const outputReadiness = useOutputDocuments(id);
   const progress = !milestonesError && milestoneData ? calculateProjectMilestoneProgress(milestones) : null;
   const { data: planApproval } = useProjectPlanApproval(id);
@@ -86,6 +89,7 @@ export default function ProjectDetailPage() {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [outcomeDecision, setOutcomeDecision] = useState<"WON" | "LOST" | null>(null);
+  const evidence = useOutcomeEvidence(project?.id || '');
   const [finalContractValue, setFinalContractValue] = useState("");
   const [lossReason, setLossReason] = useState("");
   const [expandedMilestones, setExpandedMilestones] = useState<Set<string>>(() => new Set());
@@ -179,7 +183,7 @@ export default function ProjectDetailPage() {
   const isHeadSaPlanReviewWorkspace =
     isHeadSa && isDraft && planApproval?.status === "PENDING";
 
-  const currentStageMilestone = resolveCurrentStage(milestones);
+  const currentStageMilestone = getScheduledWorkStage(milestones);
   const assignPicIsCurrent = milestones.some(
     (m) => m.status === "IN_PROGRESS" && m.name.trim().toLowerCase() === "assign pic"
   );
@@ -243,10 +247,13 @@ export default function ProjectDetailPage() {
       setError("projectDetail.lossReasonRequired");
       return;
     }
+    if (!evidence.files.length) { setError('workflowUpdate.evidenceRequired'); return; }
     if (!outcomeConfirming) { setOutcomeConfirming(true); return; }
     outcomeSaving.current = true;
     try {
+      const evidenceIds = await evidence.prepare();
       await setProjectOutcome.mutateAsync({
+        evidenceDocumentIds: evidenceIds,
         outcome: outcomeDecision,
         finalContractValue: outcomeDecision === "WON" ? parsedFinalContractValue : undefined,
         lossReason: outcomeDecision === "LOST" ? lossReason : undefined,
@@ -255,6 +262,7 @@ export default function ProjectDetailPage() {
       setOutcomeDecision(null); setOutcomeConfirming(false);
       setFinalContractValue("");
       setLossReason("");
+      evidence.reset();
     } catch (outcomeError) {
       setError(outcomeError instanceof ApiError && outcomeError.status === 409 ? "businessAudit.stale" : "projectDetail.resultFailed");
     } finally { outcomeSaving.current = false; }
@@ -305,7 +313,7 @@ export default function ProjectDetailPage() {
       <header className="flex flex-col gap-4 pb-1 sm:flex-row sm:items-start sm:justify-between">
         <div className="max-w-4xl space-y-3">
           <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-            <StatusBadge status={project.status} />
+            <StatusBadge status={project.status} label={projectDisplayStatus(project)} />
           </div>
           <h1 className="text-2xl font-semibold text-foreground sm:text-3xl">{project.name}</h1>
           <p className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-sm text-muted-foreground">
@@ -412,7 +420,7 @@ export default function ProjectDetailPage() {
                 type="button"
                 size="sm"
                 className="flex-1 sm:flex-none"
-                disabled={setProjectOutcome.isPending}
+                disabled={setProjectOutcome.isPending || evidence.isUploading}
                 onClick={() => {
                   setError("");
                   setOutcomeDecision("WON");
@@ -425,7 +433,7 @@ export default function ProjectDetailPage() {
                 size="sm"
                 variant="outline"
                 className="flex-1 sm:flex-none"
-                disabled={setProjectOutcome.isPending}
+                disabled={setProjectOutcome.isPending || evidence.isUploading}
                 onClick={() => {
                   setError("");
                   setOutcomeDecision("LOST");
@@ -445,7 +453,7 @@ export default function ProjectDetailPage() {
       <Dialog
         open={Boolean(outcomeDecision)}
         onOpenChange={(open) => {
-          if (!open && !setProjectOutcome.isPending) { setOutcomeDecision(null); setOutcomeConfirming(false); setError(""); }
+          if (!open && !setProjectOutcome.isPending && !outcomeSaving.current) { setOutcomeDecision(null); setOutcomeConfirming(false); setError(""); }
         }}
       >
         <DialogHeader>
@@ -476,7 +484,7 @@ export default function ProjectDetailPage() {
                 inputMode="decimal"
                 value={finalContractValue}
                 onChange={(event) => { setProjectOutcome.prepare?.(); setFinalContractValue(event.target.value); setOutcomeConfirming(false); }}
-                disabled={setProjectOutcome.isPending}
+                disabled={setProjectOutcome.isPending || evidence.isUploading}
                 required
               />
             </div>
@@ -490,15 +498,16 @@ export default function ProjectDetailPage() {
                 value={lossReason}
                 onChange={(event) => { setProjectOutcome.prepare?.(); setLossReason(event.target.value); setOutcomeConfirming(false); }}
                 className="min-h-24 w-full rounded-lg border border-input bg-card px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
-                disabled={setProjectOutcome.isPending}
+                disabled={setProjectOutcome.isPending || evidence.isUploading}
                 maxLength={2000}
                 required
               />
             </div>
           )}
+          <OutcomeEvidenceField files={evidence.files} onChange={files => { evidence.setFiles(files); setOutcomeConfirming(false); }} disabled={setProjectOutcome.isPending || evidence.isUploading} />
           {outcomeConfirming && <p className="whitespace-pre-wrap text-sm">{translateI18n("businessAudit.final")} {project.name}: {formatProjectStatusLabel(project.status)} {" -> "} {formatProjectStatusLabel(outcomeDecision || "")} - {outcomeDecision === "WON" ? formatIdr(Number(finalContractValue)) : lossReason}</p>}
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => { setOutcomeDecision(null); setOutcomeConfirming(false); setError(""); }} disabled={setProjectOutcome.isPending}>
+            <Button type="button" variant="outline" onClick={() => { setOutcomeDecision(null); setOutcomeConfirming(false); setError(""); }} disabled={setProjectOutcome.isPending || evidence.isUploading}>
               {translateI18n("common.cancel")}
             </Button>
             <Button type="submit" disabled={setProjectOutcome.isPending || error === "businessAudit.stale"}>
@@ -701,6 +710,7 @@ export default function ProjectDetailPage() {
                   project={project}
                   milestone={milestone}
                   isFinalMilestone={!milestones.some((candidate) => candidate.step_order > milestone.step_order)}
+                  finalPrerequisitesComplete={milestones.every(candidate => candidate.id === milestone.id || ['COMPLETED','APPROVED'].includes(candidate.status))}
                   isCurrentStage={currentStageMilestone?.id === milestone.id}
                   hasNextCreatedMilestone={milestones.filter((candidate) => candidate.step_order > milestone.step_order)
                     .sort((left, right) => left.step_order - right.step_order)[0]?.status === "CREATED"}

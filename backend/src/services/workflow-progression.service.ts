@@ -1,10 +1,10 @@
 import { activePhaseProject, phaseRows } from './project-phase.service';
 import { supabaseAdmin } from '../config/supabase';
-import { notifySalesMilestoneStarted } from './milestone-notification.service';
 import { NotificationService } from './notification.service';
 import { runNotificationBestEffort } from './notification-dispatch.service';
 import { getProjectMandatoryDocumentKeys, resolveScenarioKey } from '../constants/scenarios';
 import { projectOutcomeSchema, ProjectOutcomeInput } from '../validators/project-management.validator';
+import { compareMilestoneSchedule } from '../utils/milestone-order';
 
 export type WorkflowActor = {
   userId: string;
@@ -33,10 +33,12 @@ type WorkflowMilestone = {
   status: string;
   pic_id: string | null;
   completed_at: string | null;
+  start_date?: string | null;
+  duration_working_days?: number | null;
   workflow_stage: { default_role: string } | { default_role: string }[] | null;
 };
 
-const milestoneSelect = 'id,project_id,phase_id,name,step_order,status,pic_id,completed_at,workflow_stage:workflow_stages!project_milestones_workflow_stage_id_fkey(default_role)';
+const milestoneSelect = 'id,project_id,phase_id,name,step_order,status,pic_id,completed_at,start_date,duration_working_days,workflow_stage:workflow_stages!project_milestones_workflow_stage_id_fkey(default_role)';
 
 const normalizeRelatedOne = <T>(value: T | T[] | null): T | null =>
   Array.isArray(value) ? value[0] || null : value || null;
@@ -202,7 +204,7 @@ export async function advanceToNextMilestone(
     return { next_milestone: null, started: false, project_completed: false, blocked_reason: 'PROJECT_NOT_ACTIVE' as const };
   }
 
-  const next = milestones.find((milestone) => milestone.step_order > current.step_order) || null;
+  const next = [...milestones].filter(milestone => !isMilestoneCompletedLike(milestone.status)).sort(compareMilestoneSchedule)[0] || null;
 
   if (!next) {
     const allCompleted = milestones.length > 0 && milestones.every((milestone) => isMilestoneCompletedLike(milestone.status));
@@ -276,69 +278,12 @@ export async function advanceToNextMilestone(
     return existingNextMilestoneResult(next);
   }
 
-  const stageRole = stageRoleOf(next);
-  const picId = next.pic_id || (stageRole === 'SA' ? project.pic_id : null);
-  const autoStartBlockReason = getAutoStartBlockReason(stageRole, picId);
-  if (autoStartBlockReason) {
-    return {
-      next_milestone: { id: next.id, name: next.name, step_order: next.step_order, status: next.status },
-      started: false,
-      project_completed: false,
-      blocked_reason: autoStartBlockReason,
-    };
+  // Parallel stages are explicitly started by their owner once their planning date arrives.
+  // Do not auto-start a later numbered stage or a stage scheduled in the future.
+  return { next_milestone: { id: next.id, name: next.name, step_order: next.step_order, status: next.status },
+    started: false, project_completed: false, blocked_reason: 'START_MANUALLY' as const };
+
   }
-
-  let startRequest = supabaseAdmin
-    .from('project_milestones')
-    .update({
-      status: 'IN_PROGRESS',
-      ...(stageRole === 'SA' && !next.pic_id && picId ? { pic_id: picId } : {}),
-      updated_at: nowIso(),
-    })
-    .eq('id', next.id)
-    .eq('status', 'CREATED');
-  // Assignment may have populated PIC since this snapshot. Never overwrite it
-  // with an old project PIC while starting the next milestone.
-  if (stageRole === 'SA' && !next.pic_id && picId) startRequest = startRequest.is('pic_id', null);
-  const { data: startedMilestone, error } = await startRequest.select('id,name,step_order,status,pic_id').maybeSingle();
-
-  if (error) throw new Error(error.message);
-  if (!startedMilestone) {
-    const [latestProject, latestMilestones] = await Promise.all([getProject(projectId), getProjectMilestones(projectId)]);
-    if ((latestProject.status === 'COMPLETED' || RESULT_PHASE_STATUSES.has(latestProject.status)) && !latestProject.is_postponed) {
-      return { next_milestone: null, started: false, project_completed: true, blocked_reason: null };
-    }
-    if (latestProject.status !== 'ACTIVE' || latestProject.is_postponed) {
-      return { next_milestone: null, started: false, project_completed: false, blocked_reason: 'PROJECT_NOT_ACTIVE' as const };
-    }
-    const latestNext = phaseRows(latestMilestones as (WorkflowMilestone & { phase_id?: string })[], latestProject.active_phase_id).find((milestone) => milestone.id === next.id);
-    if (latestNext && latestNext.status !== 'CREATED') return existingNextMilestoneResult(latestNext);
-    return {
-      next_milestone: { id: next.id, name: next.name, step_order: next.step_order, status: next.status },
-      started: false,
-      project_completed: false,
-      blocked_reason: 'STALE_NEXT_MILESTONE' as const,
-    };
-  }
-
-  await logWorkflowActivityBestEffort(actor, project.id, 'MILESTONE_STARTED', `${actor.fullName} started milestone '${startedMilestone.name}'`);
-  if (stageRole === 'SALES') {
-    await notifySalesMilestoneStarted({
-      projectId: project.id,
-      projectName: project.name,
-      milestoneId: startedMilestone.id,
-      milestoneName: startedMilestone.name,
-      salesOwnerId: project.sales_id,
-    });
-  }
-
-  return {
-    next_milestone: startedMilestone,
-    started: true,
-    project_completed: false,
-    blocked_reason: null,
-  };
-}
 
 function assertCanCompleteOrReconcile(milestone: WorkflowMilestone, project: WorkflowProject, actor: WorkflowActor) {
   assertActorCanComplete(milestone, project, actor);
@@ -401,13 +346,14 @@ export async function completeMilestoneStage(milestoneId: string, actor: Workflo
       throw new Error('Project scenario is not available for completion.');
     }
     const mandatoryKeys = getProjectMandatoryDocumentKeys(scenario.name, Boolean(project.active_phase_id));
-    const { data, error } = await supabaseAdmin.rpc(project.active_phase_id ? 'complete_phase_final_sales_milestone_with_outcome' : 'complete_final_sales_milestone_with_outcome', {
+    const { data, error } = await supabaseAdmin.rpc('complete_final_sales_with_evidence', {
       p_milestone_id: milestone.id,
       p_sales_id: actor.userId,
       p_outcome: parsed.data.outcome,
       p_final_contract_value: parsed.data.outcome === 'WON' ? parsed.data.final_contract_value : null,
       p_loss_reason: parsed.data.outcome === 'LOST' ? parsed.data.loss_reason : null,
       p_required_output_keys: mandatoryKeys,
+      p_evidence_document_ids: parsed.data.evidence_document_ids,
     });
     if (error) {
       const safeMessages = new Set([

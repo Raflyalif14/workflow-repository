@@ -55,10 +55,12 @@ export const estimatedValueSchema = z.object({
 }).strict();
 export type EstimatedValueInput = z.infer<typeof estimatedValueSchema>;
 export const projectOutcomeSchema = z.object({
+  evidence_document_ids: z.array(z.string().uuid()).min(1).max(10).optional(),
   outcome: z.enum(['WON', 'LOST']),
   final_contract_value: z.coerce.number().finite().positive().optional(),
   loss_reason: z.string().trim().min(1).max(2000).optional(),
 }).superRefine((value, context) => {
+  if (!value.evidence_document_ids?.length || new Set(value.evidence_document_ids).size !== value.evidence_document_ids.length) context.addIssue({code:z.ZodIssueCode.custom,path:['evidence_document_ids'],message:'Valid result evidence is required.'});
   if (value.outcome === 'WON' && value.final_contract_value === undefined) {
     context.addIssue({ code: z.ZodIssueCode.custom, path: ['final_contract_value'], message: 'Final contract value is required for WON.' });
   }

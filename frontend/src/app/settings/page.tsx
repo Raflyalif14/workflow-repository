@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { PersonalNotificationSettings } from "@/components/settings/personal-notification-settings";
 import { getAuthSession } from "@/lib/auth";
+import { AppearanceSettings } from "@/components/settings/appearance-settings";
 
 export default function SettingsPage() {
   const { user } = useAuth();
@@ -38,6 +39,7 @@ export default function SettingsPage() {
         </CardContent>
       </Card>
 
+      <AppearanceSettings />
       <PersonalNotificationSettings key={`${user?.id ?? "anonymous"}:${getAuthSession()?.id ?? "none"}`} />
 
       {user?.isActive && !user.mustChangePassword && <Card>

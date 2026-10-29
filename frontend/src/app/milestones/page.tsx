@@ -5,7 +5,8 @@ import { translate as translateI18n, type TranslationKey } from "@/i18n";
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { CalendarDays, FolderKanban, List } from "lucide-react";
+import { CalendarDays, CheckCircle2, ClipboardList, Clock3, FolderKanban, List } from "lucide-react";
+import { ListSummary } from '@/components/list-summary';
 import { useAuth } from "@/components/auth/auth-provider";
 import { Button } from "@/components/ui/button";
 import { useMyAssignedMilestones } from "@/hooks/use-projects";
@@ -81,16 +82,16 @@ export default function MilestonesPage() {
   }, [activeTab, completed, milestones, needsAction, underReview]);
   const snapshot = isHeadSa
     ? [
-        { label: translateI18n("milestonePage.assignedActions"), value: needsAction.length },
-        { label: translateI18n("milestonePage.pendingReviews"), value: reviewableOutputs.length },
-        { label: translateI18n("milestonePage.ownReview"), value: underReview.length },
-        { label: translateI18n("milestonePage.completedAssignments"), value: completed.length },
+        { label: translateI18n("milestonePage.assignedActions"), value: needsAction.length, scope: translateI18n('listSummary.assigned'), icon: ClipboardList, primary: true },
+        { label: translateI18n("listSummary.outputReview"), value: reviewableOutputs.length, scope: translateI18n('listSummary.teamOutputs'), icon: FolderKanban },
+        { label: translateI18n("listSummary.milestoneOwnReview"), value: underReview.length, scope: translateI18n('listSummary.assigned'), icon: Clock3 },
+        { label: translateI18n("listSummary.milestoneComplete"), value: completed.length, scope: translateI18n('listSummary.assigned'), icon: CheckCircle2 },
       ]
     : [
-        { label: translateI18n("milestonePage.needsAction"), value: needsAction.length },
-        { label: translateI18n("milestonePage.underReview"), value: underReview.length },
-        { label: translateI18n("projectStatus.COMPLETED"), value: completed.length },
-        { label: translateI18n("milestonePage.totalAssigned"), value: milestones.length },
+        { label: translateI18n("milestonePage.needsAction"), value: needsAction.length, scope: translateI18n('listSummary.assigned'), icon: ClipboardList, primary: true },
+        { label: translateI18n("milestonePage.underReview"), value: underReview.length, scope: translateI18n('listSummary.assigned'), icon: Clock3 },
+        { label: translateI18n("listSummary.milestoneComplete"), value: completed.length, scope: translateI18n('listSummary.assigned'), icon: CheckCircle2 },
+        { label: translateI18n("milestonePage.totalAssigned"), value: milestones.length, scope: translateI18n('listSummary.assigned'), icon: FolderKanban },
       ];
 
   return (
@@ -111,7 +112,7 @@ export default function MilestonesPage() {
       </header>
 
       {user && ["SA", "HEAD_SA", "SALES", "SUPER_ADMIN"].includes(userRole) && (
-        <div className="inline-flex gap-1 rounded-xl border border-border/60 bg-white p-1" role="group" aria-label={translateI18n("deadlineCalendar.view")}>
+        <div className="inline-flex gap-1 rounded-xl border border-border/60 bg-card p-1" role="group" aria-label={translateI18n("deadlineCalendar.view")}>
           <Button size="sm" variant={view === "LIST" ? "secondary" : "ghost"} aria-pressed={view === "LIST"} onClick={() => setView("LIST")} className="gap-2"><List className="h-4 w-4" />{translateI18n("deadlineCalendar.list")}</Button>
           <Button size="sm" variant={view === "CALENDAR" ? "secondary" : "ghost"} aria-pressed={view === "CALENDAR"} onClick={() => setView("CALENDAR")} className="gap-2"><CalendarDays className="h-4 w-4" />{translateI18n("deadlineCalendar.calendar")}</Button>
         </div>
@@ -130,24 +131,9 @@ export default function MilestonesPage() {
         </section>
       ) : (
         <>
-          <section
-            aria-label={translateI18n("milestonePage.snapshot")}
-            className="grid grid-cols-2 overflow-hidden page-surface xl:grid-cols-4"
-          >
-            {snapshot.map((item, index) => (
-              <div
-                key={item.label}
-                className={`border-border/60 px-4 py-3.5 sm:px-5 ${
-                  index % 2 === 1 ? "border-l" : ""
-                } ${index >= 2 ? "border-t" : ""} ${
-                  index > 0 ? "xl:border-l" : ""
-                } xl:border-t-0`}
-              >
-                <p className="text-2xl font-semibold text-foreground">{item.value}</p>
-                <p className="mt-0.5 text-xs text-muted-foreground">{item.label}</p>
-              </div>
-            ))}
-          </section>
+          <ListSummary aria-label={translateI18n('milestonePage.snapshot')} description={translateI18n(isHeadSa ? 'listSummary.milestoneHeadHelp' : 'listSummary.milestoneHelp')}
+            items={snapshot} loading={isLoading || isHeadSa && pendingReviewsLoading} hasError={isError || isHeadSa && pendingReviewsError}
+            refreshing={isFetching || isHeadSa && pendingReviewsFetching} />
 
           <section className="overflow-hidden page-surface">
             <div className="border-b border-border/60 p-4 sm:px-5">

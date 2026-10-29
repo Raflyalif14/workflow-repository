@@ -12,6 +12,7 @@ import { isPraTenderDecisionPending, isProjectClosedAtPraTender } from "./phase-
 import { isMilestoneCompleted } from "./milestone-ui-state";
 import { formatMilestoneDate, isInitialSubmissionBeforeEffectiveStart } from "./dates";
 import { translateMilestoneStatus, translateProjectStatus, translateRole } from "@/i18n";
+import { compareMilestoneSchedule } from "./milestone-order";
 
 export { formatMilestoneDate, isInitialSubmissionBeforeEffectiveStart } from "./dates";
 
@@ -157,7 +158,7 @@ export function resolveCurrentStage(
 ): ProjectMilestonePhase4 | null {
   if (!milestones.length) return null;
 
-  const sorted = [...milestones].sort((a, b) => a.step_order - b.step_order);
+  const sorted = [...milestones].sort(compareMilestoneSchedule);
 
   // 1. Look for milestone currently in active progress / submitted / rejected
   const activeMilestone = sorted.find((m) =>

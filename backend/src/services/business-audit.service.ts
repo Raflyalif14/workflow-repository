@@ -29,7 +29,7 @@ export async function mutateBusiness(projectId: string, actorId: string, action:
     if (error || !data?.updated_at) throw new BusinessAuditError('Unable to save changes.', 503);
     expected = data.updated_at;
   }
-  const { data, error } = await supabaseAdmin.rpc('mutate_project_business', {
+  const { data, error } = await supabaseAdmin.rpc(action === 'OUTCOME' ? 'mutate_project_outcome_with_evidence' : 'mutate_project_business', {
     p_project_id: projectId, p_actor_id: actorId, p_action: action, p_payload: payload,
     p_expected_updated_at: expected, p_request_id: context.requestId || randomUUID(),
   });

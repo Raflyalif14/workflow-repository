@@ -76,3 +76,7 @@ Desktop.ini
 backend/uploads/
 # Generated source maps
 *.js.map
+
+# Local generated report outputs (DOCX, PDF, PNG)
+outputs/
+

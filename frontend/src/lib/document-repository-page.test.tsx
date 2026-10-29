@@ -8,8 +8,9 @@ import DocumentsPage from '../app/documents/page';
 import { Button } from '../components/ui/button';
 import { translate, setActiveLanguage } from '../i18n';
 import { setAuthTokens, clearStoredAuth } from './auth';
+import { ListSummary } from '../components/list-summary';
 
-const nodes = (node: any): any[] => Array.isArray(node) ? node.flatMap(nodes) : !isValidElement(node) ? [] : [node, ...nodes((node.props as any).children)];
+const nodes = (node: any): any[] => Array.isArray(node) ? node.flatMap(nodes) : !isValidElement(node) ? [] : node.type === ListSummary ? nodes(ListSummary(node.props as any)) : [node, ...nodes((node.props as any).children)];
 const originals = { state: React.useState, memo: React.useMemo, effect: React.useEffect, ref: React.useRef,
   auth: auth.useAuth, language: language.useLanguage, documents: documents.useDocuments, outputs: outputs.useOutputRepository,
   download: documents.useDocumentDownloadUrl, outputDownload: outputs.useOutputRepositoryDownload, window: (globalThis as any).window };
@@ -30,7 +31,7 @@ let output:any = { ...official };
 (documents as any).useDocumentDownloadUrl = () => ({ isPending:false }); (outputs as any).useOutputRepositoryDownload = () => ({});
 const render = () => { stateIndex=0; const page=DocumentsPage() as any; return nodes(page.type(page.props)); };
 const summary = (tree:any[]) => tree.find(node => node.type==='section' && node.props['aria-label']===translate('documentPage.summary'));
-const counters = (tree:any[]) => nodes(summary(tree)).filter(node => node.type==='p' && typeof node.props.children==='number').map(node => node.props.children);
+const counters = (tree:any[]) => nodes(summary(tree)).filter(node => typeof node.props['data-summary-value']==='number').map(node => node.props['data-summary-value']);
 try {
   let tree=render(); assert.deepEqual(counters(tree),[0,0,0,0],'Successful empty result is valid zero');
   assert(tree.some(node => node.props.children===translate('documentPage.noAssignedResults')));

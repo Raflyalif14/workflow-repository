@@ -5,6 +5,14 @@ import { readApprovalRows } from './approval-rows';
 const one = (relation: any) => Array.isArray(relation) ? relation[0] : relation;
 function invalid(): never { throw new Error('Failed to load approval overview.'); }
 
+// Phase 35 makes these existing tender outputs optional. Older submitted
+// snapshots can still carry the stricter mandatory flag until migration runs.
+// Accept both versions for reading the queue; never relax selection, ownership,
+// phase, snapshot, file, or review authorization checks below.
+const formerlyRequiredTenderOutputs = new Set([
+  'timeline_proyek', 'identitas_barang_produk', 'spesifikasi_teknis_toc',
+]);
+
 export async function outputReviewQueue(projects: any[], milestones: any[], actor: { userId: string; role: string; fullName?: string }) {
   // SUPER_ADMIN has approved-only output access in the existing document policy.
   const visible = projects.filter(project => canReadNonFinalOutput(project, { ...actor, fullName: actor.fullName || '' }));
@@ -40,12 +48,15 @@ export async function outputReviewQueue(projects: any[], milestones: any[], acto
     const stage = one(milestone?.workflow_stage);
     const phase = (project?.phases || []).find((value: any) => value.id === row.phase_id);
     const definition = ALL_OUTPUT_DEFINITIONS.find(value => value.key === row.document_key);
+    const compatibleRequiredFlag = definition && (row.is_required === definition.isRequired
+      || (row.is_required === true && definition.isRequired === false
+        && definition.group === 'ON_SUBMISSION_TENDER' && formerlyRequiredTenderOutputs.has(row.document_key)));
     const version = versionMap.get(row.current_version_id);
     const snapshotRefs = refMap.get(row.current_version_id) || [];
     const hasPhases = Boolean(project?.active_phase_id);
     const legacyDefinitions = getProjectDocumentDefinitions(one(project?.scenario)?.name || '', false);
     if (!project || !definition || !milestone || milestone.project_id !== project.id
-      || !row.is_selected || row.is_required !== definition.isRequired
+      || !row.is_selected || !compatibleRequiredFlag
       || (hasPhases && !(project.phases || []).some((value: any) => value.id === project.active_phase_id && value.project_id === project.id))
       || (!hasPhases && !one(project.scenario)?.name)
       || !stage || stage.stage_key !== definition.stageKey || stage.default_role !== 'SA'

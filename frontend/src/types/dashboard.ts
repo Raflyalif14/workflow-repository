@@ -22,6 +22,10 @@ export interface StatusDistribution {
 }
 
 export interface ProjectProgress {
+  estimatedRevenue?: number | null;
+  finalRevenue?: number | null;
+  scenarioKey?: string;
+  currentStage?: string | null;
   id: string;
   name: string;
   projectCode: string;
@@ -75,6 +79,12 @@ export interface DashboardHeadSaProjectValues {
   won: { count: number; finalContractValue: number };
 }
 
+export interface DashboardSalesPipeline {
+  preTender: { active: number; postponed: number; estimatedRevenue: number };
+  submissionTender: { advancedFromPreTender: number; inProgress: number; waitingResult: number; postponed: number; estimatedRevenue: number };
+  results: { won: number; lost: number; finalRevenue: number };
+}
+
 export interface DashboardActivityPagination {
   projects?: Array<{ id: string; name: string }>;
   page: number;
@@ -97,6 +107,9 @@ export interface DashboardActivityFilters {
 }
 
 export interface DashboardData {
+  salesPipeline?: DashboardSalesPipeline | null;
+  projectPipeline?: DashboardSalesPipeline | null;
+  workTasks?: Array<{ id: string; projectId: string; projectName: string; name: string; status: string; dueDate: string | null; startDate: string | null; href?: string }>;
   allWorkStatus?: {
     total: number; planning: number; active: number; postponed: number;
     completed: number; won: number; lost: number; waitingResult: number; cancelled: number;

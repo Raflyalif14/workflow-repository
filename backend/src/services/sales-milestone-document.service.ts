@@ -1,3 +1,4 @@
+import { validateOutcomeEvidenceFiles } from "../utils/outcome-evidence";
 import { randomUUID } from 'crypto';
 import { supabaseAdmin } from '../config/supabase';
 import {
@@ -207,6 +208,27 @@ export class SalesMilestoneDocumentService {
     const context = await this.getContext(milestoneId);
     assertSalesMilestoneDocumentUploadAllowed(context, actor);
     this.assertFilesValid(files);
+
+    return this.persist(context, actor, files);
+  }
+
+  static async uploadEvidence(projectId: string, actor: Actor, files: Express.Multer.File[]) {
+    const { data: project, error } = await supabaseAdmin.from('projects').select('id,sales_id,status,is_postponed,active_phase_id').eq('id',projectId).single();
+    if (error || !project) throw new SalesMilestoneDocumentError('Project not found',404);
+    if (actor.role !== 'SALES' || project.sales_id !== actor.userId) throw new SalesMilestoneDocumentError('Forbidden',403);
+    if (!['ACTIVE','WAITING_RESULT'].includes(project.status) || project.is_postponed) throw new SalesMilestoneDocumentError('Project result is not editable.',409);
+    this.assertFilesValid(files);
+    try { validateOutcomeEvidenceFiles(files); } catch (error) { throw new SalesMilestoneDocumentError(error instanceof Error ? error.message : "Invalid evidence.",422); }
+    const { data: rows, error: milestoneError } = await supabaseAdmin.from('project_milestones')
+      .select('id,phase_id,step_order,workflow_stage:workflow_stages!project_milestones_workflow_stage_id_fkey(default_role)').eq('project_id',projectId).order('step_order',{ascending:false});
+    if (milestoneError) throw new SalesMilestoneDocumentError('Unable to verify final milestone.',503);
+    const final = (rows || []).find(row => !project.active_phase_id || row.phase_id === project.active_phase_id);
+    const role = asRelatedOne(final?.workflow_stage)?.default_role;
+    if (!final || role !== 'SALES') throw new SalesMilestoneDocumentError('A final Sales milestone is required.',409);
+    return this.persist(await this.getContext(final.id),actor,files);
+  }
+
+  private static async persist(context: SalesMilestoneDocumentContext, actor: Actor, files: Express.Multer.File[]) {
 
     const operation: UploadOperation = {
       milestoneId: context.id,

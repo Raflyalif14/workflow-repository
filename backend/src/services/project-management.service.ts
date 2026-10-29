@@ -4,6 +4,7 @@ import { ProjectCreationService, projectCreationRequestId, ProjectCreationReques
 import { ProjectIntakeService } from './project-intake.service';
 import path from 'path';
 import { supabaseAdmin } from '../config/supabase';
+import { compareMilestoneSchedule } from '../utils/milestone-order';
 import {
   isAllowedDocumentFileName,
   MAX_DOCUMENT_FILE_SIZE_BYTES,
@@ -180,7 +181,7 @@ export class ProjectManagementService {
     if (projectIds.length > 0) {
       const { data: milestonesData } = await timeOperation(trace, 'projects.list.milestones', () => supabaseAdmin
         .from('project_milestones')
-        .select('id,project_id,phase_id,step_order,name,status,pic_id,start_date,due_date,workflow_stage:workflow_stages!project_milestones_workflow_stage_id_fkey(id,default_role),pic:users!project_milestones_pic_id_fkey(id,full_name)')
+        .select('id,project_id,phase_id,step_order,name,status,pic_id,start_date,duration_working_days,due_date,workflow_stage:workflow_stages!project_milestones_workflow_stage_id_fkey(id,default_role),pic:users!project_milestones_pic_id_fkey(id,full_name)')
         .in('project_id', projectIds)
         .order('step_order', { ascending: true }));
 
@@ -192,7 +193,7 @@ export class ProjectManagementService {
       }
 
       for (const p of projects as any[]) {
-        const pMilestones = phaseRows(milestonesByProject.get(p.id) || [], p.active_phase_id);
+        const pMilestones = phaseRows(milestonesByProject.get(p.id) || [], p.active_phase_id).sort(compareMilestoneSchedule);
         const totalMilestones = pMilestones.length;
         const deliveryFinished = PROJECT_DELIVERY_COMPLETED_STATUSES.includes(p.status);
         const completedMilestones = deliveryFinished
@@ -202,8 +203,7 @@ export class ProjectManagementService {
 
         let currentMilestone = null;
         if (p.status === 'ACTIVE') {
-          currentMilestone = pMilestones.find((m) => ['IN_PROGRESS', 'SUBMITTED', 'REJECTED'].includes(m.status))
-            || pMilestones.find((m) => !['COMPLETED', 'APPROVED'].includes(m.status))
+          currentMilestone = pMilestones.find((m) => !['COMPLETED', 'APPROVED'].includes(m.status))
             || null;
         } else if (p.status === 'DRAFT') {
           currentMilestone = { name: 'Project Plan Setup', workflow_stage: { default_role: 'SALES' } };

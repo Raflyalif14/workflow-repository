@@ -33,6 +33,8 @@ const query = (data: unknown) => ({ data: mode === "ready" || mode === "empty" ?
   projectProgress: mode === "empty" ? [] : [{ id: "p", name: "Fixture project", status: "ACTIVE", percentage: 30,
     totalMilestones: 3, completedMilestones: 1, overdueMilestones: role === "SUPER_ADMIN" ? 1 : 0 }],
   recentActivity: [], saWorkload: [], salesResults: null,
+  salesPipeline: {preTender:{active:1,postponed:0,estimatedRevenue:100},submissionTender:{advancedFromPreTender:1,inProgress:0,waitingResult:1,postponed:0,estimatedRevenue:100},results:{won:0,lost:0,finalRevenue:0}},
+  projectPipeline: {preTender:{active:1,postponed:0,estimatedRevenue:100},submissionTender:{advancedFromPreTender:1,inProgress:0,waitingResult:1,postponed:0,estimatedRevenue:100},results:{won:0,lost:0,finalRevenue:0}},
   headSaProjectValues: { active: { count: 1, estimatedRevenue: 100 }, won: { count: 0, finalContractValue: 0 } },
   allWorkStatus: { total: 1, planning: 0, active: 1, postponed: 0, completed: 0, won: 0, lost: 0, waitingResult: 0, cancelled: 0 },
   outputDocuments: { salesProgress: [],
@@ -48,17 +50,18 @@ try {
     for (const current of ["SALES", "SA", "HEAD_SA", "SUPER_ADMIN"]) {
       role = current; mode = "ready";
       const html = render();
-      const order = ["next-task-heading", "project-delivery-heading", "dashboard-summary-heading", "delivery-health-heading", "recent-activity-heading"]
+      const order = ["next-task-heading", "project-delivery-heading", ...(role === 'HEAD_SA' ? [] : ["dashboard-summary-heading"]), "delivery-health-heading", "recent-activity-heading"]
         .map(id => html.indexOf(`id="${id}"`));
       assert(order.every(index => index >= 0));
       assert(order.every((index, n) => n === 0 || index > order[n - 1]), "Work precedes project context, summaries and activity");
-      assert(html.includes(translate("dashboardPage.summary")));
+      if (role === 'HEAD_SA') assert(!html.includes('id="dashboard-summary-heading"'), 'Workspace Summary is removed from Head SA');
+      else assert(html.includes(translate(role === 'SALES' ? 'salesPipeline.title' : 'dashboardPage.summary')));
       assert.equal(html.includes('id="sa-workload-heading"'), role === "HEAD_SA");
       assert.equal(html.includes('id="head-sa-project-values-heading"'), role === "HEAD_SA");
       if (role === "HEAD_SA" || role === "SA") assert(html.includes('href="/projects/p#milestone-outputs-m"'), "Review/revision opens the existing workspace");
       if (role === "HEAD_SA") assert(html.includes(translate("dashboardPage.waitingOnOthers")), "Waiting information is distinguished from actions");
       assert(!html.includes('action="'), "Dashboard never adds direct approval mutations");
-      const deliverySection = html.split('aria-labelledby="project-delivery-heading"')[1].split('id="dashboard-summary-heading"')[0];
+      const deliverySection = html.split('aria-labelledby="project-delivery-heading"')[1].split(role === 'HEAD_SA' ? 'id="head-sa-project-values-heading"' : 'id="dashboard-summary-heading"')[0];
       assert(deliverySection.includes('href="/projects/p"') && deliverySection.includes("Fixture SA"));
       assert(deliverySection.includes("Fixture current stage"), "Current work remains visible");
       if (role !== "SALES") {
@@ -76,8 +79,7 @@ try {
     mode = "error";
     const failed = render();
     assert(failed.includes('role="alert"') && failed.includes(translate("common.retry")));
-    const summary = failed.slice(failed.indexOf('id="dashboard-summary-heading"'), failed.indexOf('id="delivery-health-heading"'));
-    assert(!summary.includes("<dl"), "Failed metric inputs are not displayed as valid zeros");
+    assert(!failed.includes('id="dashboard-summary-heading"'), 'Head SA summary stays removed during errors');
     mode = "empty"; assert(render().includes(translate("copy.queueClear")));
 
     role = "SALES"; mode = "empty";

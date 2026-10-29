@@ -41,9 +41,9 @@ const PRE_TENDER_DOCUMENTS: ScenarioDocumentDefinition[] = [
 const ON_SUBMISSION_TENDER_DOCUMENTS: ScenarioDocumentDefinition[] = [
   { key: 'proposal_teknis', name: 'Proposal Teknis', isRequired: true, group: 'ON_SUBMISSION_TENDER', stageKey: 'TECHNICAL_PROPOSAL_BOQ' },
   { key: 'metodologi_implementasi', name: 'Metodologi Implementasi', isRequired: false, group: 'ON_SUBMISSION_TENDER', stageKey: 'PROPOSAL_SOLUTION' },
-  { key: 'timeline_proyek', name: 'Timeline Proyek', isRequired: true, group: 'ON_SUBMISSION_TENDER', stageKey: 'TECHNICAL_PROPOSAL_BOQ' },
-  { key: 'identitas_barang_produk', name: 'Identitas Barang/Produk yang Ditawarkan', isRequired: true, group: 'ON_SUBMISSION_TENDER', stageKey: 'DELIVERABLES' },
-  { key: 'spesifikasi_teknis_toc', name: 'Spesifikasi Teknis Barang/Produk yang Ditawarkan atau TOC', isRequired: true, group: 'ON_SUBMISSION_TENDER', stageKey: 'TECHNICAL_PROPOSAL_BOQ' },
+  { key: 'timeline_proyek', name: 'Timeline Proyek', isRequired: false, group: 'ON_SUBMISSION_TENDER', stageKey: 'TECHNICAL_PROPOSAL_BOQ' },
+  { key: 'identitas_barang_produk', name: 'Identitas Barang/Produk yang Ditawarkan', isRequired: false, group: 'ON_SUBMISSION_TENDER', stageKey: 'DELIVERABLES' },
+  { key: 'spesifikasi_teknis_toc', name: 'Spesifikasi Teknis Barang/Produk yang Ditawarkan atau TOC', isRequired: false, group: 'ON_SUBMISSION_TENDER', stageKey: 'TECHNICAL_PROPOSAL_BOQ' },
   { key: 'arsitektur_sistem', name: 'Arsitektur Sistem', isRequired: false, group: 'ON_SUBMISSION_TENDER', stageKey: 'PROPOSAL_SOLUTION' },
   { key: 'poc_demo_report', name: 'POC atau Solusi Demo Report', isRequired: false, group: 'ON_SUBMISSION_TENDER', stageKey: 'DELIVERABLES' },
 ];

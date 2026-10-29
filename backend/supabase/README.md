@@ -40,5 +40,6 @@ Ada 82 berkas SQL pada audit ini. Nama dan lokasi dipertahankan karena dipakai d
 | 19–23 | Pilihan output, perbaikan notifikasi, kumpulan berkas, dan pencatatan upload. |
 | 24–28 | Fase proyek, keputusan Pra-Tender, nilai proyek, penugasan PIC, dan revisi berkas. |
 | 29–34 | Akses dokumen, audit perubahan, pencatatan pembuatan proyek, berbagi dokumen, perbaikan submit, dan mutasi dokumen resmi. |
+| 35 | Pekerjaan milestone paralel, bukti (evidence) hasil akhir Sales WON/LOST, guard tanggal mulai, dan penyesuaian katalog dokumen wajib On Submission Tender. |
 
 Panduan pelaksanaan masing-masing fitur ada di [indeks dokumentasi](../../docs/README.md). Snapshot metadata ini tidak membuktikan semua migrasi telah diterapkan dengan benar; audit ini tidak menjalankan migrasi atau menghapus data.

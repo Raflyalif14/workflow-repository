@@ -153,9 +153,10 @@ export function useSetProjectOutcome(projectId: string) {
   const business = useBusinessRequest();
 
   const mutation = useMutation({
-    mutationFn: (data: { outcome: "WON" | "LOST"; finalContractValue?: number; lossReason?: string }) =>
+    mutationFn: (data: { outcome: "WON" | "LOST"; finalContractValue?: number; lossReason?: string; evidenceDocumentIds?: string[] }) =>
       business<Project>(projectId, "OUTCOME", `/projects/${projectId}/outcome`, "POST", {
           outcome: data.outcome,
+          evidence_document_ids: data.evidenceDocumentIds,
           ...(data.finalContractValue !== undefined ? { final_contract_value: data.finalContractValue } : {}),
           ...(data.lossReason?.trim() ? { loss_reason: data.lossReason.trim() } : {}),
       }),

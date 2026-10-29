@@ -1,4 +1,5 @@
 import crypto from 'node:crypto';
+import { matchesRegisteredFace } from '../utils/face-account-match';
 import { promises as fs } from 'node:fs';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
@@ -212,7 +213,16 @@ export async function finishFaceChallenge(input: { challengeId: string; signatur
     if (signal.aborted || c.expires <= Date.now()) throw Error('FACE_CHALLENGE_EXPIRED');
     if (c.action === 'enroll') {
       await profile(c.userId!);
-      await saveCredential({ deviceId: c.deviceId, userId: c.userId!, publicKey: c.publicKey!, embedding: result!.embedding, version: FACE_LOGIN_VERSION, createdAt: new Date(Date.now()).toISOString(), deviceInfo: c.deviceInfo });
+      await withCredentialLock('enroll-accounts', async () => {
+        for (const id of await credentialIds()) {
+          const existing = await readCredential(id);
+          try { if (existing && existing.userId !== c.userId && matchesRegisteredFace(existing.embedding, result!.embedding)) throw Error('FACE_ALREADY_REGISTERED'); }
+          finally { existing?.embedding.fill(0); }
+        }
+        if (signal.aborted || c.expires <= Date.now()) throw Error('FACE_CHALLENGE_EXPIRED');
+        await profile(c.userId!);
+        await saveCredential({ deviceId: c.deviceId, userId: c.userId!, publicKey: c.publicKey!, embedding: result!.embedding, version: FACE_LOGIN_VERSION, createdAt: new Date(Date.now()).toISOString(), deviceInfo: c.deviceInfo });
+      });
       return { registered: true, deviceId: c.deviceId };
     }
     const assertCurrent = async () => {

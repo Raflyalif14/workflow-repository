@@ -15,10 +15,10 @@ export function ProjectFormDraftStatus({ status, restored, savedAt, frozen, retr
   const [deleting, setDeleting] = useState(false);
   const failed = status === 'error' || status === 'conflict';
   const Icon = status === 'loading' ? Loader2 : failed ? CloudOff : FileClock;
-  return <section data-project-draft className={`mb-6 rounded-xl border p-4 ${failed ? 'border-amber-200 bg-amber-50' : 'border-blue-100 bg-blue-50/50'}`}>
+  return <section data-project-draft className={`mb-6 rounded-xl border p-4 ${failed ? 'border-warning/30 bg-warning/10' : 'border-primary/20 bg-primary-soft/50'}`}>
     <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
       <div className="flex min-w-0 gap-3">
-        <Icon className={`mt-0.5 h-5 w-5 shrink-0 ${status === 'loading' ? 'animate-spin' : ''} ${failed ? 'text-amber-700' : 'text-primary'}`} aria-hidden="true" />
+        <Icon className={`mt-0.5 h-5 w-5 shrink-0 ${status === 'loading' ? 'animate-spin' : ''} ${failed ? 'text-warning' : 'text-primary'}`} aria-hidden="true" />
         <div className="min-w-0">
           <div className="grid text-sm font-semibold leading-5 text-foreground">
             {/* Reserve the largest normal status at the actual viewport/font width. */}
@@ -36,7 +36,7 @@ export function ProjectFormDraftStatus({ status, restored, savedAt, frozen, retr
         {!frozen && status !== 'conflict' && <Button type="button" size="sm" variant="ghost" disabled={deleting || status === 'loading' || status === 'empty'} onClick={() => setConfirmDiscard(true)}><Trash2 className="mr-1.5 h-3.5 w-3.5" />{t('formDraft.discard')}</Button>}
       </div>
     </div>
-    {confirmDiscard && <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-blue-100 pt-3">
+    {confirmDiscard && <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-primary/20 pt-3">
       <p className="w-full text-xs text-foreground">{t('formDraft.discardHelp')}</p>
       <Button type="button" size="sm" variant="destructive" disabled={deleting} onClick={async () => { setDeleting(true); try { await discard(); setConfirmDiscard(false); } catch { /* Status banner displays the storage error. */ } finally { setDeleting(false); } }}>{t('formDraft.confirmDiscard')}</Button>
       <Button type="button" size="sm" variant="ghost" disabled={deleting} onClick={() => setConfirmDiscard(false)}>{t('common.cancel')}</Button>

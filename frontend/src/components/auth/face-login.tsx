@@ -10,12 +10,12 @@ import { apiClient, ApiError } from '@/lib/api-client';
 import { onStoredAuthCleared, onAuthSessionChanged } from '@/lib/auth';
 import { useCameraPreview, type CameraError } from '@/hooks/use-camera-preview';
 import { useFaceCaptureCountdown } from '@/hooks/use-face-capture-countdown';
-import { captureFaceFrame, faceProof, getFaceDevice, newFaceDevice, saveFaceDevice, FaceChallenge, FaceDevice } from '@/lib/face-login-device';
+import { captureFaceFrame, faceProof, getFaceDevice, getFaceDevices, newFaceDevice, saveFaceDevice, FaceChallenge, FaceDevice } from '@/lib/face-login-device';
 import { captureFaceBurst } from '@/lib/face-passive-test';
 import { FaceDeviceManager } from '@/components/settings/face-device-manager';
 import type { TranslationKey } from '@/i18n';
 
-const knownErrors = ['FACE_DISABLED', 'FACE_ACCESS_DENIED', 'FACE_DEVICE_INVALID', 'FACE_DEVICE_MISSING', 'FACE_DEVICE_EXISTS', 'FACE_STORE_UNAVAILABLE',
+const knownErrors = ['FACE_DISABLED', 'FACE_ACCESS_DENIED', 'FACE_DEVICE_INVALID', 'FACE_DEVICE_MISSING', 'FACE_DEVICE_EXISTS', 'FACE_ALREADY_REGISTERED', 'FACE_STORE_UNAVAILABLE',
   'FACE_PASSWORD_INVALID', 'FACE_RATE_LIMIT', 'FACE_BUSY', 'FACE_CHALLENGE_EXPIRED', 'FACE_IMAGE_INVALID', 'FACE_INPUT_LIMIT', 'FACE_NONE', 'FACE_MULTIPLE',
   'FACE_POSITION_REQUIRED', 'FACE_LIVENESS_FAILED', 'FACE_MOTION_REQUIRED', 'FACE_NO_MATCH', 'FACE_AUTH_UNAVAILABLE', 'FACE_PROCESS_FAILED', 'FACE_DEVICE_UNAVAILABLE', 'FACE_DEVICE_OTHER', 'FACE_SCAN_INTERRUPTED'];
 export function FaceLogin({ enrollment = false }: { enrollment?: boolean }) {
@@ -24,6 +24,7 @@ export function FaceLogin({ enrollment = false }: { enrollment?: boolean }) {
   const eligible = enrollment ? !!user?.isActive && !user.mustChangePassword : !user;
   const camera = useCameraPreview(owner, eligible);
   const [enabled, setEnabled] = useState(false), [device, setDevice] = useState<FaceDevice | null>(null);
+  const [accounts, setAccounts] = useState<FaceDevice[]>([]);
   const [loadingDevice, setLoadingDevice] = useState(true), [loadAttempt, setLoadAttempt] = useState(0);
   const [singleGlance, setSingleGlance] = useState(false);
   const [cameraFailure, setCameraFailure] = useState<CameraError | null>(null);
@@ -48,19 +49,21 @@ export function FaceLogin({ enrollment = false }: { enrollment?: boolean }) {
     void (async () => {
       const info = await apiClient<{ enabled: boolean; singleGlance?: boolean }>('/face-login/capabilities', { signal: abort.signal });
       if (!current || !info.enabled) return;
-      let stored = await getFaceDevice();
+      const available = await getFaceDevices();
+      if (current) setAccounts(available.filter(d => d.registered));
+      let stored = await getFaceDevice(enrollment ? owner || undefined : undefined);
       if (enrollment && stored && (!stored.owner || stored.owner === owner)) {
         const state = await apiClient<{ registered: boolean }>(`/face-login/device/${stored.id}`, { signal: abort.signal });
-        if (state.registered !== stored.registered) { stored = { ...stored, registered: state.registered, owner: state.registered ? owner! : undefined }; await saveFaceDevice(stored); }
+        if (state.registered !== stored.registered || !stored.label) { stored = { ...stored, registered: state.registered, owner: owner!, label: user?.fullName || user?.email }; await saveFaceDevice(stored); }
       }
-      if (current) { setDevice(stored); setSingleGlance(info.singleGlance === true); setEnabled(true); }
+      if (current) { setDevice(!enrollment && available.filter(d => d.registered).length > 1 ? null : stored); setSingleGlance(info.singleGlance === true); setEnabled(true); }
     })().catch(value => { if (current && !abort.signal.aborted) setError(errorText(value)); })
       .finally(() => { if (current) setLoadingDevice(false); });
     const invalidate = () => { current = false; abort.abort(); cancel(); setEnabled(false); };
     const offClear = onStoredAuthCleared(invalidate), offChange = onAuthSessionChanged(invalidate);
     window.addEventListener('pagehide', invalidate);
     return () => { invalidate(); offClear(); offChange(); window.removeEventListener('pagehide', invalidate); };
-  }, [owner, enrollment, loadAttempt, cancel]);
+  }, [owner, enrollment, loadAttempt, cancel, user?.fullName, user?.email]);
   const submit = async (captured: Blob[], currentDevice: FaceDevice, currentChallenge: FaceChallenge, abort: AbortController, own: number) => {
     captureSession.current = null; camera.stop(); setPhase('checking');
     const proof = await faceProof(currentDevice, currentChallenge, captured);
@@ -84,7 +87,7 @@ export function FaceLogin({ enrollment = false }: { enrollment?: boolean }) {
       let currentDevice = device;
       if (enrollment) {
         if (currentDevice?.registered && currentDevice.owner !== owner) throw Error('FACE_DEVICE_OTHER');
-        currentDevice ||= await newFaceDevice();
+        currentDevice ||= await newFaceDevice(user?.id, user?.fullName || user?.email);
       }
       if (!currentDevice || !enrollment && !currentDevice.registered) throw Error('FACE_DEVICE_MISSING');
       if (own !== generation.current || abort.signal.aborted) return;
@@ -142,7 +145,7 @@ export function FaceLogin({ enrollment = false }: { enrollment?: boolean }) {
   }, [phase, challenge, cancel]);
   const devicesRemoved = async (deviceId: string | null) => {
     if (!device || deviceId && deviceId !== device.id || device.owner && device.owner !== owner) return;
-    const own = generation.current, saved = { ...device, registered: false, owner: undefined };
+    const own = generation.current, saved = { ...device, registered: false };
     // Server revocation is authoritative even if this browser cannot update its local cache.
     try { await saveFaceDevice(saved); } catch { /* The next server status check reconciles the local record. */ }
     if (own !== generation.current) return;
@@ -158,6 +161,7 @@ export function FaceLogin({ enrollment = false }: { enrollment?: boolean }) {
     {!enrollment && <>
       <h2 className="font-semibold">{t('faceLogin.title')}</h2>
       <p className="text-sm leading-6 text-muted-foreground">{t(singleGlance ? 'faceLogin.singleGlanceHelp' : 'faceLogin.loginHelp')}</p>
+      {enabled && accounts.length > 1 && <div className="space-y-2"><label htmlFor="face-account" className="block text-sm font-medium">{t('workflowUpdate.chooseAccount')}</label><select id="face-account" disabled={active} value={device?.id || ''} onChange={event => { cancel(); setDevice(accounts.find(account => account.id === event.target.value) || null); }} className="w-full rounded-lg border border-input bg-card px-3 py-2 text-sm"><option value="">{t('workflowUpdate.chooseAccount')}</option>{accounts.map(account => <option key={account.id} value={account.id}>{account.label || `${t('workflowUpdate.unnamedAccount')} ${account.owner?.slice(-4) || account.id.slice(-4)}`}</option>)}</select><p className="text-xs text-muted-foreground">{t('workflowUpdate.accountHelp')}</p></div>}
     </>}
     {enrollment && loadingDevice && <p role="status" className="text-sm">{t('faceLogin.loadingStatus')}</p>}
     {enrollment && !loadingDevice && !enabled && !error && <p role="status" className="text-sm">{t('faceLogin.disabled')}</p>}

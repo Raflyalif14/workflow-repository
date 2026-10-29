@@ -4,7 +4,7 @@ import { advanceToNextMilestone } from './workflow-progression.service';
 
 async function main() {
   const original = supabaseAdmin.from;
-  let milestoneReads = 0, guarded = false, storedPic: string | null = null;
+  let milestoneReads = 0, guarded = false, storedPic: string | null = 'new-pic';
   const next = { id: 'next', project_id: 'p', step_order: 2, status: 'CREATED', pic_id: null, workflow_stage: { default_role: 'SA' } };
   (supabaseAdmin as any).from = (table: string) => {
     const q: any = { select: () => q, eq: () => q,
@@ -28,9 +28,9 @@ async function main() {
   };
   try {
     const result = await advanceToNextMilestone('p', 'done', { userId: 'head', role: 'HEAD_SA', fullName: 'Head' });
-    assert(guarded); assert.equal(storedPic, 'new-pic'); assert.equal(result.started, false);
-    assert.equal(result.blocked_reason, 'STALE_NEXT_MILESTONE');
-    console.log('Progression stale read cannot overwrite a newer milestone PIC: passed (mock query race).');
+    assert.equal(guarded,false); assert.equal(storedPic, 'new-pic'); assert.equal(result.started, false);
+    assert.equal(result.blocked_reason, 'START_MANUALLY');
+    console.log('Parallel progression leaves the new milestone PIC untouched and waits for an explicit atomic Start.');
   } finally { (supabaseAdmin as any).from = original; }
 }
 void main().catch(error => { console.error(error); process.exitCode = 1; });

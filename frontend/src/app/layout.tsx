@@ -3,6 +3,7 @@ import localFont from "next/font/local";
 import "./globals.css";
 import { Providers } from "./providers";
 import { AppFrame } from "@/components/auth/app-frame";
+import { THEME_INIT_SCRIPT } from "@/lib/theme";
 
 const plusJakartaSans = localFont({
   src: "./fonts/PlusJakartaSans-Variable.ttf",
@@ -23,7 +24,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
+      <head><script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} /></head>
       <body className={plusJakartaSans.variable}>
         <Providers>
           <AppFrame>{children}</AppFrame>

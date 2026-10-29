@@ -1,15 +1,26 @@
 import { formatNumber, translate } from "@/i18n";
-import type { DashboardHeadSaProjectValues } from "@/types/dashboard";
+import type { DashboardHeadSaProjectValues, DashboardSalesPipeline } from "@/types/dashboard";
+import { ProjectPipelineSummary } from './sales-pipeline-summary';
 
 type Props = {
   role?: string;
   values?: DashboardHeadSaProjectValues | null;
   loading: boolean;
   hasError: boolean;
+  pipeline?: DashboardSalesPipeline | null;
+  onRetry?: () => void;
 };
 
-export function HeadSaProjectValuesPanel({ role, values, loading, hasError }: Props) {
+export function HeadSaProjectValuesPanel({ role, values, loading, hasError, pipeline, onRetry }: Props) {
   if (role !== "HEAD_SA") return null;
+
+  if (pipeline !== undefined) return (
+    <section aria-labelledby="head-sa-project-values-heading" className="space-y-3">
+      <div><h2 id="head-sa-project-values-heading" className="text-base font-semibold">{translate('salesPipeline.headTitle')}</h2>
+      <p className="mt-1 text-xs text-muted-foreground">{translate('salesPipeline.headScope')}</p></div>
+      <ProjectPipelineSummary data={pipeline} loading={loading} hasError={hasError} onRetry={onRetry || (() => {})} />
+    </section>
+  );
 
   const message = loading
     ? translate("dashboardPage.loadingProjectValues")

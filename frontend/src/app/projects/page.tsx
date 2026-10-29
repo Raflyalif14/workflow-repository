@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { FolderKanban, Plus, Search, X } from "lucide-react";
+import { CheckCircle2, ClipboardList, FolderKanban, Layers3, Plus, Search, X } from "lucide-react";
+import { ListSummary } from '@/components/list-summary';
 import { useLanguage } from "@/components/i18n/language-provider";
 import { useAuth } from "@/components/auth/auth-provider";
 import { Button } from "@/components/ui/button";
@@ -58,10 +59,10 @@ export default function ProjectsPage() {
   );
 
   const snapshot = [
-    { label: translateI18n("projectsList.matching"), value: pagination?.total || 0 },
-    { label: translateI18n("projectsList.activePage"), value: projects.filter((item) => item.status === "ACTIVE").length },
-    { label: translateI18n("projectsList.planningPage"), value: projects.filter((item) => item.status === "DRAFT").length },
-    { label: translateI18n("projectsList.completedPage"), value: projects.filter((item) => isProjectDeliveryCompleted(item.status)).length },
+    { label: translateI18n("listSummary.projectTotal"), value: pagination?.total ?? '—', scope: translateI18n('listSummary.allResults'), icon: Layers3, primary: true },
+    { label: translateI18n("listSummary.projectActive"), value: projects.filter((item) => item.status === "ACTIVE").length, scope: translateI18n('listSummary.thisPage'), icon: FolderKanban },
+    { label: translateI18n("listSummary.projectPlanning"), value: projects.filter((item) => item.status === "DRAFT").length, scope: translateI18n('listSummary.thisPage'), icon: ClipboardList },
+    { label: translateI18n("listSummary.projectComplete"), value: projects.filter((item) => isProjectDeliveryCompleted(item.status)).length, scope: translateI18n('listSummary.thisPage'), icon: CheckCircle2 },
   ];
 
   const hasFilters = Boolean(search || scenarioId || status !== "ALL");
@@ -100,24 +101,9 @@ export default function ProjectsPage() {
       </header>
 
       {/* Snapshot Summary Cards */}
-      <section
-        aria-label={translateI18n("projectsList.snapshot")}
-        className="grid grid-cols-2 overflow-hidden page-surface xl:grid-cols-4"
-      >
-        {snapshot.map((item, index) => (
-          <div
-            key={item.label}
-            className={`border-border/60 px-4 py-3.5 sm:px-5 ${
-              index % 2 === 1 ? "border-l" : ""
-            } ${index >= 2 ? "border-t" : ""} ${
-              index > 0 ? "xl:border-l" : ""
-            } xl:border-t-0`}
-          >
-            <p className="text-2xl font-semibold text-foreground">{item.value}</p>
-            <p className="mt-0.5 text-xs text-muted-foreground">{item.label}</p>
-          </div>
-        ))}
-      </section>
+      <ListSummary aria-label={translateI18n('projectsList.snapshot')} description={translateI18n('listSummary.projectHelp')}
+        items={snapshot} loading={isLoading} hasError={isError} refreshing={isFetching && !isLoading} />
+      <p className="px-2 text-xs leading-5 text-muted-foreground">{translateI18n('listSummary.projectCompleteHelp')}</p>
 
       {/* Project Table & Filters */}
       <section className="overflow-hidden page-surface">

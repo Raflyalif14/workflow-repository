@@ -5,7 +5,8 @@ import { translate as translateI18n } from "@/i18n";
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { CheckCircle2, History, Inbox, Search } from "lucide-react";
+import { CalendarClock, CheckCircle2, ClipboardList, Files, History, Inbox, Search } from "lucide-react";
+import { ListSummary } from '@/components/list-summary';
 import { ApprovalRow } from "@/components/approvals/approval-row";
 import { ApprovalActionDialog } from "@/components/approvals/approval-action-dialog";
 import { useAuth } from "@/components/auth/auth-provider";
@@ -59,10 +60,10 @@ function ApprovalCenterPageContent() {
   }, isHistory, page, 20, locale), [overview.data, categoryTab, effectiveStatus, search, isHistory, page, locale]);
   const displayedApprovals = queuePage.items;
   const snapshot = [
-    { label: translateI18n("approvalUi.totalPending"), value: stats?.totalPending ?? "\u2014" },
-    { label: translateI18n("approvalUi.projectPlans"), value: stats?.pendingProjectPlans ?? "\u2014" },
-    { label: translateI18n("approvalUi.deadlineChanges"), value: stats?.pendingDeadlines ?? "\u2014" },
-    { label: translateI18n("outputQueue.category"), value: stats?.pendingDocs ?? "\u2014" },
+    { label: translateI18n("approvalUi.totalPending"), value: stats?.totalPending ?? "\u2014", scope: translateI18n('listSummary.pending'), icon: Inbox, primary: true },
+    { label: translateI18n("listSummary.approvalPlans"), value: stats?.pendingProjectPlans ?? "\u2014", scope: translateI18n('listSummary.pending'), icon: ClipboardList },
+    { label: translateI18n("listSummary.approvalDeadlines"), value: stats?.pendingDeadlines ?? "\u2014", scope: translateI18n('listSummary.pending'), icon: CalendarClock },
+    { label: translateI18n("listSummary.approvalOutputs"), value: stats?.pendingDocs ?? "\u2014", scope: translateI18n('listSummary.pending'), icon: Files },
   ];
 
   const openAction = (item: ApprovalItem, action: "APPROVE" | "REJECT") => {
@@ -87,29 +88,12 @@ function ApprovalCenterPageContent() {
         </p>
       </header>
 
-      <p className="text-xs text-muted-foreground">{translateI18n("outputQueue.pendingDefinition")}</p>
       {isError && <div role="alert" className="flex flex-wrap items-center gap-3 text-sm text-destructive">
         <span>{translateI18n(overview.data ? "outputQueue.stale" : "approval.loadError")}</span>
         <Button variant="outline" size="sm" disabled={isFetching || !canLoadApprovalOverview} onClick={() => { if (canLoadApprovalOverview) void overview.refetch(); }}>{translateI18n("outputQueue.retry")}</Button>
       </div>}
-      <section
-        aria-label={translateI18n("approvalUi.snapshot")}
-        className="grid grid-cols-2 overflow-hidden page-surface xl:grid-cols-4"
-      >
-        {snapshot.map((item, index) => (
-          <div
-            key={item.label}
-            className={`border-border/60 px-4 py-3.5 sm:px-5 ${
-              index % 2 === 1 ? "border-l" : ""
-            } ${index >= 2 ? "border-t" : ""} ${
-              index > 0 ? "xl:border-l" : ""
-            } xl:border-t-0`}
-          >
-            <p className="text-2xl font-semibold text-foreground">{item.value}</p>
-            <p className="mt-0.5 text-xs text-muted-foreground">{item.label}</p>
-          </div>
-        ))}
-      </section>
+      <ListSummary aria-label={translateI18n('approvalUi.snapshot')} description={translateI18n('listSummary.approvalHelp')}
+        items={snapshot} loading={isLoading} hasError={isError} refreshing={isFetching && !isLoading} />
 
       <section className="overflow-hidden page-surface">
         <div className="space-y-4 border-b border-border/60 p-4 sm:p-5">

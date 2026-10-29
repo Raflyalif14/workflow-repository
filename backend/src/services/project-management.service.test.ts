@@ -68,10 +68,10 @@ assertOutcomeRejected(
   'Forbidden'
 );
 
-assert(projectOutcomeSchema.safeParse({ outcome: 'WON', final_contract_value: 250000000 }).success, 'Test 10: WON must accept a positive final contract value');
-assert(!projectOutcomeSchema.safeParse({ outcome: 'WON' }).success, 'Test 11: WON must require a final contract value');
-assert(projectOutcomeSchema.safeParse({ outcome: 'LOST', loss_reason: 'Customer selected another vendor.' }).success, 'Test 12: LOST must accept a reason');
-assert(!projectOutcomeSchema.safeParse({ outcome: 'LOST' }).success, 'Test 13: LOST must require a reason');
-assert(!projectOutcomeSchema.safeParse({ outcome: 'WON', final_contract_value: 250000000, loss_reason: 'Not applicable' }).success, 'Test 14: WON must not accept a loss reason');
-assert(!projectOutcomeSchema.safeParse({ outcome: 'LOST', loss_reason: 'Customer selected another vendor.', final_contract_value: 250000000 }).success, 'Test 15: LOST must not accept a final contract value');
+assert(projectOutcomeSchema.safeParse({ evidence_document_ids: ["90000000-0000-4000-8000-000000000001"], outcome: 'WON', final_contract_value: 250000000 }).success, 'Test 10: WON must accept a positive final contract value');
+assert(!projectOutcomeSchema.safeParse({ evidence_document_ids: ["90000000-0000-4000-8000-000000000001"], outcome: 'WON' }).success, 'Test 11: WON must require a final contract value');
+assert(projectOutcomeSchema.safeParse({ evidence_document_ids: ["90000000-0000-4000-8000-000000000001"], outcome: 'LOST', loss_reason: 'Customer selected another vendor.' }).success, 'Test 12: LOST must accept a reason');
+assert(!projectOutcomeSchema.safeParse({ evidence_document_ids: ["90000000-0000-4000-8000-000000000001"], outcome: 'LOST' }).success, 'Test 13: LOST must require a reason');
+assert(!projectOutcomeSchema.safeParse({ evidence_document_ids: ["90000000-0000-4000-8000-000000000001"], outcome: 'WON', final_contract_value: 250000000, loss_reason: 'Not applicable' }).success, 'Test 14: WON must not accept a loss reason');
+assert(!projectOutcomeSchema.safeParse({ evidence_document_ids: ["90000000-0000-4000-8000-000000000001"], outcome: 'LOST', loss_reason: 'Customer selected another vendor.', final_contract_value: 250000000 }).success, 'Test 15: LOST must not accept a final contract value');
 console.log('Test 10-15 - Tender outcome details are validated by outcome: passed');

@@ -44,6 +44,42 @@
     --info: 201 90% 32%;
     --info-foreground: 0 0% 100%;
   }
+  .dark {
+    color-scheme: dark;
+    --background: 222 38% 9%;
+    --foreground: 215 25% 93%;
+    --card: 222 30% 13%;
+    --card-foreground: 215 25% 93%;
+    --popover: 222 28% 16%;
+    --popover-foreground: 215 25% 93%;
+    --primary: 215 96% 73%;
+    --primary-deep: 213 97% 82%;
+    --primary-soft: 218 45% 20%;
+    --primary-foreground: 222 47% 11%;
+    --secondary: 220 25% 20%;
+    --secondary-foreground: 215 25% 93%;
+    --muted: 220 25% 17%;
+    --muted-foreground: 215 18% 70%;
+    --accent: 218 40% 23%;
+    --accent-foreground: 213 97% 82%;
+    --destructive: 0 90% 76%;
+    --destructive-foreground: 222 47% 11%;
+    --border: 218 22% 25%;
+    --input: 218 20% 38%;
+    --ring: 215 96% 73%;
+    --surface-shadow: 0 2px 8px hsl(0 0% 0% / 0.16);
+    --sidebar-bg: 222 32% 12%;
+    --sidebar-foreground: 215 18% 72%;
+    --sidebar-active: 215 96% 73%;
+    --sidebar-hover: 218 40% 23%;
+    --sidebar-border: 218 22% 25%;
+    --success: 156 65% 65%;
+    --success-foreground: 222 47% 11%;
+    --warning: 43 96% 70%;
+    --warning-foreground: 222 47% 11%;
+    --info: 198 93% 72%;
+    --info-foreground: 222 47% 11%;
+  }
   * { @apply border-border; }
   body {
     @apply bg-background text-foreground antialiased;
@@ -57,7 +93,7 @@
     outline: 2px solid hsl(var(--ring) / 0.55);
     outline-offset: 3px;
   }
-  :where(select, textarea) { color-scheme: light; }
+  :where(input, select, textarea) { color-scheme: inherit; }
   :where(input[type="checkbox"], input[type="radio"]) { accent-color: hsl(var(--primary)); }
   ::-webkit-scrollbar { width: 6px; height: 6px; }
   ::-webkit-scrollbar-track { background: transparent; }

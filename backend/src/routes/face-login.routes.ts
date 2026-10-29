@@ -5,7 +5,7 @@ import { authenticateUser, AuthenticatedRequest } from '../middlewares/auth.midd
 import { sendError, sendSuccess } from '../utils/response.util';
 import { deviceStatus, listFaceDevices, faceLoginEnabled, faceSingleGlanceEnabled, faceLoginOrigin, finishFaceChallenge, removeAllFaceDevices, removeFaceDevice, startFaceChallenge, startFacePassiveTest } from '../services/face-login.service';
 
-const errors = new Set(['FACE_DISABLED', 'FACE_ACCESS_DENIED', 'FACE_DEVICE_INVALID', 'FACE_DEVICE_MISSING', 'FACE_DEVICE_EXISTS', 'FACE_STORE_UNAVAILABLE',
+const errors = new Set(['FACE_DISABLED', 'FACE_ACCESS_DENIED', 'FACE_DEVICE_INVALID', 'FACE_DEVICE_MISSING', 'FACE_DEVICE_EXISTS', 'FACE_ALREADY_REGISTERED', 'FACE_STORE_UNAVAILABLE',
   'FACE_PASSWORD_INVALID', 'FACE_RATE_LIMIT', 'FACE_BUSY', 'FACE_CHALLENGE_EXPIRED', 'FACE_IMAGE_INVALID', 'FACE_INPUT_LIMIT', 'FACE_NONE', 'FACE_MULTIPLE',
   'FACE_POSITION_REQUIRED', 'FACE_LIVENESS_FAILED', 'FACE_MOTION_REQUIRED', 'FACE_NO_MATCH', 'FACE_AUTH_UNAVAILABLE', 'FACE_PROCESS_FAILED']);
 function fail(res: Response, error: unknown) {

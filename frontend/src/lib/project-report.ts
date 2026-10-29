@@ -1,3 +1,5 @@
+import { compareMilestoneSchedule } from './milestone-order';
+import { projectDisplayStatus } from './project-display-status';
 import { translate, translateMilestoneStatus, translateProjectStatus, translateRole, type AppLanguage } from '@/i18n';
 import type { Project, ProjectMilestonePhase4 } from '@/types/project';
 import { activePhaseMilestones } from './phase-review';
@@ -16,11 +18,11 @@ export function buildProjectReport(project: Project, rows: ProjectMilestonePhase
     const parsed = new Date(`${key}T12:00:00Z`);
     return Number.isNaN(parsed.getTime()) ? missing : new Intl.DateTimeFormat(locale, { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'UTC' }).format(parsed);
   };
-  const milestones = activePhaseMilestones(project, rows).slice().sort((a, b) => a.step_order - b.step_order || a.id.localeCompare(b.id));
+  const milestones = activePhaseMilestones(project, rows).slice().sort(compareMilestoneSchedule);
   const phase = project.phases?.find(item => item.id === project.active_phase_id);
   const phaseName = phase?.phase_key === 'PRA_TENDER' ? 'Pra-Tender' : phase?.phase_key === 'ON_SUBMISSION_TENDER' ? 'On Submission Tender' : (project.active_scenario?.name || project.scenario?.name || missing);
   const progress = calculateProjectMilestoneProgress(milestones);
-  const status = project.is_postponed ? translateProjectStatus('POSTPONED', language) : translateProjectStatus(project.status, language);
+  const status = project.is_postponed ? translateProjectStatus('POSTPONED', language) : projectDisplayStatus(project, language);
   const labels = {
     title: t('reportExport.title'), project: t('reportExport.project'), customer: t('projectDetail.customer'),
     scenario: t('projectDetail.scenario'), phase: t('reportExport.phase'), status: t('reportExport.status'),

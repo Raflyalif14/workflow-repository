@@ -3,6 +3,7 @@ import { Request, Response, Router } from 'express';
 import { ProjectDocumentSharingController } from '../controllers/project-document-sharing.controller';
 import { ProjectEstimatedValueController } from '../controllers/project-estimated-value.controller';
 import { ProjectManagementController } from '../controllers/project-management.controller';
+import { SalesMilestoneDocumentController } from '../controllers/sales-milestone-document.controller';
 import { ProjectActivityController } from '../controllers/project-activity.controller';
 import { ProjectPlanApprovalController } from '../controllers/project-plan-approval.controller';
 import { MilestoneInitiationApprovalController } from '../controllers/milestone-initiation-approval.controller';
@@ -206,6 +207,7 @@ router.post(
   }
 );
 router.post('/:id/outcome', requireRoles(['SALES']), ProjectManagementController.setOutcome);
+router.post('/:id/outcome-evidence', requireRoles(['SALES']), handleMultipartUpload(uploadMiddleware.array('files',10),'Invalid result evidence upload.'), SalesMilestoneDocumentController.uploadEvidence);
 
 router.post('/:projectId/initialize-workflow', MilestoneInitiationApprovalController.retired);
 router.get('/:projectId/milestones', ProjectManagementController.milestones);

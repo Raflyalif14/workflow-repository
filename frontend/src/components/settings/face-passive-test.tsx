@@ -41,7 +41,7 @@ export function FacePassiveTest() {
     let frames: Blob[] = [];
     setSample(kind); setError(''); setCameraFailure(null); setPhase('starting');
     try {
-      const device = await getFaceDevice();
+      const device = await getFaceDevice(user?.id);
       if (!current()) return;
       if (!device?.registered) throw Error('FACE_DEVICE_MISSING');
       if (device.owner !== user!.id) throw Error('FACE_DEVICE_OTHER');

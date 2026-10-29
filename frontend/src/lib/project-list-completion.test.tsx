@@ -9,8 +9,9 @@ import ProjectsPage from '../app/projects/page';
 import { isProjectDeliveryCompleted } from './project-list-status';
 import { setActiveLanguage, translate } from '../i18n';
 import type { Project, ProjectFilters, ProjectListStatusFilter, ProjectStatus } from '../types/project';
+import { ListSummary } from '../components/list-summary';
 const query = require('@tanstack/react-query') as typeof import('@tanstack/react-query');
-const nodes = (node: any): any[] => !node || typeof node !== 'object' ? [] : [node, ...React.Children.toArray(node.props?.children).flatMap(nodes)];
+const nodes = (node: any): any[] => !node || typeof node !== 'object' ? [] : node.type === ListSummary ? nodes(ListSummary(node.props)) : [node, ...React.Children.toArray(node.props?.children).flatMap(nodes)];
 const finished: ProjectStatus[] = ['COMPLETED', 'WAITING_RESULT', 'WON', 'LOST'];
 const fixture = (status: ProjectStatus): Project => ({ id: status, name: `Synthetic ${status}`, customer: 'Example', status,
   progress: 100, totalMilestones: 3, completedMilestones: 3 } as Project);
@@ -40,7 +41,7 @@ export async function testProjectCompletion() {
     finally { (React as any).useState = original.state; (React as any).useMemo = original.memo; }
   };
   const snapshot = (tree: any) => nodes(nodes(tree).find(node => node.props?.['aria-label'] === translate('projectsList.snapshot')))
-    .filter(node => node.type === 'p' && typeof node.props.children === 'number').map(node => node.props.children);
+    .filter(node => typeof node.props['data-summary-value'] === 'number').map(node => node.props['data-summary-value']);
   try {
     for (const locale of ['en', 'id'] as const) {
       setActiveLanguage(locale);
@@ -57,6 +58,12 @@ export async function testProjectCompletion() {
         assert.equal(snapshot(render())[3], 4, 'All delivery-completed statuses share the same summary definition');
       }
     }
+    states = []; rows = [fixture('ACTIVE'), fixture('WON')];
+    (projects as any).useProjects = () => ({data:{projects:rows,pagination:{total:24,page:2,totalPages:3}},isLoading:false,isError:false});
+    const separateScopes = render();
+    assert.deepEqual(snapshot(separateScopes),[24,1,0,1],'All matching results are distinct from the current page statuses');
+    const scopeMarkup = renderToStaticMarkup(separateScopes);
+    assert(scopeMarkup.includes(translate('listSummary.allResults')) && scopeMarkup.includes(translate('listSummary.thisPage')));
     (projects as any).useProjects = original.projects;
     let options: any, requested = '';
     (query as any).useQuery = (value: any) => { options = value; return {}; };

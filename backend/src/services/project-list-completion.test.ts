@@ -9,6 +9,12 @@ const rows = ['WON', 'ACTIVE', 'COMPLETED', 'WAITING_RESULT', 'LOST', 'DRAFT', '
   id: status, name: `Project ${status}`, customer: 'Example', status, sales_id: salesA, pic_id: 'sa-a', scenario_id: scenario,
 }));
 rows.push({ ...rows[0], id: 'other-won', name: 'Other won', sales_id: salesB, pic_id: 'sa-b' });
+const milestones = [
+  {id:'later-active',project_id:'ACTIVE',name:'Later',status:'IN_PROGRESS',start_date:'2026-10-03',duration_working_days:1,step_order:1},
+  {id:'early-long',project_id:'ACTIVE',name:'Long',status:'CREATED',start_date:'2026-10-01',duration_working_days:5,step_order:2},
+  {id:'early-short',project_id:'ACTIVE',name:'Short',status:'CREATED',start_date:'2026-10-01',duration_working_days:2,step_order:3},
+  {id:'finished',project_id:'ACTIVE',name:'Finished',status:'COMPLETED',start_date:'2026-09-01',duration_working_days:1,step_order:4},
+];
 
 class Query {
   filters: Array<(row: typeof rows[number]) => boolean> = [];
@@ -24,7 +30,7 @@ class Query {
     this.filters.push(row => `${row.name} ${row.customer}`.toLowerCase().includes(term)); return this;
   }
   then(resolve: any, reject: any) {
-    const filtered = (this.table === 'projects' ? rows : []).filter(row => this.filters.every(matches => matches(row)));
+    const filtered = (this.table === 'projects' ? rows : milestones).filter(row => this.filters.every(matches => matches(row as any)));
     return Promise.resolve({ data: filtered.slice(this.first, this.last + 1), count: filtered.length, error: null }).then(resolve, reject);
   }
 }
@@ -44,6 +50,7 @@ async function run() {
     assert.deepEqual(new Set(all.projects.map((row: any) => row.status)), new Set(['COMPLETED', 'WAITING_RESULT', 'WON', 'LOST']));
     const exact = await list({ status: 'COMPLETED' }); assert.deepEqual(exact.projects.map((row: any) => row.id), ['COMPLETED']);
     const active = await list({ status: 'ACTIVE' }); assert.equal(active.pagination.total, 1);
+    assert.equal(active.projects[0].currentMilestone.id, 'early-short', 'Work Stage follows start date then shortest duration, regardless of started state');
     for (const actor of [{ ...head, role: 'SALES', userId: salesA }, { ...head, role: 'SA', userId: 'sa-a' }]) {
       const result = await list({ status_group: 'DELIVERY_COMPLETED', sales_id: salesB }, actor);
       assert.equal(result.pagination.total, 4); assert(!result.projects.some((row: any) => row.id === 'other-won'));

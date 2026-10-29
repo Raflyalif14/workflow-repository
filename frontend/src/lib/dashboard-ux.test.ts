@@ -40,7 +40,7 @@ import { setActiveLanguage } from "@/i18n";
 
 const roleCases: Array<[string | undefined, string]> = [
   ["SALES", "Sales workspace"],
-  ["HEAD_SA", "Head SA workspace"],
+  ["HEAD_SA", "Priority Task"],
   ["SA", "SA workspace"],
   ["SUPER_ADMIN", "Operations overview"],
   ["UNKNOWN", "Workspace"],

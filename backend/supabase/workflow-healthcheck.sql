@@ -147,7 +147,7 @@ columns_found as (
   left join pg_catalog.pg_attribute a on a.attrelid=c.oid and a.attname=r.column_name and not a.attisdropped and a.attnum>0
 ),
 specs(check_name,dependencies,read_query,kind,expected) as (values
-    ('catalog.phase_output_counts','{"output_document_stage_catalog":["group_key","is_required"]}'::jsonb,$read$select count(*) as n from (values ('PRA_TENDER',10,1),('ON_SUBMISSION_TENDER',7,4)) expected(g,total,required) where (select count(*) from public.output_document_stage_catalog c where c.group_key=expected.g)<>expected.total or (select count(*) from public.output_document_stage_catalog c where c.group_key=expected.g and c.is_required)<>expected.required$read$,'mismatch','0 groups outside canonical 10/7 outputs and 1/4 required'),
+    ('catalog.phase_output_counts','{"output_document_stage_catalog":["group_key","is_required"]}'::jsonb,$read$select count(*) as n from (values ('PRA_TENDER',10,1),('ON_SUBMISSION_TENDER',7,1)) expected(g,total,required) where (select count(*) from public.output_document_stage_catalog c where c.group_key=expected.g)<>expected.total or (select count(*) from public.output_document_stage_catalog c where c.group_key=expected.g and c.is_required)<>expected.required$read$,'mismatch','0 groups outside canonical 10/7 outputs and 1/1 required'),
     ('snapshots.approved_file_count','{"project_output_documents":["status","current_version_id"],"project_output_document_version_files":["version_id"]}'::jsonb,$read$select count(*) as n from public.project_output_documents o where o.status='APPROVED' and (select count(*) from public.project_output_document_version_files r where r.version_id=o.current_version_id) not between 1 and 10$read$,'mismatch','0 approved outputs without a valid snapshot reference count'),
     ('relations.ready_active_phase','{"projects":["id","phase_migration_state","active_phase_id","current_scenario_id"],"project_phases":["id","project_id","scenario_id"]}'::jsonb,$read$select count(*) as n from public.projects p left join public.project_phases ph on ph.id=p.active_phase_id and ph.project_id=p.id where p.phase_migration_state='READY' and (ph.id is null or ph.scenario_id is distinct from p.current_scenario_id)$read$,'mismatch','0 mismatches'),
     ('relations.ready_milestone_phase','{"projects":["id","phase_migration_state"],"project_milestones":["project_id","phase_id","workflow_stage_id"],"project_phases":["id","project_id","scenario_id"],"workflow_stages":["id","scenario_id"]}'::jsonb,$read$select count(*) as n from public.project_milestones m join public.projects p on p.id=m.project_id left join public.project_phases ph on ph.id=m.phase_id and ph.project_id=m.project_id left join public.workflow_stages ws on ws.id=m.workflow_stage_id where p.phase_migration_state='READY' and (ph.id is null or ws.id is null or ws.scenario_id is distinct from ph.scenario_id)$read$,'mismatch','0 mismatches'),
@@ -211,6 +211,10 @@ measured as materialized (
     else null end as n from ready r
 ),
 function_specs(signature,public_rpc) as (values
+    ('public.start_parallel_milestone(uuid,uuid)',true),
+    ('public.complete_final_sales_with_evidence(uuid,uuid,text,numeric,text,text[],uuid[])',true),
+    ('public.mutate_project_outcome_with_evidence(uuid,uuid,text,jsonb,timestamptz,uuid)',true),
+    ('public.validate_outcome_evidence(uuid,uuid,text,uuid[])',false),
     ('public.continue_project_tender_phase(uuid,uuid,text[])',true),
     ('public.close_project_at_pra_tender(uuid,uuid)',true),
     ('public.update_project_estimated_value(uuid,uuid,text,timestamptz,uuid)',true),
@@ -262,6 +266,8 @@ unique_specs(table_name,key_columns) as (values
   ('public.project_output_document_version_files',array['version_id','position'])
 ),
 trigger_specs(table_name,trigger_name) as (values
+    ('public.projects','require_result_evidence'),
+    ('public.project_milestones','keep_future_milestone_unstarted'),
     ('public.projects','initialize_project_phase'),
     ('public.projects','guard_pic_revision'),
     ('public.projects','project_creation_business_audit'),
@@ -274,6 +280,7 @@ trigger_specs(table_name,trigger_name) as (values
     ('public.document_repository_access','document_repository_identity')
 ),
 private_tables(table_name,no_server_direct_write) as (values
+    ('public.project_outcome_evidence',false),
     ('public.project_document_sharing',true),
     ('public.project_document_sharing_requests',true),
     ('public.document_repository_access',true),

@@ -38,7 +38,7 @@ const makeState = (): State => {
       milestone_id: `milestone-${definition.stageKey}`,
       title: definition.name,
       is_required: definition.isRequired,
-      is_selected: definition.isRequired,
+      is_selected: definition.isRequired || isApproved,
       status: isNonFinal ? 'IN_REVIEW' : isApproved ? 'APPROVED' : definition.isRequired ? 'TO_DO' : 'NOT_REQUIRED',
       file_name: isNonFinal ? 'internal-draft.pdf' : isApproved ? 'approved-timeline.pdf' : null,
       storage_path: isNonFinal ? 'output-documents/project/internal-draft.pdf' : isApproved ? 'output-documents/project/approved-timeline.pdf' : null,
@@ -65,7 +65,7 @@ const makeState = (): State => {
       pic_id: actors.assignedSa.userId,
       status: 'ACTIVE',
       is_postponed: false,
-      selected_document_keys: [],
+      selected_document_keys: [approvedKey],
       scenario: { id: 'scenario-on-submission', name: 'On Submission Tender', workflow_model: 'OPERATIONAL_V2', workflow_version: 2 },
     },
     outputs,
@@ -197,7 +197,7 @@ async function main(): Promise<void> {
       const internal = response.documents.find((item) => item.key === nonFinalKey);
       assert(internal?.fileName === 'internal-draft.pdf', 'Test 1: Head SA and assigned PIC retain non-final metadata');
       assert(internal?.currentVersionId === 'version-internal', 'Test 1: Head SA and assigned PIC retain the version token required for CAS');
-      assert(response.missingMandatoryNames.length > 0, 'Test 1: authorized reviewers retain missing output names');
+      assert.equal(response.missingMandatoryNames.length, 0, 'Only Proposal Teknis is mandatory and its existing draft is not a missing document');
       assert.equal(internal?.versionCount, 1);
       assert.equal(internal?.legacyVersionCount, 0);
     }
@@ -221,7 +221,7 @@ async function main(): Promise<void> {
       assert(response.documents.every((item) => item.status === 'APPROVED'), 'Test 2: non-final output rows must not be returned to Sales or SUPER_ADMIN');
       assert(response.documents.length === 1 && response.documents[0].key === approvedKey, 'Test 2: approved output remains available through project access');
       assert.deepEqual(response.missingMandatoryNames, [], 'Test 2: non-final output names must not leak through readiness metadata');
-      assert.equal(response.unapprovedCount, 3, 'Test 2: only aggregate readiness is visible');
+      assert.equal(response.unapprovedCount, 1, 'Test 2: only the unapproved Proposal Teknis remains required');
     }
     console.log('Test 2 - Sales owner and SUPER_ADMIN receive approved outputs only: passed');
   });

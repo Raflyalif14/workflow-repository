@@ -25,7 +25,7 @@ export function SolutionArchitectWorkloadPanel({
     <section aria-labelledby="sa-workload-heading" className="dashboard-surface overflow-hidden">
       <div className="border-b border-border px-5 py-5">
         <h2 id="sa-workload-heading" className="text-base font-semibold text-foreground">{translateI18n("copy.saWorkload")}</h2>
-        <p className="mt-1 text-sm text-muted-foreground">{translateI18n("copy.workloadDescription")}</p>
+        <p className="mt-1 text-sm text-muted-foreground">{translateI18n("workflowUpdate.workloadHelp")}</p>
       </div>
 
       {loading && workload.length === 0 ? (
@@ -78,7 +78,7 @@ export function SolutionArchitectWorkloadPanel({
                   <p className="font-medium text-foreground">{item.saName}</p>
                   <dl className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
                     <div><dt className="text-xs text-muted-foreground">{translateI18n("copy.activeProjects")}</dt><dd className="mt-1 text-foreground">{item.activeProjectCount}</dd></div>
-                    <div><dt className="text-xs text-muted-foreground">{translateI18n("copy.activeWork")}</dt><dd className="mt-1 text-foreground">{item.activeMilestoneCount || translateI18n("dashboardPage.noActiveWork")}</dd></div>
+                    <div><dt className="text-xs text-muted-foreground">{translateI18n("copy.activeWork")}</dt><dd className="mt-1 text-foreground">{item.activeMilestoneCount}</dd></div>
                     <div><dt className="text-xs text-muted-foreground">{translateI18n("copy.nearestDeadline")}</dt><dd className="mt-1 text-foreground">{deadline || translateI18n("dashboardPage.noDeadline")}</dd></div>
                     <div><dt className="text-xs text-muted-foreground">{translateI18n("copy.waitingReview")}</dt><dd className="mt-1 text-foreground">{item.waitingReviewCount}</dd></div>
                     <div><dt className="text-xs text-muted-foreground">{translateI18n("copy.revision")}</dt><dd className={item.revisionCount > 0 ? "mt-1 font-medium text-[hsl(var(--warning))]" : "mt-1 text-foreground"}>{item.revisionCount}</dd></div>

@@ -21,6 +21,13 @@ try {
   for (const language of ["en", "id"] as const) {
     setActiveLanguage(language);
     const html = render();
+    const pipeline = {preTender:{active:2,postponed:1,estimatedRevenue:100},submissionTender:{advancedFromPreTender:3,inProgress:1,waitingResult:0,postponed:0,estimatedRevenue:200},results:{won:2,lost:0,finalRevenue:150}};
+    const phased = render({pipeline});
+    assert(phased.includes(translate('salesPipeline.headTitle')) && phased.includes(translate('salesPipeline.headScope')));
+    for (const id of ['sales-pra-heading','sales-tender-heading','sales-result-heading']) assert(phased.includes(`id="${id}"`));
+    assert(phased.includes('Final Revenue') && phased.includes(translate('salesPipeline.details')));
+    assert(!render({pipeline:null}).includes('<dl'), 'Incomplete phase data cannot fall back to unscoped totals');
+    assert.equal(render({role:'SALES',pipeline}), '', 'Head SA aggregation cannot appear on another role');
     assert(html.includes(language === "en" ? "Active project estimate" : "Estimasi proyek aktif"));
     assert(html.includes(language === "en" ? "WON project contracts" : "Kontrak proyek WON"));
     assert(html.includes(language === "en" ? "all periods" : "seluruh periode"));

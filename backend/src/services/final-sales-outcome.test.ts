@@ -58,7 +58,7 @@ async function withState(action: (state: ReturnType<typeof createState>) => Prom
   try {
     (supabaseAdmin as any).from = (table: string) => new QueryMock(state, table);
     (supabaseAdmin as any).rpc = async (name: string, input: Row) => {
-      assert.equal(name, 'complete_final_sales_milestone_with_outcome');
+      assert.equal(name, 'complete_final_sales_with_evidence'); assert.equal(input.p_evidence_document_ids.length,1);
       assert.equal(input.p_milestone_id, 'stage-2');
       assert.equal(input.p_sales_id, sales.userId);
       state.rpcCalls++;
@@ -91,8 +91,8 @@ async function withState(action: (state: ReturnType<typeof createState>) => Prom
 
 async function run() {
   for (const input of [
-    { outcome: 'WON' as const, final_contract_value: 1200000 },
-    { outcome: 'LOST' as const, loss_reason: 'Price not competitive' },
+    { evidence_document_ids: ["90000000-0000-4000-8000-000000000001"], outcome: 'WON' as const, final_contract_value: 1200000 },
+    { evidence_document_ids: ["90000000-0000-4000-8000-000000000001"], outcome: 'LOST' as const, loss_reason: 'Price not competitive' },
   ]) {
     await withState(async (state) => {
       const result = await completeMilestoneStage('stage-2', sales, input);
@@ -106,24 +106,24 @@ async function run() {
       assert.equal(state.logs.length, 0, 'Replaying the RPC must not insert a separate Node activity');
       assert.equal(state.rpcCalls, 2);
       await assert.rejects(() => completeMilestoneStage('stage-2', sales, input.outcome === 'WON'
-        ? { outcome: 'WON', final_contract_value: 1 }
-        : { outcome: 'LOST', loss_reason: 'Different reason' }), /already been recorded/);
+        ? { evidence_document_ids: ["90000000-0000-4000-8000-000000000001"], outcome: 'WON', final_contract_value: 1 }
+        : { evidence_document_ids: ["90000000-0000-4000-8000-000000000001"], outcome: 'LOST', loss_reason: 'Different reason' }), /already been recorded/);
     });
   }
   await withState(async (state) => {
     state.outputs[0].status = 'IN_REVIEW';
-    await assert.rejects(() => completeMilestoneStage('stage-2', sales, { outcome: 'WON', final_contract_value: 100 }), /Selected output documents/);
+    await assert.rejects(() => completeMilestoneStage('stage-2', sales, { evidence_document_ids: ["90000000-0000-4000-8000-000000000001"], outcome: 'WON', final_contract_value: 100 }), /Selected output documents/);
     assert.equal(state.milestones[1].status, 'IN_PROGRESS');
     assert.equal(state.project.status, 'ACTIVE');
   });
   await withState(async (state) => {
     state.outputs = [];
-    await assert.rejects(() => completeMilestoneStage('stage-2', sales, { outcome: 'WON', final_contract_value: 100 }), /Selected output documents/);
+    await assert.rejects(() => completeMilestoneStage('stage-2', sales, { evidence_document_ids: ["90000000-0000-4000-8000-000000000001"], outcome: 'WON', final_contract_value: 100 }), /Selected output documents/);
     assert.equal(state.project.status, 'ACTIVE');
   });
   await withState(async (state) => {
     state.milestones[0].status = 'IN_PROGRESS';
-    await assert.rejects(() => completeMilestoneStage('stage-2', sales, { outcome: 'WON', final_contract_value: 100 }), /Other milestones/);
+    await assert.rejects(() => completeMilestoneStage('stage-2', sales, { evidence_document_ids: ["90000000-0000-4000-8000-000000000001"], outcome: 'WON', final_contract_value: 100 }), /Other milestones/);
     assert.equal(state.milestones[1].status, 'IN_PROGRESS');
   });
   await withState(async (state) => {
@@ -131,18 +131,18 @@ async function run() {
     const originalError = console.error;
     console.error = () => undefined;
     try {
-      await assert.rejects(() => completeMilestoneStage('stage-2', sales, { outcome: 'LOST', loss_reason: 'Lost' }), /Unable to complete/);
+      await assert.rejects(() => completeMilestoneStage('stage-2', sales, { evidence_document_ids: ["90000000-0000-4000-8000-000000000001"], outcome: 'LOST', loss_reason: 'Lost' }), /Unable to complete/);
     } finally { console.error = originalError; }
     assert.equal(state.milestones[1].status, 'IN_PROGRESS');
     assert.equal(state.project.status, 'ACTIVE');
     assert.equal(state.logs.length, 0);
     state.failTransaction = false;
-    const retry = await completeMilestoneStage('stage-2', sales, { outcome: 'LOST', loss_reason: 'Lost' });
+    const retry = await completeMilestoneStage('stage-2', sales, { evidence_document_ids: ["90000000-0000-4000-8000-000000000001"], outcome: 'LOST', loss_reason: 'Lost' });
     assert.equal(retry.project_status, 'LOST');
     assert.equal(state.logs.length, 0, 'Retry uses the RPC audit, without a separate Node insert');
   });
   await withState(async (state) => {
-    await assert.rejects(() => completeMilestoneStage('stage-2', { ...sales, userId: 'other' }, { outcome: 'WON', final_contract_value: 100 }), /Only the project owner/);
+    await assert.rejects(() => completeMilestoneStage('stage-2', { ...sales, userId: 'other' }, { evidence_document_ids: ["90000000-0000-4000-8000-000000000001"], outcome: 'WON', final_contract_value: 100 }), /Only the project owner/);
     assert.equal(state.rpcCalls, 0);
   });
   const sql = readFileSync(join(__dirname, '../../supabase/phase14-final-sales-outcome.sql'), 'utf8');

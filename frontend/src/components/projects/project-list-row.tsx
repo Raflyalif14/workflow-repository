@@ -5,11 +5,12 @@ import { ArrowRight } from "lucide-react";
 import { translate as translateI18n } from "@/i18n";
 import { Button } from "@/components/ui/button";
 import type { Project } from "@/types/project";
+import { projectDisplayStatus } from '@/lib/project-display-status';
+import { StatusBadge } from './project-status-badge';
 import {
   getProgressPresentation,
   getProjectState,
   getResponsibleLabel,
-  getStatusBadge,
 } from "@/lib/project-list-format";
 
 export interface ProjectListRowProps {
@@ -42,7 +43,7 @@ export function ProjectListRow({ project, role }: ProjectListRowProps) {
           {translateI18n("copy.state")}
         </span>
         <div className="min-w-0 text-right xl:text-left">
-          {getStatusBadge(project.status)}
+          <StatusBadge status={project.status} label={projectDisplayStatus(project)} />
           <p className="mt-1 truncate text-xs text-muted-foreground">
             {getProjectState(project, role)}
           </p>

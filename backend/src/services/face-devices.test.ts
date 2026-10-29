@@ -30,7 +30,8 @@ async function run() {
     verifyOtp: async ({ token_hash }: any) => providerError ? { data: {}, error: {} }
       : { data: { user: profile(token_hash.split('@')[0]), session: { access_token: 'synthetic', refresh_token: 'synthetic' } } },
   } });
-  inference.runFaceLoginInference = async () => ({ embedding: Array.from({ length: 128 }, (_, i) => i === 0 ? 1 : 0) });
+  let faceIndex = 0;
+  inference.runFaceLoginInference = async () => ({ embedding: Array.from({ length: 128 }, (_, i) => i === faceIndex ? 1 : 0) });
   inference.runFacePassiveLoginInference = async () => { if (faceError) throw Error(faceError); };
   const finish = async (challenge: any, userId?: string) => {
     const frames = [0, 1, 2].map(i => Buffer.from('synthetic-only-' + i));
@@ -39,7 +40,8 @@ async function run() {
       { key: pair.privateKey, dsaEncoding: 'ieee-p1363' }).toString('base64url');
     return service.finishFaceChallenge({ challengeId: challenge.id, hashes, signature }, frames, origin, new AbortController().signal, userId);
   };
-  const register = async (userId: string, ua?: string) => {
+  const register = async (userId: string, ua?: string, index = userId === owner ? 0 : 1) => {
+    faceIndex = index;
     const deviceId = crypto.randomUUID(); ids.push(deviceId); clock += 1000;
     await finish(await service.startFaceChallenge({ deviceId, publicKey, password: 'fixture-password' }, origin, userId, ua), userId); return deviceId;
   };
@@ -55,6 +57,7 @@ async function run() {
     ]) assert.deepEqual(faceDeviceInfo(ua), { browser, platform });
     const edge = await register(owner, 'Windows Chrome/130 Safari/537 Edg/130');
     const chrome = await register(owner, 'Linux Android Chrome/130');
+    await assert.rejects(register(other, 'Macintosh Safari/605', 0), /FACE_ALREADY_REGISTERED/, 'A face already owned by another account cannot be reused');
     const outsider = await register(other, 'Macintosh Safari/605');
     let devices = await list();
     assert.deepEqual(devices.map((item: any) => item.deviceId), [chrome, edge]);

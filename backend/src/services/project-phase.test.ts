@@ -20,8 +20,8 @@ async function main() {
   assert.equal(projectPhaseName({ phase_key: 'Tender approximate' }), null);
   assert.equal(getProjectDocumentDefinitions('PRA_TENDER', false).length, 17, 'Existing legacy projects retain both groups');
   assert.deepEqual(getMandatoryDocumentKeys('PRA_TENDER'), ['proposal_deck_solusi']);
-  assert.equal(getProjectMandatoryDocumentKeys('PRA_TENDER', false).length, 5, 'Legacy combined mandatory scope is retained');
-  assert.equal(getMandatoryDocumentKeys('ON_SUBMISSION_TENDER').length, 4);
+  assert.equal(getProjectMandatoryDocumentKeys('PRA_TENDER', false).length, 2, 'Legacy combined scope retains the two canonical mandatory proposal documents');
+  assert.equal(getMandatoryDocumentKeys('ON_SUBMISSION_TENDER').length, 1);
   for (const group of ['PRA_TENDER', 'ON_SUBMISSION_TENDER'] as const) {
     const definitions = getScenarioDocuments(group);
     const stageKeys = new Set(definitions.filter(row => row.isRequired).map(row => row.stageKey));

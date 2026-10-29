@@ -149,12 +149,12 @@ console.log('Test 22 - Project plan migration includes a partial pending-approva
 const milestoneRoutes = readFileSync(join(__dirname, '../routes/milestone.routes.ts'), 'utf8');
 const milestoneController = readFileSync(join(__dirname, '../controllers/milestone.controller.ts'), 'utf8');
 assert(
-  /router\.post\(\s*'\/:milestoneId\/start',\s*MilestoneInitiationApprovalController\.retired\s*\);/s.test(milestoneRoutes) &&
+  /router\.post\(\s*'\/:milestoneId\/start',\s*requireRoles\(\['SALES','HEAD_SA','SA'\]\),\s*MilestoneController\.start/s.test(milestoneRoutes) &&
     milestoneRoutes.includes("'/:milestoneId/complete'") &&
-    !/static async start\(/.test(milestoneController),
-  'Test 23: manual start must be retired without a mutating controller entry point'
+    milestoneController.includes("rpc('start_parallel_milestone'"),
+  'Test 23: parallel Start must use the guarded atomic RPC and authenticated allowed roles'
 );
-console.log('Test 23 - Manual Start Stage is retired while automatic completion remains available');
+console.log('Test 23 - Parallel Start uses the guarded atomic RPC; retired legacy initiation stays retired');
 
 let retiredStatusCode: number | undefined;
 MilestoneInitiationApprovalController.retired(

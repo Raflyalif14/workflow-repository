@@ -8,10 +8,11 @@ import * as outputs from '../hooks/use-output-documents';
 import MilestonesPage from '../app/milestones/page';
 import { countAssignedMilestonesNeedingAction } from './assigned-milestone-ux';
 import { setActiveLanguage, translate } from '../i18n';
+import { ListSummary } from '../components/list-summary';
 
 type Element = React.ReactElement<any>;
 const elements = (node: ReactNode): Element[] => Array.isArray(node) ? node.flatMap(elements)
-  : isValidElement(node) ? [node as Element, ...elements((node as Element).props.children)] : [];
+  : isValidElement(node) ? (node.type === ListSummary ? elements(ListSummary((node as Element).props)) : [node as Element, ...elements((node as Element).props.children)]) : [];
 const originals = { auth: auth.useAuth, language: language.useLanguage, assigned: projects.useMyAssignedMilestones,
   repository: outputs.useOutputRepository, state: React.useState, memo: React.useMemo };
 const output = (status: string, selected = true) => ({ status, is_selected: selected, is_required: false });
@@ -59,7 +60,7 @@ try {
       const waiting = tabs().find(node => node.props.label === translate('milestonePage.underReview'))!;
       assert.equal(waiting.props.count, 1, 'Submitted output must contribute to the waiting counter');
       const snapshot = view.nodes.find(node => node.props['aria-label'] === translate('milestonePage.snapshot'))!;
-      const values = elements(snapshot).filter(node => node.type === 'p' && typeof node.props.children === 'number').map(node => node.props.children);
+      const values = elements(snapshot).filter(node => typeof node.props['data-summary-value'] === 'number').map(node => node.props['data-summary-value']);
       assert.deepEqual(values, [0, 1, 0, 1], 'KPI and tabs use the same classification');
       waiting.props.onClick(); view = render();
       assert.equal(activeTab, 'REVIEW');

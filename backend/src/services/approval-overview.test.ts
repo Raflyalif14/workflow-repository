@@ -13,7 +13,7 @@ async function main() {
   const milestone: any = { id: 'm', project_id: 'p', phase_id: 'tender', name: 'Technical proposal', step_order: 3,
     status: 'IN_PROGRESS', start_date: '2099-01-01', workflow_stage: { stage_key: 'TECHNICAL_PROPOSAL_BOQ', default_role: 'SA', scenario_id: 'st' } };
   const output: any = { id: 'o', project_id: 'p', phase_id: 'tender', milestone_id: 'm', document_key: 'timeline_proyek',
-    status: 'IN_REVIEW', is_required: true, is_selected: true, current_version_id: 'v' };
+    status: 'IN_REVIEW', is_required: false, is_selected: true, current_version_id: 'v' };
   const version: any = { id: 'v', project_id: 'p', output_document_id: 'o', status: 'IN_REVIEW', snapshot_kind: 'SUBMITTED',
     version_number: 2, submitted_at: '2026-10-06T01:00:00Z', submission_actor_id: 'submitter', uploaded_by: 'different-uploader' };
   const refs = [1, 2].map(position => ({ version_id: 'v', project_id: 'p', output_document_id: 'o', file_id: `f${position}`, position }));
@@ -77,13 +77,26 @@ async function main() {
     for (const status of ['DRAFT', 'APPROVED', 'REVISION_REQUIRED', 'TO_DO', 'NOT_REQUIRED']) {
       output.status = status; assert.equal((await overview()).stats.pendingDocs, 0);
     }
-    output.status = 'IN_REVIEW'; output.is_required = false; output.is_selected = false;
+    output.status = 'IN_REVIEW';
+    for (const key of ['timeline_proyek', 'identitas_barang_produk', 'spesifikasi_teknis_toc']) {
+      output.document_key = key;
+      milestone.workflow_stage.stage_key = key === 'identitas_barang_produk' ? 'DELIVERABLES' : 'TECHNICAL_PROPOSAL_BOQ';
+      for (const required of [true, false]) {
+        output.is_required = required;
+        assert.equal((await overview()).stats.pendingDocs, 1, 'Pending tender snapshots remain visible before and after phase35');
+      }
+    }
+    output.document_key = 'proposal_teknis'; output.is_required = false;
+    await assert.rejects(overview(), /Failed to load approval overview/, 'A mandatory proposal cannot be downgraded');
+    output.is_required = true; output.is_selected = false;
     await assert.rejects(overview(), /Failed to load approval overview/, 'Corrupt mandatory scope cannot become a valid zero count');
-    output.document_key = 'metodologi_implementasi'; milestone.workflow_stage.stage_key = 'PROPOSAL_SOLUTION';
+    output.document_key = 'metodologi_implementasi'; output.is_required = false; milestone.workflow_stage.stage_key = 'PROPOSAL_SOLUTION';
     assert.equal((await overview()).stats.pendingDocs, 0);
     output.is_selected = true;
     assert.equal((await overview()).stats.pendingDocs, 1, 'Selected optional output is required work');
-    output.document_key = 'timeline_proyek'; milestone.workflow_stage.stage_key = 'TECHNICAL_PROPOSAL_BOQ'; output.is_required = true;
+    output.is_required = true;
+    await assert.rejects(overview(), /Failed to load approval overview/, 'Unrelated invalid required flags remain rejected');
+    output.document_key = 'proposal_teknis'; milestone.workflow_stage.stage_key = 'TECHNICAL_PROPOSAL_BOQ'; output.is_required = true;
     for (const [target, key, wrong] of [[version, 'project_id', 'other'], [version, 'output_document_id', 'other'],
       [version, 'status', 'APPROVED'], [version, 'snapshot_kind', 'LEGACY_UPLOAD_UNCONFIRMED'], [output, 'current_version_id', 'missing'],
       [output, 'phase_id', 'pra'], [milestone, 'project_id', 'other'], [milestone.workflow_stage, 'stage_key', 'UNKNOWN'],

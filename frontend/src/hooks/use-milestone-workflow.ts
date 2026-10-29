@@ -1,4 +1,5 @@
 import { useBusinessRequest } from "./use-business-request";
+import { outputDocumentKeys } from "./use-output-documents";
 import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "@/lib/api-client";
 import { approvalKeys, assignmentKeys, dashboardKeys, milestoneKeys, projectKeys } from "@/lib/query-keys";
@@ -30,6 +31,7 @@ const invalidateMilestoneWorkflow = (
   milestoneId?: string
 ) => {
   queryClient.invalidateQueries({ queryKey: projectKeys.all() });
+  queryClient.invalidateQueries({ queryKey: dashboardKeys.overview() });
   queryClient.invalidateQueries({ queryKey: approvalKeys.all() });
   queryClient.invalidateQueries({ queryKey: approvalKeys.stats() });
   queryClient.invalidateQueries({ queryKey: assignmentKeys.myAssignedMilestones() });
@@ -88,7 +90,7 @@ export function useCompleteMilestone(projectId: string, milestoneId: string) {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (outcome?: { outcome: "WON" | "LOST"; final_contract_value?: number; loss_reason?: string }) =>
+    mutationFn: (outcome?: { outcome: "WON" | "LOST"; final_contract_value?: number; loss_reason?: string; evidence_document_ids?: string[] }) =>
       apiClient(`/milestones/${milestoneId}/complete`, {
         method: "POST",
         ...(outcome ? { body: JSON.stringify(outcome) } : {}),
@@ -96,18 +98,28 @@ export function useCompleteMilestone(projectId: string, milestoneId: string) {
     onSuccess: (_result, outcome) => {
       invalidateMilestoneWorkflow(queryClient, projectId, milestoneId);
       if (outcome) {
-        queryClient.invalidateQueries({ queryKey: dashboardKeys.overview() });
+        queryClient.invalidateQueries({ queryKey: ["documents"] });
+        queryClient.invalidateQueries({ queryKey: outputDocumentKeys.repository() });
+        queryClient.invalidateQueries({ queryKey: ["global-search"] });
         queryClient.invalidateQueries({ queryKey: ["output-documents", projectId] });
       }
     },
     onError: (_error, outcome) => {
       invalidateMilestoneWorkflow(queryClient, projectId, milestoneId);
       if (outcome) {
-        queryClient.invalidateQueries({ queryKey: dashboardKeys.overview() });
+        queryClient.invalidateQueries({ queryKey: ["documents"] });
+        queryClient.invalidateQueries({ queryKey: outputDocumentKeys.repository() });
+        queryClient.invalidateQueries({ queryKey: ["global-search"] });
         queryClient.invalidateQueries({ queryKey: ["output-documents", projectId] });
       }
     },
   });
+}
+
+export function useStartMilestone(projectId: string, milestoneId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({ mutationFn: () => apiClient(`/milestones/${milestoneId}/start`, { method: 'POST' }),
+    onSuccess: () => invalidateMilestoneWorkflow(queryClient, projectId, milestoneId) });
 }
 
 export function useRetryMilestoneProgression(projectId: string, milestoneId: string) {

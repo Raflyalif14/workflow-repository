@@ -3,6 +3,8 @@
 import { useLanguage } from "@/components/i18n/language-provider";
 import { translate as translateI18n } from "@/i18n";
 import Link from "next/link";
+import { useState } from "react";
+import { resolveScenarioKey } from "@/constants/scenarios";
 import { AlertTriangle, ArrowRight, CheckCircle2, ClipboardCheck, Clock3 } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { PhaseWorkStatusPanel } from "@/components/dashboard/phase-work-status-panel";
@@ -31,7 +33,6 @@ import {
 import type { DashboardSummary } from "@/types/dashboard";
 import {
   displayWorkState,
-  formatRevenue,
   getHeadSaItems,
   getSuperAdminItems,
   getRoleSummary,
@@ -41,9 +42,12 @@ import { MetricCard } from "@/components/dashboard/metric-card";
 import { ProjectDeliveryRow } from "@/components/dashboard/project-delivery-row";
 import { QuickInsightsPanel } from "@/components/dashboard/quick-insights-panel";
 import { SolutionArchitectWorkloadPanel } from "@/components/dashboard/solution-architect-workload-panel";
+import { TaskPanels } from "@/components/dashboard/task-panels";
+import { SalesPipelineSummary } from "@/components/dashboard/sales-pipeline-summary";
 
 export default function DashboardPage() {
   useLanguage();
+  const [revenuePhase, setRevenuePhase] = useState("ALL");
   const { user } = useAuth();
   const greeting = getDashboardGreeting(new Date().getHours());
   const userRole = user?.role || "GUEST";
@@ -92,13 +96,7 @@ export default function DashboardPage() {
   const quickInsights = getDashboardInsights(roleItems, nextTask?.id, 5);
   const remainingItemCount = Math.max(0, roleItems.length - (nextTask ? 1 : 0));
   const viewAllHref = getViewAllHref(userRole);
-  const salesResults = userRole === "SALES" ? dashboardQuery.data?.salesResults : null;
-  const calculatedMetrics = salesResults ? [
-    { label: "Total estimated revenue", value: salesResults.totalEstimatedRevenue },
-    { label: "Waiting result", value: salesResults.waitingResult.count },
-    { label: "Won", value: salesResults.won.count },
-    { label: "Lost", value: salesResults.lost.count },
-  ] : getRoleSummary({
+  const calculatedMetrics = getRoleSummary({
     role: userRole,
     projects,
     approvals,
@@ -139,6 +137,10 @@ export default function DashboardPage() {
           targetEndDate: project.currentMilestone?.due_date || project.targetEndDate || null,
           totalMilestones: project.totalMilestones || 0,
           completedMilestones: project.completedMilestones || 0,
+          estimatedRevenue: project.estimated_revenue,
+          finalRevenue: project.status === "WON" ? project.final_contract_value : null,
+          scenarioKey: resolveScenarioKey(project.active_scenario?.name || project.scenario?.name),
+          currentStage: project.currentStage,
           overdueMilestones: 0,
           percentage: typeof project.progress === "number" ? project.progress : null,
         }))
@@ -161,15 +163,17 @@ export default function DashboardPage() {
       ownerKnown: Boolean(matchingProject),
       hasPic: matchingProject ? Boolean(matchingProject.pic) : undefined,
       currentRole: matchingProject?.currentRole,
-      currentStage: matchingProject?.currentStage,
+      currentStage: matchingProject?.currentStage || project.currentStage,
       currentDeadline: matchingProject?.currentMilestone?.due_date || null,
       picName: matchingProject?.pic?.fullName || matchingProject?.pic?.full_name || null,
-      estimatedRevenue: matchingProject?.estimated_revenue ?? null,
+      estimatedRevenue: project.estimatedRevenue ?? matchingProject?.estimated_revenue ?? null,
+      finalRevenue: project.finalRevenue ?? (matchingProject?.status === "WON" ? matchingProject.final_contract_value : null),
+      scenarioKey: project.scenarioKey || resolveScenarioKey(matchingProject?.active_scenario?.name || matchingProject?.scenario?.name),
       outputApprovedCount: outputProgress?.approvedCount,
       outputSelectedCount: outputProgress?.selectedCount,
     };
   });
-  const projectDelivery = sortDashboardProjectHealth(healthSource, userRole).slice(0, 8);
+  const projectDelivery = sortDashboardProjectHealth(healthSource.filter(project => userRole !== "SALES" || revenuePhase === "ALL" || project.scenarioKey === revenuePhase), userRole).slice(0, 8);
   const projectDeliveryTitle = userRole === "SALES"
     ? translateI18n("dashboardPage.revenueOpportunity")
     : userRole === "HEAD_SA"
@@ -228,7 +232,7 @@ export default function DashboardPage() {
         </div>
       )}
 
-      <div className={`grid min-w-0 gap-4 ${combineEmptySalesPanels ? "" : "xl:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)] xl:items-start"}`}>
+      {dashboardQuery.data?.workTasks ? <TaskPanels tasks={dashboardQuery.data.workTasks} loading={dashboardQuery.isLoading} /> : <div className={`grid min-w-0 gap-4 ${combineEmptySalesPanels ? "" : "xl:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)] xl:items-start"}`}>
         <section aria-labelledby="next-task-heading" className="dashboard-surface p-4 sm:p-5">
           <div className="flex items-center gap-3">
             <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary-soft text-primary"><ClipboardCheck className="h-5 w-5" aria-hidden="true" /></span>
@@ -273,12 +277,14 @@ export default function DashboardPage() {
         />}
       </div>
 
+      }
       <section aria-labelledby="project-delivery-heading" className="project-delivery-layout dashboard-surface">
         <div className="flex flex-col gap-3 border-b border-border px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
           <div>
             <h2 id="project-delivery-heading" className="text-base font-semibold text-foreground">{projectDeliveryTitle}</h2>
             <p className="mt-1 text-sm text-muted-foreground">{projectDeliveryDescription}</p>
           </div>
+          {userRole === "SALES" && <select aria-label={translateI18n("dashboardPage.revenuePhaseFilter")} value={revenuePhase} onChange={event => setRevenuePhase(event.target.value)} className="max-w-full rounded-lg border border-input bg-card px-3 py-2 text-sm"><option value="ALL">{translateI18n("dashboardPage.allScenarios")}</option><option value="PRA_TENDER">Pra-Tender</option><option value="ON_SUBMISSION_TENDER">On Submission Tender</option></select>}
           {projectDelivery.length > 0 && (
             <Link href="/projects" className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline">
               {translateI18n("dashboardPage.viewAllProjects")}
@@ -289,8 +295,8 @@ export default function DashboardPage() {
 
         <div className="dashboard-table">
         {userRole === "SALES" ? (
-          <div className="hidden grid-cols-[minmax(0,1.6fr)_minmax(0,1.1fr)_minmax(0,1fr)_minmax(0,0.85fr)] gap-4 border-b border-border bg-muted/40 px-5 py-2.5 text-xs font-medium text-muted-foreground lg:grid">
-            <span>{translateI18n("nav.projects")}</span><span>{translateI18n("copy.estimatedRevenue")}</span><span>{translateI18n("copy.stage")}</span><span>PIC</span>
+          <div className="hidden grid-cols-[minmax(0,1.5fr)_repeat(2,minmax(0,1fr))_minmax(0,1fr)_minmax(0,0.85fr)] gap-4 border-b border-border bg-muted/40 px-5 py-2.5 text-xs font-medium text-muted-foreground lg:grid">
+            <span>{translateI18n("nav.projects")}</span><span>{translateI18n("copy.estimatedRevenue")}</span><span>{translateI18n("dashboardPage.finalRevenue")}</span><span>{translateI18n("copy.stage")}</span><span>PIC</span>
           </div>
         ) : (
           <div className="delivery-columns border-b border-border bg-muted/40 text-xs font-medium text-muted-foreground">
@@ -329,6 +335,8 @@ export default function DashboardPage() {
 
       <HeadSaProjectValuesPanel
         role={userRole}
+        pipeline={dashboardQuery.data?.projectPipeline}
+        onRetry={() => { void dashboardQuery.refetch(); }}
         values={dashboardQuery.data?.headSaProjectValues}
         loading={dashboardQuery.isLoading}
         hasError={dashboardQuery.isError}
@@ -342,9 +350,12 @@ export default function DashboardPage() {
         />
       )}
 
-      <section aria-labelledby="dashboard-summary-heading" className="space-y-3">
-        <h2 id="dashboard-summary-heading" className="text-base font-semibold">{translateI18n("dashboardPage.summary")}</h2>
-        {isRoleDataLoading ? (
+      {!isHeadSa && <section aria-labelledby="dashboard-summary-heading" className="space-y-3">
+        <h2 id="dashboard-summary-heading" className="text-base font-semibold">{translateI18n(userRole === 'SALES' ? 'salesPipeline.title' : 'dashboardPage.summary')}</h2>
+        {userRole === 'SALES' ? (
+          <SalesPipelineSummary data={dashboardQuery.data?.salesPipeline} loading={dashboardQuery.isLoading}
+            hasError={dashboardQuery.isError} onRetry={() => { void dashboardQuery.refetch(); }} />
+        ) : isRoleDataLoading ? (
           <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-3 sm:grid-cols-[repeat(2,minmax(0,1fr))] xl:grid-cols-[repeat(4,minmax(0,1fr))]" aria-label={translateI18n("dashboardPage.loadingMetrics")}>
             {[0, 1, 2, 3].map((item) => (
               <div key={item} className="h-24 animate-pulse rounded-xl border border-border bg-muted sm:h-32" />
@@ -355,23 +366,14 @@ export default function DashboardPage() {
         ) : (
           <dl className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-3 sm:grid-cols-[repeat(2,minmax(0,1fr))] xl:grid-cols-[repeat(4,minmax(0,1fr))]">
             {metrics.map((metric) => (
-              <div key={metric.label} className="min-w-0">
+              <div key={metric.label} className="flex min-w-0 flex-col">
                 <dt className="sr-only">{metric.label}</dt>
-                <dd className="min-w-0"><MetricCard metric={metric} /></dd>
+                <dd className="flex min-w-0 flex-1 flex-col"><MetricCard metric={metric} /></dd>
               </div>
             ))}
           </dl>
         )}
-      </section>
-
-      {userRole === "SALES" && !dashboardQuery.isLoading && !dashboardQuery.isError && salesResults && (
-        <section aria-label={translateI18n("dashboardPage.salesResults")} className="dashboard-surface grid gap-4 p-5 text-sm sm:grid-cols-2 lg:grid-cols-4">
-          <div><p className="text-muted-foreground">{translateI18n("projectStatus.WAITING_RESULT")}</p><p className="font-semibold">{translateI18n("dashboardPage.projectCount", { count: salesResults.waitingResult.count })}</p><p className="text-xs text-muted-foreground">{translateI18n("dashboardPage.estimate", { value: formatRevenue(salesResults.waitingResult.estimatedRevenue) })}</p></div>
-          <div><p className="text-muted-foreground">{translateI18n("projectStatus.WON")}</p><p className="font-semibold">{translateI18n("dashboardPage.projectCount", { count: salesResults.won.count })}</p><p className="text-xs text-muted-foreground">{translateI18n("dashboardPage.estimate", { value: formatRevenue(salesResults.won.estimatedRevenue) })}</p></div>
-          <div><p className="text-muted-foreground">{translateI18n("projectStatus.LOST")}</p><p className="font-semibold">{translateI18n("dashboardPage.projectCount", { count: salesResults.lost.count })}</p><p className="text-xs text-muted-foreground">{translateI18n("dashboardPage.estimate", { value: formatRevenue(salesResults.lost.estimatedRevenue) })}</p></div>
-          <div><p className="text-muted-foreground">{translateI18n("copy.finalContract")}</p><p className="font-semibold">{formatRevenue(salesResults.finalContractValueTotal)}</p><p className="text-xs text-muted-foreground">{translateI18n("copy.wonOnly")}</p></div>
-        </section>
-      )}
+      </section>}
 
       <div className="min-w-0">
         <PhaseWorkStatusPanel

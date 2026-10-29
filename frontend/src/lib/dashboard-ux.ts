@@ -39,6 +39,8 @@ export type DashboardProjectHealth = {
   currentDeadline?: string | null;
   picName?: string | null;
   estimatedRevenue?: number | null;
+  finalRevenue?: number | null;
+  scenarioKey?: string;
   outputApprovedCount?: number;
   outputSelectedCount?: number;
 };

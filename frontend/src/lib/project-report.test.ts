@@ -16,6 +16,8 @@ const row = (id: string, step: number, status = 'IN_PROGRESS', phase = 'phase-a'
 const rows = [row('third', 3), row('old-phase', 1, 'COMPLETED', 'phase-old'), row('first', 1, 'COMPLETED'), row('second', 2, 'APPROVED')];
 for (const language of ['en', 'id'] as const) {
   const report = buildProjectReport(project, rows, language, new Date('2026-10-20T18:15:00Z'));
+  const tender = buildProjectReport({ ...project, phases: [{ ...project.phases![0], phase_key: 'ON_SUBMISSION_TENDER' }] }, rows, language);
+  assert(tender.summary.some(row => row[0] === tender.labels.status && row[1] === 'On Progress Tender'));
   assert.deepEqual(report.progress, { completed: 2, total: 3, percentage: 67 });
   assert.deepEqual(report.rows.map(row => row[1]), ['Milestone first', 'Milestone second', 'Milestone third']);
   assert(report.summary.some(row => row[1] === 'Current scenario'));

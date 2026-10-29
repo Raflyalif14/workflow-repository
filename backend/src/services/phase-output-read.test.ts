@@ -7,7 +7,7 @@ import { DocumentStorageService } from '../utils/storage.util';
 
 async function main() {
   const phases = [{ id: 'pra', scenario_id: 's-pra', phase_key: 'PRA_TENDER', selected_document_keys: ['proposal_deck_solusi'] },
-    { id: 'tender', scenario_id: 's-tender', phase_key: 'ON_SUBMISSION_TENDER', selected_document_keys: getMandatoryDocumentKeys('ON_SUBMISSION_TENDER') }];
+    { id: 'tender', scenario_id: 's-tender', phase_key: 'ON_SUBMISSION_TENDER', selected_document_keys: [...getMandatoryDocumentKeys('ON_SUBMISSION_TENDER'),'timeline_proyek','identitas_barang_produk','spesifikasi_teknis_toc'] }];
   const project = { id: 'p', name: 'Project', customer: 'Customer', scenario_id: 's-pra', current_scenario_id: 's-tender',
     active_phase_id: 'tender', phases, sales_id: 'sales', pic_id: 'sa', status: 'ACTIVE', is_postponed: false,
     selected_document_keys: phases[1].selected_document_keys, scenario: { name: 'Pra-Tender' }, active_scenario: { name: 'On Submission Tender' } };
