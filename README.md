@@ -190,22 +190,24 @@ Never add a Supabase service-role key, SMTP secret, Telegram bot token, or webho
 
 ## Local Development
 
-Open two PowerShell terminals from the repository root.
+### Option 1: Root Scripts (Recommended)
 
-Backend:
+From the repository root:
 
 ```powershell
-cd backend
-npm.cmd install
-npm.cmd run dev
+# In terminal 1:
+npm.cmd run dev:backend
+
+# In terminal 2:
+npm.cmd run dev:frontend
 ```
 
-Frontend:
+### Option 2: Docker Compose
+
+Ensure `backend/.env` and `frontend/.env` are configured, then run:
 
 ```powershell
-cd frontend
-npm.cmd install
-npm.cmd run dev
+docker compose up --build
 ```
 
 Default local addresses:
@@ -216,27 +218,20 @@ Default local addresses:
 
 ## Verification
 
-Backend type checking and service tests:
+Run full monorepo verification directly from the root:
 
 ```powershell
-cd backend
-npx.cmd tsc --noEmit
-npm.cmd test
+npm.cmd run check
 ```
 
-Frontend type checking, focused tests, and production build:
+Or individual checks:
 
 ```powershell
-cd frontend
-npx.cmd tsc --noEmit
-npm.cmd test
-npm.cmd run build
-```
-
-Repository whitespace validation:
-
-```powershell
-git diff --check
+npm.cmd run typecheck   # Typecheck both backend & frontend
+npm.cmd run lint        # Lint frontend code
+npm.cmd run test        # Run backend CI tests & frontend tests
+npm.cmd run build       # Build both backend & frontend bundles
+git diff --check        # Whitespace and conflict check
 ```
 
 ## Security Notes

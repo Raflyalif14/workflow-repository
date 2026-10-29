@@ -22,6 +22,7 @@ RUN npm ci --omit=dev
 
 COPY --from=builder /app/dist ./dist
 
-EXPOSE 4000
+ENV PORT=5000
+EXPOSE 5000
 
 CMD ["node", "dist/server.js"]
