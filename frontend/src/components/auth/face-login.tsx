@@ -37,6 +37,8 @@ export function FaceLogin({ enrollment = false }: { enrollment?: boolean }) {
   const sectionRef = useRef<HTMLElement | null>(null);
   const [capturingNow, setCapturingNow] = useState(false);
   const [automatic, setAutomatic] = useState(true);
+  const [accountLogin, setAccountLogin] = useState(false);
+  const [accountRegistered, setAccountRegistered] = useState(false);
   const { stop: stopCamera } = camera;
   const cancel = useCallback(() => { ++generation.current; captureSession.current = null; flight.current?.abort(); flight.current = null; frames.current = []; capturing.current = false; setCapturingNow(false); stopCamera(); setChallenge(null); setPhase('idle'); setStep(0); setPassword(''); setRemoved(false); }, [stopCamera]);
   const errorText = (value: unknown) => {
@@ -45,10 +47,15 @@ export function FaceLogin({ enrollment = false }: { enrollment?: boolean }) {
   };
   useEffect(() => {
     const abort = new AbortController(); let current = true;
-    setEnabled(false); setLoadingDevice(true); setError('');
+    setEnabled(false); setLoadingDevice(true); setAccountRegistered(false); setError('');
     void (async () => {
-      const info = await apiClient<{ enabled: boolean; singleGlance?: boolean }>('/face-login/capabilities', { signal: abort.signal });
+      const info = await apiClient<{ enabled: boolean; singleGlance?: boolean; accountLogin?: boolean; faceIdentify?: boolean }>('/face-login/capabilities', { signal: abort.signal });
       if (!current || !info.enabled) return;
+      if (current) setAccountLogin(info.faceIdentify === true);
+      if (enrollment && info.accountLogin) {
+        const registration = await apiClient<{ devices: unknown[] }>('/face-login/devices', { signal: abort.signal });
+        if (current) setAccountRegistered(registration.devices.length > 0);
+      }
       const available = await getFaceDevices();
       if (current) setAccounts(available.filter(d => d.registered));
       let stored = await getFaceDevice(enrollment ? owner || undefined : undefined);
@@ -74,7 +81,7 @@ export function FaceLogin({ enrollment = false }: { enrollment?: boolean }) {
     if (enrollment) {
       if (result.registered !== true || result.deviceId !== currentDevice.id) throw Error('FACE_PROCESS_FAILED');
       const saved = { ...currentDevice, registered: true, owner: owner! }; await saveFaceDevice(saved);
-      if (own !== generation.current) return; setDevice(saved); setPhase('done');
+      if (own !== generation.current) return; setDevice(saved); setAccountRegistered(true); setPhase('done');
     } else { completeFaceLogin(result); setPhase('done'); }
   };
   const start = async () => {
@@ -89,10 +96,11 @@ export function FaceLogin({ enrollment = false }: { enrollment?: boolean }) {
         if (currentDevice?.registered && currentDevice.owner !== owner) throw Error('FACE_DEVICE_OTHER');
         currentDevice ||= await newFaceDevice(user?.id, user?.fullName || user?.email);
       }
-      if (!currentDevice || !enrollment && !currentDevice.registered) throw Error('FACE_DEVICE_MISSING');
+      if (!enrollment && accountLogin) currentDevice ||= await newFaceDevice();
+      if (!currentDevice || !enrollment && !currentDevice.registered && !accountLogin) throw Error('FACE_DEVICE_MISSING');
       if (own !== generation.current || abort.signal.aborted) return;
       const value = await apiClient<FaceChallenge>(`/face-login/${enrollment ? 'enroll' : 'login'}/start`, {
-        method: 'POST', signal: abort.signal, body: JSON.stringify({ deviceId: currentDevice.id, ...(enrollment ? { password, publicKey: currentDevice.publicKey } : {}) }),
+        method: 'POST', signal: abort.signal, body: JSON.stringify({ deviceId: currentDevice.id, ...(enrollment ? { password, publicKey: currentDevice.publicKey } : accountLogin ? { identify: true, publicKey: currentDevice.publicKey } : {}) }),
       });
       setPassword('');
       if (own !== generation.current || abort.signal.aborted) return;
@@ -144,6 +152,12 @@ export function FaceLogin({ enrollment = false }: { enrollment?: boolean }) {
     return () => clearTimeout(timeout);
   }, [phase, challenge, cancel]);
   const devicesRemoved = async (deviceId: string | null) => {
+    if (accountLogin) {
+      const own = generation.current;
+      const registration = await apiClient<{ devices: unknown[] }>('/face-login/devices');
+      if (own !== generation.current) return;
+      setAccountRegistered(registration.devices.length > 0);
+    }
     if (!device || deviceId && deviceId !== device.id || device.owner && device.owner !== owner) return;
     const own = generation.current, saved = { ...device, registered: false };
     // Server revocation is authoritative even if this browser cannot update its local cache.
@@ -152,7 +166,7 @@ export function FaceLogin({ enrollment = false }: { enrollment?: boolean }) {
     setDevice(saved); setPhase('idle'); setRemoved(true);
   };
   if (!eligible || !enabled && !enrollment) return null;
-  const ownRegistration = device?.registered && device.owner === owner;
+  const ownRegistration = accountRegistered || device?.registered && device.owner === owner;
   const otherRegistration = enrollment && device?.registered && device.owner !== owner;
   const active = ['starting', 'capture', 'scanning', 'checking'].includes(phase);
   const setupReady = enrollment && enabled && !active && !ownRegistration && !otherRegistration;
@@ -161,7 +175,8 @@ export function FaceLogin({ enrollment = false }: { enrollment?: boolean }) {
     {!enrollment && <>
       <h2 className="font-semibold">{t('faceLogin.title')}</h2>
       <p className="text-sm leading-6 text-muted-foreground">{t(singleGlance ? 'faceLogin.singleGlanceHelp' : 'faceLogin.loginHelp')}</p>
-      {enabled && accounts.length > 1 && <div className="space-y-2"><label htmlFor="face-account" className="block text-sm font-medium">{t('workflowUpdate.chooseAccount')}</label><select id="face-account" disabled={active} value={device?.id || ''} onChange={event => { cancel(); setDevice(accounts.find(account => account.id === event.target.value) || null); }} className="w-full rounded-lg border border-input bg-card px-3 py-2 text-sm"><option value="">{t('workflowUpdate.chooseAccount')}</option>{accounts.map(account => <option key={account.id} value={account.id}>{account.label || `${t('workflowUpdate.unnamedAccount')} ${account.owner?.slice(-4) || account.id.slice(-4)}`}</option>)}</select><p className="text-xs text-muted-foreground">{t('workflowUpdate.accountHelp')}</p></div>}
+      {accountLogin && <p className="text-xs text-muted-foreground">{t('faceIdentify.help')}</p>}
+      {enabled && accounts.length > 1 && !accountLogin && <div className="space-y-2"><label htmlFor="face-account" className="block text-sm font-medium">{t('workflowUpdate.chooseAccount')}</label><select id="face-account" disabled={active} value={device?.id || ''} onChange={event => { cancel(); setDevice(accounts.find(account => account.id === event.target.value) || null); }} className="w-full rounded-lg border border-input bg-card px-3 py-2 text-sm"><option value="">{t('workflowUpdate.chooseAccount')}</option>{accounts.map(account => <option key={account.id} value={account.id}>{account.label || `${t('workflowUpdate.unnamedAccount')} ${account.owner?.slice(-4) || account.id.slice(-4)}`}</option>)}</select><p className="text-xs text-muted-foreground">{t('workflowUpdate.accountHelp')}</p></div>}
     </>}
     {enrollment && loadingDevice && <p role="status" className="text-sm">{t('faceLogin.loadingStatus')}</p>}
     {enrollment && !loadingDevice && !enabled && !error && <p role="status" className="text-sm">{t('faceLogin.disabled')}</p>}
@@ -171,13 +186,13 @@ export function FaceLogin({ enrollment = false }: { enrollment?: boolean }) {
         <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-success" aria-hidden="true" />
         <div className="space-y-1">
           <h2 className="font-semibold">{t(phase === 'done' ? 'faceLogin.enrolled' : 'faceLogin.activeTitle')}</h2>
-          <p className="text-sm">{t('faceLogin.alreadySetUp')}</p>
+          <p className="text-sm">{t(accountLogin ? 'faceAccount.registered' : 'faceLogin.alreadySetUp')}</p>
         </div>
       </div>
       <div className="space-y-2">
         <h3 className="font-medium">{t('faceLogin.nextLogin')}</h3>
         <p className="text-sm leading-6">{t(singleGlance ? 'faceLogin.nextLoginSingle' : 'faceLogin.nextLoginMotion')}</p>
-        <p className="text-xs leading-5 text-muted-foreground">{t('faceLogin.browserScope')}</p>
+        <p className="text-xs leading-5 text-muted-foreground">{t(accountLogin ? 'faceIdentify.scope' : 'faceLogin.browserScope')}</p>
       </div>
       <Link href="/" className="inline-flex min-h-10 items-center rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary-deep">
         {t(phase === 'done' ? 'faceLogin.finishSetup' : 'faceLogin.backHome')}
@@ -230,11 +245,11 @@ export function FaceLogin({ enrollment = false }: { enrollment?: boolean }) {
       </Button>
     </div>}
     {(cameraFailure || camera.error) && <p role="alert" className="text-sm text-destructive">{t(`faceVerification.${cameraFailure || camera.error!}`)}</p>}
-    {error && <p role="alert" className="text-sm text-destructive">{t(`faceLogin.${error}` as TranslationKey)}</p>}
+    {error && <p role="alert" className="text-sm text-destructive">{t(`faceLogin.${!enrollment && accountLogin && error === 'FACE_DEVICE_MISSING' ? 'FACE_ACCOUNT_UNAVAILABLE' : error}` as TranslationKey)}</p>}
     {phase === 'checking' && <p role="status" className="text-sm">{t(enrollment ? 'faceLogin.finishingSetup' : 'faceLogin.checking')}</p>}
     {phase === 'starting' && <p role="status" className="text-sm">{t('faceLogin.starting')}</p>}
     <div className="flex flex-wrap gap-2">
-      {!active && enabled && !enrollment && <Button type="button" onClick={() => void start()} disabled={!device?.registered}>{t('faceLogin.signIn')}</Button>}
+      {!active && enabled && !enrollment && <Button type="button" onClick={() => void start()} disabled={loadingDevice || (!accountLogin && !device?.registered)}>{t('faceLogin.signIn')}</Button>}
       {enrollment && !loadingDevice && !enabled && error && <Button type="button" variant="outline" onClick={() => setLoadAttempt(value => value+1)}>{t('faceLogin.retryStatus')}</Button>}
       {active && <Button type="button" variant="outline" onClick={cancel}>{t('common.cancel')}</Button>}
     </div>
@@ -242,12 +257,12 @@ export function FaceLogin({ enrollment = false }: { enrollment?: boolean }) {
       <details className="text-sm">
         <summary className="cursor-pointer font-medium">{t('faceLogin.privacyTitle')}</summary>
         <div className="mt-3 space-y-2 text-sm leading-6 text-muted-foreground">
-          <p>{t('faceLogin.privacy')}</p><p>{t('faceLogin.browserScope')}</p>
+          <p>{t('faceLogin.privacy')}</p><p>{t(accountLogin ? 'faceIdentify.scope' : 'faceLogin.browserScope')}</p>
         </div>
       </details>
-      {enabled && owner && <FaceDeviceManager ownerId={owner} currentDeviceId={device && (!device.owner || device.owner === owner) ? device.id : null}
+      {enabled && owner && <FaceDeviceManager accountMode={accountLogin} ownerId={owner} currentDeviceId={device && (!device.owner || device.owner === owner) ? device.id : null}
         registered={Boolean(ownRegistration)} onRemoved={devicesRemoved} />}
     </div>}
-    {!enrollment && !device?.registered && <p className="text-xs text-muted-foreground">{t('faceLogin.noDevice')}</p>}
+    {!enrollment && !accountLogin && !device?.registered && <p className="text-xs text-muted-foreground">{t('faceLogin.noDevice')}</p>}
   </section>;
 }

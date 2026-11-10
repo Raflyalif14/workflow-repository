@@ -1,5 +1,5 @@
 import crypto from 'node:crypto';
-import { matchesRegisteredFace } from '../utils/face-account-match';
+import { identifyFaceAccount, matchesRegisteredFace } from '../utils/face-account-match';
 import { promises as fs } from 'node:fs';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
@@ -7,12 +7,12 @@ import { createSupabaseAuthClient, supabaseAdmin } from '../config/supabase';
 import { ENV } from '../config/env';
 import { buildLoginResult } from './auth.service';
 import { checkDeviceProof, deviceIdValid, FACE_LOGIN_VERSION, openCredential, proofMessage, readDeviceKey, sealCredential, DevicePublicKey } from '../utils/face-login-crypto';
-import { runFaceLoginInference, runFacePassiveInference, runFacePassiveLoginInference } from '../utils/run-face-login-inference';
+import { runFaceIdentificationInference, runFaceLoginInference, runFacePassiveInference, runFacePassiveLoginInference } from '../utils/run-face-login-inference';
 import { faceDeviceInfo, validFaceDeviceInfo, FaceDeviceInfo } from '../utils/face-device-info';
 
 type Credential = { deviceId: string; userId: string; publicKey: DevicePublicKey; embedding: number[]; version: string; createdAt: string; deviceInfo?: FaceDeviceInfo; lastUsedAt?: string };
 type Challenge = { id: string; nonce: string; deviceId: string; action: 'enroll' | 'login' | 'login-passive' | 'passive-test'; expires: number; direction: 'left' | 'right';
-  origin: string; userId?: string; publicKey?: DevicePublicKey; credentialVersion?: string; deviceInfo?: FaceDeviceInfo; sample?: 'live' | 'photo' | 'video' };
+  origin: string; userId?: string; publicKey?: DevicePublicKey; credentialVersion?: string; credentialDeviceId?: string; accountLogin?: boolean; identify?: boolean; registrations?: {deviceId:string;userId:string;createdAt:string}[]; deviceInfo?: FaceDeviceInfo; sample?: 'live' | 'photo' | 'video' };
 const pending = new Map<string, Challenge>(), attempts = new Map<string, { count: number; until: number }>();
 const credentialLocks = new Map<string, Promise<void>>();
 const ROOT = path.resolve(__dirname, '../../..'), STORE = path.join(ROOT, '.private/face-login');
@@ -31,8 +31,11 @@ export function faceSingleGlanceEnabled() {
   return faceLoginEnabled() && process.env.FACE_LOGIN_SINGLE_GLANCE_ENABLED === 'true';
 }
 export function faceLoginOrigin(origin: unknown) {
-  if (typeof origin !== 'string' || origin !== ENV.APP_BASE_URL.replace(/\/$/, '')) throw Error('FACE_ACCESS_DENIED');
-  return origin;
+  if (typeof origin !== 'string') throw Error('FACE_ACCESS_DENIED');
+  const normalized = origin.replace(/\/$/, '');
+  const configured = [ENV.APP_BASE_URL.replace(/\/$/, ''), ...(ENV.CORS_ORIGIN || '').split(',').map(s => s.trim().replace(/\/$/, '')).filter(Boolean)];
+  if (!configured.includes(normalized) && !(ENV.NODE_ENV === 'development' && /^http:\/\/(localhost|127\.0\.0\.1):\d+$/.test(normalized))) throw Error('FACE_ACCESS_DENIED');
+  return normalized;
 }
 function clean() {
   const now = Date.now(); for (const [id, c] of pending) if (c.expires <= now) pending.delete(id);
@@ -88,8 +91,9 @@ async function saveCredential(credential: Credential) {
   });
 }
 async function recordSuccessfulLogin(c: Challenge) {
+  if (c.accountLogin || c.identify) return; // An account login does not register or rename the source browser.
   await withCredentialLock(c.deviceId, async () => {
-    const current = await readCredential(c.deviceId);
+    const current = await readCredential(c.credentialDeviceId || c.deviceId);
     try {
       if (!current || current.userId !== c.userId || current.createdAt !== c.credentialVersion) throw Error('FACE_DEVICE_MISSING');
       current.lastUsedAt = new Date(Math.max(Date.now(), Date.parse(current.lastUsedAt || current.createdAt))).toISOString();
@@ -141,12 +145,44 @@ export async function deviceStatus(userId: string, deviceId: string) {
   try { return { registered: credential?.userId === userId }; } finally { credential?.embedding.fill(0); }
 }
 function publicChallenge(c: Challenge) { return { id: c.id, nonce: c.nonce, deviceId: c.deviceId, action: c.action, direction: c.direction, expiresAt: new Date(c.expires).toISOString() }; }
-export async function startFaceChallenge(input: { deviceId: string; publicKey?: unknown; password?: unknown }, origin: string, userId?: string, userAgent?: string) {
+export async function startFaceChallenge(input: { deviceId: string; publicKey?: unknown; password?: unknown; email?: unknown; identify?: unknown }, origin: string, userId?: string, userAgent?: string) {
   if (!faceLoginEnabled()) throw Error('FACE_DISABLED');
   faceLoginOrigin(origin); if (!deviceIdValid(input.deviceId)) throw Error('FACE_DEVICE_INVALID');
   if (userId) rateDevice('enroll:' + input.deviceId); else checkLoginFailures(input.deviceId);
   if (pending.size >= 100) throw Error('FACE_BUSY');
-  const credential = await readCredential(input.deviceId);
+  if (!userId && input.identify === true) {
+    const publicKey=readDeviceKey(input.publicKey), ids=await credentialIds();
+    if(ids.length>250) throw Error('FACE_BUSY');
+    const registrations: NonNullable<Challenge['registrations']>=[];
+    for(const id of ids) {
+      const stored=await readCredential(id);
+      try { if(stored) registrations.push({deviceId:id,userId:stored.userId,createdAt:stored.createdAt}); }
+      finally { stored?.embedding.fill(0); }
+    }
+    const c:Challenge={id:crypto.randomUUID(),nonce:crypto.randomBytes(32).toString('base64url'),deviceId:input.deviceId,
+      action:faceSingleGlanceEnabled()?'login-passive':'login',direction:crypto.randomInt(2)?'left':'right',origin,
+      expires:Date.now()+90_000,publicKey,identify:true,registrations,deviceInfo:faceDeviceInfo(userAgent)};
+    for(const [id,value] of pending) if(value.deviceId===c.deviceId) pending.delete(id);
+    pending.set(c.id,c); return publicChallenge(c);
+  }
+  let sourceDeviceId = input.deviceId;
+  const accountLogin = !userId && input.email !== undefined;
+  if (accountLogin) {
+    if (typeof input.email !== 'string' || input.email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.email.trim())) throw Error('FACE_ACCESS_DENIED');
+    readDeviceKey(input.publicKey);
+    const { data, error } = await supabaseAdmin.from('users').select('id').eq('email', input.email.trim().toLowerCase()).single();
+    if (error || !data?.id) throw Error('FACE_ACCESS_DENIED');
+    await profile(data.id);
+    checkLoginFailures('account:' + data.id);
+    let found = false;
+    for (const id of await credentialIds()) {
+      const candidate = await readCredential(id);
+      try { if (candidate?.userId === data.id) { sourceDeviceId = id; found = true; break; } }
+      finally { candidate?.embedding.fill(0); }
+    }
+    if (!found) throw Error('FACE_ACCESS_DENIED');
+  }
+  const credential = await readCredential(sourceDeviceId);
   try {
     const action = userId ? 'enroll' : faceSingleGlanceEnabled() ? 'login-passive' : 'login';
     if (action === 'enroll') {
@@ -156,7 +192,8 @@ export async function startFaceChallenge(input: { deviceId: string; publicKey?: 
     if (credential) await profile(credential.userId);
     const c: Challenge = { id: crypto.randomUUID(), nonce: crypto.randomBytes(32).toString('base64url'), deviceId: input.deviceId,
       action, origin, expires: Date.now() + 90_000, direction: crypto.randomInt(2) ? 'left' : 'right',
-      userId: userId || credential?.userId, publicKey: userId ? readDeviceKey(input.publicKey) : undefined, credentialVersion: credential?.createdAt, deviceInfo: faceDeviceInfo(userAgent) };
+      userId: userId || credential?.userId, publicKey: userId || accountLogin ? readDeviceKey(input.publicKey) : undefined,
+      ...(accountLogin ? { accountLogin: true, credentialDeviceId: sourceDeviceId } : {}), credentialVersion: credential?.createdAt, deviceInfo: faceDeviceInfo(userAgent) };
     for (const [id, value] of pending) if (value.deviceId === c.deviceId) pending.delete(id);
     pending.set(c.id, c); return publicChallenge(c);
   } finally { credential?.embedding.fill(0); }
@@ -186,29 +223,46 @@ export async function finishFaceChallenge(input: { challengeId: string; signatur
   const expectedAction = passiveTest ? 'passive-test' : userId ? 'enroll' : faceSingleGlanceEnabled() ? 'login-passive' : 'login';
   if (!c || c.expires <= Date.now() || c.origin !== faceLoginOrigin(origin) || c.action !== expectedAction
     || passiveTest && !userId || userId && c.userId !== userId) throw Error('FACE_CHALLENGE_EXPIRED');
-  const credential = c.action !== 'enroll' ? await readCredential(c.deviceId) : null;
+  let credential = c.action !== 'enroll' && !c.identify ? await readCredential(c.credentialDeviceId || c.deviceId) : null;
   let result: { embedding: number[] } | undefined;
+  let identifiedFrames: number[][] = [];
   let verifiedLogin = false;
   try {
-    if (c.action !== 'enroll' && (!credential || credential.userId !== c.userId || credential.createdAt !== c.credentialVersion)) throw Error('FACE_DEVICE_MISSING');
+    if (c.action !== 'enroll' && !c.identify && (!credential || credential.userId !== c.userId || credential.createdAt !== c.credentialVersion)) throw Error('FACE_DEVICE_MISSING');
     if (frames.length !== 3 || !Array.isArray(input.hashes) || input.hashes.length !== 3) throw Error('FACE_IMAGE_INVALID');
     const hashes = frames.map(f => crypto.createHash('sha256').update(f).digest('hex'));
     if (hashes.some((h, i) => h !== input.hashes[i]) || new Set(hashes).size !== 3) throw Error('FACE_IMAGE_INVALID');
-    if (!checkDeviceProof(credential?.publicKey || c.publicKey!, proofMessage(c.id, c.nonce, c.action, c.deviceId, hashes), input.signature)) throw Error('FACE_DEVICE_INVALID');
+    if (!checkDeviceProof(c.accountLogin || c.identify ? c.publicKey! : credential?.publicKey || c.publicKey!, proofMessage(c.id, c.nonce, c.action, c.deviceId, hashes), input.signature)) throw Error('FACE_DEVICE_INVALID');
     if (c.action === 'login' || c.action === 'login-passive') {
-      checkLoginFailures(c.deviceId); verifiedLogin = true;
+      checkLoginFailures((c.accountLogin || c.identify && c.userId) ? 'account:' + c.userId : c.deviceId); verifiedLogin = true;
     }
-    await profile(c.userId!);
+    if (!c.identify) await profile(c.userId!);
     if (c.action === 'passive-test') {
       const evaluation = await runFacePassiveInference(frames, credential!.embedding, signal);
       if (signal.aborted || c.expires <= Date.now()) throw Error('FACE_CHALLENGE_EXPIRED');
       await profile(c.userId!);
-      const current = await readCredential(c.deviceId);
+      const current = await readCredential(c.credentialDeviceId || c.deviceId);
       try { if (!current || current.createdAt !== c.credentialVersion || current.userId !== userId) throw Error('FACE_DEVICE_MISSING'); }
       finally { current?.embedding.fill(0); }
       return { ...evaluation, sample: c.sample, evaluationOnly: true, testedAt: new Date().toISOString() };
     }
-    if (c.action === 'login-passive') await runFacePassiveLoginInference(frames, credential!.embedding, signal);
+    if(c.identify) {
+      identifiedFrames=await runFaceIdentificationInference(frames,c.direction,c.action==='login-passive',signal);
+      const candidates:Credential[]=[];
+      try {
+        for(const snapshot of c.registrations || []) {
+          const stored=await readCredential(snapshot.deviceId);
+          if(stored && stored.userId===snapshot.userId && stored.createdAt===snapshot.createdAt) candidates.push(stored);
+          else stored?.embedding.fill(0);
+        }
+        const match=identifyFaceAccount(candidates,identifiedFrames);
+        c.userId=match.userId; c.credentialDeviceId=match.deviceId; c.credentialVersion=match.createdAt;
+        checkLoginFailures('account:'+match.userId);
+        credential=await readCredential(match.deviceId);
+        await profile(match.userId);
+      } finally { candidates.forEach(candidate=>candidate.embedding.fill(0)); }
+    }
+    else if (c.action === 'login-passive') await runFacePassiveLoginInference(frames, credential!.embedding, signal);
     else result = await runFaceLoginInference(frames, c.direction, credential?.embedding, signal);
     if (signal.aborted || c.expires <= Date.now()) throw Error('FACE_CHALLENGE_EXPIRED');
     if (c.action === 'enroll') {
@@ -228,7 +282,7 @@ export async function finishFaceChallenge(input: { challengeId: string; signatur
     const assertCurrent = async () => {
       if (!faceLoginEnabled() || c.action === 'login-passive' && !faceSingleGlanceEnabled()) throw Error('FACE_DISABLED');
       if (signal.aborted || c.expires <= Date.now()) throw Error('FACE_CHALLENGE_EXPIRED');
-      const current = await readCredential(c.deviceId);
+      const current = await readCredential(c.credentialDeviceId || c.deviceId);
       try { if (!current || current.createdAt !== c.credentialVersion || current.userId !== c.userId) throw Error('FACE_DEVICE_MISSING'); }
       finally { current?.embedding.fill(0); }
     };
@@ -250,13 +304,14 @@ export async function finishFaceChallenge(input: { challengeId: string; signatur
       const loginResult = buildLoginResult(current, data.session);
       await recordSuccessfulLogin(c);
       await assertCurrent();
-      attempts.delete('login:' + c.deviceId);
+      attempts.delete('login:' + ((c.accountLogin || c.identify && c.userId) ? 'account:' + c.userId : c.deviceId));
+      if(c.identify) attempts.delete('login:'+c.deviceId);
       return loginResult;
     } catch (error) { await client.auth.signOut({ scope: 'local' }); throw error; }
   } catch (error) {
-    if (verifiedLogin && !signal.aborted && error instanceof Error && faceRejections.has(error.message)) recordLoginFailure(c.deviceId);
+    if (verifiedLogin && !signal.aborted && error instanceof Error && faceRejections.has(error.message)) recordLoginFailure((c.accountLogin || c.identify && c.userId) ? 'account:' + c.userId : c.deviceId);
     throw error;
-  } finally { credential?.embedding.fill(0); result?.embedding.fill(0); frames.forEach(f => f.fill(0)); }
+  } finally { credential?.embedding.fill(0); result?.embedding.fill(0); identifiedFrames.forEach(frame=>frame.fill(0)); frames.forEach(f => f.fill(0)); }
 }
 async function removeOwnedDevice(userId: string, deviceId: string, required: boolean) {
   await withCredentialLock(deviceId, async () => {
@@ -267,7 +322,7 @@ async function removeOwnedDevice(userId: string, deviceId: string, required: boo
         return;
       }
       await fs.unlink(path.join(STORE, deviceId + '.json'));
-      for (const [id, c] of pending) if (c.deviceId === deviceId) pending.delete(id);
+      for (const [id, c] of pending) if (c.deviceId === deviceId || c.credentialDeviceId === deviceId) pending.delete(id);
       attempts.delete('login:' + deviceId);
     } finally { credential?.embedding.fill(0); }
   });

@@ -1,3 +1,4 @@
+import {ListPagination} from '../components/list-pagination';
 import assert from 'node:assert/strict';
 import React, { isValidElement } from 'react';
 import * as auth from '../components/auth/auth-provider';
@@ -80,10 +81,10 @@ try {
   assert(nodes(rows.find(node => node.props.document.id==='granted')!.type(rows.find(node => node.props.document.id==='granted')!.props))
     .some(node => node.props.children===translate('documentAccess.restricted')));
   official={ ...official,data:Array.from({ length:25 },(_,i) => ({ ...item,id:`row-${i}` })) };tree=render();
-  tree.find(node => node.type===Button && node.props.children===translate('documentPage.next'))!.props.onClick();tree=render();
-  assert(tree.some(node => Array.isArray(node.props.children) && node.props.children.join('')===translate('documentPage.pageOf',{ page:2,total:2 })+' \u00b7 '+translate('documentPage.resultsCount',{ count:25 })));
+  tree.find(node=>node.type===ListPagination)!.props.onPageChange(2);tree=render();
+  const paging=tree.find(node=>node.type===ListPagination)!.props;assert.equal(paging.page,2);assert.equal(paging.pages,3);assert.equal(paging.total,25);
   tabs(tree)[1].props.onClick();tree=render();
-  assert.equal(tree.filter(node => typeof node.type==='function' && node.props.document?.id).length,20,'Tab change resets to first page');
+  assert.equal(tree.filter(node => typeof node.type==='function' && node.props.document?.id).length,10,'Tab change resets to first page');
   user={ ...user,role:'SALES' };tree=render();assert.equal(tabs(tree)[1].props.children,translate('documentPage.myProjects'));
   locale='en'; setActiveLanguage('en'); user={ ...user,role:'HEAD_SA' };official={ ...official,data:[item] };tree=render();
   assert.equal(tabs(tree).length,1);assert.equal(tabs(tree)[0].props['aria-selected'],true,'Managers have no misleading ownership tab');

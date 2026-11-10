@@ -24,10 +24,10 @@ import {
   onStoredAuthCleared,
   setAuthTokens,
 } from "@/lib/auth";
+import { startSessionActivity } from "@/lib/session-activity";
 import { User } from "@/types/user";
 import { translate } from "@/i18n";
-import { loadVerifiedProfile, profileBlocksProtectedUi } from "@/lib/auth-profile";
-import { Button } from "@/components/ui/button";
+import { loadVerifiedProfileWithRetry, profileBlocksProtectedUi } from "@/lib/auth-profile";
 
 type LoginInput = { email: string; password: string };
 type LoginResponse = {
@@ -84,20 +84,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     setIsLoading(true);
-    const result = await loadVerifiedProfile(session);
+    const result = await loadVerifiedProfileWithRetry(session, () => generation === operation.current);
     if (generation !== operation.current) return;
     if (result.kind === "verified") {
       setPasswordChangeCompleted(false);
       setUser(result.user);
       setProfileError(null);
-    } else if (result.kind === "invalid" && isCurrentSession(session)) {
+    } else if (result.kind !== "stale" && isCurrentSession(session)) {
+      // Clear locally and redirect even when the auth server cannot be reached.
       clearStoredAuth();
-    } else if (result.kind === "temporary" || result.kind === "forbidden") {
-      if (result.kind === "forbidden") {
-        setUser(null);
-        queryClient.clear();
-      }
-      setProfileError(result.kind);
+      setUser(null);
+      setProfileError(null);
+      setPasswordChangeCompleted(false);
+      queryClient.clear();
     }
     setIsLoading(false);
   }, [queryClient]);
@@ -214,6 +213,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch { /* Local logout is complete even if the provider is unavailable. */ }
   }, [queryClient, router]);
 
+  const activityUserId = user?.id;
+  const mustChangePassword = user?.mustChangePassword;
+  const sessionId = user ? getAuthSession()?.id : undefined;
+  useEffect(() => {
+    if (!activityUserId || mustChangePassword || !sessionId) return;
+    const session = getAuthSession();
+    if (!session || session.id !== sessionId) return;
+    let active = true;
+    const stop = startSessionActivity({
+      sessionId,
+      isCurrent: () => active && isCurrentSession(session),
+      onExpired: () => { void logout(); },
+      keepAlive: async () => {
+        const result = await loadVerifiedProfileWithRetry(session, () => active && isCurrentSession(session));
+        if (!active || !isCurrentSession(session)) return;
+        if (result.kind === 'verified') setUser(result.user);
+        else if (result.kind === 'invalid' || result.kind === 'forbidden') { void logout(); }
+        // A temporary network failure does not log out a verified, active user.
+      },
+    });
+    return () => { active=false; stop(); };
+  }, [sessionId, activityUserId, mustChangePassword, logout]);
+
   const changeInitialPassword = useCallback(
     async (newPassword: string) => {
       const session = getAuthSession();
@@ -255,13 +277,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <AuthContext.Provider value={value}>
-      {shouldBlock ? profileError ? (
-        <div className="flex min-h-screen flex-col items-center justify-center gap-3 bg-background p-4 text-sm" role="alert">
-          <p>{translate(profileError === "forbidden" ? "auth.sessionForbidden" : "auth.sessionTemporary")}</p>
-          <Button onClick={() => void loadProfile()} disabled={isLoading}>{translate("auth.retrySession")}</Button>
-          <Button variant="outline" onClick={() => void logout()}>{translate("auth.signInAgain")}</Button>
-        </div>
-      ) : <LoadingSession /> : children}
+      {shouldBlock ? <LoadingSession /> : children}
     </AuthContext.Provider>
   );
 }

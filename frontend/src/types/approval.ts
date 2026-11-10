@@ -1,13 +1,15 @@
-export type ApprovalCategory = "ALL" | "PROJECT_PLAN" | "DEADLINE" | "OUTPUT_DOCUMENT";
-export type ApprovalStatus = "ALL" | "PENDING" | "APPROVED" | "REJECTED" | "SUPERSEDED";
+import type {Meeting} from '@/hooks/use-calendar';
+export type ApprovalCategory = "ALL" | "PROJECT_PLAN" | "DEADLINE" | "OUTPUT_DOCUMENT" | "MEETING";
+export type ApprovalStatus = "ALL" | "PENDING" | "APPROVED" | "REJECTED" | "SUPERSEDED" | "CANCELLED";
 
 export interface ApprovalItem {
+  meeting?: Meeting;
   phaseId?: string | null;
   phaseName?: string | null;
   id: string;
-  category: "PROJECT_PLAN" | "DEADLINE" | "OUTPUT_DOCUMENT";
+  category: "PROJECT_PLAN" | "DEADLINE" | "OUTPUT_DOCUMENT" | "MEETING";
   title: string;
-  status: "PENDING" | "APPROVED" | "REJECTED" | "SUPERSEDED";
+  status: "PENDING" | "APPROVED" | "REJECTED" | "SUPERSEDED" | "CANCELLED";
   isCurrentApproval?: boolean;
   projectId: string;
   projectName: string;
@@ -75,6 +77,7 @@ export interface ApprovalItem {
 
 export interface ApprovalStats {
   totalPending: number;
+  pendingMeetings?: number;
   pendingProjectPlans: number;
   pendingMilestones: number;
   pendingDocs: number;

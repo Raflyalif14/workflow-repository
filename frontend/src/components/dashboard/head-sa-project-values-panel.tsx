@@ -12,12 +12,12 @@ type Props = {
 };
 
 export function HeadSaProjectValuesPanel({ role, values, loading, hasError, pipeline, onRetry }: Props) {
-  if (role !== "HEAD_SA") return null;
+  if (role !== "HEAD_SA" && role !== "SUPER_ADMIN") return null;
 
-  if (pipeline !== undefined) return (
+  if (pipeline !== undefined || role === "SUPER_ADMIN") return (
     <section aria-labelledby="head-sa-project-values-heading" className="space-y-3">
       <div><h2 id="head-sa-project-values-heading" className="text-base font-semibold">{translate('salesPipeline.headTitle')}</h2>
-      <p className="mt-1 text-xs text-muted-foreground">{translate('salesPipeline.headScope')}</p></div>
+      <p className="mt-1 text-xs text-muted-foreground">{translate(role === 'SUPER_ADMIN' ? 'roleDashboard.adminPipelineScope' : 'salesPipeline.headScope')}</p></div>
       <ProjectPipelineSummary data={pipeline} loading={loading} hasError={hasError} onRetry={onRetry || (() => {})} />
     </section>
   );

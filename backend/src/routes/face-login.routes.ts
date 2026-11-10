@@ -17,7 +17,7 @@ function fail(res: Response, error: unknown) {
 export function createFaceLoginRouter(auth: RequestHandler = authenticateUser) {
   const router = Router(); let active = 0;
   router.use((_req, res, next) => { res.setHeader('Cache-Control', 'no-store'); res.setHeader('Pragma', 'no-cache'); next(); });
-  router.get('/capabilities', (_req, res) => sendSuccess(res, 'Camera sign-in availability.', { enabled: faceLoginEnabled(), singleGlance: faceSingleGlanceEnabled(), localOnly: true }));
+  router.get('/capabilities', (_req, res) => sendSuccess(res, 'Camera sign-in availability.', { enabled: faceLoginEnabled(), singleGlance: faceSingleGlanceEnabled(), localOnly: true, accountLogin: true, faceIdentify: true }));
   router.use((req, res, next) => {
     try { if (!faceLoginEnabled()) throw Error('FACE_DISABLED'); faceLoginOrigin(req.headers.origin); next(); } catch (error) { fail(res, error); }
   });

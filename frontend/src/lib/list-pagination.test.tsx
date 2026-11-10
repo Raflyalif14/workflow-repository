@@ -1,0 +1,23 @@
+import assert from 'node:assert/strict';
+import React from 'react';
+import {renderToStaticMarkup} from 'react-dom/server';
+import * as language from '../components/i18n/language-provider';
+import {setActiveLanguage,translate} from '../i18n';
+import {paginateList} from './list-pagination';
+import {ListPagination} from '../components/list-pagination';
+const rows=Array.from({length:18},(_,i)=>i);
+assert.equal(paginateList(rows,1).items.length,10);assert.equal(paginateList(rows,2).items.length,8);
+assert.deepEqual([...paginateList(rows,1).items,...paginateList(rows,2).items],rows);
+assert.equal(paginateList(rows,99).page,2);assert.equal(paginateList(rows,-5).page,1);
+assert.equal(paginateList([1],99).page,1);assert.equal(paginateList([],99).page,1);
+const original=language.useLanguage;(language as any).useLanguage=()=>({t:translate});
+try{for(const locale of ['en','id'] as const){setActiveLanguage(locale);
+ const render=(page:number,pages:number,total:number)=>renderToStaticMarkup(React.createElement(ListPagination,{page,pages,total,pageSize:10,onPageChange(){}}));
+ assert(!render(1,1,8).includes('<button'));
+ const first=render(1,2,18),last=render(2,2,18);
+ assert(first.includes(translate('listPaging.summary',{from:1,to:10,total:18,page:1,pages:2})));
+ assert(last.includes(translate('listPaging.summary',{from:11,to:18,total:18,page:2,pages:2})));
+ assert.equal((first.match(/disabled=""/g)||[]).length,1);assert.equal((last.match(/disabled=""/g)||[]).length,1);
+ assert(render(1,1,0).includes(translate('listPaging.summary',{from:0,to:0,total:0,page:1,pages:1})));
+}}finally{(language as any).useLanguage=original;setActiveLanguage('en');}
+console.log('PASS 10-row boundaries, no missing/duplicate rows, clamp after filtering, empty list, page summaries and button limits EN/ID');

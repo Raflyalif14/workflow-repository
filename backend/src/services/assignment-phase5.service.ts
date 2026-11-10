@@ -1,6 +1,8 @@
 import { supabaseAdmin } from '../config/supabase';
 import { assignPicSchema } from '../validators/assignment-phase5.validator';
 import { PicMutationError, PicRequestContext, runPicMutation } from './pic-mutation.service';
+import { ALL_OUTPUT_DEFINITIONS } from '../constants/scenarios';
+const outputDefinitionMap = new Map(ALL_OUTPUT_DEFINITIONS.map(d => [d.key, d.name]));
 
 type Actor = { userId: string; role: string; fullName: string };
 type AssignmentProjectState = { pic_id: string | null; status: string; is_postponed: boolean | null };
@@ -85,8 +87,15 @@ export class AssignmentPhase5Service {
 
   static async assignedMilestones(actor: Actor) {
     if (!['SA', 'HEAD_SA'].includes(actor.role)) throw new Error('Forbidden');
-    const { data, error } = await supabaseAdmin.from('project_milestones').select('id,project_id,name,step_order,status,pic_id,start_date,due_date,project:projects!project_milestones_project_id_fkey(id,name,customer,status,is_postponed),outputs:project_output_documents!project_output_documents_milestone_id_fkey(status,is_required,is_selected)').eq('pic_id', actor.userId).order('created_at', { ascending: false });
+    const { data, error } = await supabaseAdmin.from('project_milestones').select('id,project_id,name,step_order,status,pic_id,start_date,due_date,project:projects!project_milestones_project_id_fkey(id,name,customer,status,is_postponed),outputs:project_output_documents!project_output_documents_milestone_id_fkey(status,is_required,is_selected,document_key)').eq('pic_id', actor.userId).order('created_at', { ascending: false });
     if (error) throw new Error(error.message);
-    return data || [];
+    return (data || []).map((m: any) => {
+      if (m.name?.trim().toLowerCase() === 'deliverables' && Array.isArray(m.outputs)) {
+        const selected = m.outputs.filter((o: any) => o.is_required || o.is_selected);
+        const names = selected.map((o: any) => outputDefinitionMap.get(o.document_key) || o.document_key).filter(Boolean);
+        if (names.length > 0) return { ...m, name: names.join(' • ') };
+      }
+      return m;
+    });
   }
 }

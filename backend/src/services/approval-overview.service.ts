@@ -186,6 +186,9 @@ export class ApprovalOverviewService {
             ),
         ];
 
+        const meetingRows = await readApprovalRows('project_meetings',
+            'id,project_id,title,agenda,location,starts_at,ends_at,status,revision,proposed_schedule,review_note,reviewed_at,created_at',
+            {column:'project_id',ids:projectIds},'created_at');
         const userIds = [
             ...new Set(
                 [
@@ -194,6 +197,7 @@ export class ApprovalOverviewService {
                     ...deadlineApprovals.map((approval) => approval.requested_by),
                     ...deadlineApprovals.map((approval) => approval.reviewed_by),
                     ...milestones.map((milestone) => milestone.pic_id),
+                    ...projects.flatMap(project=>[project.sales_id,project.pic_id]),
                 ].filter((id): id is string => Boolean(id))
             ),
         ];
@@ -405,10 +409,23 @@ export class ApprovalOverviewService {
             };
         });
 
+        const meetingItems = meetingRows.data.map(row => {
+            const project=projects.find(p=>p.id===row.project_id)!;
+            const meeting={id:row.id,projectId:row.project_id,projectName:project.name,picName:userMap.get(project.pic_id||'')?.full_name||null,title:row.title,
+                agenda:row.agenda,location:row.location,startsAt:row.starts_at,endsAt:row.ends_at,status:row.status,
+                revision:row.revision,proposedSchedule:row.proposed_schedule,reviewNote:row.review_note,reviewedAt:row.reviewed_at};
+            return {id:'meeting:'+row.id,category:'MEETING' as const,title:row.title,status:row.proposed_schedule?'PENDING':row.status,
+                projectId:project.id,projectName:project.name,projectCode:'',clientName:project.customer||'',targetEntityId:row.id,
+                submittedBy:userMap.get(project.sales_id||'')?.full_name||'',submittedAt:row.created_at,requestedAt:row.created_at,reviewNote:row.review_note,
+                isCurrentApproval:true,meeting};
+        });
+        const pendingMeetings=meetingItems.filter(item=>item.status==='PENDING').length;
+
         const items = [
             ...projectPlanItems,
             ...deadlineItems,
             ...outputItems,
+            ...meetingItems,
         ].sort((a, b) => {
             const aPending =
                 a.status === 'PENDING' &&
@@ -447,11 +464,12 @@ export class ApprovalOverviewService {
             stats: {
                 totalPending:
                     pendingProjectPlans +
-                    pendingDeadlines + outputItems.length,
+                    pendingDeadlines + outputItems.length + pendingMeetings,
 
                 pendingProjectPlans,
                 pendingDeadlines,
                 pendingDocs: outputItems.length,
+                pendingMeetings,
             },
 
             items,

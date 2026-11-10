@@ -3,6 +3,7 @@ import { supabaseAdmin, supabaseAuth } from '../config/supabase';
 import { ENV } from '../config/env';
 import {
   ChangeInitialPasswordInput,
+  ChangePasswordInput,
   ForgotPasswordInput,
   LoginInput,
   PreferredLanguage,
@@ -91,6 +92,12 @@ export type ResetPasswordDependencies = {
   getPublicUserById: (userId: string) => Promise<PublicUserSecurityState | null>;
   updateAuthPassword: (userId: string, newPassword: string) => Promise<void>;
   updateMustChangePassword: (userId: string) => Promise<void>;
+};
+
+export type ChangePasswordDependencies = {
+  getUser: (id: string) => Promise<{ email: string; is_active: boolean } | null>;
+  verifyCurrentPassword: (email: string, password: string) => Promise<boolean>;
+  updateAuthPassword: (id: string, newPassword: string) => Promise<void>;
 };
 
 export type LanguagePreferenceDependencies = {
@@ -301,6 +308,26 @@ export async function changeInitialPasswordWithDependencies(
   };
 }
 
+export async function changePasswordWithDependencies(
+  userId: string,
+  input: ChangePasswordInput,
+  deps: ChangePasswordDependencies
+) {
+  validateNewPasswordPolicy(input.new_password);
+  if (input.current_password === input.new_password) {
+    throw new Error('New password must be different from current password.');
+  }
+
+  const user = await deps.getUser(userId);
+  if (!user || !user.is_active) throw new Error('User not found or inactive.');
+
+  const isValid = await deps.verifyCurrentPassword(user.email, input.current_password);
+  if (!isValid) throw new Error('Current password is incorrect.');
+
+  await deps.updateAuthPassword(userId, input.new_password);
+  return { message: 'Password changed successfully.' };
+}
+
 export async function forgotPasswordWithDependencies(input: ForgotPasswordInput, deps: ForgotPasswordDependencies) {
   const email = normalizeRegisterEmail(input.email);
 
@@ -444,6 +471,24 @@ export class AuthService {
           console.warn('Failed to update must_change_password after authentication password change.');
           throw new Error('Failed to update password change status.');
         }
+      },
+    });
+  }
+
+  static async changePassword(userId: string, input: ChangePasswordInput) {
+    return changePasswordWithDependencies(userId, input, {
+      getUser: async (id) => {
+        const { data, error } = await supabaseAdmin.from('users').select('email,is_active').eq('id', id).single();
+        if (error || !data) return null;
+        return { email: data.email, is_active: Boolean(data.is_active) };
+      },
+      verifyCurrentPassword: async (email, password) => {
+        const { data, error } = await supabaseAuth.auth.signInWithPassword({ email, password });
+        return !error && Boolean(data?.user);
+      },
+      updateAuthPassword: async (id, newPassword) => {
+        const { error } = await supabaseAdmin.auth.admin.updateUserById(id, { password: newPassword });
+        if (error) throw new Error('Failed to update authentication password.');
       },
     });
   }

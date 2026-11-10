@@ -12,6 +12,10 @@ export const registerSchema = z.object({
 export const changeInitialPasswordSchema = z.object({
   new_password: z.string().min(12, 'Password must be at least 12 characters'),
 });
+export const changePasswordSchema = z.object({
+  current_password: z.string().min(1, 'Current password is required'),
+  new_password: z.string().min(12, 'Password must be at least 12 characters'),
+});
 export const forgotPasswordSchema = z.object({
   email: z.string().trim().email('Invalid email format').transform((value) => value.toLowerCase()),
 });
@@ -22,6 +26,7 @@ export const resetPasswordSchema = z.object({
 export type LoginInput = z.infer<typeof loginSchema>;
 export type RegisterInput = z.infer<typeof registerSchema>;
 export type ChangeInitialPasswordInput = z.infer<typeof changeInitialPasswordSchema>;
+export type ChangePasswordInput = z.infer<typeof changePasswordSchema>;
 export type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>;
 export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;
 export type UserRole = z.infer<typeof userRoleEnum>;

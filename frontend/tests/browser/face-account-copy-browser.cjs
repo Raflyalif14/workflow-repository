@@ -1,0 +1,12 @@
+const assert=require('node:assert/strict'),fs=require('node:fs/promises'),path=require('node:path');
+const {createFixture}=require('./fixtures.cjs'),{launch}=require('./cdp.cjs');const origin=process.env.WORKFLOW_TEST_ORIGIN||'http://127.0.0.1:3000';
+async function main(){const fixture=createFixture(),base=fixture.respond;fixture.state.role='HEAD_SA';fixture.respond=(url,method,body)=>{const p=new URL(url).pathname.replace(/^\/api/,'');const ok=data=>({status:200,body:{success:true,data}});if(p==='/face-login/capabilities')return ok({enabled:true,singleGlance:true,accountLogin:true,faceIdentify:true});if(p==='/face-login/devices')return ok({devices:[{deviceId:'90000000-0000-4000-8000-000000000099',browser:'edge',platform:'windows',createdAt:'2026-10-19T09:33:00Z',lastUsedAt:'2026-11-02T10:22:00Z'}]});return base(url,method,body);};
+const runtime=await launch(fixture,origin),{cdp}=runtime;try{
+await cdp.navigate(origin+'/login');await cdp.wait(`location.origin===${JSON.stringify(origin)}`,'origin');await cdp.evaluate("localStorage.setItem('workflow.session',JSON.stringify({id:crypto.randomUUID(),accessToken:'synthetic-only',refreshToken:'synthetic-only'}));localStorage.setItem('workflow-locale','en');");await cdp.navigate(origin+'/settings/face-verification');
+await cdp.wait("document.body.textContent.includes('Saved face registration')",'account registration title',60000);
+const text=await cdp.evaluate("document.querySelector('#face-devices-heading').closest('section').textContent");assert(!text.includes('Microsoft Edge'));assert(!text.includes('This browser'));assert(text.includes('Delete registration'));assert(text.includes('stored on the server'));assert(!text.includes('all my devices'));
+await cdp.click("[...document.querySelectorAll('button')].find(e=>e.textContent==='Delete registration')");await cdp.wait("document.body.textContent.includes('Delete this saved face registration from your account?')",'account deletion explanation');
+assert(!runtime.traffic.api.some(r=>r.method==='POST'));assert.equal(runtime.traffic.errors.length,0);
+await fs.mkdir(path.resolve('.cache/face-account-copy'),{recursive:true});await cdp.screenshot(path.resolve('.cache/face-account-copy/settings.png'));console.log('PASS account registration header, server storage explanation, account removal copy, no browser ownership claim; no writes');
+}finally{await runtime.cleanup();}}
+main().catch(e=>{console.error(e);process.exitCode=1;});

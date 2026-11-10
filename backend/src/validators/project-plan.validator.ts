@@ -14,6 +14,7 @@ const dateOnlySchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'startDate must u
 
 const timelineEntrySchema = z.object({
   milestoneId: z.string().uuid(),
+  outputDocumentId: z.string().uuid().optional(),
   startDate: dateOnlySchema,
   durationWorkingDays: z.coerce.number().int().positive(),
 });
@@ -22,14 +23,15 @@ const timelineEntriesSchema = z.array(timelineEntrySchema).min(1).superRefine((e
   const ids = new Set<string>();
 
   entries.forEach((entry, index) => {
-    if (ids.has(entry.milestoneId)) {
+    const key = entry.outputDocumentId ? `output:${entry.outputDocumentId}` : `milestone:${entry.milestoneId}`;
+    if (ids.has(key)) {
       context.addIssue({
         code: z.ZodIssueCode.custom,
         path: [index, 'milestoneId'],
         message: 'Each milestone can appear only once in a timeline request',
       });
     }
-    ids.add(entry.milestoneId);
+    ids.add(key);
   });
 });
 

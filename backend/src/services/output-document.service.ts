@@ -204,6 +204,9 @@ export class OutputDocumentError extends Error {
 }
 
 export interface OutputDocumentItem {
+  startDate?: string | null;
+  durationWorkingDays?: number | null;
+  dueDate?: string | null;
   id: string;
   projectId: string;
   key: string;
@@ -523,17 +526,25 @@ export class OutputDocumentService {
       : [];
     const activeSelectedKeys = new Set([...storedSelectedKeys, ...mandatoryKeys]);
 
-    const loadRows = async (): Promise<any[]> => {
-      const { data, error } = await supabaseAdmin
-        .from('project_output_documents')
-        .select(`
+    const loadRows = async (withSchedule = true): Promise<any[]> => {
+      const selectFields = [`
           id, project_id, phase_id, document_key, milestone_id, title, is_required, is_selected, status,
+          ${withSchedule ? "start_date, duration_working_days, due_date," : ""}
           file_name, file_size, mime_type, uploaded_at, review_feedback, reviewed_at, current_version_id, draft_revision,
           uploaded_by_user:users!project_output_documents_uploaded_by_fkey(id, full_name, role),
           reviewed_by_user:users!project_output_documents_reviewed_by_fkey(id, full_name, role)
-        `)
+        `].join("");
+      const { data, error } = await supabaseAdmin
+        .from('project_output_documents')
+        .select(selectFields)
         .eq('project_id', projectId)
         .order('created_at', { ascending: true });
+      // Read compatibility while the additive migration is being deployed.
+      // Never fall back on writes or on an unrelated database failure.
+      if (withSchedule && error?.code === '42703' &&
+          /project_output_documents\.(start_date|duration_working_days|due_date)/.test(error.message || '')) {
+        return loadRows(false);
+      }
       if (error) throw new OutputDocumentError('Failed to retrieve output documents.', 500);
       return data || [];
     };
@@ -627,6 +638,9 @@ export class OutputDocumentService {
           projectId,
           key: def.key,
           milestoneId: row?.milestone_id || '',
+          startDate: row?.start_date || null,
+          durationWorkingDays: row?.duration_working_days ?? null,
+          dueDate: row?.due_date || null,
           name: def.name,
           group: def.group,
           isRequired: def.isRequired,

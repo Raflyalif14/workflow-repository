@@ -16,7 +16,8 @@ let query: any = { data: { stats: { totalPending: 1, pendingDocs: 1, pendingProj
 }] }, isLoading: false, isError: false, isFetching: false, refetch: () => { throw new Error('Rendering must not refetch/mutate'); } };
 (Module as any)._load = function(name: string, ...args: any[]) {
   if (name.endsWith('/auth-provider') || name === './auth-provider') return { useAuth: () => ({ user, isLoading: false }) };
-  if (name.endsWith('/language-provider')) return { useLanguage: () => ({ t: translate, locale: getActiveLanguage() }) };
+  if (name.endsWith('/language-provider')) return { useLanguage: () => ({ t: translate, locale: getActiveLanguage(), formatDate: (value:string)=>value }) };
+  if (name.endsWith('/use-calendar')) return { useMeetingMutation:()=>({isPending:false,isError:false}), useMeetings: () => ({ data: {items:[],total:0,page:1,totalPages:1},isLoading:false,isError:false }) };
   if (name.endsWith('/use-approvals')) return { useApprovalOverview: (enabled: boolean) => { assert(enabled); return query; } };
   if (name.endsWith('/approval-action-dialog')) return { ApprovalActionDialog: (props: { canReview: boolean }) => { dialogCanReview = props.canReview; return null; } };
   // Icons are presentation-only in this Node fixture; no browser layout is asserted.
@@ -36,6 +37,9 @@ try {
     assert(html.includes(translate('outputQueue.snapshot', { version: 2, count: 3 })));
     assert(html.includes('User project with a long unmodified name'));
     assert(!html.includes(`>${translate('common.approve')}</button>`)); assert(!html.includes(`>${translate('common.reject')}</button>`));
+    query.data.items.push({id:'meeting:m',category:'MEETING',title:'Unified meeting request',status:'PENDING',projectId:'p',projectName:'Meeting project',requestedAt:'2026-11-05',meeting:{id:'m',projectId:'p',title:'Unified meeting request',status:'PENDING',startsAt:'2099-01-01T10:00:00Z',endsAt:null,revision:1}});
+    const withMeeting=render();assert(withMeeting.includes('Unified meeting request'));assert(withMeeting.includes(translate('meetings.meeting')));
+    query.data.items.pop();
     query.data.items[0].canReview = false; query.data.items[0].reviewBlockedReason = 'POSTPONED';
     html = render(); assert(html.includes(translate('outputQueue.viewOutput'))); assert(html.includes(translate('outputQueue.POSTPONED')));
     query.isError = true; html = render(); assert(html.includes(translate('outputQueue.stale'))); assert(html.includes(translate('outputQueue.retry')));

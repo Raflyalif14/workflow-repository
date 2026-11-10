@@ -23,7 +23,7 @@ export type ScenarioWorkflowConfiguration = {
   workflow_version: number;
 };
 type SupportedWorkflowInitializationMode = 'LEGACY' | 'OPERATIONAL_V2';
-export const selectMilestones = 'id, project_id, phase_id, workflow_stage_id, name, description, step_order, status, pic_id, start_date, duration_working_days, due_date, completed_at, pic:users!project_milestones_pic_id_fkey(id,full_name,email,role), workflow_stage:workflow_stages!project_milestones_workflow_stage_id_fkey(id,default_role), created_at, updated_at';
+export const selectMilestones = 'id, project_id, phase_id, workflow_stage_id, name, description, step_order, status, pic_id, start_date, duration_working_days, due_date, completed_at, pic:users!project_milestones_pic_id_fkey(id,full_name,email,role), workflow_stage:workflow_stages!project_milestones_workflow_stage_id_fkey(id,default_role,stage_key), created_at, updated_at';
 export const INITIAL_MILESTONE_STATUS = 'CREATED' as const;
 
 export class MilestoneInitializationError extends Error {

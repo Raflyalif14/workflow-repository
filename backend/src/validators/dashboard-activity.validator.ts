@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 export const dashboardActivityFilterSchema = z.object({
   projectId: z.string().uuid().optional(),
-  kind: z.enum(['PROJECT', 'MILESTONE', 'DOCUMENT', 'APPROVAL', 'ASSIGNMENT']).optional(),
+  kind: z.enum(['PROJECT', 'MILESTONE', 'DOCUMENT', 'APPROVAL', 'ASSIGNMENT', 'MEETING']).optional(),
   from: z.string().datetime({ offset: true }).optional(),
   to: z.string().datetime({ offset: true }).optional(),
 });

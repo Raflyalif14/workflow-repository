@@ -208,6 +208,7 @@ router.post(
 );
 router.post('/:id/outcome', requireRoles(['SALES']), ProjectManagementController.setOutcome);
 router.post('/:id/outcome-evidence', requireRoles(['SALES']), handleMultipartUpload(uploadMiddleware.array('files',10),'Invalid result evidence upload.'), SalesMilestoneDocumentController.uploadEvidence);
+router.post('/:id/outcome-evidence/discard', requireRoles(['SALES']), SalesMilestoneDocumentController.discardEvidence);
 
 router.post('/:projectId/initialize-workflow', MilestoneInitiationApprovalController.retired);
 router.get('/:projectId/milestones', ProjectManagementController.milestones);

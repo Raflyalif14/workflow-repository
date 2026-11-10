@@ -3,9 +3,11 @@
 import { BusinessConfirmation } from "@/components/projects/business-confirmation";
 import { useOutcomeEvidence } from '@/hooks/use-outcome-evidence';
 import { OutcomeEvidenceField } from './outcome-evidence-field';
-import { translate as translateI18n, translateStoredError, translateStoredMessage } from "@/i18n";
+import { ApiError } from "@/lib/api-client";
+import { triggerWonConfetti } from "@/lib/confetti";
+import { translate as translateI18n, translateOutputName, translateStoredError, translateStoredMessage } from "@/i18n";
 import { useRef, useState } from "react";
-import { CalendarClock, Check, CheckCircle2, ChevronDown, RotateCcw, UploadCloud, Users } from "lucide-react";
+import { CalendarClock, Check, CheckCircle2, ChevronDown, RotateCcw, Trophy, UploadCloud, Users, XCircle } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { MilestoneContributionsPanel } from "@/components/milestones/milestone-contributions-panel";
 import { SalesMilestoneDocumentUploadDialog } from "@/components/projects/sales-milestone-document-upload-dialog";
@@ -46,24 +48,30 @@ import { DeadlineApprovalStatus, Project, ProjectMilestonePhase4 } from "@/types
 import { DeadlineDialog, DeadlineReviewDialog } from "@/components/projects/milestone-deadline-dialogs";
 import { StatusBadge } from "@/components/projects/project-status-badge";
 import { formatIdr, formatDate } from "@/lib/project-detail-format";
+import { salesStageAction } from '@/lib/sales-stage-action';
+import { formatContractAmountInput, parseContractAmount } from '@/lib/contract-amount';
 
 export function MilestoneRow({
   project,
   milestone,
+  displayIndex,
   isFinalMilestone,
   isCurrentStage,
   hasNextCreatedMilestone,
   finalPrerequisitesComplete = true,
+  resultOnly = false,
   approvalState,
   expanded,
   onToggle,
 }: {
   project: Project;
   milestone: ProjectMilestonePhase4;
+  displayIndex?: number;
   isFinalMilestone: boolean;
   isCurrentStage: boolean;
   hasNextCreatedMilestone: boolean;
   finalPrerequisitesComplete?: boolean;
+  resultOnly?: boolean;
   approvalState?: MilestoneApprovalState;
   expanded: boolean;
   onToggle: () => void;
@@ -169,18 +177,41 @@ export function MilestoneRow({
         || stageRole === 'HEAD_SA' && isHeadSa || stageRole === 'SA' && isStartPic);
   const retryProgression = useRetryMilestoneProgression(project.id, milestone.id);
   const requiresFinalOutcome = canComplete && stageRole === "SALES" && isFinalMilestone;
+  const salesAction = projectIsActive && stageRole === 'SALES'
+    ? salesStageAction(milestoneStatus, milestone.start_date, isFinalMilestone, finalPrerequisitesComplete) : null;
+  const salesOwnerName = project.sales?.full_name || project.sales?.fullName || translateI18n('role.SALES');
+
+  const finalAmount = parseContractAmount(finalValue);
+
+  const resetFinalOutcome = () => {
+    setFinalOutcomeOpen(false);
+    setFinalConfirming(false);
+    setFinalOutcome(null);
+    setFinalValue("");
+    setFinalLossReason("");
+    setError("");
+    evidence.reset();
+  };
+
+  const closeFinalOutcome = async () => {
+    if (finalSaving.current || complete.isPending || evidence.isUploading) return;
+    try {
+      if (await evidence.discard()) resetFinalOutcome();
+    } catch {
+      setError('workflowUpdate.evidenceDiscardFailed');
+    }
+  };
 
   const completeFinalSalesMilestone = async () => {
     if (finalSaving.current) return;
     setError("");
     setMessage("");
-    const value = Number(finalValue);
     if (!finalOutcome) {
       setError("projectDetail.chooseOutcome");
       return;
     }
-    if (finalOutcome === "WON" && (!finalValue.trim() || !Number.isFinite(value) || value <= 0)) {
-      setError("projectDetail.finalValuePositive");
+    if (finalOutcome === "WON" && finalAmount === null) {
+      setError("projectDetail.finalValueInvalid");
       return;
     }
     if (finalOutcome === "LOST" && !finalLossReason.trim()) {
@@ -195,16 +226,22 @@ export function MilestoneRow({
       await complete.mutateAsync({
         evidence_document_ids: evidenceIds,
         outcome: finalOutcome,
-        ...(finalOutcome === "WON" ? { final_contract_value: value } : { loss_reason: finalLossReason.trim() }),
+        ...(finalOutcome === "WON" ? { final_contract_value: finalAmount ?? undefined } : { loss_reason: finalLossReason.trim() }),
       });
-      setFinalOutcomeOpen(false); setFinalConfirming(false);
-      setFinalOutcome(null);
-      setFinalValue("");
-      setFinalLossReason("");
-      evidence.reset();
+      if (finalOutcome === "WON") {
+        triggerWonConfetti();
+      }
+      resetFinalOutcome();
       setMessage("projectDetail.finalMilestoneComplete");
-    } catch (completionError) {
-      setError("projectDetail.finalCompletionFailed");
+    } catch (completionError: any) {
+      const errKey = completionError instanceof Error ? completionError.message : "";
+      setError(
+        errKey === "workflowUpdate.evidenceRequired"
+          ? errKey
+          : completionError instanceof ApiError && completionError.status === 409
+          ? "businessAudit.stale"
+          : "projectDetail.finalCompletionFailed"
+      );
     } finally { finalSaving.current = false; }
   };
 
@@ -218,6 +255,215 @@ export function MilestoneRow({
       setError(fallback);
     }
   };
+
+  const secondaryActions = <>
+          {canRequestDeadlineChange && (
+            <Button size="sm" variant="outline" className="h-8 gap-1.5 text-xs" onClick={() => setDeadlineOpen(true)}>
+              <CalendarClock className="h-3.5 w-3.5" />
+              <span>{translateI18n("copy.requestDeadline")}</span>
+            </Button>
+          )}
+          {canUploadSalesDocuments && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-8 gap-1.5 text-xs"
+              onClick={() => setSalesDocumentUploadOpen(true)}
+            >
+              <UploadCloud className="h-3.5 w-3.5" />
+              <span>{translateI18n("documents.upload")}</span>
+            </Button>
+          )}
+  </>;
+
+  const finalOutcomeDialog = (
+    <Dialog open={finalOutcomeOpen} onOpenChange={(open) => { if (!open) return closeFinalOutcome(); }}>
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            {finalOutcome === "WON" ? (
+              <>
+                <Trophy className="h-5 w-5 text-emerald-600" />
+                <span>{translateI18n(resultOnly ? 'salesStage.result' : 'copy.completeSales')} — {translateI18n("projectStatus.WON")}</span>
+              </>
+            ) : finalOutcome === "LOST" ? (
+              <>
+                <XCircle className="h-5 w-5 text-destructive" />
+                <span>{translateI18n(resultOnly ? 'salesStage.result' : 'copy.completeSales')} — {translateI18n("projectStatus.LOST")}</span>
+              </>
+            ) : (
+              <span>{translateI18n(resultOnly ? 'salesStage.result' : 'copy.completeSales')}</span>
+            )}
+          </DialogTitle>
+          <DialogDescription>{resultOnly ? translateI18n('salesStage.recordHelp') : translateI18n('projectDetail.recordResultWithMilestone', { name: milestone.name })}</DialogDescription>
+        </DialogHeader>
+
+        {/* WON vs LOST Toggle Switch */}
+        <div className="grid grid-cols-2 gap-2 pt-1 pb-1">
+          <button
+            type="button"
+            onClick={() => {
+              setFinalOutcome("WON");
+              setFinalConfirming(false);
+              setError("");
+              if (!finalValue && project.estimated_revenue) {
+                setFinalValue(formatContractAmountInput(String(project.estimated_revenue), "", "insertText"));
+              }
+            }}
+            disabled={complete.isPending || evidence.isUploading}
+            className={`flex items-center justify-center gap-2 rounded-xl border-2 p-2.5 text-xs font-semibold transition-all ${
+              finalOutcome === "WON"
+                ? "border-emerald-500 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 shadow-sm"
+                : "border-border/60 bg-card hover:bg-muted text-muted-foreground"
+            }`}
+          >
+            <Trophy className="h-4 w-4" />
+            <span>{translateI18n("projectStatus.WON")}</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setFinalOutcome("LOST");
+              setFinalConfirming(false);
+              setError("");
+            }}
+            disabled={complete.isPending || evidence.isUploading}
+            className={`flex items-center justify-center gap-2 rounded-xl border-2 p-2.5 text-xs font-semibold transition-all ${
+              finalOutcome === "LOST"
+                ? "border-destructive bg-destructive/10 text-destructive shadow-sm"
+                : "border-border/60 bg-card hover:bg-muted text-muted-foreground"
+            }`}
+          >
+            <XCircle className="h-4 w-4" />
+            <span>{translateI18n("projectStatus.LOST")}</span>
+          </button>
+        </div>
+
+        <form className="space-y-4" onSubmit={(event) => { event.preventDefault(); void completeFinalSalesMilestone(); }}>
+          {finalOutcome === "WON" && (
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <label htmlFor={`contract-${milestone.id}`} className="block text-xs font-semibold text-muted-foreground">{translateI18n("copy.finalContractIdr")}</label>
+                {project.estimated_revenue && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFinalValue(formatContractAmountInput(String(project.estimated_revenue), "", "insertText"));
+                      setFinalConfirming(false);
+                    }}
+                    className="text-[11px] font-medium text-primary hover:underline"
+                  >
+                    {translateI18n("copy.useEstimated")}
+                  </button>
+                )}
+              </div>
+              <div className="relative">
+                <span className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-sm font-semibold text-muted-foreground select-none">
+                  Rp
+                </span>
+                <Input id={`contract-${milestone.id}`} type="text" inputMode="decimal" value={finalValue}
+                  className="pl-10 font-semibold text-base"
+                  placeholder="100.000.000"
+                  onChange={(event) => {
+                    setFinalValue(formatContractAmountInput(event.target.value, finalValue, (event.nativeEvent as InputEvent).inputType));
+                    setFinalConfirming(false);
+                    setError("");
+                  }} disabled={complete.isPending || evidence.isUploading} required />
+              </div>
+              {project.estimated_revenue && (
+                <p className="text-[11px] text-muted-foreground">
+                  💡 {translateI18n("copy.autoFilledFromEstimate")}
+                </p>
+              )}
+            </div>
+          )}
+          {finalOutcome === "LOST" && (
+            <div className="space-y-2">
+              <label htmlFor={`loss-${milestone.id}`} className="block text-xs font-semibold text-muted-foreground">{translateI18n("copy.lossReason")}</label>
+              <div className="space-y-1">
+                <p className="text-[11px] text-muted-foreground">{translateI18n("copy.lossReasonSuggestions")}</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {(["copy.lossReasonPrice", "copy.lossReasonSpec", "copy.lossReasonCancelled", "copy.lossReasonCompetitor", "copy.lossReasonSchedule"] as const).map((key) => (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => {
+                        setFinalLossReason(translateI18n(key));
+                        setFinalConfirming(false);
+                      }}
+                      className="rounded-full border border-border bg-muted/60 px-2.5 py-1 text-[11px] font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                      disabled={complete.isPending || evidence.isUploading}
+                    >
+                      {translateI18n(key)}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <textarea id={`loss-${milestone.id}`} className="min-h-20 w-full rounded-lg border border-input bg-card px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-primary/20" placeholder={translateI18n("copy.lossReasonPlaceholder")} value={finalLossReason} onChange={(event) => { setFinalLossReason(event.target.value); setFinalConfirming(false); }} maxLength={2000} disabled={complete.isPending || evidence.isUploading} required />
+            </div>
+          )}
+          {error && <p role="alert" className="text-xs text-destructive">{translateStoredError(error)}</p>}
+          <OutcomeEvidenceField files={evidence.files} onChange={files => { evidence.setFiles(files); setFinalConfirming(false); }} disabled={complete.isPending || evidence.isUploading} />
+          {finalConfirming && (
+            <div className="rounded-xl border border-primary/30 bg-primary/5 p-3.5 space-y-1.5 text-xs">
+              <p className="font-semibold text-primary">{translateI18n("copy.confirmOutcomeTitle")}</p>
+              <p className="text-foreground">
+                <span className="text-muted-foreground">{translateI18n("copy.projectColon")}</span> <strong>{project.name}</strong>{!resultOnly && ` - ${milestone.name}`}
+              </p>
+              <p className="text-foreground">
+                <span className="text-muted-foreground">{translateI18n("copy.statusLabel")}</span> {formatProjectStatusLabel(project.status)} {" → "} <strong>{formatProjectStatusLabel(finalOutcome || "")}</strong>
+              </p>
+              <p className="text-muted-foreground">
+                {finalOutcome === "WON" ? `${translateI18n("copy.finalContractIdr")}: ${formatIdr(finalAmount, 2)}` : `${translateI18n("copy.lossReason")}: ${finalLossReason}`}
+              </p>
+              <p className="text-[11px] text-muted-foreground pt-1 border-t border-border/40">
+                {translateI18n("copy.confirmOutcomeHelp")}
+              </p>
+            </div>
+          )}
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={closeFinalOutcome} disabled={complete.isPending || evidence.isUploading}>{translateI18n("common.cancel")}</Button>
+            <Button
+              type="submit"
+              disabled={complete.isPending || evidence.isUploading || !finalOutcome}
+              className={finalOutcome === "WON" && finalConfirming ? "bg-emerald-600 hover:bg-emerald-700 text-white" : ""}
+            >
+              {translateI18n(complete.isPending ? "projectDetail.completing" : !finalConfirming ? "copy.reviewBeforeSubmit" : (resultOnly ? "salesStage.saveResult" : "projectDetail.completeAndRecord"))}
+            </Button>
+          </DialogFooter>
+        </form>
+      </Dialog>
+  );
+
+  if (resultOnly) {
+    if (!isSalesOwner || !projectIsActive || isCompleted) return null;
+    const ready = finalPrerequisitesComplete && (salesAction === 'START' || salesAction === 'RESULT');
+    const hint = !finalPrerequisitesComplete ? 'salesStage.resultWaitWork'
+      : salesAction === 'WAIT_DATE' ? 'salesStage.resultWaitDate'
+      : salesAction === 'NO_SCHEDULE' ? 'salesStage.resultNoSchedule'
+      : 'salesStage.recordHelp';
+    return (
+      <section id={`project-milestone-${milestone.id}`} tabIndex={-1} className="page-surface scroll-mt-20 space-y-3 p-4 sm:p-5">
+        <h2 className="text-lg font-semibold">{translateI18n('salesStage.resultTitle')}</h2>
+        <p className="text-sm text-muted-foreground">{translateI18n(hint, { date: formatDate(milestone.start_date) })}</p>
+        {ready && (
+          <Button
+            type="button"
+            onClick={() => {
+              setFinalOutcomeOpen(true);
+              setFinalOutcome("WON");
+              if (!finalValue && project.estimated_revenue) {
+                setFinalValue(formatContractAmountInput(String(project.estimated_revenue), "", "insertText"));
+              }
+            }}
+            disabled={complete.isPending || evidence.isUploading}
+          >
+            {translateI18n('salesStage.result')}
+          </Button>
+        )}
+        {finalOutcomeDialog}
+      </section>
+    );
+  }
 
   return (
     <div
@@ -243,9 +489,15 @@ export function MilestoneRow({
                   : "bg-muted text-muted-foreground"
               }`}
             >
-              {isCompleted ? <Check className="h-3.5 w-3.5" /> : String(milestone.step_order).padStart(2, "0")}
+              {isCompleted ? <Check className="h-3.5 w-3.5" /> : String(displayIndex ?? milestone.step_order).padStart(2, "0")}
             </span>
-            <h3 className="min-w-0 break-words text-sm font-semibold text-foreground sm:text-base">{milestone.name}</h3>
+            {selectedMilestoneOutputs.length > 0 ? (
+              <h3 className="min-w-0 break-words text-sm font-semibold text-foreground sm:text-base">
+                {selectedMilestoneOutputs.map((d) => translateOutputName(d.key, d.name)).join(" • ")}
+              </h3>
+            ) : (
+              <h3 className="min-w-0 break-words text-sm font-semibold text-foreground sm:text-base">{milestone.name}</h3>
+            )}
             <StatusBadge status={milestoneStatus} />
             {isCurrentStage && (
               <span className="text-xs font-medium text-primary">
@@ -257,7 +509,7 @@ export function MilestoneRow({
             {hasPendingDeadline && <Badge variant="warning">{translateI18n("copy.deadlinePending")}</Badge>}
           </div>
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 pl-0 text-xs text-muted-foreground sm:pl-9">
-            <span>{translateI18n("milestoneCompact.pic")}: <strong className="font-medium text-foreground">{milestone.pic?.full_name || milestone.pic?.fullName || translateI18n("milestoneCompact.unassigned")}</strong></span>
+            <span>{stageRole === 'SALES' ? translateI18n('role.SALES') : translateI18n("milestoneCompact.pic")}: <strong className="font-medium text-foreground">{stageRole === 'SALES' ? salesOwnerName : milestone.pic?.full_name || milestone.pic?.fullName || translateI18n("milestoneCompact.unassigned")}</strong></span>
             <span>{translateI18n("milestoneCompact.due")}: <strong className="font-medium text-foreground">{formatDate(milestone.due_date)}</strong></span>
             {!deadlineStatusQuery.isLoading && !deadlineStatusQuery.isError && <span className={deadlineHealth.tone === "destructive" ? "font-medium text-destructive" : deadlineHealth.tone === "warning" ? "font-medium text-warning" : ""}>{translateI18n(`milestoneCompact.deadline_${deadlineStatusQuery.data?.deadline_status || "NOT_SET"}`)}</span>}
             {stageRole === "SA" && !milestoneOutputs.isLoading && !milestoneOutputs.isError && (
@@ -267,6 +519,8 @@ export function MilestoneRow({
             )}
           </div>
         </div>
+        {isSalesOwner && salesAction === 'START' && canStart && <Button type="button" size="sm" disabled={startMilestone.isPending} onClick={() => void perform(() => startMilestone.mutateAsync(), 'milestoneStatus.IN_PROGRESS', 'workflowUpdate.startFailed')}>{translateI18n('salesStage.start')}</Button>}
+        {isSalesOwner && requiresFinalOutcome && <Button type="button" size="sm" disabled={complete.isPending} onClick={() => setFinalOutcomeOpen(true)}>{translateI18n('salesStage.result')}</Button>}
         <Button type="button" size="sm" variant="ghost" className="min-h-9 shrink-0 self-start gap-1.5 sm:self-center"
           aria-expanded={expanded} aria-controls={`milestone-panel-${milestone.id}`} onClick={onToggle}>
           {expanded ? translateI18n("milestoneCompact.hideDetails") : translateI18n("milestoneCompact.showDetails")}
@@ -274,31 +528,23 @@ export function MilestoneRow({
         </Button>
       </div>
 
+      {salesAction && <p className="px-4 pb-3 text-xs text-primary sm:pl-16">{translateI18n(`salesStage.${salesAction}`, {date: formatDate(milestone.start_date)})}</p>}
+
       {!expanded && <div id={`milestone-panel-${milestone.id}`} hidden />}
       {expanded && <div id={`milestone-panel-${milestone.id}`} className="min-w-0 border-t border-border/50 px-3 pb-3 pt-3 sm:px-4">
         {milestone.description && <p className="mb-3 text-sm text-muted-foreground">{milestone.description}</p>}
 
         {/* Action Buttons */}
         <div className="flex flex-wrap gap-2">
-          {canStart && <Button size="sm" disabled={startMilestone.isPending} onClick={() => void perform(() => startMilestone.mutateAsync(), 'milestoneStatus.IN_PROGRESS', 'workflowUpdate.startFailed')}>{translateI18n('workflowUpdate.start')}</Button>}
-          {canRequestDeadlineChange && (
-            <Button size="sm" variant="outline" className="h-8 gap-1.5 text-xs" onClick={() => setDeadlineOpen(true)}>
-              <CalendarClock className="h-3.5 w-3.5" />
-              <span>{translateI18n("copy.requestDeadline")}</span>
-            </Button>
-          )}
-          {canUploadSalesDocuments && (
-            <Button
-              size="sm"
-              variant="outline"
-              className="h-8 gap-1.5 text-xs"
-              onClick={() => setSalesDocumentUploadOpen(true)}
-            >
-              <UploadCloud className="h-3.5 w-3.5" />
-              <span>{translateI18n("documents.upload")}</span>
-            </Button>
-          )}
-          {canComplete && (
+          {canStart && !(stageRole === 'SALES' && isSalesOwner) && <Button size="sm" disabled={startMilestone.isPending} onClick={() => void perform(() => startMilestone.mutateAsync(), 'milestoneStatus.IN_PROGRESS', 'workflowUpdate.startFailed')}>{translateI18n('workflowUpdate.start')}</Button>}
+          {stageRole === 'SALES' && isFinalMilestone ? (
+            (canRequestDeadlineChange || canUploadSalesDocuments) && <details className="w-full text-sm">
+              <summary className="w-fit cursor-pointer rounded-sm text-muted-foreground hover:text-foreground focus-visible:ring-2 focus-visible:ring-primary">{translateI18n('salesStage.more')}</summary>
+              <p className="mt-2 text-xs text-muted-foreground">{translateI18n('salesStage.moreHelp')}</p>
+              <div className="mt-2 flex flex-wrap gap-2">{secondaryActions}</div>
+            </details>
+          ) : secondaryActions}
+          {canComplete && !requiresFinalOutcome && (
             <Button
               size="sm"
               className="h-8 gap-1.5 text-xs"
@@ -368,9 +614,10 @@ export function MilestoneRow({
         </div>
       )}
 
-      {error && <p className="mt-3 text-xs text-destructive">{translateStoredError(error)}</p>}
-      {message && <p className="mt-3 text-xs text-success">{message === "projectDetail.documentsUploaded" ? translateI18n("projectDetail.documentsUploaded", { count: uploadedDocumentCount }) : translateStoredMessage(message)}</p>}
       </div>}
+
+      {error && !finalOutcomeOpen && <p role="alert" className="px-4 pb-3 text-xs text-destructive">{translateStoredError(error)}</p>}
+      {message && <p role="status" className="px-4 pb-3 text-xs text-success">{message === "projectDetail.documentsUploaded" ? translateI18n("projectDetail.documentsUploaded", { count: uploadedDocumentCount }) : translateStoredMessage(message)}</p>}
 
       {/* Dialogs */}
       <BusinessConfirmation open={completionConfirming} onOpenChange={setCompletionConfirming}
@@ -378,48 +625,7 @@ export function MilestoneRow({
         action={translateI18n("projectDetail.stageCompleted")} onConfirm={async () => {
           await complete.mutateAsync(); setMessage("projectDetail.stageCompleted");
         }} />
-      <Dialog open={finalOutcomeOpen} onOpenChange={(open) => { if (!complete.isPending && !finalSaving.current) { setFinalOutcomeOpen(open); if (!open) setFinalConfirming(false); } }}>
-        <DialogHeader>
-          <DialogTitle>{translateI18n("copy.completeSales")}</DialogTitle>
-          <DialogDescription>{translateI18n("projectDetail.recordResultWithMilestone", { name: milestone.name })}</DialogDescription>
-        </DialogHeader>
-        <form className="space-y-4" onSubmit={(event) => { event.preventDefault(); void completeFinalSalesMilestone(); }}>
-          <div>
-            <label htmlFor={`outcome-${milestone.id}`} className="mb-1 block text-xs font-semibold text-muted-foreground">{translateI18n("copy.projectResult")}</label>
-            <select
-              id={`outcome-${milestone.id}`}
-              className="h-10 w-full rounded-lg border border-input bg-card px-3 text-sm"
-              value={finalOutcome || ""}
-              onChange={(event) => { setFinalOutcome(event.target.value as "WON" | "LOST" | null); setFinalConfirming(false); }}
-              disabled={complete.isPending || evidence.isUploading}
-              required
-            >
-              <option value="">{translateI18n("copy.selectResult")}</option>
-              <option value="WON">{translateI18n("projectStatus.WON")}</option>
-              <option value="LOST">{translateI18n("projectStatus.LOST")}</option>
-            </select>
-          </div>
-          {finalOutcome === "WON" && (
-            <div>
-              <label htmlFor={`contract-${milestone.id}`} className="mb-1 block text-xs font-semibold text-muted-foreground">{translateI18n("copy.finalContractIdr")}</label>
-              <Input id={`contract-${milestone.id}`} type="number" min="0.01" step="0.01" value={finalValue} onChange={(event) => { setFinalValue(event.target.value); setFinalConfirming(false); }} disabled={complete.isPending || evidence.isUploading} required />
-            </div>
-          )}
-          {finalOutcome === "LOST" && (
-            <div>
-              <label htmlFor={`loss-${milestone.id}`} className="mb-1 block text-xs font-semibold text-muted-foreground">{translateI18n("copy.lossReason")}</label>
-              <textarea id={`loss-${milestone.id}`} className="min-h-24 w-full rounded-lg border border-input bg-card px-3 py-2 text-sm" value={finalLossReason} onChange={(event) => { setFinalLossReason(event.target.value); setFinalConfirming(false); }} maxLength={2000} disabled={complete.isPending || evidence.isUploading} required />
-            </div>
-          )}
-          {error && <p className="text-xs text-destructive">{translateStoredError(error)}</p>}
-          <OutcomeEvidenceField files={evidence.files} onChange={files => { evidence.setFiles(files); setFinalConfirming(false); }} disabled={complete.isPending || evidence.isUploading} />
-          {finalConfirming && <p className="whitespace-pre-wrap text-sm">{translateI18n("businessAudit.final")} {project.name} - {milestone.name}: {formatProjectStatusLabel(project.status)} {" -> "} {formatProjectStatusLabel(finalOutcome || "")} - {finalOutcome === "WON" ? formatIdr(Number(finalValue)) : finalLossReason}</p>}
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => { setFinalOutcomeOpen(false); setFinalConfirming(false); }} disabled={complete.isPending || evidence.isUploading}>{translateI18n("common.cancel")}</Button>
-            <Button type="submit" disabled={complete.isPending || evidence.isUploading || !finalOutcome}>{translateI18n(complete.isPending ? "projectDetail.completing" : finalConfirming ? "projectDetail.completeAndRecord" : "reviewConfirm.continue")}</Button>
-          </DialogFooter>
-        </form>
-      </Dialog>
+      {finalOutcomeDialog}
       <DeadlineDialog open={deadlineOpen} onOpenChange={setDeadlineOpen} projectId={project.id} milestone={milestone} />
       <SalesMilestoneDocumentUploadDialog
         open={salesDocumentUploadOpen}

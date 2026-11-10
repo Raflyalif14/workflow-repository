@@ -19,7 +19,7 @@ export function PlanReviewDialog({
   phaseName,
   approvalId,
   targetApprovalId,
-  picRevision, currentPicName, onConflictReload,
+  picRevision, currentPicName, currentPicId, onConflictReload,
   approvalStatus,
   workflowModel,
   workflowVersion,
@@ -33,7 +33,7 @@ export function PlanReviewDialog({
   phaseName: string;
   approvalId?: string;
   targetApprovalId?: string;
-  picRevision?: string; currentPicName?: string; onConflictReload: () => Promise<void>;
+  picRevision?: string; currentPicName?: string; currentPicId?: string; onConflictReload: () => Promise<void>;
   approvalStatus?: string;
   workflowModel?: string | null;
   workflowVersion?: number | null;
@@ -63,9 +63,9 @@ export function PlanReviewDialog({
     setConfirming(false); intent.current = null;
     setReviewedApprovalId(targetApprovalId);
     setNote("");
-    setPicId("");
+    setPicId(currentPicId || "");
     setError("");
-  }, [decision, open, targetApprovalId]);
+  }, [decision, open, targetApprovalId, currentPicId]);
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -91,7 +91,7 @@ export function PlanReviewDialog({
       if (reviewedRevision !== undefined) intent.current = retainPicRequest(intent.current, reviewedRevision, { approval: reviewedApprovalId, decision, note: note.trim(), picId });
       await runConfirmedDecision({ confirmed: confirming, current: true, reason: note, reasonRequired: decision === "REJECT" }, () => { decisionStarted = true; return onSubmit(note.trim() || undefined, requiresPic ? picId : undefined, reviewedApprovalId, intent.current?.revision, intent.current?.id); });
       setNote("");
-      setPicId("");
+      setPicId(currentPicId || "");
     } catch (reviewError) {
       const code = reviewError instanceof ApiError ? reviewError.code : undefined;
       setError(!decisionStarted ? 'picOperation.preparationFailed' : reviewError instanceof ApiError && reviewError.status === 409 && !code ? "businessAudit.stale" : picErrorKey(code));
@@ -158,9 +158,10 @@ export function PlanReviewDialog({
                 }}
                 className="flex h-10 w-full rounded-lg border border-input bg-card px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
                 required
-                disabled={isPending || confirming}
+                disabled={isPending || confirming || !!currentPicId}
               >
                 <option value="">{translateI18n("copy.selectSa")}</option>
+                {currentPicId&&!pics.some(pic=>pic.id===currentPicId)&&<option value={currentPicId}>{currentPicName||currentPicId}</option>}
                 {pics.map((pic) => (
                   <option key={pic.id} value={pic.id}>
                     {pic.full_name} ({translateRole(pic.role)}) - {pic.email}

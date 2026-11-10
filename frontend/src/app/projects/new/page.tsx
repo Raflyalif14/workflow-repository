@@ -17,7 +17,7 @@ import { useScenarios } from "@/hooks/use-scenarios";
 import { getMandatoryDocumentKeys, getScenarioDocuments, resolveScenarioKey } from "@/constants/scenarios";
 import { formatEstimatedValue } from "@/lib/project-estimated-value";
 import { projectCreateErrorKey, type ProjectCreateInput } from "@/lib/project-create-request";
-import { getProjectRevenueError, getProjectValidationError } from "@/lib/project-create-validation";
+import { getProjectRevenueError, getProjectValidationError, parseRupiahInput } from "@/lib/project-create-validation";
 import { useProjectFormDraft } from "@/hooks/use-project-form-draft";
 import { emptyProjectForm, type ProjectFormDraft } from "@/lib/project-form-draft";
 import { ProjectFormDraftStatus } from "@/components/projects/project-form-draft-status";
@@ -166,7 +166,7 @@ function NewProjectForm({ accountId }: { accountId: string }) {
       name: name.trim(),
       customer: customer.trim(),
       scenario_id: scenarioId,
-      estimated_revenue: Number(estimatedRevenue),
+      estimated_revenue: Number(parseRupiahInput(estimatedRevenue) || estimatedRevenue),
       mom: mom!,
       photos,
       documents,
@@ -289,7 +289,7 @@ function NewProjectForm({ accountId }: { accountId: string }) {
         changes={[
           customer.trim(),
           scenarios.find((item) => item.id === scenarioId)?.name || scenarioId,
-          formatEstimatedValue(estimatedRevenue),
+          formatEstimatedValue(parseRupiahInput(estimatedRevenue) || estimatedRevenue),
           mom?.name || "",
           ...photos.map((file) => file.name),
           ...documents.map((file) => file.name),

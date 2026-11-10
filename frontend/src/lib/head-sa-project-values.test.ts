@@ -14,7 +14,7 @@ const render = (props: Partial<Parameters<typeof HeadSaProjectValuesPanel>[0]> =
   }));
 
 assert.equal(DEFAULT_LANGUAGE, "en");
-for (const role of [undefined, "SALES", "SA", "SUPER_ADMIN"]) {
+for (const role of [undefined, "SALES", "SA"]) {
   assert.equal(render({ role }), "", `${role} must not receive the HEAD_SA value panel`);
 }
 try {
@@ -22,6 +22,9 @@ try {
     setActiveLanguage(language);
     const html = render();
     const pipeline = {preTender:{active:2,postponed:1,estimatedRevenue:100},submissionTender:{advancedFromPreTender:3,inProgress:1,waitingResult:0,postponed:0,estimatedRevenue:200},results:{won:2,lost:0,finalRevenue:150}};
+    const admin = render({role:'SUPER_ADMIN',pipeline});
+    assert(admin.includes(translate('roleDashboard.adminPipelineScope')) && admin.includes('Final Revenue'));
+    assert(!render({role:'SUPER_ADMIN',pipeline:undefined}).includes('<dl'), 'Admin missing phase data is unavailable instead of valid totals');
     const phased = render({pipeline});
     assert(phased.includes(translate('salesPipeline.headTitle')) && phased.includes(translate('salesPipeline.headScope')));
     for (const id of ['sales-pra-heading','sales-tender-heading','sales-result-heading']) assert(phased.includes(`id="${id}"`));

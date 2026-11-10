@@ -5,6 +5,8 @@ import { ProjectIntakeService } from './project-intake.service';
 import path from 'path';
 import { supabaseAdmin } from '../config/supabase';
 import { compareMilestoneSchedule } from '../utils/milestone-order';
+import { ALL_OUTPUT_DEFINITIONS } from '../constants/scenarios';
+const outputDefinitionMap = new Map(ALL_OUTPUT_DEFINITIONS.map(d => [d.key, d.name]));
 import {
   isAllowedDocumentFileName,
   MAX_DOCUMENT_FILE_SIZE_BYTES,
@@ -94,37 +96,41 @@ export function validateProjectCreationFiles(files: ProjectCreationFiles): void 
 }
 
 const mapUser = (user: any) => user ? { id: user.id, full_name: user.full_name, email: user.email } : null;
-const mapProject = (row: any) => ({
-  id: row.id,
-  name: row.name,
-  customer: row.customer,
-  scenario_id: row.scenario_id,
-  current_scenario_id: row.current_scenario_id || row.scenario_id,
-  active_phase_id: row.active_phase_id || null,
-  phases: row.phases || [],
-  phase_migration_state: row.phase_migration_state,
-  active_scenario: row.active_scenario || row.scenario,
-  scenario: row.scenario || null,
-  sales_id: row.sales_id,
-  sales: mapUser(row.sales),
-  pic: row.pic ? { ...mapUser(row.pic), role: row.pic.role } : null,
-  pic_revision: row.pic_revision_exact ?? (typeof row.pic_revision === 'string' || Number.isSafeInteger(row.pic_revision) ? String(row.pic_revision) : undefined),
-  status: row.status,
-  is_postponed: row.is_postponed,
-  postponed_at: row.postponed_at,
-  postponed_by: row.postponed_by,
-  postpone_reason: row.postpone_reason,
-  selected_document_keys: row.selected_document_keys || [],
-  estimated_revenue: row.estimated_revenue === null || row.estimated_revenue === undefined ? null : Number(row.estimated_revenue),
-  ...(row.estimated_revenue_exact !== undefined ? { estimated_revenue_exact: row.estimated_revenue_exact } : {}),
-  final_contract_value: row.final_contract_value === null || row.final_contract_value === undefined ? null : Number(row.final_contract_value),
-  loss_reason: row.loss_reason || null,
-  outcome_decided_by: row.outcome_decided_by || null,
-  outcome_decided_at: row.outcome_decided_at || null,
-  created_at: row.created_at,
-  updated_at: row.updated_at,
-  activity_logs: row.activity_logs || [],
-});
+const mapProject = (row: any) => {
+  const activeScenario = row.active_scenario || row.scenario || null;
+  return {
+    id: row.id,
+    name: row.name,
+    customer: row.customer,
+    scenario_id: row.current_scenario_id || row.scenario_id,
+    current_scenario_id: row.current_scenario_id || row.scenario_id,
+    active_phase_id: row.active_phase_id || null,
+    phases: row.phases || [],
+    phase_migration_state: row.phase_migration_state,
+    active_scenario: activeScenario,
+    scenario: activeScenario,
+    initial_scenario: row.scenario || null,
+    sales_id: row.sales_id,
+    sales: mapUser(row.sales),
+    pic: row.pic ? { ...mapUser(row.pic), role: row.pic.role } : null,
+    pic_revision: row.pic_revision_exact ?? (typeof row.pic_revision === 'string' || Number.isSafeInteger(row.pic_revision) ? String(row.pic_revision) : undefined),
+    status: row.status,
+    is_postponed: row.is_postponed,
+    postponed_at: row.postponed_at,
+    postponed_by: row.postponed_by,
+    postpone_reason: row.postpone_reason,
+    selected_document_keys: row.selected_document_keys || [],
+    estimated_revenue: row.estimated_revenue === null || row.estimated_revenue === undefined ? null : Number(row.estimated_revenue),
+    ...(row.estimated_revenue_exact !== undefined ? { estimated_revenue_exact: row.estimated_revenue_exact } : {}),
+    final_contract_value: row.final_contract_value === null || row.final_contract_value === undefined ? null : Number(row.final_contract_value),
+    loss_reason: row.loss_reason || null,
+    outcome_decided_by: row.outcome_decided_by || null,
+    outcome_decided_at: row.outcome_decided_at || null,
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+    activity_logs: row.activity_logs || [],
+  };
+};
 
 const projectSelect = `*, pic_revision_exact:pic_revision::text, estimated_revenue_exact:estimated_revenue::text, phases:project_phases!project_phases_project_id_fkey(*), active_scenario:scenarios!projects_current_scenario_id_fkey(id,name,workflow_model,workflow_version), scenario:scenarios!projects_scenario_id_fkey(id,name,workflow_model,workflow_version), sales:users!projects_sales_id_fkey(id,full_name,email), pic:users!projects_pic_id_fkey(id,full_name,email,role)`;
 
@@ -179,17 +185,31 @@ export class ProjectManagementService {
     const projectIds = projects.map((p: any) => p.id);
 
     if (projectIds.length > 0) {
-      const { data: milestonesData } = await timeOperation(trace, 'projects.list.milestones', () => supabaseAdmin
-        .from('project_milestones')
-        .select('id,project_id,phase_id,step_order,name,status,pic_id,start_date,duration_working_days,due_date,workflow_stage:workflow_stages!project_milestones_workflow_stage_id_fkey(id,default_role),pic:users!project_milestones_pic_id_fkey(id,full_name)')
-        .in('project_id', projectIds)
-        .order('step_order', { ascending: true }));
+      const [{ data: milestonesData }, { data: outputsData }] = await timeOperation(trace, 'projects.list.milestones_and_outputs', () => Promise.all([
+        supabaseAdmin
+          .from('project_milestones')
+          .select('id,project_id,phase_id,step_order,name,status,pic_id,start_date,duration_working_days,due_date,workflow_stage:workflow_stages!project_milestones_workflow_stage_id_fkey(id,default_role),pic:users!project_milestones_pic_id_fkey(id,full_name)')
+          .in('project_id', projectIds)
+          .order('step_order', { ascending: true }),
+        supabaseAdmin
+          .from('project_output_documents')
+          .select('project_id,milestone_id,document_key,is_required,is_selected')
+          .in('project_id', projectIds),
+      ]));
 
       const milestonesByProject = new Map<string, any[]>();
       for (const m of (milestonesData || [])) {
         const list = milestonesByProject.get(m.project_id) || [];
         list.push(m);
         milestonesByProject.set(m.project_id, list);
+      }
+
+      const outputsByMilestone = new Map<string, any[]>();
+      for (const o of (outputsData || [])) {
+        if (!o.milestone_id) continue;
+        const list = outputsByMilestone.get(o.milestone_id) || [];
+        list.push(o);
+        outputsByMilestone.set(o.milestone_id, list);
       }
 
       for (const p of projects as any[]) {
@@ -215,6 +235,15 @@ export class ProjectManagementService {
           currentMilestone = { name: 'Workflow Completed', workflow_stage: null };
         }
 
+        if (currentMilestone && currentMilestone.name?.trim().toLowerCase() === 'deliverables') {
+          const mOutputs = outputsByMilestone.get(currentMilestone.id) || [];
+          const selected = mOutputs.filter(o => o.is_required || o.is_selected);
+          const names = selected.map(o => outputDefinitionMap.get(o.document_key) || o.document_key).filter(Boolean);
+          if (names.length > 0) {
+            currentMilestone.name = names.join(' • ');
+          }
+        }
+
         const stageRole = currentMilestone?.workflow_stage?.default_role || (p.status === 'DRAFT' ? 'SALES' : null);
         const stagePic = currentMilestone?.pic?.full_name || (stageRole === 'SA' ? p.pic?.full_name : null);
 
@@ -237,7 +266,35 @@ export class ProjectManagementService {
       }
     }
 
-    return { projects, pagination: { page, limit, total, totalPages: Math.ceil(total / limit), hasNextPage: page * limit < total, hasPrevPage: page > 1 } };
+    let activeCount = projects.filter((item: any) => item.status === 'ACTIVE').length;
+    let planningCount = projects.filter((item: any) => item.status === 'DRAFT').length;
+    let completedCount = projects.filter((item: any) => PROJECT_DELIVERY_COMPLETED_STATUSES.includes(item.status)).length;
+
+    if (total > limit) {
+      let statusReq: any = supabaseAdmin.from('projects').select('status');
+      statusReq = applyProjectAccessScope(statusReq, actor);
+      if (!['SALES', 'SA'].includes(actor.role) && query.sales_id) statusReq = statusReq.eq('sales_id', query.sales_id);
+      if (query.scenario_id) statusReq = statusReq.eq('scenario_id', query.scenario_id);
+      if (query.status) statusReq = statusReq.eq('status', query.status);
+      if (query.status_group === 'DELIVERY_COMPLETED') statusReq = statusReq.in('status', [...PROJECT_DELIVERY_COMPLETED_STATUSES]);
+      if (query.search) statusReq = statusReq.or(`name.ilike.%${query.search}%,customer.ilike.%${query.search}%`);
+      const { data: statusRows } = await timeOperation(trace, 'projects.list.status_counts', () => statusReq);
+      if (statusRows) {
+        activeCount = statusRows.filter((item: any) => item.status === 'ACTIVE').length;
+        planningCount = statusRows.filter((item: any) => item.status === 'DRAFT').length;
+        completedCount = statusRows.filter((item: any) => PROJECT_DELIVERY_COMPLETED_STATUSES.includes(item.status)).length;
+      }
+    }
+
+    return {
+      projects,
+      pagination: { page, limit, total, totalPages: Math.ceil(total / limit), hasNextPage: page * limit < total, hasPrevPage: page > 1 },
+      summary: {
+        active: activeCount,
+        planning: planningCount,
+        completed: completedCount,
+      },
+    };
   }
 
   static async get(id: string, actor: Actor, options: { includeActivity?: boolean } = {}) {

@@ -24,7 +24,7 @@ export function QuickInsightsPanel({
         <p className="mt-1 text-sm text-muted-foreground">{translateI18n("copy.actionItems")}</p>
       </div>
 
-      {loading && insights.length === 0 ? (
+      {loading ? (
         <div className="mt-4 space-y-3" aria-label={translateI18n("dashboardPage.loadingInsights")}>
           {[0, 1, 2, 3].map((item) => <div key={item} className="h-16 animate-pulse rounded bg-muted" />)}
         </div>

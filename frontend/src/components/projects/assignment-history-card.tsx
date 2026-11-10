@@ -2,6 +2,7 @@
 
 
 import { translate as translateI18n, getIntlLocale } from "@/i18n";
+import { formatDateTime } from "@/lib/project-detail-format";
 import { useLanguage } from "@/components/i18n/language-provider";
 import { History } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -38,7 +39,7 @@ export function AssignmentHistoryCard({ projectId }: { projectId: string }) {
               <p className="mt-1 text-xs text-muted-foreground">
                 {translateI18n("assignment.assignedBy", { name: item.assigned_by?.full_name || item.assigned_by?.fullName || "-" })}
               </p>
-              <p className="text-xs text-muted-foreground">{new Date(item.created_at).toLocaleString(getIntlLocale())}</p>
+              <p className="text-xs text-muted-foreground">{formatDateTime(item.created_at)}</p>
               {item.reason && <p className="mt-2 text-xs">{translateI18n("assignment.reason", { reason: item.reason })}</p>}
             </div>
           ))

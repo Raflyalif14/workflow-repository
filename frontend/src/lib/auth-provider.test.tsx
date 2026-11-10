@@ -2,7 +2,9 @@ import assert from "node:assert/strict";
 import React from "react";
 import Module from "node:module";
 import { clearStoredAuth, getAuthSession, setAuthTokens } from "./auth";
-import { setActiveLanguage, translate } from "../i18n";
+import * as activity from "./session-activity";
+import * as profiles from "./auth-profile";
+import { setActiveLanguage } from "../i18n";
 
 const events = new EventTarget(), storage = new Map<string,string>();
 (globalThis as any).window = { localStorage: { getItem: (k:string) => storage.get(k) ?? null, setItem: (k:string,v:string) => storage.set(k,v), removeItem: (k:string) => storage.delete(k) },
@@ -11,6 +13,10 @@ const response = (status:number, data?:unknown, code?:string) => new Response(JS
 const tick = () => new Promise(resolve => setImmediate(resolve));
 const deferred = <T,>() => { let resolve!: (value:T) => void; const promise = new Promise<T>(r => resolve = r); return { promise, resolve }; };
 const originalLoad = (Module as any)._load, originalFetch = globalThis.fetch;
+const originalActivity = activity.startSessionActivity;
+(activity as any).startSessionActivity = () => () => {};
+const originalVerify = profiles.loadVerifiedProfileWithRetry;
+(profiles as any).loadVerifiedProfileWithRetry = (session: any, current: () => boolean) => originalVerify(session, current, async () => {});
 const redirects: string[] = []; let cacheClears = 0;
 const router = { replace: (path:string) => redirects.push(path) }, cache = { clear: () => cacheClears++ };
 (Module as any)._load = function(name:string, ...args:any[]) {
@@ -43,21 +49,25 @@ async function run() {
     setAuthTokens({ accessToken:'old',refreshToken:'refresh' });
     globalThis.fetch = (async () => response(503)) as typeof fetch;
     render(); let tree = await settle();
-    assert.equal(tree.props.value.user,null); assert.equal(tree.props.value.profileError,'temporary');
-    assert.notEqual(tree.props.children,child,'Initial unverified role cannot open protected UI'); assert.equal(redirects.length,0);
+    assert.equal(tree.props.value.user,null); assert.equal(tree.props.value.profileError,null);
+    assert.equal(getAuthSession(),null,'Repeated verification failure logs out automatically');
+    assert.notEqual(tree.props.children,child,'Unverified role cannot open protected UI');
+    assert(redirects.some(path => path.startsWith('/login?next=')));
+    setAuthTokens({ accessToken:'old',refreshToken:'refresh' });
     globalThis.fetch = (async () => response(200,{ id:'user-a',role:'SA',is_active:true })) as typeof fetch;
     await tree.props.value.retryProfile(); tree=render();
     assert.equal(tree.props.value.user.id,'user-a'); assert.equal(tree.props.children,child);
-    globalThis.fetch = (async () => response(503)) as typeof fetch;
+    let temporaryCalls=0;
+    globalThis.fetch = (async () => ++temporaryCalls===1 ? response(503) : response(200,{id:'user-a',role:'SA',is_active:true})) as typeof fetch;
     await tree.props.value.retryProfile(); tree=render();
-    assert.equal(tree.props.value.user.id,'user-a'); assert.equal(tree.props.value.profileError,'temporary');
-    assert.equal(tree.props.children,child,'Temporary failure preserves the mounted child subtree'); assert(getAuthSession());
-    for (const locale of ['en','id'] as const) { setActiveLanguage(locale); const rerender = render(); assert.equal(rerender.props.children,child); assert.equal(rerender.props.value.user.id,'user-a'); assert.notEqual(translate('auth.retrySession'), 'auth.retrySession'); }
+    assert.equal(tree.props.value.user.id,'user-a'); assert.equal(tree.props.value.profileError,null);
+    assert.equal(tree.props.children,child,'An automatic retry recovers a brief outage'); assert(getAuthSession());
+    for (const locale of ['en','id'] as const) { setActiveLanguage(locale); assert.equal(render().props.children,child); }
     globalThis.fetch = (async () => response(403)) as typeof fetch;
     await tree.props.value.retryProfile(); tree=render();
-    assert.equal(tree.props.value.profileError,'forbidden'); assert.equal(tree.props.value.user,null); assert(getAuthSession());
-    globalThis.fetch = (async () => response(503)) as typeof fetch;
-    await tree.props.value.retryProfile(); tree=render(); assert.notEqual(tree.props.children,child,'Transient retry cannot reopen previously forbidden UI');
+    assert.equal(tree.props.value.profileError,null); assert.equal(tree.props.value.user,null); assert.equal(getAuthSession(),null);
+    assert.notEqual(tree.props.children,child,'Forbidden verification logs out and hides protected content');
+    setAuthTokens({ accessToken:'another',refreshToken:'another-refresh' });
     globalThis.fetch = (async () => response(200,{id:'user-a',role:'SA',is_active:true})) as typeof fetch;
     await tree.props.value.retryProfile(); tree=render(); assert.equal(tree.props.children,child);
 
@@ -73,7 +83,7 @@ async function run() {
     assert(cacheClears>=2);
     globalThis.fetch=(async () => response(401,undefined,'AUTH_ACCOUNT_INACTIVE')) as typeof fetch;
     await tree.props.value.retryProfile(); tree=render(); assert.equal(tree.props.value.user,null); assert.equal(getAuthSession(),null); assert.notEqual(tree.props.children,child);
-    console.log('AuthProvider handlers: initial guard, temporary error/retry, retained child/locale, logout/account/profile race and inactive rejection passed.');
-  } finally { cleanups.forEach(stop => stop?.()); Object.assign(React,hooks); globalThis.fetch=originalFetch; setActiveLanguage('en'); clearStoredAuth(); }
+    console.log('AuthProvider: bounded recovery, automatic logout/redirect, forbidden/expired session, protected content and account-switch race passed.');
+  } finally { (activity as any).startSessionActivity=originalActivity; (profiles as any).loadVerifiedProfileWithRetry=originalVerify; cleanups.forEach(stop => stop?.()); Object.assign(React,hooks); globalThis.fetch=originalFetch; setActiveLanguage('en'); clearStoredAuth(); }
 }
 run().catch(error => { console.error(error); process.exitCode=1; });

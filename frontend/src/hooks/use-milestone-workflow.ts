@@ -54,7 +54,7 @@ export function useMilestoneDeadlineStatus(milestoneId: string, enabled = true) 
     queryKey: milestoneKeys.deadlineStatus(milestoneId),
     queryFn: () => apiClient<MilestoneDeadlineStatus>(`/milestones/${milestoneId}/deadline-status`),
     enabled: Boolean(milestoneId) && enabled,
-    staleTime: 0,
+    staleTime: 30_000,
     refetchOnWindowFocus: true,
   });
 }
@@ -68,7 +68,7 @@ export function useMilestoneApprovalStates(
       queryKey: milestoneKeys.workflowState(milestone.id),
       queryFn: () => apiClient<MilestoneDeadlineApproval | null>(`/milestones/${milestone.id}/deadline-approval`),
       enabled,
-      staleTime: 0,
+      staleTime: 30_000,
       refetchOnWindowFocus: true,
     })),
   });
@@ -116,10 +116,19 @@ export function useCompleteMilestone(projectId: string, milestoneId: string) {
   });
 }
 
-export function useStartMilestone(projectId: string, milestoneId: string) {
+export function useStartMilestone(projectId: string, milestoneId?: string) {
   const queryClient = useQueryClient();
-  return useMutation({ mutationFn: () => apiClient(`/milestones/${milestoneId}/start`, { method: 'POST' }),
-    onSuccess: () => invalidateMilestoneWorkflow(queryClient, projectId, milestoneId) });
+  return useMutation({
+    mutationFn: (targetId: string | void) => {
+      const id = targetId || milestoneId;
+      if (!id) throw new Error('Milestone ID is required.');
+      return apiClient(`/milestones/${id}/start`, { method: 'POST' });
+    },
+    onSuccess: (_result, targetId) => {
+      const id = targetId || milestoneId;
+      if (id) return invalidateMilestoneWorkflow(queryClient, projectId, id);
+    },
+  });
 }
 
 export function useRetryMilestoneProgression(projectId: string, milestoneId: string) {

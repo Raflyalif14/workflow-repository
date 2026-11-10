@@ -21,6 +21,21 @@ export async function loadVerifiedProfile(session: AuthSession): Promise<Profile
   }
 }
 
+// Retry only temporary failures. Invalid/forbidden sessions are never retried.
+export async function loadVerifiedProfileWithRetry(
+  session: AuthSession,
+  isRelevant: () => boolean,
+  wait: (milliseconds: number) => Promise<void> = ms => new Promise(resolve => setTimeout(resolve, ms))
+): Promise<ProfileResult> {
+  for (let attempt = 0; attempt < 3; attempt++) {
+    if (!isRelevant() || !isCurrentSession(session)) return { kind: "stale" };
+    const result = await loadVerifiedProfile(session);
+    if (result.kind !== "temporary" || attempt === 2) return result;
+    await wait(750 * (attempt + 1));
+  }
+  return { kind: "stale" };
+}
+
 export function profileBlocksProtectedUi(hasVerifiedUser: boolean, error: "temporary" | "forbidden" | null): boolean {
   return !hasVerifiedUser || error === "forbidden";
 }

@@ -17,6 +17,7 @@ from download_models import ROOT, verify_models
 
 VERSION = 'webcam-device-minifas-sface-v1'
 PASSIVE_VERSION = 'webcam-passive-evaluation-v1'
+IDENTIFY_VERSION = 'webcam-identify-minifas-sface-v1'
 # Deliberately stricter than OpenCV's general LFW 0.363 example; not a measured FAR.
 MIN_IDENTITY_COSINE = .60
 
@@ -69,7 +70,7 @@ def detect(image, detector):
 
 def inspect(frames, direction, template=None, mode='motion'):
     cv2.setNumThreads(1)
-    if mode not in ('motion', 'passive-test') or mode == 'passive-test' and template is None:
+    if mode not in ('motion', 'passive-test', 'identify-passive', 'identify-motion') or mode == 'passive-test' and template is None:
         raise InputError('FACE_IMAGE_INVALID')
     if len(frames) != 3 or len({hashlib.sha256(f).digest() for f in frames}) != 3:
         raise InputError('FACE_IMAGE_INVALID')
@@ -89,7 +90,9 @@ def inspect(frames, direction, template=None, mode='motion'):
                 image = decode_image(frame, 'CAMERA')
                 face, yaw = detect(image, detector)
                 pad_result = candidate.infer(image, face[:4])
-                if mode == 'motion': check_live(pad_result)
+                if mode != 'passive-test': check_live(pad_result)
+                if mode == 'identify-passive' and abs(yaw) > .22:
+                    raise InputError('FACE_POSITION_REQUIRED')
                 yaws.append(yaw)
                 aligned = recognizer.alignCrop(image, face)
                 feature = recognizer.feature(aligned).reshape(-1)
@@ -98,7 +101,7 @@ def inspect(frames, direction, template=None, mode='motion'):
                 feature /= np.linalg.norm(feature)
                 same_first = float(np.dot(features[0], feature)) if features else 1.0
                 same_template = float(np.dot(reference, feature)) if reference is not None else None
-                if mode == 'motion' and features and same_first < MIN_IDENTITY_COSINE:
+                if mode != 'passive-test' and features and same_first < MIN_IDENTITY_COSINE:
                     raise InputError('FACE_NO_MATCH')
                 if mode == 'motion' and reference is not None and same_template < MIN_IDENTITY_COSINE:
                     raise InputError('FACE_NO_MATCH')
@@ -112,6 +115,11 @@ def inspect(frames, direction, template=None, mode='motion'):
                     if value is not None: value.fill(0)
         if mode == 'passive-test':
             return {'status': 'EVALUATED', 'version': PASSIVE_VERSION, 'frames': diagnostics,
+                    'hashes': [hashlib.sha256(f).hexdigest() for f in frames]}
+        if mode.startswith('identify-'):
+            if mode == 'identify-motion': verify_motion(yaws, direction)
+            return {'status': 'IDENTIFIED', 'version': IDENTIFY_VERSION,
+                    'embeddings': [feature.tolist() for feature in features],
                     'hashes': [hashlib.sha256(f).hexdigest() for f in frames]}
         verify_motion(yaws, direction)
         average = np.mean([features[0], features[2]], axis=0)
@@ -153,4 +161,5 @@ if __name__ == '__main__':
     result = main(payload)
     sys.stdout.write(json.dumps(result, allow_nan=False))
     if 'embedding' in result: result['embedding'][:] = [0]*128
+    for feature in result.get('embeddings', []): feature[:] = [0]*128
     payload = None

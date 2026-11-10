@@ -86,6 +86,10 @@ export function ApprovalActionDialog({
     setConfirming(false);
   }, [action, item?.id]);
 
+  React.useEffect(() => {
+    if (open && !confirming && projectQuery.data?.pic?.id) setPicId(projectQuery.data.pic.id);
+  }, [open, confirming, action, item?.id, projectQuery.data?.pic?.id]);
+
   if (!item) return null;
 
   const isPending = item.status === "PENDING";
@@ -215,7 +219,7 @@ export function ApprovalActionDialog({
                 ) : isOperationalV2 ? (
                   <select
                     id="approval-project-plan-pic"
-                    disabled={processMutation.isPending}
+                    disabled={processMutation.isPending || !!projectQuery.data?.pic?.id}
                     value={picId}
                     onChange={(event) => {
                       setConfirming(false);
@@ -227,6 +231,7 @@ export function ApprovalActionDialog({
                     required
                   >
                     <option value="">{translateI18n("copy.selectSa")}</option>
+                    {projectQuery.data?.pic&&!pics.some(pic=>pic.id===projectQuery.data?.pic?.id)&&<option value={projectQuery.data.pic.id}>{projectQuery.data.pic.full_name||projectQuery.data.pic.fullName}</option>}
                     {pics.map((pic) => (
                       <option key={pic.id} value={pic.id}>
                         {pic.full_name} ({translateRole(pic.role)}) - {pic.email}

@@ -3,6 +3,25 @@ import { runFaceLoginJob } from './run-face-pad-analysis';
 import { FACE_LOGIN_VERSION } from './face-login-crypto';
 
 export const PASSIVE_VERSION = 'webcam-passive-evaluation-v1';
+export const IDENTIFY_VERSION = 'webcam-identify-minifas-sface-v1';
+
+export async function runFaceIdentificationInference(frames: Buffer[], direction: 'left' | 'right', passive: boolean, signal: AbortSignal): Promise<number[][]> {
+  const header = Buffer.from(JSON.stringify({lengths:frames.map(frame=>frame.length),direction,mode:passive?'identify-passive':'identify-motion'}));
+  const size = Buffer.alloc(4); size.writeUInt32BE(header.length);
+  const payload = Buffer.concat([size,header,...frames]);
+  let result: any;
+  try {
+    result=await runFaceLoginJob(payload,signal);
+    if(signal.aborted) throw Error('FACE_CHALLENGE_EXPIRED');
+    const errors=['FACE_NONE','FACE_MULTIPLE','FACE_IMAGE_INVALID','FACE_INPUT_LIMIT','FACE_POSITION_REQUIRED','FACE_LIVENESS_FAILED','FACE_MOTION_REQUIRED','FACE_NO_MATCH'];
+    if(result?.status==='ERROR') throw Error(errors.includes(result.reason)?result.reason:'FACE_PROCESS_FAILED');
+    if(frames.length!==3 || result?.status!=='IDENTIFIED' || result.version!==IDENTIFY_VERSION
+      || !Array.isArray(result.hashes) || result.hashes.length!==3 || frames.some((f,i)=>crypto.createHash('sha256').update(f).digest('hex')!==result.hashes[i])
+      || !Array.isArray(result.embeddings) || result.embeddings.length!==3
+      || !result.embeddings.every((v:unknown)=>Array.isArray(v) && v.length===128 && v.every(n=>typeof n==='number' && Number.isFinite(n)) && Math.abs(Math.hypot(...v)-1)<1e-4)) throw Error('FACE_PROCESS_FAILED');
+    return result.embeddings.map((v:number[])=>[...v]);
+  } finally { payload.fill(0); header.fill(0); if(Array.isArray(result?.embeddings)) for(const v of result.embeddings) if(Array.isArray(v)) v.fill(0); }
+}
 export type PassiveFrame = { classes: number[][]; identity: number; consistency: number; yaw: number };
 export type PassiveEvaluation = { version: string; accepted: boolean; checks: { pad: boolean; identity: boolean; position: boolean }; frames: PassiveFrame[] };
 

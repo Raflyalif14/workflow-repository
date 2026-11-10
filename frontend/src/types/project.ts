@@ -35,7 +35,7 @@ export interface ProjectMilestonePhase4 {
   status: MilestoneStatus;
   pic_id?: string | null;
   pic?: { id: string; full_name?: string; fullName?: string; email: string; role: string } | null;
-  workflow_stage?: { id: string; default_role: string } | null;
+  workflow_stage?: { id: string; default_role: string; stage_key?: string | null } | null;
   start_date?: string | null;
   duration_working_days?: number | null;
   due_date?: string | null;
@@ -236,6 +236,7 @@ export interface Project {
   active_phase_id?: string | null;
   current_scenario_id?: string | null;
   active_scenario?: Scenario | null;
+  initial_scenario?: Scenario | null;
   phases?: ProjectPhase[];
   phase_migration_state?: "READY" | "LEGACY_REVIEW";
   id: string;
@@ -294,6 +295,9 @@ export interface Project {
 }
 
 export interface ProjectOutputDocumentItem {
+  startDate?: string | null;
+  durationWorkingDays?: number | null;
+  dueDate?: string | null;
   id: string;
   projectId: string;
   key: string;
@@ -360,6 +364,11 @@ export interface ProjectsResponse {
     totalPages: number;
     hasNextPage: boolean;
     hasPrevPage: boolean;
+  };
+  summary?: {
+    active: number;
+    planning: number;
+    completed: number;
   };
 }
 

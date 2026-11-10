@@ -50,7 +50,7 @@ export function HeadSaReviewQueue({ reviewableOutputs, isLoading, isError }: Que
             <p className="font-medium">{translateOutputName(item.documentKey, item.name)}</p>
             <p className="text-xs text-muted-foreground">{item.projectName}</p>
           </div>
-          <Link href={`/projects/${item.projectId}#milestone-outputs-${item.milestoneId}`}>
+          <Link href={`/projects/${item.projectId}#milestone-outputs-${item.milestoneId}`} prefetch={true}>
             <Button size="sm" variant="outline">
               {translateI18n("milestonePage.reviewOutput")} <ArrowRight className="ml-1 h-3.5 w-3.5" />
             </Button>
@@ -88,7 +88,7 @@ function AssignedMilestoneRow({ milestone }: { milestone: AssignedMilestone }) {
         )}
       </div>
       {projectId && (
-        <Link href={`/projects/${projectId}#project-milestone-${milestone.id}`}>
+        <Link href={`/projects/${projectId}#project-milestone-${milestone.id}`} prefetch={true}>
           <Button size="sm" variant="outline">
             {translateI18n("milestonePage.openMilestone")} <ArrowRight className="ml-1 h-3.5 w-3.5" />
           </Button>

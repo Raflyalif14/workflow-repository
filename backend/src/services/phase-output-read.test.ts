@@ -14,6 +14,8 @@ async function main() {
   const outputs = ALL_OUTPUT_DEFINITIONS.filter(def => phases.some(phase => phase.selected_document_keys.includes(def.key))).map(def => {
     const phase = phases.find(phase => phase.phase_key === def.group)!;
     return { id: def.key, project_id: 'p', phase_id: phase.id, document_key: def.key, title: def.name,
+      start_date: def.key === 'timeline_proyek' ? '2026-11-10' : '2026-11-02',
+      duration_working_days: 3, due_date: def.key === 'timeline_proyek' ? '2026-11-12' : '2026-11-04',
       milestone_id: `${phase.id}-${def.stageKey}`, is_required: def.isRequired, is_selected: true,
       status: def.group === 'PRA_TENDER' ? 'APPROVED' : def.key === 'timeline_proyek' ? 'IN_REVIEW' : 'TO_DO',
       current_version_id: ['proposal_deck_solusi', 'timeline_proyek'].includes(def.key) ? `version-${def.key}` : null };
@@ -79,6 +81,10 @@ async function main() {
     tables.project_output_document_draft_files.push({ ...timelineRefs[0] });
     revised = await OutputDocumentService.list('p', { userId: 'head', role: 'HEAD_SA', fullName: 'Head' });
     assert.equal(revised.canSubmit, false, 'Restoring the original file identity blocks submit again');
+    const scheduledOutput = revised.documents.find(output => output.key === 'timeline_proyek')!;
+    assert.equal(scheduledOutput.startDate, '2026-11-10');
+    assert.equal(scheduledOutput.durationWorkingDays, 3);
+    assert.equal(scheduledOutput.dueDate, '2026-11-12');
     const sales = await OutputDocumentService.list('p', { userId: 'sales', role: 'SALES', fullName: 'Sales' });
     assert.deepEqual(sales.documents.map(output => output.key), ['proposal_deck_solusi']);
     assert.equal(sales.documents[0].files.length, 2);

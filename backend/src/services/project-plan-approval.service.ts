@@ -1,3 +1,4 @@
+import { calculateOutputTimeline } from './output-timeline';
 import { mutateBusiness, BusinessRequestContext } from './business-audit.service';
 import { PicMutationError, PicRequestContext, runPicMutation, validatePicContext } from './pic-mutation.service';
 import { activePhaseProject, phaseRows } from './project-phase.service';
@@ -255,7 +256,20 @@ export class ProjectPlanApprovalService {
       due_date: string;
     }>;
 
-    for (const item of input.milestones) {
+    const documentEntries = input.milestones.filter(item => item.outputDocumentId);
+    let outputTimeline: Awaited<ReturnType<typeof calculateOutputTimeline>> = { outputs: [], milestones: [] };
+    if (documentEntries.length) {
+      const { data, error } = await supabaseAdmin.from('project_output_documents')
+        .select('id,phase_id,milestone_id,is_selected,is_required').eq('project_id', projectId);
+      if (error) throw new Error('Unable to load output schedules.');
+      outputTimeline = await calculateOutputTimeline(input.milestones, phaseRows(data || [], project.active_phase_id));
+      for (const calculated of outputTimeline.milestones) {
+        const milestone = milestoneMap.get(calculated.id);
+        if (!milestone) throw new Error('Milestone not found in this project timeline.');
+        updates.push({ milestone, ...buildInitialTimelineUpdate(milestone, calculated, workflowMode) });
+      }
+    }
+    for (const item of input.milestones.filter(item => !item.outputDocumentId)) {
       const milestone = milestoneMap.get(item.milestoneId);
       if (!milestone) throw new Error('Milestone not found in this project timeline.');
       const calculated = await DeadlineService.calculateDeadline(item.startDate, item.durationWorkingDays);
@@ -266,7 +280,7 @@ export class ProjectPlanApprovalService {
     await mutateBusiness(projectId, actor.userId, 'TIMELINE', { milestones: updates.map(update => ({
       id: update.milestone.id, start_date: update.start_date,
       duration_working_days: update.duration_working_days, due_date: update.due_date,
-    })) }, context);
+    })), ...(outputTimeline.outputs.length ? { outputs: outputTimeline.outputs } : {}) }, context);
 
     return updates.map((update) => ({
       milestone_id: update.milestone.id,

@@ -111,8 +111,8 @@ export default function DashboardPage() {
   }));
   const isRoleDataLoading =
     (userRole === "SALES" && (projectsQuery.isLoading || dashboardQuery.isLoading)) ||
-    (isHeadSa && (approvalsQuery.isLoading || projectsQuery.isLoading)) ||
-    (isSa && assignedMilestonesQuery.isLoading) ||
+    (isHeadSa && (approvalsQuery.isLoading || projectsQuery.isLoading || dashboardQuery.isLoading)) ||
+    (isSa && (assignedMilestonesQuery.isLoading || dashboardQuery.isLoading)) ||
     (userRole === "SUPER_ADMIN" && dashboardQuery.isLoading);
   const hasPartialError =
     dashboardQuery.isError ||
@@ -189,7 +189,7 @@ export default function DashboardPage() {
     ? translateI18n("dashboardPage.saDeliveryDescription")
     : translateI18n("dashboardPage.adminDeliveryDescription");
   const projectProgressIds = new Set(projectProgress.map((project) => project.id));
-  const isProjectDeliveryLoading = dashboardQuery.isLoading && projectsQuery.isLoading;
+  const isProjectDeliveryLoading = dashboardQuery.isLoading || projectsQuery.isLoading;
   const hasProjectDeliveryError = dashboardQuery.isError && projectsQuery.isError;
 
   const retryVisibleQueries = () => {
@@ -211,7 +211,7 @@ export default function DashboardPage() {
 
         </div>
 
-        <Link href="/projects" className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border border-border bg-card px-4 text-sm font-medium text-foreground hover:bg-primary-soft hover:text-primary">
+        <Link href="/projects" prefetch={true} className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border border-border bg-card px-4 text-sm font-medium text-foreground hover:bg-primary-soft hover:text-primary">
           {translateI18n("dashboardPage.viewAllProjects")}<ArrowRight className="h-4 w-4" aria-hidden="true" />
         </Link>
       </header>
@@ -238,7 +238,7 @@ export default function DashboardPage() {
             <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary-soft text-primary"><ClipboardCheck className="h-5 w-5" aria-hidden="true" /></span>
             <h2 id="next-task-heading" className="text-base font-semibold">{roleContent.title}</h2>
           </div>
-          {isRoleDataLoading && !nextTask ? (
+          {isRoleDataLoading ? (
             <div role="status" aria-label={translateI18n("dashboardPage.loadingNext")} className="mt-4 space-y-3"><div className="h-6 w-3/4 animate-pulse rounded bg-muted" /><div className="h-16 animate-pulse rounded-xl bg-muted" /></div>
           ) : nextTask ? (
             <div className="mt-4 space-y-3">
@@ -251,7 +251,7 @@ export default function DashboardPage() {
                 {nextTask.state && <span className="inline-flex items-center gap-1.5"><Clock3 className="h-3.5 w-3.5" aria-hidden="true" />{displayWorkState(nextTask.state)}</span>}
                 {nextTask.meta && <span className="break-words">{nextTask.meta}</span>}
               </div>
-              <Link href={nextTask.href || viewAllHref} className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary-deep sm:w-auto">
+              <Link href={nextTask.href || viewAllHref} prefetch={true} className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary-deep sm:w-auto">
                 {nextTask.actionLabel}<ArrowRight className="h-4 w-4" aria-hidden="true" />
               </Link>
             </div>
@@ -263,10 +263,10 @@ export default function DashboardPage() {
           ) : combineEmptySalesPanels ? (
             <div className="mt-3 flex flex-wrap items-center justify-between gap-3 text-sm">
               <p className="flex items-center gap-2 text-muted-foreground"><CheckCircle2 className="h-4 w-4 shrink-0 text-success" aria-hidden="true" />{translateI18n("copy.queueClear")}</p>
-              <Link href={viewAllHref} className="inline-flex min-h-9 items-center gap-2 font-medium text-primary">{translateI18n("dashboardPage.fullQueue")}<ArrowRight className="h-4 w-4" aria-hidden="true" /></Link>
+              <Link href={viewAllHref} prefetch={true} className="inline-flex min-h-9 items-center gap-2 font-medium text-primary">{translateI18n("dashboardPage.fullQueue")}<ArrowRight className="h-4 w-4" aria-hidden="true" /></Link>
             </div>
           ) : (
-            <div className="mt-4 flex items-start gap-3 rounded-xl bg-muted/60 p-3"><CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-[hsl(var(--success))]" aria-hidden="true" /><div><p className="text-sm font-medium">{translateI18n(userRole === "SALES" && remainingItemCount > 0 ? "dashboardPage.noDirectSalesAction" : "copy.noAttention")}</p>{!(userRole === "SALES" && remainingItemCount > 0) && <p className="mt-1 text-sm text-muted-foreground">{translateI18n("copy.queueClear")}</p>}<Link href={viewAllHref} className="mt-3 inline-flex min-h-9 items-center gap-2 text-sm font-medium text-primary">{translateI18n("dashboardPage.fullQueue")}<ArrowRight className="h-4 w-4" aria-hidden="true" /></Link></div></div>
+            <div className="mt-4 flex items-start gap-3 rounded-xl bg-muted/60 p-3"><CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-[hsl(var(--success))]" aria-hidden="true" /><div><p className="text-sm font-medium">{translateI18n(userRole === "SALES" && remainingItemCount > 0 ? "dashboardPage.noDirectSalesAction" : "copy.noAttention")}</p>{!(userRole === "SALES" && remainingItemCount > 0) && <p className="mt-1 text-sm text-muted-foreground">{translateI18n("copy.queueClear")}</p>}<Link href={viewAllHref} prefetch={true} className="mt-3 inline-flex min-h-9 items-center gap-2 text-sm font-medium text-primary">{translateI18n("dashboardPage.fullQueue")}<ArrowRight className="h-4 w-4" aria-hidden="true" /></Link></div></div>
           )}
         </section>
         {!combineEmptySalesPanels && <QuickInsightsPanel
@@ -286,7 +286,7 @@ export default function DashboardPage() {
           </div>
           {userRole === "SALES" && <select aria-label={translateI18n("dashboardPage.revenuePhaseFilter")} value={revenuePhase} onChange={event => setRevenuePhase(event.target.value)} className="max-w-full rounded-lg border border-input bg-card px-3 py-2 text-sm"><option value="ALL">{translateI18n("dashboardPage.allScenarios")}</option><option value="PRA_TENDER">Pra-Tender</option><option value="ON_SUBMISSION_TENDER">On Submission Tender</option></select>}
           {projectDelivery.length > 0 && (
-            <Link href="/projects" className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline">
+            <Link href="/projects" prefetch={true} className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline">
               {translateI18n("dashboardPage.viewAllProjects")}
               <ArrowRight className="h-4 w-4" />
             </Link>
@@ -327,7 +327,7 @@ export default function DashboardPage() {
           <div className="flex flex-col items-start gap-3 px-5 py-8">
             <p className="text-sm font-medium text-foreground">{translateI18n("copy.noProjectData")}</p>
             <p className="text-sm text-muted-foreground">{translateI18n("copy.accessibleProjects")}</p>
-            <Link href="/projects" className="text-sm font-medium text-primary hover:underline">{translateI18n("copy.viewProject")}</Link>
+            <Link href="/projects" prefetch={true} className="text-sm font-medium text-primary hover:underline">{translateI18n("copy.viewProject")}</Link>
           </div>
         )}
         </div>
@@ -344,13 +344,14 @@ export default function DashboardPage() {
 
       {shouldShowSaWorkload(userRole) && (
         <SolutionArchitectWorkloadPanel
+          personal={isSa}
           workload={saWorkload}
           loading={dashboardQuery.isLoading}
           hasError={dashboardQuery.isError}
         />
       )}
 
-      {!isHeadSa && <section aria-labelledby="dashboard-summary-heading" className="space-y-3">
+      {!isHeadSa && !isSa && <section aria-labelledby="dashboard-summary-heading" className="space-y-3">
         <h2 id="dashboard-summary-heading" className="text-base font-semibold">{translateI18n(userRole === 'SALES' ? 'salesPipeline.title' : 'dashboardPage.summary')}</h2>
         {userRole === 'SALES' ? (
           <SalesPipelineSummary data={dashboardQuery.data?.salesPipeline} loading={dashboardQuery.isLoading}

@@ -41,7 +41,7 @@ function runFacePadJob(photo: Buffer, signal: AbortSignal, job: 'analysis' | 'ca
     child.stdin.on('error', () => finish(Error('PAD_PROCESS_FAILED')));
     child.stdout.on('data', (chunk: Buffer) => {
       if (done) { chunk.fill(0); return; } length += chunk.length;
-      if (length > 8192) { chunk.fill(0); finish(Error('PAD_PROCESS_FAILED')); return; } chunks.push(chunk);
+      if (length > (job === 'login' ? 16384 : 8192)) { chunk.fill(0); finish(Error('PAD_PROCESS_FAILED')); return; } chunks.push(chunk);
     });
     child.on('close', code => {
       if (done) return;

@@ -34,12 +34,12 @@ assert.equal(filterRepositoryItems(items, { search: "", category: "ALL", status:
 const many = buildRepositoryItems([official], Array.from({ length: 43 }, (_, index) => output(`result-${index}`, "APPROVED")));
 const first = paginateRepositoryItems(many, 1);
 const second = paginateRepositoryItems(many, 2);
-const last = paginateRepositoryItems(many, 3);
-assert.equal(first.items.length, 20);
-assert.equal(second.items.length, 20);
+const last = paginateRepositoryItems(many, 5);
+assert.equal(first.items.length, 10);
+assert.equal(second.items.length, 10);
 assert.equal(last.items.length, 4);
-assert.equal(new Set([...first.items, ...second.items, ...last.items].map((item) => `${item.sourceType}:${item.sourceId}`)).size, many.length);
-assert.equal(paginateRepositoryItems(many, 99).page, 3);
+assert.equal(new Set([...[1,2,3,4,5].flatMap(page=>paginateRepositoryItems(many,page).items)].map((item) => `${item.sourceType}:${item.sourceId}`)).size, many.length);
+assert.equal(paginateRepositoryItems(many, 99).page, 5);
 const outputHooks = readFileSync(join(__dirname, "../hooks/use-output-documents.ts"), "utf8");
 const documentsPage = readFileSync(join(__dirname, "../app/documents/page.tsx"), "utf8");
 assert(documentsPage.includes("buildRepositoryItems(documents, outputs)"),
@@ -67,8 +67,8 @@ assert.equal(buildRepositoryItems([official,official],[approved,approved]).lengt
 const sharedMany = buildRepositoryItems([], Array.from({ length: 45 },(_, index) => ({ ...output(`shared-${index}`,"APPROVED"), canReadProject:index < 23, isSharedWithMe:index >= 23 })));
 const sharedScope = filterRepositoryItems(sharedMany,{ accessGroup:"NATIVE",search:"",category:"ALL",status:"ALL" });
 assert.equal(sharedScope.length,23,"Whole-result counter precedes pagination");
-assert.equal(paginateRepositoryItems(sharedScope,1).items.length,20);
-assert.equal(paginateRepositoryItems(sharedScope,2).items.length,3);
+assert.equal(paginateRepositoryItems(sharedScope,1).items.length,10);
+assert.equal(paginateRepositoryItems(sharedScope,3).items.length,3);
 for(const role of ["SALES","SA"]) assert.deepEqual(repositoryAccessGroups(role),["ALL","NATIVE"]);
 for(const role of ["HEAD_SA","SUPER_ADMIN",undefined]) assert.deepEqual(repositoryAccessGroups(role),["ALL"]);
 const empty={ data:[],isError:false };

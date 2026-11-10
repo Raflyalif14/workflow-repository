@@ -11,6 +11,43 @@ import face_login_inference as login
 
 
 class LoginTests(unittest.TestCase):
+    def identify(self, mode='identify-passive', yaws=None, classes=None, features=None):
+        vector = np.zeros(128, np.float32); vector[0] = 1
+        recognizer = Mock()
+        recognizer.alignCrop.side_effect = lambda *_: np.zeros((112,112,3), np.uint8)
+        recognizer.feature.side_effect = [v.copy() for v in features] if features is not None else lambda *_: vector.copy()
+        with patch.object(login, 'verify_models'), patch.object(login.pad, 'detector_bytes', return_value=np.zeros(1,np.uint8)), \
+             patch.object(login.cv2, 'FaceDetectorYN'), patch.object(login.cv2, 'FaceRecognizerSF') as factory, \
+             patch.object(login, 'decode_image', side_effect=lambda *_: np.zeros((480,640,3),np.uint8)), \
+             patch.object(login, 'detect', side_effect=[(np.zeros(15,np.float32), yaw) for yaw in (yaws or [0,0,0])]), \
+             patch.object(login.candidate, 'infer', side_effect=classes or [{'models':[{'classes':[.01,.98,.01]},{'classes':[.01,.98,.01]}]} for _ in range(3)]):
+            factory.create.return_value=recognizer
+            return login.inspect([b'one',b'two',b'three'],'left',mode=mode)
+
+    def test_identification_keeps_three_embeddings_and_all_pad_checks(self):
+        result=self.identify()
+        self.assertEqual(result['status'],'IDENTIFIED')
+        self.assertEqual(result['version'],login.IDENTIFY_VERSION)
+        self.assertEqual(len(result['embeddings']),3)
+        self.assertEqual(result['embeddings'][0][0],1)
+        for frame in range(3):
+            for model in range(2):
+                classes=[{'models':[{'classes':[.01,.98,.01]},{'classes':[.01,.98,.01]}]} for _ in range(3)]
+                classes[frame]['models'][model]['classes']=[.3,.5,.2]
+                with self.assertRaises(login.InputError) as error: self.identify(classes=classes)
+                self.assertEqual(error.exception.code,'FACE_LIVENESS_FAILED')
+
+    def test_identification_requires_pose_consistency_and_motion_when_configured(self):
+        with self.assertRaises(login.InputError) as error: self.identify(yaws=[0,.23,0])
+        self.assertEqual(error.exception.code,'FACE_POSITION_REQUIRED')
+        a=np.zeros(128,np.float32);a[0]=1
+        b=np.zeros(128,np.float32);b[1]=1
+        with self.assertRaises(login.InputError) as error: self.identify(features=[a,b,a])
+        self.assertEqual(error.exception.code,'FACE_NO_MATCH')
+        with self.assertRaises(login.InputError) as error: self.identify(mode='identify-motion')
+        self.assertEqual(error.exception.code,'FACE_MOTION_REQUIRED')
+        self.assertEqual(self.identify(mode='identify-motion',yaws=[0,.2,0])['status'],'IDENTIFIED')
+
     def test_passive_mode_is_evaluation_only_and_motion_stays_required_for_login(self):
         vector = np.zeros(128, np.float32); vector[0] = 1
         recognizer = Mock()

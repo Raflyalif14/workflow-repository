@@ -1,4 +1,5 @@
 "use client";
+import {ListPagination} from "@/components/list-pagination";
 import { useRepositorySession } from '@/hooks/use-repository-session';
 import { isCurrentSession } from "@/lib/auth";
 import { authorizedFetch } from "@/lib/api-client";
@@ -101,10 +102,10 @@ function DocumentsContent() {
   const paged = useMemo(() => paginateRepositoryItems(visibleItems, page), [visibleItems, page]);
   const documentDownload = useDocumentDownloadUrl();
   const snapshot = [
-      { label: translateI18n("listSummary.documentTotal"), value: visibleItems.length, scope: translateI18n('listSummary.filtered'), icon: FolderArchive, primary: true },
-      { label: translateI18n("listSummary.documentApproved"), value: visibleItems.filter((item) => item.sourceType === "OUTPUT" || item.document.status === "APPROVED").length, scope: translateI18n('listSummary.filtered'), icon: CheckCircle2 },
-      { label: translateI18n("listSummary.documentLinked"), value: visibleItems.filter((item) => item.sourceType === "OUTPUT" || Boolean(item.document.milestoneId)).length, scope: translateI18n('listSummary.filtered'), icon: Link2 },
-      { label: translateI18n("listSummary.documentOutputs"), value: visibleItems.filter((item) => item.sourceType === "OUTPUT").length, scope: translateI18n('listSummary.filtered'), icon: Files },
+      { label: translateI18n("listSummary.documentTotal"), value: visibleItems.length, scope: translateI18n('listSummary.scopeAllDocs'), icon: FolderArchive, primary: true },
+      { label: translateI18n("listSummary.documentApproved"), value: visibleItems.filter((item) => item.sourceType === "OUTPUT" || item.document.status === "APPROVED").length, scope: translateI18n('listSummary.scopeApproved'), icon: CheckCircle2 },
+      { label: translateI18n("listSummary.documentLinked"), value: visibleItems.filter((item) => item.sourceType === "OUTPUT" || Boolean(item.document.milestoneId)).length, scope: translateI18n('listSummary.scopeLinked'), icon: Link2 },
+      { label: translateI18n("listSummary.documentOutputs"), value: visibleItems.filter((item) => item.sourceType === "OUTPUT").length, scope: translateI18n('listSummary.scopeDocOutputs'), icon: Files },
     ];
   const hasFilters = Boolean(search || categoryFilter !== "ALL" || statusFilter !== "ALL" || activeGroup !== "ALL");
 
@@ -188,7 +189,7 @@ function DocumentsContent() {
             </p>
           </div>
           <div role="tablist" aria-label={translateI18n("documentPage.accessCategory")} aria-orientation="horizontal"
-            className={`grid min-w-0 gap-1 rounded-md bg-muted/30 p-1 ${accessGroups.length === 2 ? "grid-cols-2" : "grid-cols-1"}`}>
+            className={`flex min-w-0 gap-1 rounded-md bg-muted/30 p-1 ${accessGroups.length === 2 ? "w-full grid grid-cols-2 sm:w-auto sm:inline-flex" : "w-fit"}`}>
             {accessGroups.map((group, index) => <Button key={group} id={`repository-tab-${group}`} type="button" role="tab"
               aria-selected={activeGroup === group} aria-controls="repository-results" tabIndex={activeGroup === group ? 0 : -1}
               variant="ghost" className={`h-auto min-h-10 min-w-0 whitespace-normal break-words px-3 py-2 text-sm ${activeGroup === group ? "bg-primary-soft text-primary shadow-sm" : "text-muted-foreground"}`}
@@ -248,16 +249,17 @@ function DocumentsContent() {
               <option value="REJECTED">{translateI18n("approvalStatus.REJECTED")}</option>
               <option value="DRAFT">{translateI18n("documentStatus.DRAFT")}</option>
             </select>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-10 gap-1.5"
-              disabled={!hasFilters}
-              onClick={resetFilters}
-            >
-              <X className="h-3.5 w-3.5" />
-              {translateI18n("documentPage.resetFilters")}
-            </Button>
+            {hasFilters && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-10 gap-1.5"
+                onClick={resetFilters}
+              >
+                <X className="h-3.5 w-3.5" />
+                {translateI18n("documentPage.resetFilters")}
+              </Button>
+            )}
           </div>
           {downloadError && (
             <div className="flex flex-col gap-2 rounded-md border border-destructive/40 bg-destructive/10 p-3 text-xs text-destructive sm:flex-row sm:items-center sm:justify-between">
@@ -330,13 +332,8 @@ function DocumentsContent() {
         </div>
       </section>
 
-      {!isLoading && !isError && visibleItems.length > 0 && <nav className="flex flex-wrap items-center justify-between gap-3 text-sm" aria-label={translateI18n("documentPage.pagination")}>
-        <span className="text-muted-foreground">{translateI18n("documentPage.pageOf", { page: paged.page, total: paged.totalPages })} · {translateI18n("documentPage.resultsCount", { count: visibleItems.length })}</span>
-        <div className="flex gap-2">
-          <Button type="button" size="sm" variant="outline" disabled={paged.page <= 1} onClick={() => setPage(paged.page - 1)}>{translateI18n("documentPage.previous")}</Button>
-          <Button type="button" size="sm" variant="outline" disabled={paged.page >= paged.totalPages} onClick={() => setPage(paged.page + 1)}>{translateI18n("documentPage.next")}</Button>
-        </div>
-      </nav>}
+      {!isLoading&&!isError&&<ListPagination page={paged.page} pages={paged.totalPages} total={visibleItems.length} pageSize={REPOSITORY_PAGE_SIZE} onPageChange={setPage}/>}
+
 
       <UploadVersionDialog
         open={isUploadVersionOpen}

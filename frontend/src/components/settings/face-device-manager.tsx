@@ -15,9 +15,9 @@ export type RegisteredFaceDevice = {
   createdAt: string;
   lastUsedAt: string | null;
 };
-type Props = { ownerId: string; currentDeviceId: string | null; registered: boolean; onRemoved: (deviceId: string | null) => Promise<void> };
+type Props = { accountMode?: boolean; ownerId: string; currentDeviceId: string | null; registered: boolean; onRemoved: (deviceId: string | null) => Promise<void> };
 
-export function FaceDeviceManager({ ownerId, currentDeviceId, registered, onRemoved }: Props) {
+export function FaceDeviceManager({ ownerId, currentDeviceId, registered, onRemoved, accountMode = false }: Props) {
   const { t, formatDate } = useLanguage();
   const [devices, setDevices] = useState<RegisteredFaceDevice[]>([]);
   const [loading, setLoading] = useState(true), [loadError, setLoadError] = useState(false), [revision, setRevision] = useState(0);
@@ -55,7 +55,7 @@ export function FaceDeviceManager({ ownerId, currentDeviceId, registered, onRemo
       });
       if (own !== generation.current || abort.signal.aborted) return;
       setDevices(previous => selectedId ? previous.filter(item => item.deviceId !== selectedId) : []);
-      setTarget(null); setNotice(selectedId ? 'faceDevices.removedOne' : 'faceDevices.removedAll');
+      setTarget(null); setNotice(selectedId ? (accountMode ? 'faceAccount.removedOne' : 'faceDevices.removedOne') : accountMode ? 'faceAccount.removedAll' : 'faceDevices.removedAll');
       await onRemoved(selectedId);
     } catch (value) {
       if (own !== generation.current || abort.signal.aborted) return;
@@ -71,22 +71,22 @@ export function FaceDeviceManager({ ownerId, currentDeviceId, registered, onRemo
   return <section className="space-y-4 border-t pt-5" aria-labelledby="face-devices-heading">
     <div className="flex flex-wrap items-start justify-between gap-3">
       <div className="space-y-1">
-        <h2 id="face-devices-heading" className="font-semibold">{t('faceDevices.title')}</h2>
-        <p className="text-sm text-muted-foreground">{t('faceDevices.description')}</p>
+        <h2 id="face-devices-heading" className="font-semibold">{t(accountMode ? 'faceAccount.registrations' : 'faceDevices.title')}</h2>
+        <p className="text-sm text-muted-foreground">{t(accountMode ? 'faceAccount.registrationHelp' : 'faceDevices.description')}</p>
       </div>
       <Button type="button" variant="outline" onClick={() => setRevision(value => value + 1)} disabled={loading || busy}>{t('faceDevices.refresh')}</Button>
     </div>
-    {loading && <p role="status" className="text-sm text-muted-foreground">{t('faceDevices.loading')}</p>}
-    {loadError && <p role="alert" className="text-sm text-destructive">{t('faceDevices.loadFailed')}</p>}
-    {!loading && !loadError && devices.length === 0 && <p className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">{t('faceDevices.empty')}</p>}
-    {!loading && !loadError && devices.length > 0 && <ul className="space-y-3" aria-label={t('faceDevices.title')}>
-      {devices.map(item => <li key={item.deviceId} className="space-y-3 rounded-lg border bg-muted/20 p-4">
+    {loading && <p role="status" className="text-sm text-muted-foreground">{t(accountMode?'faceAccount.loading':'faceDevices.loading')}</p>}
+    {loadError && <p role="alert" className="text-sm text-destructive">{t(accountMode?'faceAccount.loadFailed':'faceDevices.loadFailed')}</p>}
+    {!loading && !loadError && devices.length === 0 && <p className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">{t(accountMode ? 'faceAccount.empty' : 'faceDevices.empty')}</p>}
+    {!loading && !loadError && devices.length > 0 && <ul className="space-y-3" aria-label={t(accountMode ? 'faceAccount.registrations' : 'faceDevices.title')}>
+      {devices.map((item,index) => <li key={item.deviceId} className="space-y-3 rounded-lg border bg-muted/20 p-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="font-medium">{label(item)}</span>
-            {item.deviceId === currentDeviceId && <span className="rounded-full bg-primary/10 px-2 py-1 text-xs font-medium text-primary">{t('faceDevices.current')}</span>}
+            <span className="font-medium">{accountMode?t('faceAccount.registrationTitle',{number:devices.length>1?index+1:''}).trim():label(item)}</span>
+            {!accountMode && item.deviceId === currentDeviceId && <span className="rounded-full bg-primary/10 px-2 py-1 text-xs font-medium text-primary">{t(accountMode ? 'faceAccount.current' : 'faceDevices.current')}</span>}
           </div>
-          <Button type="button" variant="outline" disabled={busy} onClick={() => select(item)} aria-label={t('faceDevices.removeNamed', { name: label(item) })}>{t('faceDevices.remove')}</Button>
+          <Button type="button" variant="outline" disabled={busy} onClick={() => select(item)} aria-label={t(accountMode?'faceAccount.removeNamed':'faceDevices.removeNamed', { name: label(item),number:index+1 })}>{t(accountMode?'faceAccount.removeRegistration':'faceDevices.remove')}</Button>
         </div>
         <dl className="grid gap-3 text-sm sm:grid-cols-2">
           <div><dt className="text-muted-foreground">{t('faceDevices.createdAt')}</dt><dd>{formatDate(item.createdAt, { dateStyle: 'medium', timeStyle: 'short' })}</dd></div>
@@ -94,10 +94,10 @@ export function FaceDeviceManager({ ownerId, currentDeviceId, registered, onRemo
         </dl>
       </li>)}
     </ul>}
-    {!loading && !loadError && devices.length > 0 && <Button type="button" variant="outline" disabled={busy} className="h-auto whitespace-normal text-left" onClick={() => select('all')}>{t('faceLogin.removeAll')}</Button>}
+    {!loading && !loadError && devices.length > 0 && <Button type="button" variant="outline" disabled={busy} className="h-auto whitespace-normal text-left" onClick={() => select('all')}>{t(accountMode ? 'faceAccount.removeAll' : 'faceLogin.removeAll')}</Button>}
     {target && <form className="space-y-3 rounded-lg border p-4" aria-label={t('faceDevices.confirmTitle')} onSubmit={event => { event.preventDefault(); void remove(); }}>
-      <p className="font-medium">{target === 'all' ? t('faceDevices.confirmAll') : t('faceDevices.confirmOne', { name: label(target) })}</p>
-      <p className="text-sm text-muted-foreground">{t('faceDevices.removeHelp')}</p>
+      <p className="font-medium">{target === 'all' ? t(accountMode ? 'faceAccount.confirmAll' : 'faceDevices.confirmAll') : t(accountMode ? 'faceAccount.confirmOne' : 'faceDevices.confirmOne', { name: label(target) })}</p>
+      <p className="text-sm text-muted-foreground">{t(accountMode ? 'faceAccount.removeHelp' : 'faceDevices.removeHelp')}</p>
       <div className="max-w-sm space-y-2">
         <label htmlFor="face-device-password" className="text-sm font-medium">{t('faceLogin.password')}</label>
         <Input id="face-device-password" type="password" autoComplete="current-password" required disabled={busy} value={password} onChange={event => setPassword(event.target.value)} />
@@ -109,6 +109,6 @@ export function FaceDeviceManager({ ownerId, currentDeviceId, registered, onRemo
     </form>}
     {notice && <p role="status" className="text-sm text-success">{t(notice)}</p>}
     {error && <p role="alert" className="text-sm text-destructive">{t(error)}</p>}
-    {!loading && !loadError && devices.some(item => !item.lastUsedAt) && <p className="text-xs leading-5 text-muted-foreground">{t('faceDevices.historyHelp')}</p>}
+    {!accountMode && !loading && !loadError && devices.some(item => !item.lastUsedAt) && <p className="text-xs leading-5 text-muted-foreground">{t('faceDevices.historyHelp')}</p>}
   </section>;
 }

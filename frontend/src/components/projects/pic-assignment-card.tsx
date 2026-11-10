@@ -193,7 +193,7 @@ export function PicAssignmentCard({
           {currentPic && (
             <div className="space-y-2">
               <label htmlFor="pic-reassignment-reason" className="text-sm font-medium text-foreground">
-                {translateI18n("copy.reason")}
+                {translateI18n("copy.reason")} <span className="text-destructive">*</span>
               </label>
               <textarea
                 id="pic-reassignment-reason"

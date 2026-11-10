@@ -20,3 +20,9 @@ assert.equal(getScheduledWorkStage(workStages.map(m=>({...m,status:'COMPLETED'})
 assert.deepEqual(getMandatoryDocumentKeys('ON_SUBMISSION_TENDER'),['proposal_teknis']);
 for(const locale of ['en','id']as const){setActiveLanguage(locale);assert.equal(projectDisplayStatus({status:'ACTIVE',scenario:{name:'On Submission Tender'} as any}),'On Progress Tender');assert.notEqual(projectDisplayStatus({status:'ACTIVE',scenario:{name:'Pra-Tender'}as any}),'On Progress Tender');assert.notEqual(projectDisplayStatus({status:'WON',scenario:{name:'On Submission Tender'}as any}),'On Progress Tender');assert.equal(translate('copy.needsAttention'),'Task List');assert.equal(translate('dashboardCopy.headTitle'),'Priority Task');assert.equal(translate('nav.dashboard'),'Dashboard');}
 setActiveLanguage('en');
+
+const meetingTask={...task('meeting','2030-01-01T10:00:00Z','APPROVED'),kind:'MEETING' as const,placement:'PRIORITY' as const};
+const reviewTask={...task('review','2020-01-01'),kind:'MEETING_REVIEW' as const,placement:'TASK_LIST' as const};
+const priority=getPriorityTasks([...ties,meetingTask,{...meetingTask,id:'later',dueDate:'2030-01-02T10:00:00Z'},reviewTask]);
+assert(priority.some(t=>t.id==='meeting'),'Next approved meeting remains visible alongside overdue work');
+assert(!priority.some(t=>['later','review'].includes(t.id)));

@@ -14,22 +14,28 @@ export function NextActionCard({
   onAction,
   isSubmittingPlan,
   isResuming,
+  isStartingMilestone = false,
+  startError,
 }: {
   nextAction: ReturnType<typeof resolveNextAction>;
   onAction: () => void;
   isSubmittingPlan: boolean;
   isResuming: boolean;
+  isStartingMilestone?: boolean;
+  startError?: string;
 }) {
-  const isDirectAction = ["SUBMIT_PLAN", "RESUBMIT_PLAN", "RESUME_PROJECT"].includes(nextAction.actionType || "");
+  const isDirectAction = ["SUBMIT_PLAN", "RESUBMIT_PLAN", "RESUME_PROJECT", "START_MILESTONE"].includes(nextAction.actionType || "");
   const usesActionLabel = isDirectAction || ["SETUP_TIMELINE", "CONTINUE_PHASE"].includes(nextAction.actionType || "");
   const isPending =
     (nextAction.actionType === "SUBMIT_PLAN" || nextAction.actionType === "RESUBMIT_PLAN")
       ? isSubmittingPlan
-      : nextAction.actionType === "RESUME_PROJECT" && isResuming;
+      : nextAction.actionType === "RESUME_PROJECT" ? isResuming : nextAction.actionType === "START_MILESTONE" && isStartingMilestone;
   const actionLabel = usesActionLabel ? nextAction.actionLabel || translateI18n("projectDetail.openTask") : translateI18n("projectDetail.openTask");
   const pendingLabel =
     nextAction.actionType === "RESUBMIT_PLAN"
       ? translateI18n("projectDetail.resubmitting")
+      : nextAction.actionType === "START_MILESTONE"
+      ? translateI18n("salesStage.starting")
       : nextAction.actionType === "RESUME_PROJECT"
       ? translateI18n("projectDetail.resuming")
       : translateI18n("projectDetail.submitting");
@@ -62,6 +68,7 @@ export function NextActionCard({
             {isPending ? pendingLabel : actionLabel}
           </Button>
         )}
+        {startError && <p role="alert" className="text-sm text-destructive">{startError}</p>}
       </div>
     </section>
   );

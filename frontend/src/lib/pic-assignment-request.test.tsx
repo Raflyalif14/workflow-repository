@@ -127,6 +127,11 @@ async function checkHandlers() {
     await submit(); const planIntent = requests[0]; assert.equal(planIntent.expectedPicRevision, '3'); assert(open);
     item.status = 'APPROVED'; current = { ...current, status: 'ACTIVE', pic_revision: '4' };
     outcome = async () => ({}); await submit(); assert.equal(requests[1].requestId, planIntent.requestId); assert(!open);
+    reset(); open = true; item.status = 'PENDING'; current = {...p,status:'DRAFT'};
+    review(); review();
+    assert.equal(elements(review()).find(e=>e.props.id==='approval-project-plan-pic')!.props.value,current.pic!.id);
+    assert.equal(elements(review()).find(e=>e.props.id==='approval-project-plan-pic')!.props.disabled,true);
+
   } finally {
     (React as any).useState = original.state; (React as any).useRef = original.ref; (React as any).useContext = original.context; (React as any).useEffect = original.effect; (React as any).useMemo = original.memo;
     (language as any).useLanguage = original.language; (hooks as any).useAssignPic = original.assign; (hooks as any).useSolutionArchitects = original.pics; (hooks as any).useProject = original.project; (approvalHooks as any).useProcessApproval = original.process;

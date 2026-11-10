@@ -26,7 +26,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head><script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} /></head>
-      <body className={plusJakartaSans.variable}>
+      <body className={plusJakartaSans.variable} suppressHydrationWarning>
         <Providers>
           <AppFrame>{children}</AppFrame>
         </Providers>

@@ -1,7 +1,7 @@
 "use client";
 import { translate as translateI18n } from "@/i18n";
 import { Input } from "@/components/ui/input";
-import { getProjectRevenueError } from "@/lib/project-create-validation";
+import { formatRupiahInput, getProjectRevenueError, parseRupiahInput } from "@/lib/project-create-validation";
 import { SectionHeading } from "./project-create-section-heading";
 
 export interface ProjectCreateDetailsProps {
@@ -81,22 +81,26 @@ export function ProjectCreateDetails({
           <label className="mb-2 block text-sm font-medium" htmlFor="project-estimated-revenue">
             {translateI18n("copy.estimatedRevenue")} <span className="text-destructive" aria-hidden="true">*</span>
           </label>
-          <Input
-            id="project-estimated-revenue"
-            type="number"
-            min="0"
-            step="0.01"
-            inputMode="decimal"
-            value={estimatedRevenue}
-            onChange={(event) => {
-              setEstimatedRevenue(event.target.value);
-              clearError();
-            }}
-            placeholder="1500000000"
-            disabled={disabled}
-            aria-invalid={submitAttempted && Boolean(revenueError)}
+          <div className="relative">
+            <span className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-sm font-semibold text-muted-foreground select-none">
+              Rp
+            </span>
+            <Input
+              id="project-estimated-revenue"
+              type="text"
+              inputMode="numeric"
+              className="pl-10 font-medium"
+              value={formatRupiahInput(estimatedRevenue)}
+              onChange={(event) => {
+                setEstimatedRevenue(parseRupiahInput(event.target.value));
+                clearError();
+              }}
+              placeholder="1.500.000.000"
+              disabled={disabled}
+              aria-invalid={submitAttempted && Boolean(revenueError)}
               aria-describedby={submitAttempted && revenueError ? "project-revenue-error" : "project-revenue-help"}
-          />
+            />
+          </div>
           <p id="project-revenue-help" className="mt-1.5 text-xs text-muted-foreground">{translateI18n("copy.revenueHelp")}</p>
           {submitAttempted && revenueError && (
             <p id="project-revenue-error" className="mt-1.5 text-xs text-destructive">{translateI18n(revenueError)}</p>

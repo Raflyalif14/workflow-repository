@@ -354,7 +354,7 @@ export function OutputDocumentsSection({ project, milestoneId, milestoneStatus, 
       approvedCount > 0 && translateI18n("outputUi.approvedCount", { count: approvedCount }),
       activeDocuments.some((item) => item.status === "IN_REVIEW") && translateI18n("milestoneCompact.awaitingReview", { count: activeDocuments.filter((item) => item.status === "IN_REVIEW").length }),
       activeDocuments.some((item) => item.status === "REVISION_REQUIRED") && translateI18n("milestoneCompact.needsRevision", { count: activeDocuments.filter((item) => item.status === "REVISION_REQUIRED").length })]
-    : [approvedCount > 0 ? translateI18n("outputUi.approvedCount", { count: approvedCount }) : translateI18n("outputUi.noApprovedYet")];
+    : (approvedCount > 0 ? [translateI18n("outputUi.approvedCount", { count: approvedCount })] : []);
 
   const submissionItems = (keys: string[]) => {
     const submittableKeys = new Set(submittableDocuments.map((document) => document.key));
@@ -536,7 +536,7 @@ export function OutputDocumentsSection({ project, milestoneId, milestoneStatus, 
         <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0">
             <h4 className="text-sm font-semibold text-foreground">{translateI18n("outputUi.title")}</h4>
-            {!outputQuery.isLoading && !outputQuery.isError && <p className="mt-1 text-xs text-muted-foreground">{summaryParts.filter(Boolean).join(" · ")}</p>}
+            {!outputQuery.isLoading && !outputQuery.isError && summaryParts.filter(Boolean).length > 0 && <p className="mt-1 text-xs text-muted-foreground">{summaryParts.filter(Boolean).join(" · ")}</p>}
           </div>
           <div className="flex flex-wrap gap-2">
             {isSalesOwner && !isScopeLocked && !milestoneId && <Button type="button" size="sm" variant="outline" onClick={openChecklist}>{translateI18n("copy.optionalOutputs")}</Button>}

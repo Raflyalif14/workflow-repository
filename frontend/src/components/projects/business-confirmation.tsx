@@ -15,15 +15,17 @@ export function BusinessConfirmation({
   onConfirm,
   errorKey,
   allowConflictRetry = false,
+  children,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   title: string;
-  changes: string[];
+  changes?: (string | React.ReactNode)[];
   action: string;
   onConfirm: () => Promise<unknown>;
   errorKey?: TranslationKey;
   allowConflictRetry?: boolean;
+  children?: React.ReactNode;
 }) {
   useLanguage();
   const [pending, setPending] = useState(false);
@@ -89,13 +91,17 @@ export function BusinessConfirmation({
           <DialogTitle>{title}</DialogTitle>
           <DialogDescription>{translate("businessAudit.check")}</DialogDescription>
         </DialogHeader>
-        <ul className="mb-4 max-h-64 space-y-2 overflow-y-auto break-words text-sm">
-          {changes.map((change, index) => (
-            <li key={index} className="whitespace-pre-wrap">
-              {change}
-            </li>
-          ))}
-        </ul>
+        {children ? (
+          <div className="mb-4 max-h-80 space-y-3 overflow-y-auto pr-1 text-sm">{children}</div>
+        ) : (
+          <ul className="mb-4 max-h-64 space-y-2 overflow-y-auto break-words text-sm">
+            {changes?.map((change, index) => (
+              <li key={index} className="whitespace-pre-wrap">
+                {change}
+              </li>
+            ))}
+          </ul>
+        )}
         {error && (
           <p role="alert" className="mb-3 text-sm text-destructive">
             {translate(errorKey || error)}

@@ -134,7 +134,8 @@ export class SalesMilestoneDocumentService {
     context: SalesMilestoneDocumentContext,
     actor: Actor,
     file: Express.Multer.File,
-    operation: UploadOperation
+    operation: UploadOperation,
+    isOutcomeEvidence: boolean
   ): Promise<CreatedDocument> {
     const documentId = randomUUID();
     const versionId = randomUUID();
@@ -142,7 +143,8 @@ export class SalesMilestoneDocumentService {
     operation.storagePaths.push(storagePath);
     await DocumentStorageService.upload(file, storagePath);
 
-    const title = this.documentTitle(file.originalname);
+    const title = isOutcomeEvidence ? `Result evidence - ${file.originalname}`.slice(0, 500) : this.documentTitle(file.originalname);
+    const status = isOutcomeEvidence ? 'DRAFT' : 'APPROVED';
     // Include the operation-owned ID before insertion to cover an ambiguous provider response.
     operation.documentIds.push(documentId);
     const { data: document, error: documentError } = await supabaseAdmin
@@ -153,7 +155,7 @@ export class SalesMilestoneDocumentService {
         milestone_id: context.id,
         title,
         category: 'OTHER',
-        status: 'APPROVED',
+        status,
       })
       .select('id')
       .maybeSingle();
@@ -169,8 +171,9 @@ export class SalesMilestoneDocumentService {
       storage_path: storagePath,
       file_size: file.size,
       mime_type: file.mimetype || 'application/octet-stream',
-      changelog: 'Initial SALES milestone document upload.',
-      status: 'APPROVED',
+      changelog: isOutcomeEvidence ? 'Result evidence upload.' : 'Initial SALES milestone document upload.',
+      status,
+      ...(isOutcomeEvidence ? { is_outcome_evidence: true } : {}),
       is_latest: true,
       uploaded_by: actor.userId,
     });
@@ -225,10 +228,25 @@ export class SalesMilestoneDocumentService {
     const final = (rows || []).find(row => !project.active_phase_id || row.phase_id === project.active_phase_id);
     const role = asRelatedOne(final?.workflow_stage)?.default_role;
     if (!final || role !== 'SALES') throw new SalesMilestoneDocumentError('A final Sales milestone is required.',409);
-    return this.persist(await this.getContext(final.id),actor,files);
+    return this.persist(await this.getContext(final.id), actor, files, true);
   }
 
-  private static async persist(context: SalesMilestoneDocumentContext, actor: Actor, files: Express.Multer.File[]) {
+  static async discardEvidence(projectId: string, actor: Actor, documentIds: string[]) {
+    const { data, error } = await supabaseAdmin.rpc('claim_discarded_outcome_evidence', {
+      p_project_id: projectId, p_actor_id: actor.userId, p_document_ids: documentIds,
+    });
+    if (error?.code === '42501') throw new SalesMilestoneDocumentError('Forbidden', 403);
+    if (error) throw new SalesMilestoneDocumentError('Unable to discard result evidence.', 503);
+    const claimed = (data || []) as Array<{ document_id: string; storage_path: string }>;
+    if (!claimed.length) return;
+
+    await DocumentStorageService.removeMany(claimed.map((row) => row.storage_path));
+    const { error: deleteError } = await supabaseAdmin.from('documents').delete()
+      .eq('project_id', projectId).eq('status', 'REJECTED').in('id', claimed.map((row) => row.document_id));
+    if (deleteError) throw new SalesMilestoneDocumentError('Unable to discard result evidence.', 503);
+  }
+
+  private static async persist(context: SalesMilestoneDocumentContext, actor: Actor, files: Express.Multer.File[], isOutcomeEvidence = false) {
 
     const operation: UploadOperation = {
       milestoneId: context.id,
@@ -240,7 +258,7 @@ export class SalesMilestoneDocumentService {
     try {
       const documents: CreatedDocument[] = [];
       for (const file of files) {
-        documents.push(await this.createOfficialDocument(context, actor, file, operation));
+        documents.push(await this.createOfficialDocument(context, actor, file, operation, isOutcomeEvidence));
       }
 
       return {

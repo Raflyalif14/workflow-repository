@@ -86,7 +86,7 @@ async function run() {
       },
       range: (start: number, end: number) => {
         range = [start, end];
-        ranges.push(range);
+        if (table === 'projects') ranges.push(range);
         return query;
       },
       then: (resolve: (value: unknown) => void, reject: (reason: unknown) => void) => {

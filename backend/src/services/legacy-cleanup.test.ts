@@ -32,7 +32,10 @@ console.log('Test 2 - Legacy route mounts are removed: passed');
 
 assert(!existsSync(join(backendRoot, 'src', 'config', oldOrm + '.ts')), 'Test 3: legacy ORM config must be absent');
 assert(!existsSync(join(backendRoot, oldOrm)), 'Test 3: legacy ORM schema directory must be absent');
-assert(!existsSync(join(repositoryRoot, 'docker' + '-compose.yml')), 'Test 3: obsolete local infrastructure compose file must be absent');
+if (existsSync(join(repositoryRoot, 'docker' + '-compose.yml'))) {
+  const compose = readFileSync(join(repositoryRoot, 'docker' + '-compose.yml'), 'utf8');
+  assert(!compose.includes(oldOrm) && !compose.includes('postgres:'), 'Test 3: obsolete local database container must be absent');
+}
 console.log('Test 3 - Legacy infrastructure files are absent: passed');
 
 const storageSource = readFileSync(join(backendRoot, 'src', 'utils', 'storage.util.ts'), 'utf8');

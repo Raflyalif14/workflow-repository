@@ -48,6 +48,16 @@ export class AuthController {
     }
   }
 
+  static async changePassword(req: AuthenticatedRequest, res: Response): Promise<void> {
+    try {
+      sendSuccess(res, 'Password changed successfully', await AuthService.changePassword(req.user!.userId, req.body));
+    } catch (error: any) {
+      const message = error.message || 'Failed to change password';
+      const status = message.includes('incorrect') ? 401 : message.includes('different') || message.includes('characters') ? 422 : 400;
+      sendError(res, message, null, status);
+    }
+  }
+
   static async logout(req: AuthenticatedRequest, res: Response): Promise<void> {
     try {
       await AuthService.logout(req.headers.authorization?.slice('Bearer '.length) || '');

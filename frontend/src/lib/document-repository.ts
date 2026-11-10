@@ -1,3 +1,4 @@
+import {LIST_PAGE_SIZE} from './list-pagination';
 import type { OutputRepositoryItem } from "@/hooks/use-output-documents";
 import type { DocumentCategory, DocumentItem, DocumentStatus } from "@/types/document";
 
@@ -31,7 +32,7 @@ export type RepositoryFilters = {
   status: DocumentStatus | "ALL";
 };
 
-export const REPOSITORY_PAGE_SIZE = 20;
+export const REPOSITORY_PAGE_SIZE = LIST_PAGE_SIZE;
 
 export function buildRepositoryItems(documents: readonly DocumentItem[], outputs: readonly OutputRepositoryItem[]): RepositoryItem[] {
   const items: RepositoryItem[] = [...new Map(documents.map(document => [document.id, document])).values()].map((document) => ({

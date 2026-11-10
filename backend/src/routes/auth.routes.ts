@@ -5,7 +5,7 @@ import { refreshSessionSchema } from '../validators/auth.validator';
 import { sendSuccess } from '../utils/response.util';
 import { AuthController } from '../controllers/auth.controller';
 import { validateBody } from '../middlewares/validate.middleware';
-import { changeInitialPasswordSchema, forgotPasswordSchema, loginSchema, registerSchema, resetPasswordSchema, updateLanguagePreferenceSchema } from '../validators/auth.validator';
+import { changeInitialPasswordSchema, changePasswordSchema, forgotPasswordSchema, loginSchema, registerSchema, resetPasswordSchema, updateLanguagePreferenceSchema } from '../validators/auth.validator';
 import { authenticateUser } from '../middlewares/auth.middleware';
 import {
   AUTH_RATE_LIMITS,
@@ -32,6 +32,7 @@ router.post(
 router.post('/forgot-password', createAuthRateLimiter(AUTH_RATE_LIMITS.forgotPassword), validateBody(forgotPasswordSchema), AuthController.forgotPassword);
 router.post('/reset-password', createAuthRateLimiter(AUTH_RATE_LIMITS.resetPassword), validateBody(resetPasswordSchema), AuthController.resetPassword);
 router.post('/change-initial-password', authenticateUser, validateBody(changeInitialPasswordSchema), AuthController.changeInitialPassword);
+router.post('/change-password', authenticateUser, createAuthRateLimiter(AUTH_RATE_LIMITS.resetPassword), validateBody(changePasswordSchema), AuthController.changePassword);
 router.post('/logout', authenticateUser, AuthController.logout);
 router.get('/me', authenticateUser, AuthController.getMe);
 router.get('/preferences/language', authenticateUser, AuthController.getLanguagePreference);

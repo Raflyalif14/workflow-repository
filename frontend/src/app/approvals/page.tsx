@@ -1,11 +1,13 @@
 "use client";
+import {ListPagination} from "@/components/list-pagination";
+import {LIST_PAGE_SIZE} from "@/lib/list-pagination";
 import { useLanguage } from "@/components/i18n/language-provider";
 
 import { translate as translateI18n } from "@/i18n";
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { CalendarClock, CheckCircle2, ClipboardList, Files, History, Inbox, Search } from "lucide-react";
+import { CalendarClock, CalendarDays, CheckCircle2, ClipboardList, Files, History, Inbox, RotateCw, Search } from "lucide-react";
 import { ListSummary } from '@/components/list-summary';
 import { ApprovalRow } from "@/components/approvals/approval-row";
 import { ApprovalActionDialog } from "@/components/approvals/approval-action-dialog";
@@ -18,11 +20,12 @@ import { approvalQueuePage, outputReviewHref } from "@/lib/approval-queue";
 import { canReadApprovalOverview } from "@/lib/approval-overview-access";
 import { ApprovalCategory, ApprovalItem, ApprovalStatus } from "@/types/approval";
 
-const categoryOptions: Array<{ key: ApprovalCategory; label: "approvalUi.allRequests" | "approvalUi.projectPlans" | "approvalUi.deadlineChanges" | "outputQueue.category" }> = [
+const categoryOptions: Array<{ key: ApprovalCategory; label: "approvalUi.allRequests" | "approvalUi.projectPlans" | "approvalUi.deadlineChanges" | "outputQueue.category" | "listSummary.approvalMeetings" }> = [
   { key: "ALL", label: "approvalUi.allRequests" },
   { key: "PROJECT_PLAN", label: "approvalUi.projectPlans" },
   { key: "DEADLINE", label: "approvalUi.deadlineChanges" },
   { key: "OUTPUT_DOCUMENT", label: "outputQueue.category" },
+  { key: "MEETING", label: "listSummary.approvalMeetings" },
 ];
 
 export default function ApprovalCenterPage() {
@@ -57,13 +60,14 @@ function ApprovalCenterPageContent() {
   const isHistory = viewMode === "HISTORY";
   const queuePage = useMemo(() => approvalQueuePage(overview.data?.items || [], {
     type: categoryTab, status: effectiveStatus, search,
-  }, isHistory, page, 20, locale), [overview.data, categoryTab, effectiveStatus, search, isHistory, page, locale]);
+  }, isHistory, page, LIST_PAGE_SIZE, locale), [overview.data, categoryTab, effectiveStatus, search, isHistory, page, locale]);
   const displayedApprovals = queuePage.items;
   const snapshot = [
-    { label: translateI18n("approvalUi.totalPending"), value: stats?.totalPending ?? "\u2014", scope: translateI18n('listSummary.pending'), icon: Inbox, primary: true },
-    { label: translateI18n("listSummary.approvalPlans"), value: stats?.pendingProjectPlans ?? "\u2014", scope: translateI18n('listSummary.pending'), icon: ClipboardList },
-    { label: translateI18n("listSummary.approvalDeadlines"), value: stats?.pendingDeadlines ?? "\u2014", scope: translateI18n('listSummary.pending'), icon: CalendarClock },
-    { label: translateI18n("listSummary.approvalOutputs"), value: stats?.pendingDocs ?? "\u2014", scope: translateI18n('listSummary.pending'), icon: Files },
+    { label: translateI18n("approvalUi.totalPending"), value: stats?.totalPending ?? "\u2014", scope: translateI18n('listSummary.allPending'), icon: Inbox, primary: true },
+    { label: translateI18n("listSummary.approvalPlans"), value: stats?.pendingProjectPlans ?? "\u2014", scope: translateI18n('listSummary.scopePlans'), icon: ClipboardList },
+    { label: translateI18n("listSummary.approvalDeadlines"), value: stats?.pendingDeadlines ?? "\u2014", scope: translateI18n('listSummary.scopeDeadlines'), icon: CalendarClock },
+    { label: translateI18n("listSummary.approvalOutputs"), value: stats?.pendingDocs ?? "\u2014", scope: translateI18n('listSummary.scopeOutputs'), icon: Files },
+    { label: translateI18n("listSummary.approvalMeetings"), value: stats?.pendingMeetings ?? "\u2014", scope: translateI18n('listSummary.scopeMeetings'), icon: CalendarDays },
   ];
 
   const openAction = (item: ApprovalItem, action: "APPROVE" | "REJECT") => {
@@ -135,6 +139,7 @@ function ApprovalCenterPageContent() {
                 <option value="ALL">{translateI18n("copy.allResolved")}</option>
                 <option value="APPROVED">{translateI18n("milestoneStatus.APPROVED")}</option>
                 <option value="REJECTED">{translateI18n("approvalStatus.REJECTED")}</option>
+                <option value="CANCELLED">{translateI18n("meetings.CANCELLED")}</option>
                 <option value="SUPERSEDED">{translateI18n("documentStatus.SUPERSEDED")}</option>
               </select>
             )}
@@ -157,7 +162,10 @@ function ApprovalCenterPageContent() {
 
           <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
             <span>{isHistory ? translateI18n("outputQueue.historyScope") : null}</span>
-            <Button size="sm" variant="ghost" disabled={isFetching || !canLoadApprovalOverview} onClick={() => { if (canLoadApprovalOverview) void overview.refetch(); }}>{translateI18n("outputQueue.refresh")}</Button>
+            <Button size="sm" variant="ghost" className="gap-1.5" disabled={isFetching || !canLoadApprovalOverview} onClick={() => { if (canLoadApprovalOverview) void overview.refetch(); }}>
+              <RotateCw className={`h-3.5 w-3.5 ${isFetching ? "animate-spin" : ""}`} />
+              {translateI18n("outputQueue.refresh")}
+            </Button>
           </div>
           <div className="relative">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -202,18 +210,13 @@ function ApprovalCenterPageContent() {
           <div>
             {displayedApprovals.map(item => (
               <ApprovalRow key={`${item.category}-${item.id}`} item={item} canReview={canReview}
-                onOpenProject={() => { if (item.projectId) router.push(item.category === "OUTPUT_DOCUMENT" ? outputReviewHref(item) : `/projects/${item.projectId}`); }}
+                onOpenProject={() => { if (item.projectId) router.push(item.category === "OUTPUT_DOCUMENT" ? outputReviewHref(item) : `/projects/${item.projectId}${item.category === "MEETING" ? "#project-meetings" : ""}`); }}
                 onOpenAction={openAction} />
             ))}
           </div>
         )}
-        {overview.data && <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border/60 p-4 text-xs text-muted-foreground">
-          <span>{translateI18n("outputQueue.page", { page: queuePage.page, pages: queuePage.pages, count: queuePage.total })}</span>
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" disabled={queuePage.page <= 1} onClick={() => setPage(queuePage.page - 1)}>{translateI18n("outputQueue.previous")}</Button>
-            <Button variant="outline" size="sm" disabled={queuePage.page >= queuePage.pages} onClick={() => setPage(queuePage.page + 1)}>{translateI18n("outputQueue.next")}</Button>
-          </div>
-        </div>}
+        {overview.data && queuePage.total > 0 && <ListPagination page={queuePage.page} pages={queuePage.pages} total={queuePage.total} pageSize={LIST_PAGE_SIZE} onPageChange={setPage} disabled={isFetching}/>}
+
       </section>
 
       <ApprovalActionDialog

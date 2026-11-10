@@ -18,7 +18,7 @@ async function main() {
     version_number: 2, submitted_at: '2026-10-06T01:00:00Z', submission_actor_id: 'submitter', uploaded_by: 'different-uploader' };
   const refs = [1, 2].map(position => ({ version_id: 'v', project_id: 'p', output_document_id: 'o', file_id: `f${position}`, position }));
   const files = refs.map(ref => ({ id: ref.file_id, project_id: 'p', output_document_id: 'o', storage_path: 'private', signed_url: 'private' }));
-  const tables: Record<string, any[]> = { projects: [project], project_milestones: [milestone], project_plan_approvals: [],
+  const tables: Record<string, any[]> = { projects: [project], project_milestones: [milestone], project_plan_approvals: [], project_meetings: [],
     milestone_deadline_approvals: [], milestone_deadline_history: [], project_output_documents: [output],
     project_output_document_versions: [version, { ...version, id: 'old', version_number: 1 }],
     project_output_document_version_files: refs, project_output_document_files: files,
@@ -62,6 +62,13 @@ async function main() {
     assert.equal(item.submittedBy, 'Actual submitter'); assert.equal(item.phaseName, 'On Submission Tender'); assert(item.canReview, 'Review does not add an upload start-date restriction');
     assert(!JSON.stringify(result).includes('private')); assert(!JSON.stringify(result).includes('uploaded_by'));
     assert(projections.every(({ fields }) => !fields.includes('*') && !/storage_path|signed_url|file_name|email/.test(fields)));
+    tables.project_meetings = [{id:'mt',project_id:'p',title:'Team meeting',agenda:'Discuss',location:'Room',starts_at:'2099-01-02T10:00:00Z',ends_at:null,status:'REJECTED',revision:2,created_at:'2026-11-05',review_note:'Change time'}];
+    const historyWithMeeting=await overview();assert.equal(historyWithMeeting.items.find(i=>i.category==='MEETING')?.status,'REJECTED');assert.equal(historyWithMeeting.stats.totalPending,1);
+    tables.project_meetings[0].status='APPROVED';tables.project_meetings[0].proposed_schedule={startsAt:'2099-01-03T10:00:00Z'};
+    const reschedule=await overview();assert.equal(reschedule.stats.totalPending,2);assert.equal(reschedule.items.find(i=>i.category==='MEETING')?.status,'PENDING');
+    tables.project_meetings[0].status='CANCELLED';tables.project_meetings[0].proposed_schedule=null;
+    assert.equal((await overview()).items.find(i=>i.category==='MEETING')?.status,'CANCELLED');
+    tables.project_meetings=[];
     tables.project_plan_approvals = [
       { id: 'plan-current', project_id: 'p', phase_id: 'tender', phase: { phase_key: 'ON_SUBMISSION_TENDER' }, status: 'PENDING', requested_by: 'submitter', submitted_at: '2026-10-06', reviewed_by: null },
       { id: 'plan-old', project_id: 'p', phase_id: 'pra', phase: { phase_key: 'PRA_TENDER' }, status: 'PENDING', requested_by: 'submitter', submitted_at: '2026-10-05', reviewed_by: null },

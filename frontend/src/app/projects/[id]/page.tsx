@@ -1,9 +1,12 @@
 "use client";
+import Link from "next/link";
+import { ProjectMeetings } from "@/components/projects/project-meetings";
 import { compareMilestoneSchedule, getScheduledWorkStage } from '@/lib/milestone-order';
 import { projectDisplayStatus } from '@/lib/project-display-status';
 import { useOutcomeEvidence } from '@/hooks/use-outcome-evidence';
 import { OutcomeEvidenceField } from '@/components/projects/outcome-evidence-field';
 
+import { formatContractAmountInput, parseContractAmount } from "@/lib/contract-amount";
 import { ProjectDocumentSharing } from "@/components/projects/project-document-sharing";
 import { ProjectReportExport } from "@/components/projects/project-report-export";
 import { BusinessConfirmation } from "@/components/projects/business-confirmation";
@@ -16,7 +19,7 @@ import { useLanguage } from "@/components/i18n/language-provider";
 import { translate as translateI18n, translateOutputName, translateStoredError, translateStoredMessage } from "@/i18n";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { AlertCircle, AlertTriangle, ArrowLeft, CheckCircle2, Clock3, PauseCircle } from "lucide-react";
+import { AlertCircle, AlertTriangle, ArrowLeft, CheckCircle2, Clock3, PauseCircle, Trophy, XCircle } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { AssignmentHistoryCard } from "@/components/projects/assignment-history-card";
 import { PicAssignmentCard } from "@/components/projects/pic-assignment-card";
@@ -54,7 +57,7 @@ import {
 } from "@/hooks/use-projects";
 import { calculateProjectMilestoneProgress } from "@/lib/project-milestone-progress";
 import { ProjectDocumentsSection } from "@/components/projects/project-documents-section";
-import { MilestoneApprovalState, useMilestoneApprovalStates } from "@/hooks/use-milestone-workflow";
+import { MilestoneApprovalState, useMilestoneApprovalStates, useStartMilestone } from "@/hooks/use-milestone-workflow";
 import { ActivityTimeline } from "@/components/projects/project-activity-timeline";
 import { ProjectIntakeSection } from "@/components/projects/project-intake-section";
 import { NextActionCard, DraftProgressionTracker, ProjectPlanCard } from "@/components/projects/project-plan-summary";
@@ -62,6 +65,8 @@ import { MilestoneRow } from "@/components/projects/project-milestone-row";
 import { PlanReviewDialog } from "@/components/projects/project-plan-review-dialog";
 import { StatusBadge } from "@/components/projects/project-status-badge";
 import { formatIdr, formatDateTime } from "@/lib/project-detail-format";
+import { ProjectResultCard } from "@/components/projects/project-result-card";
+import { triggerWonConfetti } from "@/lib/confetti";
 
 export default function ProjectDetailPage() {
   useLanguage();
@@ -84,6 +89,7 @@ export default function ProjectDetailPage() {
   const [planReviewTarget, setPlanReviewTarget] = useState<{ decision: "APPROVE" | "REJECT"; projectName: string; phaseName: string; approvalId?: string } | null>(null);
   const resumeProject = useResumeProject();
   const setProjectOutcome = useSetProjectOutcome(id);
+  const startNextMilestone = useStartMilestone(id);
 
   const [postponeOpen, setPostponeOpen] = useState(false);
   const [message, setMessage] = useState("");
@@ -160,9 +166,11 @@ export default function ProjectDetailPage() {
         <AlertTriangle className="h-10 w-10 text-destructive mx-auto" />
         <h2 className="text-lg font-bold text-foreground">{translateI18n("copy.projectNotFound")}</h2>
         <p className="text-xs text-muted-foreground">{translateI18n("copy.projectNoAccess")}</p>
-        <Button variant="outline" size="sm" onClick={() => router.push("/projects")}>
-          {translateI18n("copy.backToProject")}
-        </Button>
+        <Link href="/projects" prefetch={true}>
+          <Button variant="outline" size="sm">
+            {translateI18n("copy.backToProject")}
+          </Button>
+        </Link>
       </div>
     );
   }
@@ -184,6 +192,10 @@ export default function ProjectDetailPage() {
     isHeadSa && isDraft && planApproval?.status === "PENDING";
 
   const currentStageMilestone = getScheduledWorkStage(milestones);
+  const tenderResultStage = isSalesOwner ? milestones.find((milestone) =>
+    milestone.workflow_stage?.stage_key === 'TENDER_PROCESS' && milestone.workflow_stage.default_role === 'SALES'
+    && !milestones.some((other) => other.step_order > milestone.step_order)) : undefined;
+  const visibleWorkStages = milestones.filter((milestone) => milestone.id !== tenderResultStage?.id);
   const assignPicIsCurrent = milestones.some(
     (m) => m.status === "IN_PROGRESS" && m.name.trim().toLowerCase() === "assign pic"
   );
@@ -191,6 +203,8 @@ export default function ProjectDetailPage() {
     id: user?.id,
     role: user?.role,
     fullName: user?.fullName,
+  }, {
+    outputDocuments: outputReadiness.data?.documents,
   });
   const showPlanCardSubmit =
     isSalesOwner &&
@@ -234,13 +248,30 @@ export default function ProjectDetailPage() {
     }
   };
 
+  const parsedFinalContractValue = parseContractAmount(finalContractValue);
+  const resetOutcome = () => {
+    setOutcomeDecision(null);
+    setOutcomeConfirming(false);
+    setFinalContractValue("");
+    setLossReason("");
+    setError("");
+    evidence.reset();
+  };
+  const closeOutcome = async () => {
+    if (outcomeSaving.current || setProjectOutcome.isPending || evidence.isUploading) return;
+    try {
+      if (await evidence.discard()) resetOutcome();
+    } catch {
+      setError('workflowUpdate.evidenceDiscardFailed');
+    }
+  };
+
   const recordOutcome = async () => {
     if (!outcomeDecision || outcomeSaving.current || error === "businessAudit.stale") return;
     setError("");
     setMessage("");
-    const parsedFinalContractValue = Number(finalContractValue);
-    if (outcomeDecision === "WON" && (!finalContractValue.trim() || !Number.isFinite(parsedFinalContractValue) || parsedFinalContractValue <= 0)) {
-      setError("projectDetail.wonValueRequired");
+    if (outcomeDecision === "WON" && parsedFinalContractValue === null) {
+      setError("projectDetail.finalValueInvalid");
       return;
     }
     if (outcomeDecision === "LOST" && !lossReason.trim()) {
@@ -255,21 +286,33 @@ export default function ProjectDetailPage() {
       await setProjectOutcome.mutateAsync({
         evidenceDocumentIds: evidenceIds,
         outcome: outcomeDecision,
-        finalContractValue: outcomeDecision === "WON" ? parsedFinalContractValue : undefined,
+        finalContractValue: outcomeDecision === "WON" ? parsedFinalContractValue ?? undefined : undefined,
         lossReason: outcomeDecision === "LOST" ? lossReason : undefined,
       });
+      if (outcomeDecision === "WON") {
+        triggerWonConfetti();
+      }
       setMessage(outcomeDecision === "WON" ? "projectDetail.resultWon" : "projectDetail.resultLost");
-      setOutcomeDecision(null); setOutcomeConfirming(false);
-      setFinalContractValue("");
-      setLossReason("");
-      evidence.reset();
-    } catch (outcomeError) {
-      setError(outcomeError instanceof ApiError && outcomeError.status === 409 ? "businessAudit.stale" : "projectDetail.resultFailed");
+      resetOutcome();
+    } catch (outcomeError: any) {
+      const errKey = outcomeError instanceof Error ? outcomeError.message : "";
+      setError(
+        errKey === "workflowUpdate.evidenceRequired"
+          ? errKey
+          : outcomeError instanceof ApiError && outcomeError.status === 409
+          ? "businessAudit.stale"
+          : "projectDetail.resultFailed"
+      );
     } finally { outcomeSaving.current = false; }
   };
 
   const handleNextAction = () => {
     switch (nextAction.actionType) {
+      case "START_MILESTONE":
+        if (nextAction.canPerformAction && nextAction.targetMilestoneId && !startNextMilestone.isPending) {
+          startNextMilestone.mutate(nextAction.targetMilestoneId);
+        }
+        return;
       case "SUBMIT_PLAN":
       case "RESUBMIT_PLAN":
         submitProjectPlan.prepare?.(); setBusinessConfirmation("PLAN");
@@ -304,10 +347,12 @@ export default function ProjectDetailPage() {
   return (
     <div className="mx-auto w-full max-w-[1600px] space-y-5 px-4 py-6 sm:px-6 xl:px-8 xl:py-8">
       {/* Back Button */}
-      <Button variant="ghost" size="sm" className="-ml-2 h-8 gap-1.5 text-muted-foreground hover:text-foreground" onClick={() => router.push("/projects")}>
-        <ArrowLeft className="h-4 w-4" />
-        <span>{translateI18n("copy.backToProject")}</span>
-      </Button>
+      <Link href="/projects" prefetch={true} className="inline-block">
+        <Button variant="ghost" size="sm" className="-ml-2 h-8 gap-1.5 text-muted-foreground hover:text-foreground">
+          <ArrowLeft className="h-4 w-4" />
+          <span>{translateI18n("copy.backToProject")}</span>
+        </Button>
+      </Link>
 
       {/* Header */}
       <header className="flex flex-col gap-4 pb-1 sm:flex-row sm:items-start sm:justify-between">
@@ -318,7 +363,7 @@ export default function ProjectDetailPage() {
           <h1 className="text-2xl font-semibold text-foreground sm:text-3xl">{project.name}</h1>
           <p className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-sm text-muted-foreground">
             {translateI18n("projectDetail.customer")} <strong className="text-foreground">{project.customer}</strong> · {translateI18n("projectDetail.scenario")}{" "}
-            <strong className="text-foreground">{project.scenario?.name || translateI18n("ui.noScenario")}</strong>
+            <strong className="text-foreground">{project.active_scenario?.name || project.scenario?.name || translateI18n("ui.noScenario")}</strong>
           </p>
           <p className="text-sm text-muted-foreground">
             {translateI18n("ui.salesOwner")} <strong className="text-foreground">{project.sales?.full_name || project.sales?.fullName || translateI18n("ui.noOwner")}</strong>
@@ -354,13 +399,33 @@ export default function ProjectDetailPage() {
         </div>
       )}
 
+      {/* ─── Project Result Hero Card (WON / LOST) ─── */}
+      <ProjectResultCard project={project} />
+
       {/* ─── Next Action Card ─── */}
-      {!isPraTenderDecisionPending(project) && !isProjectClosedAtPraTender(project) && <NextActionCard
+      {(!tenderResultStage || nextAction.targetMilestoneId !== tenderResultStage.id) && !isPraTenderDecisionPending(project) && !isProjectClosedAtPraTender(project) && <NextActionCard
         nextAction={nextAction}
         onAction={handleNextAction}
         isSubmittingPlan={submitProjectPlan.isPending}
         isResuming={resumeProject.isPending}
+        isStartingMilestone={startNextMilestone.isPending}
+        startError={nextAction.actionType === 'START_MILESTONE' && startNextMilestone.isError ? translateI18n('workflowUpdate.startFailed') : undefined}
       />}
+
+      {tenderResultStage && <MilestoneRow
+        key={tenderResultStage.id}
+        project={project}
+        milestone={tenderResultStage}
+        isFinalMilestone
+        isCurrentStage
+        hasNextCreatedMilestone={false}
+        finalPrerequisitesComplete={visibleWorkStages.every((milestone) => ['COMPLETED', 'APPROVED'].includes(milestone.status))}
+        expanded={false}
+        onToggle={() => {}}
+        resultOnly
+      />}
+
+      <ProjectMeetings key={project.id} project={project} />
 
       {(isActive || isPostponed) && !isPraTenderDecisionPending(project) && (
         <section aria-label={translateI18n("copy.pendingItems")} className="page-surface p-4 text-sm sm:p-5">
@@ -419,26 +484,33 @@ export default function ProjectDetailPage() {
               <Button
                 type="button"
                 size="sm"
-                className="flex-1 sm:flex-none"
+                className="flex-1 sm:flex-none gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold"
                 disabled={setProjectOutcome.isPending || evidence.isUploading}
                 onClick={() => {
                   setError("");
                   setOutcomeDecision("WON");
+                  setOutcomeConfirming(false);
+                  if (!finalContractValue && project.estimated_revenue) {
+                    setFinalContractValue(formatContractAmountInput(String(project.estimated_revenue), "", "insertText"));
+                  }
                 }}
               >
+                <Trophy className="h-4 w-4" />
                 {translateI18n("projectDetail.recordWon")}
               </Button>
               <Button
                 type="button"
                 size="sm"
                 variant="outline"
-                className="flex-1 sm:flex-none"
+                className="flex-1 sm:flex-none gap-1.5 border-destructive/40 text-destructive hover:bg-destructive/10 font-semibold"
                 disabled={setProjectOutcome.isPending || evidence.isUploading}
                 onClick={() => {
                   setError("");
                   setOutcomeDecision("LOST");
+                  setOutcomeConfirming(false);
                 }}
               >
+                <XCircle className="h-4 w-4" />
                 {translateI18n("projectDetail.recordLost")}
               </Button>
             </div>
@@ -453,17 +525,71 @@ export default function ProjectDetailPage() {
       <Dialog
         open={Boolean(outcomeDecision)}
         onOpenChange={(open) => {
-          if (!open && !setProjectOutcome.isPending && !outcomeSaving.current) { setOutcomeDecision(null); setOutcomeConfirming(false); setError(""); }
+          if (!open) closeOutcome();
         }}
       >
         <DialogHeader>
-          <DialogTitle>{translateI18n(!outcomeConfirming ? "reviewConfirm.continue" : outcomeDecision === "WON" ? "projectDetail.recordWon" : "projectDetail.recordLost")}</DialogTitle>
+          <DialogTitle className="flex items-center gap-2">
+            {outcomeDecision === "WON" ? (
+              <>
+                <Trophy className="h-5 w-5 text-emerald-600" />
+                <span>{translateI18n("projectDetail.recordWon")}</span>
+              </>
+            ) : (
+              <>
+                <XCircle className="h-5 w-5 text-destructive" />
+                <span>{translateI18n("projectDetail.recordLost")}</span>
+              </>
+            )}
+          </DialogTitle>
           <DialogDescription>
             {outcomeDecision === "WON"
               ? translateI18n("projectDetail.wonValueRequired")
               : translateI18n("projectDetail.lossReasonRequired")}
           </DialogDescription>
         </DialogHeader>
+
+        {/* WON vs LOST Toggle Switch */}
+        <div className="grid grid-cols-2 gap-2 pt-1 pb-1">
+          <button
+            type="button"
+            onClick={() => {
+              setError("");
+              setOutcomeDecision("WON");
+              setOutcomeConfirming(false);
+              if (!finalContractValue && project.estimated_revenue) {
+                setFinalContractValue(formatContractAmountInput(String(project.estimated_revenue), "", "insertText"));
+              }
+            }}
+            disabled={setProjectOutcome.isPending || evidence.isUploading}
+            className={`flex items-center justify-center gap-2 rounded-xl border-2 p-2.5 text-xs font-semibold transition-all ${
+              outcomeDecision === "WON"
+                ? "border-emerald-500 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 shadow-sm"
+                : "border-border/60 bg-card hover:bg-muted text-muted-foreground"
+            }`}
+          >
+            <Trophy className="h-4 w-4" />
+            <span>{translateI18n("projectStatus.WON")}</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setError("");
+              setOutcomeDecision("LOST");
+              setOutcomeConfirming(false);
+            }}
+            disabled={setProjectOutcome.isPending || evidence.isUploading}
+            className={`flex items-center justify-center gap-2 rounded-xl border-2 p-2.5 text-xs font-semibold transition-all ${
+              outcomeDecision === "LOST"
+                ? "border-destructive bg-destructive/10 text-destructive shadow-sm"
+                : "border-border/60 bg-card hover:bg-muted text-muted-foreground"
+            }`}
+          >
+            <XCircle className="h-4 w-4" />
+            <span>{translateI18n("projectStatus.LOST")}</span>
+          </button>
+        </div>
+
         <form
           className="space-y-4"
           onSubmit={(event) => {
@@ -472,32 +598,82 @@ export default function ProjectDetailPage() {
           }}
         >
           {outcomeDecision === "WON" ? (
-            <div>
-              <label htmlFor="final-contract-value" className="mb-1 block text-xs font-semibold text-muted-foreground">
-                {translateI18n("projectDetail.finalContractValue")}
-              </label>
-              <Input
-                id="final-contract-value"
-                type="number"
-                min="0.01"
-                step="0.01"
-                inputMode="decimal"
-                value={finalContractValue}
-                onChange={(event) => { setProjectOutcome.prepare?.(); setFinalContractValue(event.target.value); setOutcomeConfirming(false); }}
-                disabled={setProjectOutcome.isPending || evidence.isUploading}
-                required
-              />
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <label htmlFor="final-contract-value" className="block text-xs font-semibold text-muted-foreground">
+                  {translateI18n("projectDetail.finalContractValue")}
+                </label>
+                {project.estimated_revenue && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setProjectOutcome.prepare?.();
+                      setFinalContractValue(formatContractAmountInput(String(project.estimated_revenue), "", "insertText"));
+                      setOutcomeConfirming(false);
+                    }}
+                    className="text-[11px] font-medium text-primary hover:underline"
+                  >
+                    {translateI18n("copy.useEstimated")}
+                  </button>
+                )}
+              </div>
+              <div className="relative">
+                <span className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-sm font-semibold text-muted-foreground select-none">
+                  Rp
+                </span>
+                <Input
+                  id="final-contract-value"
+                  type="text"
+                  inputMode="decimal"
+                  className="pl-10 font-semibold text-base"
+                  placeholder="100.000.000"
+                  value={finalContractValue}
+                  onChange={(event) => {
+                    setProjectOutcome.prepare?.();
+                    setFinalContractValue(formatContractAmountInput(event.target.value, finalContractValue, (event.nativeEvent as InputEvent).inputType));
+                    setOutcomeConfirming(false);
+                  }}
+                  disabled={setProjectOutcome.isPending || evidence.isUploading}
+                  required
+                />
+              </div>
+              {project.estimated_revenue && (
+                <p className="text-[11px] text-muted-foreground">
+                  💡 {translateI18n("copy.autoFilledFromEstimate")}
+                </p>
+              )}
             </div>
           ) : (
-            <div>
-              <label htmlFor="loss-reason" className="mb-1 block text-xs font-semibold text-muted-foreground">
+            <div className="space-y-2">
+              <label htmlFor="loss-reason" className="block text-xs font-semibold text-muted-foreground">
                 {translateI18n("copy.lossReason")}
               </label>
+              <div className="space-y-1">
+                <p className="text-[11px] text-muted-foreground">{translateI18n("copy.lossReasonSuggestions")}</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {(["copy.lossReasonPrice", "copy.lossReasonSpec", "copy.lossReasonCancelled", "copy.lossReasonCompetitor", "copy.lossReasonSchedule"] as const).map((key) => (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => {
+                        setProjectOutcome.prepare?.();
+                        setLossReason(translateI18n(key));
+                        setOutcomeConfirming(false);
+                      }}
+                      className="rounded-full border border-border bg-muted/60 px-2.5 py-1 text-[11px] font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                      disabled={setProjectOutcome.isPending || evidence.isUploading}
+                    >
+                      {translateI18n(key)}
+                    </button>
+                  ))}
+                </div>
+              </div>
               <textarea
                 id="loss-reason"
                 value={lossReason}
                 onChange={(event) => { setProjectOutcome.prepare?.(); setLossReason(event.target.value); setOutcomeConfirming(false); }}
-                className="min-h-24 w-full rounded-lg border border-input bg-card px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                className="min-h-20 w-full rounded-lg border border-input bg-card px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                placeholder={translateI18n("copy.lossReasonPlaceholder")}
                 disabled={setProjectOutcome.isPending || evidence.isUploading}
                 maxLength={2000}
                 required
@@ -505,34 +681,48 @@ export default function ProjectDetailPage() {
             </div>
           )}
           <OutcomeEvidenceField files={evidence.files} onChange={files => { evidence.setFiles(files); setOutcomeConfirming(false); }} disabled={setProjectOutcome.isPending || evidence.isUploading} />
-          {outcomeConfirming && <p className="whitespace-pre-wrap text-sm">{translateI18n("businessAudit.final")} {project.name}: {formatProjectStatusLabel(project.status)} {" -> "} {formatProjectStatusLabel(outcomeDecision || "")} - {outcomeDecision === "WON" ? formatIdr(Number(finalContractValue)) : lossReason}</p>}
+          {outcomeConfirming && (
+            <div className="rounded-xl border border-primary/30 bg-primary/5 p-3.5 space-y-1.5 text-xs">
+              <p className="font-semibold text-primary">{translateI18n("copy.confirmOutcomeTitle")}</p>
+              <p className="text-foreground">
+                <span className="text-muted-foreground">{translateI18n("copy.projectColon")}</span> <strong>{project.name}</strong>
+              </p>
+              <p className="text-foreground">
+                <span className="text-muted-foreground">{translateI18n("copy.statusLabel")}</span> {formatProjectStatusLabel(project.status)} {" → "} <strong>{formatProjectStatusLabel(outcomeDecision || "")}</strong>
+              </p>
+              <p className="text-muted-foreground">
+                {outcomeDecision === "WON" ? `${translateI18n("projectDetail.finalContractValue")}: ${formatIdr(parsedFinalContractValue, 2)}` : `${translateI18n("copy.lossReason")}: ${lossReason}`}
+              </p>
+              <p className="text-[11px] text-muted-foreground pt-1 border-t border-border/40">
+                {translateI18n("copy.confirmOutcomeHelp")}
+              </p>
+            </div>
+          )}
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => { setOutcomeDecision(null); setOutcomeConfirming(false); setError(""); }} disabled={setProjectOutcome.isPending || evidence.isUploading}>
+            <Button type="button" variant="outline" onClick={closeOutcome} disabled={setProjectOutcome.isPending || evidence.isUploading}>
               {translateI18n("common.cancel")}
             </Button>
-            <Button type="submit" disabled={setProjectOutcome.isPending || error === "businessAudit.stale"}>
-              {setProjectOutcome.isPending ? translateI18n("common.saving") : translateI18n(!outcomeConfirming ? "reviewConfirm.continue" : outcomeDecision === "WON" ? "projectDetail.recordWon" : "projectDetail.recordLost")}
+            <Button
+              type="submit"
+              disabled={setProjectOutcome.isPending || evidence.isUploading || error === "businessAudit.stale"}
+              className={outcomeDecision === "WON" && outcomeConfirming ? "bg-emerald-600 hover:bg-emerald-700 text-white" : ""}
+            >
+              {setProjectOutcome.isPending ? translateI18n("common.saving") : !outcomeConfirming ? translateI18n("copy.reviewBeforeSubmit") : outcomeDecision === "WON" ? translateI18n("projectDetail.recordWon") : translateI18n("projectDetail.recordLost")}
             </Button>
           </DialogFooter>
         </form>
       </Dialog>
 
-      {(project.status === "WON" || project.status === "LOST" || project.status === "COMPLETED") && (
-        <div className={`flex flex-col gap-4 rounded-lg border p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5 ${project.status === "LOST" ? "border-destructive/30 bg-destructive/10" : "border-emerald-500/30 bg-emerald-500/10"}`}>
+      {project.status === "COMPLETED" && (
+        <div className="flex flex-col gap-4 rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
           <div className="space-y-1">
-            <div className={`flex items-center gap-2 text-sm font-semibold tracking-tight ${project.status === "LOST" ? "text-destructive" : "text-success"}`}>
+            <div className="flex items-center gap-2 text-sm font-semibold tracking-tight text-success">
               <CheckCircle2 className="h-5 w-5 shrink-0" />
-              <span>{translateI18n(project.status === "COMPLETED" ? "ui.projectCompleted" : project.status === "WON" ? "ui.projectWon" : "ui.projectLost")} - 100%</span>
+              <span>{translateI18n("ui.projectCompleted")} - 100%</span>
             </div>
             <p className="text-xs text-muted-foreground">
               {translateI18n("projectDetail.resultComplete")}
             </p>
-            {project.status === "WON" && (
-              <p className="text-xs text-muted-foreground">{translateI18n("projectDetail.finalValueShown", { value: formatIdr(project.final_contract_value) })}</p>
-            )}
-            {project.status === "LOST" && project.loss_reason && (
-              <p className="text-xs text-muted-foreground">{translateI18n("projectDetail.lossReasonShown", { reason: project.loss_reason })}</p>
-            )}
           </div>
           <Badge variant="success" className="self-start px-3 py-1 text-xs sm:self-auto">
             {formatProjectStatusLabel(project.status)}
@@ -660,7 +850,11 @@ export default function ProjectDetailPage() {
               <h2 id="delivery-progress-heading" className="text-base font-semibold text-foreground">{translateI18n("copy.workProgress")}</h2>
               {progress && <p className="text-sm text-muted-foreground">{translateI18n("projectDetail.stagesFinished", { done: progress.completed, total: progress.total })}</p>}
             </div>
-            {progress && <span className="text-sm font-medium text-primary">{translateI18n("projectDetail.percentComplete", { percent: progress.percentage })}</span>}
+            {progress && (
+              <span className={`text-sm font-medium ${isCompleted || progress.percentage === 100 ? "text-success" : "text-primary"}`}>
+                {translateI18n("projectDetail.percentComplete", { percent: progress.percentage })}
+              </span>
+            )}
           </div>
           {milestonesError ? (
             <div className="mt-3 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
@@ -669,7 +863,10 @@ export default function ProjectDetailPage() {
             </div>
           ) : progress ? (
             <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-secondary/80">
-              <div className="h-full rounded-full bg-primary transition-all duration-500" style={{ width: `${progress.percentage}%` }} />
+              <div
+                className={`h-full rounded-full transition-all duration-500 ${isCompleted || progress.percentage === 100 ? "bg-[hsl(var(--success))]" : "bg-primary"}`}
+                style={{ width: `${progress.percentage}%` }}
+              />
             </div>
           ) : (
             <p className="mt-3 text-sm text-muted-foreground">{translateI18n("milestone.loading")}</p>
@@ -694,19 +891,20 @@ export default function ProjectDetailPage() {
                 </CardDescription>
               </div>
               <Badge variant="outline" className="self-start text-xs sm:self-auto">
-                {translateI18n("projectDetail.stageCount", { count: milestones.length })}
+                {translateI18n("projectDetail.stageCount", { count: visibleWorkStages.length })}
               </Badge>
             </div>
           </CardHeader>
           <CardContent className="space-y-3">
             {milestonesLoading ? (
               <p className="py-8 text-center text-muted-foreground">{translateI18n("milestone.loading")}</p>
-            ) : milestones.length === 0 ? (
+            ) : visibleWorkStages.length === 0 ? (
               <p className="py-8 text-center text-sm text-muted-foreground">{translateI18n("milestone.noMilestones")}</p>
             ) : (
-              milestones.map((milestone) => (
+              visibleWorkStages.map((milestone, index) => (
                 <MilestoneRow
                   key={milestone.id}
+                  displayIndex={index + 1}
                   project={project}
                   milestone={milestone}
                   isFinalMilestone={!milestones.some((candidate) => candidate.step_order > milestone.step_order)}
@@ -747,7 +945,7 @@ export default function ProjectDetailPage() {
       {user?.role === "SUPER_ADMIN" && <ProjectDeletionDangerZone project={project} />}
       <PlanReviewDialog open={Boolean(planReviewTarget)} onOpenChange={open => !open && !reviewProjectPlan.isPending && setPlanReviewTarget(null)}
         decision={planReviewTarget?.decision || 'APPROVE'} projectName={planReviewTarget?.projectName || project.name}
-        picRevision={project.pic_revision} currentPicName={project.pic?.full_name || project.pic?.fullName}
+        picRevision={project.pic_revision} currentPicId={project.pic?.id} currentPicName={project.pic?.full_name || project.pic?.fullName}
         phaseName={planReviewTarget?.phaseName || ''} targetApprovalId={planReviewTarget?.approvalId} approvalId={planApproval?.id} approvalStatus={planApproval?.status}
         workflowModel={project.active_scenario?.workflow_model || project.scenario?.workflow_model}
         workflowVersion={project.active_scenario?.workflow_version || project.scenario?.workflow_version}

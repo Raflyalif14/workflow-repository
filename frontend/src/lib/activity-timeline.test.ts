@@ -61,3 +61,15 @@ for (const locale of ['en', 'id'] as const) {
 assert.equal(JSON.stringify(scheduleChange), original, 'Formatting does not alter stored audit values');
 setActiveLanguage('en');
 console.log('Readable audit presentation EN/ID: passed');
+
+for(const locale of ['en','id'] as const){
+ setActiveLanguage(locale);
+ for(const action of ['MEETING_REQUESTED','MEETING_APPROVED','MEETING_REJECTED','MEETING_CANCELLED','MEETING_RESCHEDULE','MEETING_APPROVE_RESCHEDULE','MEETING_REJECT_RESCHEDULE','MEETING_MINUTES_SAVED']){
+  assert.notEqual(formatActivityAction(action),translate('activity.other'));
+  const detail=formatActivityDescription(action,'User meeting title');assert(detail?.includes('User meeting title'));assert(!detail?.includes(action));
+ }
+ for(const action of ['PIC_ASSIGNED','PROJECT_PLAN_SUBMITTED','PROJECT_PLAN_APPROVED'])assert.notEqual(formatActivityDescription(action,action),action);
+ assert.equal(formatActivityDescription('USER_NOTE','PROJECT_PLAN_APPROVED'),'PROJECT_PLAN_APPROVED','Custom user content stays intact');
+ assert.equal(formatActivityDescription('PROJECT_PLAN_APPROVED','Custom note'),'Custom note');
+}
+setActiveLanguage('en');

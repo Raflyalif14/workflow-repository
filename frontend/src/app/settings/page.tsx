@@ -11,6 +11,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { PersonalNotificationSettings } from "@/components/settings/personal-notification-settings";
 import { getAuthSession } from "@/lib/auth";
 import { AppearanceSettings } from "@/components/settings/appearance-settings";
+import { AccountProfileCard } from "@/components/settings/account-profile-card";
+import { ChangePasswordCard } from "@/components/settings/change-password-card";
 
 export default function SettingsPage() {
   const { user } = useAuth();
@@ -27,6 +29,9 @@ export default function SettingsPage() {
         <h1 className="text-3xl font-bold tracking-tight">{t("nav.settings")}</h1>
         <p className="mt-1 text-sm text-muted-foreground">{t("settings.personalDescription")}</p>
       </div>
+
+      <AccountProfileCard user={user} />
+      {user?.isActive && !user.mustChangePassword && <ChangePasswordCard />}
 
       <Card>
         <CardHeader>

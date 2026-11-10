@@ -162,6 +162,17 @@ const saOneWorkload = workload.find((item) => item.saId === 'sa-1');
 const saTwoWorkload = workload.find((item) => item.saId === 'sa-2');
 const saThreeWorkload = workload.find((item) => item.saId === 'sa-3');
 const idleSaWorkload = workload.find((item) => item.saId === 'sa-zero');
+assert(saOneWorkload?.workItems?.length === 4, 'SA details contain unfinished work and exclude completed work');
+assert(saOneWorkload?.workItems?.[0].id === 'milestone-sa', 'SA details use nearest deadline first');
+assert(Boolean(saOneWorkload?.workItems?.every(item => item.projectId === 'project-sa')), 'SA details are assigned to the correct SA and match Active Work');
+assert(saOneWorkload?.workItems?.filter(item => item.activeWork).length === saOneWorkload?.activeMilestoneCount, 'Detail Active Work count matches summary');
+assert(saThreeWorkload?.workItems?.length === 0 && idleSaWorkload?.workItems?.length === 0, 'Paused and idle work remains empty');
+const detailOverview = buildDashboardOverviewFromRows({ ...workloadRows, milestones: [...workloadRows.milestones,
+  { id:'upcoming-sa',name:'Prepare technical proposal',project_id:'project-sa',status:'CREATED',due_date:null,workflow_stage:{default_role:'SA'} },
+  { id:'sales-only',project_id:'project-sa',status:'IN_PROGRESS',due_date:null,workflow_stage:{default_role:'SALES'} },
+] }, headSa, today).saWorkload.find(item => item.saId === 'sa-1');
+assert(Boolean(detailOverview?.workItems?.some(item => item.name === 'Prepare technical proposal' && !item.activeWork)), 'Upcoming SA work is shown without inflating Active Work');
+assert(!detailOverview?.workItems?.some(item => item.id === 'sales-only'), 'SA details exclude Sales milestones');
 assert(workload.length === 4 && !workload.some((item) => item.saId === 'sa-inactive'), 'Test 16: HEAD_SA should receive every active SA and exclude inactive users');
 assert(saOneWorkload?.activeProjectCount === 1 && saOneWorkload.activeMilestoneCount === 3, 'Test 16: active SA work excludes completed milestones');
 assert(saOneWorkload?.revisionCount === 1, 'Test 16: output revisions must be attributed to the project PIC');
@@ -176,7 +187,11 @@ assert(buildDashboardOverviewFromRows(outputOnlyScenario, headSa, today).saWorkl
 assert(saTwoWorkload?.activeProjectCount === 1 && saTwoWorkload.activeMilestoneCount === 1 && saTwoWorkload.overdueCount === 1, 'Test 16: active projects must be distinct while actionable overdue milestones remain counted');
 assert(saThreeWorkload?.activeProjectCount === 0 && saThreeWorkload.activeMilestoneCount === 0, 'Test 16: postponed projects must not contribute to workload');
 assert(idleSaWorkload?.activeProjectCount === 0 && idleSaWorkload.activeMilestoneCount === 0 && idleSaWorkload.nearestDeadline === null, 'Test 16: active SAs without work must remain visible with zero values');
-assert(buildDashboardOverviewFromRows(workloadRows, sales, today).saWorkload.length === 0 && buildDashboardOverviewFromRows(workloadRows, sa, today).saWorkload.length === 0 && buildDashboardOverviewFromRows(workloadRows, superAdmin, today).saWorkload.length === 0, 'Test 16: non-HEAD_SA roles must not receive cross-SA workload');
+assert(buildDashboardOverviewFromRows(workloadRows, sales, today).saWorkload.length === 0, 'Sales does not receive the SA roster');
+const personalWorkload = buildDashboardOverviewFromRows(workloadRows, sa, today).saWorkload;
+assert(personalWorkload.length === 1 && personalWorkload[0].saId === sa.userId, 'SA only receives their own workload');
+assert(personalWorkload[0].workItems?.every(item => item.projectId === 'project-sa') === true, 'SA detail stays within assigned projects');
+assert(buildDashboardOverviewFromRows(workloadRows, superAdmin, today).saWorkload.length === 4, 'Admin receives team workload');
 console.log('Test 16 - Head SA SA-workload is role-scoped, actionable, and safely aggregated: passed');
 
 const resultRows: DashboardSourceRows = {

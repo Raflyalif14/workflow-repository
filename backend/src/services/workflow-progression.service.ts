@@ -35,10 +35,10 @@ type WorkflowMilestone = {
   completed_at: string | null;
   start_date?: string | null;
   duration_working_days?: number | null;
-  workflow_stage: { default_role: string } | { default_role: string }[] | null;
+  workflow_stage: { default_role: string; stage_key?: string | null } | { default_role: string; stage_key?: string | null }[] | null;
 };
 
-const milestoneSelect = 'id,project_id,phase_id,name,step_order,status,pic_id,completed_at,start_date,duration_working_days,workflow_stage:workflow_stages!project_milestones_workflow_stage_id_fkey(default_role)';
+const milestoneSelect = 'id,project_id,phase_id,name,step_order,status,pic_id,completed_at,start_date,duration_working_days,workflow_stage:workflow_stages!project_milestones_workflow_stage_id_fkey(default_role,stage_key)';
 
 const normalizeRelatedOne = <T>(value: T | T[] | null): T | null =>
   Array.isArray(value) ? value[0] || null : value || null;
@@ -334,7 +334,9 @@ export async function completeMilestoneStage(milestoneId: string, actor: Workflo
     if (!(milestone.status === 'COMPLETED' && ['WON', 'LOST'].includes(project.status) && !project.is_postponed)) {
       assertProjectIsActive(project);
     }
-    if (milestone.status !== 'IN_PROGRESS' && milestone.status !== 'COMPLETED') {
+    const canRecordWithoutManualStart = milestone.status === 'CREATED'
+      && normalizeRelatedOne(milestone.workflow_stage)?.stage_key === 'TENDER_PROCESS';
+    if (!canRecordWithoutManualStart && milestone.status !== 'IN_PROGRESS' && milestone.status !== 'COMPLETED') {
       throw new Error('Only IN_PROGRESS milestones can be completed.');
     }
     const parsed = projectOutcomeSchema.safeParse(outcomeInput);

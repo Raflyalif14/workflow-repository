@@ -1,9 +1,9 @@
 import { translate as translateI18n, getIntlLocale } from "@/i18n";
 
-export function formatIdr(value: number | null | undefined): string {
+export function formatIdr(value: number | null | undefined, maximumFractionDigits = 0): string {
   return value === null || value === undefined
     ? translateI18n("common.notAvailable")
-    : new Intl.NumberFormat(getIntlLocale(), { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(value);
+    : new Intl.NumberFormat(getIntlLocale(), { style: "currency", currency: "IDR", maximumFractionDigits }).format(value);
 }
 
 export function formatDate(value?: string | null) {

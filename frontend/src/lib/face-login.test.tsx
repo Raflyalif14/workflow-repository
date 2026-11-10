@@ -17,7 +17,7 @@ const find = (node: any, predicate: (v: any) => boolean): any => {
   for (const child of React.Children.toArray(node.props?.children)) { const value = find(child, predicate); if (value) return value; } return null;
 };
 async function run() {
-  const originals = { window: globalThis.window, api: api.apiClient, list: device.getFaceDevices, get: device.getFaceDevice, save: device.saveFaceDevice, capture: device.captureFaceFrame, burst: passive.captureFaceBurst,
+  const originals = { window: globalThis.window, api: api.apiClient, list: device.getFaceDevices, get: device.getFaceDevice, newDevice: device.newFaceDevice, save: device.saveFaceDevice, capture: device.captureFaceFrame, burst: passive.captureFaceBurst,
     document: globalThis.document, setTimeout: globalThis.setTimeout, clearTimeout: globalThis.clearTimeout,
     useCamera: camera.useCameraPreview, useAuth: auth.useAuth, useLanguage: language.useLanguage };
   const slots: any[] = [], cleanups: any[] = [];
@@ -26,6 +26,7 @@ async function run() {
   let user: any = { id: actor, isActive: true }, starts = 0, photos = 0, submissions = 0, enrollment = true, signedIn = 0, removals = 0;
   let delayStart: ((v: any) => void) | null = null, startSignal: AbortSignal | null = null;
   let delayCapture: ((v: Blob) => void) | null = null;
+  let accountMode = false, emptyBrowser = false, accountRequests = 0;
   let singleGlance = false, scans = 0, scanError = '', scanSignal: AbortSignal | null = null, delayScan: ((v: Blob[]) => void) | null = null;
   let now = 0, timerId = 0;
   const timers = new Map<number, { at: number; fn: () => void }>();
@@ -38,8 +39,9 @@ async function run() {
   (camera as any).useCameraPreview = () => ({ ...cameraState });
   (auth as any).useAuth = () => ({ user, completeFaceLogin: () => { signedIn++; } });
   (language as any).useLanguage = () => ({ t: (key: string) => key });
-  (device as any).getFaceDevices = async () => [stored];
-  (device as any).getFaceDevice = async (owner?: string) => owner && stored.owner && owner !== stored.owner ? null : stored;
+  (device as any).getFaceDevices = async () => emptyBrowser ? [] : [stored];
+  (device as any).newFaceDevice = async () => stored;
+  (device as any).getFaceDevice = async (owner?: string) => emptyBrowser ? null : owner && stored.owner && owner !== stored.owner ? null : stored;
   (device as any).saveFaceDevice = async (value: device.FaceDevice) => { stored = value; };
   (device as any).captureFaceFrame = async () => {
     photos++;
@@ -54,13 +56,15 @@ async function run() {
   };
   const challenge = (action: string) => ({ id: crypto.randomUUID(), nonce: 'fixture-nonce', deviceId: stored.id, action, direction: 'left', expiresAt: new Date(Date.now()+90000).toISOString() });
   (api as any).apiClient = async (path: string, options: any = {}) => {
-    if (path.endsWith('/capabilities')) return { enabled: true, singleGlance };
+    if (path.endsWith('/capabilities')) return { enabled: true, singleGlance, accountLogin: accountMode, faceIdentify: accountMode };
     if (path.endsWith('/device/remove') || path.endsWith('/devices/remove-all')) {
       assert.equal(JSON.parse(options.body).password, 'fixture-management-password'); removals++; return { removed: true };
     }
+    if (path.endsWith('/devices')) return {devices: stored.registered ? [{deviceId:stored.id}] : []};
     if (path.includes('/device/')) return { registered: stored.registered };
     if (path.endsWith('/start')) {
       startSignal = options.signal; assert.equal(JSON.parse(options.body).deviceId, stored.id);
+      if (!enrollment && accountMode) { assert.equal(JSON.parse(options.body).identify, true); assert.equal(JSON.parse(options.body).email, undefined); assert(JSON.parse(options.body).publicKey); accountRequests++; }
       if (delayStart) return new Promise(resolve => { delayStart = resolve; });
       return challenge(enrollment ? 'enroll' : singleGlance ? 'login-passive' : 'login');
     }
@@ -210,9 +214,26 @@ async function run() {
     await otherManager.props.onRemoved(null);
     assert.equal(stored.registered, true, 'Removing this account devices does not alter another account browser key');
     console.log('Camera UI PASS: 3-pose enrollment/fallback, one-glance single burst and signed submission, scan failure/cancel/logout, countdown/manual controls, camera failure, expiry, password excluded and EN/ID. Camera/provider/storage and clock mocked.');
+    accountMode = true; emptyBrowser = false; stored = { ...stored, registered: true };
+    await reset();
+    assert(!button('faceLogin.signIn').props.disabled);
+    assert(!find(render(), n => n.props?.id === 'face-login-email'));
+    assert(!find(render(), n => n.props?.id === 'face-account'));
+    // A new browser has no registration or remembered account, but can use the server template.
+    accountMode = true; emptyBrowser = true;
+    stored = { ...stored, registered: false, owner: undefined }; scanError = ''; delayScan = null;
+    await reset(); const beforeAccountLogin = signedIn;
+    assert(!button('faceLogin.signIn').props.disabled);
+    click('faceLogin.signIn'); await until(() => signedIn === beforeAccountLogin + 1);
+    assert.equal(stored.registered, false, 'Cross-browser login does not re-enroll the face');
+    await reset(true); stored = { ...stored, registered: true, owner: actor };
+    // The settings status comes from the server even without a local browser key.
+    await reset(true);
+    assert(find(render(), n => n.props?.children === 'faceAccount.registered'));
   } finally {
     cleanups.forEach(fn=>fn?.()); (globalThis as any).window=originals.window;
     (globalThis as any).document=originals.document; globalThis.setTimeout=originals.setTimeout; globalThis.clearTimeout=originals.clearTimeout;
+    (device as any).newFaceDevice=originals.newDevice;
     (api as any).apiClient=originals.api; (device as any).getFaceDevices=originals.list; (device as any).getFaceDevice=originals.get; (device as any).saveFaceDevice=originals.save; (device as any).captureFaceFrame=originals.capture;
     (passive as any).captureFaceBurst=originals.burst;
     (camera as any).useCameraPreview=originals.useCamera; (auth as any).useAuth=originals.useAuth; (language as any).useLanguage=originals.useLanguage;

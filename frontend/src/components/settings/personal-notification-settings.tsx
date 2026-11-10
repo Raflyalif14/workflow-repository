@@ -409,7 +409,9 @@ export function PersonalNotificationSettings() {
                   <div className="flex items-center justify-between gap-4">
                     <div>
                       <p className="text-sm font-medium text-foreground">{translateI18n("copy.enableTelegram")}</p>
-                      <p className="mt-1 text-xs text-muted-foreground">{translateI18n("copy.telegramOff")}</p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {translateI18n(preferences.telegram_enabled ? "notificationSettings.telegramOn" : "copy.telegramOff")}
+                      </p>
                     </div>
                     <PreferencesToggle
                       id="telegram-enabled"

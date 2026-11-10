@@ -1,6 +1,8 @@
 "use client";
 
 import { CalendarClock, Check, ClipboardCheck, Eye, X } from "lucide-react";
+import { useRouter } from "next/navigation";
+import {MeetingActions} from '@/components/projects/project-meetings';
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { translate as translateI18n, getIntlLocale, translateOutputName } from "@/i18n";
@@ -18,6 +20,7 @@ export function ApprovalRow({
   onOpenAction: (item: ApprovalItem, action: "APPROVE" | "REJECT") => void;
 }) {
   const isClickable = Boolean(item.projectId);
+  const router = useRouter();
 
   return (
     <div
@@ -25,6 +28,11 @@ export function ApprovalRow({
       role={isClickable ? "link" : undefined}
       tabIndex={isClickable ? 0 : undefined}
       aria-label={isClickable ? translateI18n("approvalUi.openProject", { name: item.projectName }) : undefined}
+      onMouseEnter={() => {
+        if (item.projectId) {
+          router.prefetch(`/projects/${item.projectId}`);
+        }
+      }}
       onClick={() => {
         if (isClickable) onOpenProject();
       }}
@@ -44,7 +52,7 @@ export function ApprovalRow({
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <ApprovalCategoryIcon category={item.category} />
-            <span className="text-xs text-muted-foreground">{translateI18n(item.category === "OUTPUT_DOCUMENT" ? "outputQueue.category" : item.category === "PROJECT_PLAN" ? "approvalUi.projectPlans" : "approvalUi.deadlineChanges")}</span>
+            <span className="text-xs text-muted-foreground">{translateI18n(item.category === "MEETING" ? "meetings.meeting" : item.category === "OUTPUT_DOCUMENT" ? "outputQueue.category" : item.category === "PROJECT_PLAN" ? "approvalUi.projectPlans" : "approvalUi.deadlineChanges")}</span>
             <StatusBadge status={item.status} />
             {item.stepOrder != null && (
               <Badge variant="outline">{translateI18n("approvalUi.step", { number: item.stepOrder })}</Badge>
@@ -62,6 +70,7 @@ export function ApprovalRow({
             <p>{translateI18n("outputQueue.snapshot", { version: item.versionNumber ?? "\u2014", count: item.fileCount ?? "\u2014" })}</p>
             {item.reviewBlockedReason && <p className="text-warning">{translateI18n(`outputQueue.${item.reviewBlockedReason}`)}</p>}
           </div>}
+          {item.meeting&&<div className="mt-3 space-y-1 text-xs text-muted-foreground"><p>{new Date(item.meeting.proposedSchedule?.startsAt||item.meeting.startsAt).toLocaleString(getIntlLocale())}</p>{item.meeting.proposedSchedule&&<p>{translateI18n('meetings.reschedulePending')}</p>}{item.reviewNote&&<p>{item.reviewNote}</p>}</div>}
           <ApprovalSummary item={item} />
         </div>
 
@@ -70,7 +79,7 @@ export function ApprovalRow({
           onClick={(event) => event.stopPropagation()}
           onKeyDown={(event) => event.stopPropagation()}
         >
-          {item.category === "OUTPUT_DOCUMENT" ? (
+          {item.category === "MEETING" && item.meeting ? <><MeetingActions meeting={item.meeting}/><Button size="sm" variant="outline" onClick={onOpenProject}>{translateI18n('approvalUi.viewDetails')}</Button></> : item.category === "OUTPUT_DOCUMENT" ? (
             <Button size="sm" variant="outline" onClick={onOpenProject}>
               {translateI18n(item.canReview ? "outputQueue.openReview" : "outputQueue.viewOutput")}
             </Button>
@@ -118,6 +127,8 @@ function StatusBadge({ status }: { status: ApprovalStatus }) {
       return <Badge variant="success">{translateI18n("milestoneStatus.APPROVED")}</Badge>;
     case "REJECTED":
       return <Badge variant="destructive">{translateI18n("approvalStatus.REJECTED")}</Badge>;
+    case "CANCELLED":
+      return <Badge variant="outline">{translateI18n("meetings.CANCELLED")}</Badge>;
     case "SUPERSEDED":
       return <Badge variant="outline">{translateI18n("documentStatus.SUPERSEDED")}</Badge>;
     default:

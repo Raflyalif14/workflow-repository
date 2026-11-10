@@ -146,6 +146,12 @@ export async function testProjectReviewDialogs() {
       change(plan(), 'project-plan-review-note', 'Needs revision');
       await submit(plan()); await submit(plan());
       assert.deepEqual((writes[0] as any[]).slice(0, 4), ['Needs revision', undefined, 'plan-1', '8']);
+      reset(); writes.length = 0; planProps.decision = 'APPROVE'; planProps.currentPicId = 'sa-1';
+      assert.equal(plan().find(node => node.props.id === 'project-plan-pic')!.props.value, 'sa-1');
+      assert.equal(plan().find(node => node.props.id === 'project-plan-pic')!.props.disabled, true);
+      assert.equal(plan().find(node => node.props.id === 'project-plan-review-note')!.props.disabled, false);
+      await submit(plan()); await submit(plan());
+      assert.equal((writes[0] as any[])[1], 'sa-1', 'Carried PIC submitted without selecting again');
       planProps.isPending = true; assert(submitButton(plan()).props.disabled);
     }
     console.log('Project review dialogs: deadline validation, confirmation, duplicate/stale guards, PIC selection and conflict, reviewed revision, reject reason, and EN/ID passed.');

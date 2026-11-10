@@ -50,14 +50,15 @@ try {
     for (const current of ["SALES", "SA", "HEAD_SA", "SUPER_ADMIN"]) {
       role = current; mode = "ready";
       const html = render();
-      const order = ["next-task-heading", "project-delivery-heading", ...(role === 'HEAD_SA' ? [] : ["dashboard-summary-heading"]), "delivery-health-heading", "recent-activity-heading"]
+      const order = ["next-task-heading", "project-delivery-heading", ...(['HEAD_SA','SA'].includes(role) ? [] : ["dashboard-summary-heading"]), "delivery-health-heading", "recent-activity-heading"]
         .map(id => html.indexOf(`id="${id}"`));
       assert(order.every(index => index >= 0));
       assert(order.every((index, n) => n === 0 || index > order[n - 1]), "Work precedes project context, summaries and activity");
+      if (role === 'SA') { assert(html.includes(translate('roleDashboard.myWork'))); assert(!html.includes('id="dashboard-summary-heading"')); }
       if (role === 'HEAD_SA') assert(!html.includes('id="dashboard-summary-heading"'), 'Workspace Summary is removed from Head SA');
-      else assert(html.includes(translate(role === 'SALES' ? 'salesPipeline.title' : 'dashboardPage.summary')));
-      assert.equal(html.includes('id="sa-workload-heading"'), role === "HEAD_SA");
-      assert.equal(html.includes('id="head-sa-project-values-heading"'), role === "HEAD_SA");
+      else if (role !== 'SA') assert(html.includes(translate(role === 'SALES' ? 'salesPipeline.title' : 'dashboardPage.summary')));
+      assert.equal(html.includes('id="sa-workload-heading"'), ["HEAD_SA","SUPER_ADMIN","SA"].includes(role));
+      assert.equal(html.includes('id="head-sa-project-values-heading"'), ["HEAD_SA","SUPER_ADMIN"].includes(role));
       if (role === "HEAD_SA" || role === "SA") assert(html.includes('href="/projects/p#milestone-outputs-m"'), "Review/revision opens the existing workspace");
       if (role === "HEAD_SA") assert(html.includes(translate("dashboardPage.waitingOnOthers")), "Waiting information is distinguished from actions");
       assert(!html.includes('action="'), "Dashboard never adds direct approval mutations");

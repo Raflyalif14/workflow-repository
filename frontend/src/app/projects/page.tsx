@@ -1,8 +1,9 @@
 "use client";
+import {ListPagination} from "@/components/list-pagination";
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { CheckCircle2, ClipboardList, FolderKanban, Layers3, Plus, Search, X } from "lucide-react";
+import { CheckCircle2, ClipboardList, FolderKanban, Info, Layers3, Plus, Search, X } from "lucide-react";
 import { ListSummary } from '@/components/list-summary';
 import { useLanguage } from "@/components/i18n/language-provider";
 import { useAuth } from "@/components/auth/auth-provider";
@@ -58,11 +59,14 @@ export default function ProjectsPage() {
     [data?.projects, userRole]
   );
 
+  const isSinglePage = !pagination || (pagination.totalPages ?? 1) <= 1;
+  const summary = data?.summary;
+  const isGlobal = Boolean(summary) || isSinglePage;
   const snapshot = [
     { label: translateI18n("listSummary.projectTotal"), value: pagination?.total ?? '—', scope: translateI18n('listSummary.allResults'), icon: Layers3, primary: true },
-    { label: translateI18n("listSummary.projectActive"), value: projects.filter((item) => item.status === "ACTIVE").length, scope: translateI18n('listSummary.thisPage'), icon: FolderKanban },
-    { label: translateI18n("listSummary.projectPlanning"), value: projects.filter((item) => item.status === "DRAFT").length, scope: translateI18n('listSummary.thisPage'), icon: ClipboardList },
-    { label: translateI18n("listSummary.projectComplete"), value: projects.filter((item) => isProjectDeliveryCompleted(item.status)).length, scope: translateI18n('listSummary.thisPage'), icon: CheckCircle2 },
+    { label: translateI18n("listSummary.projectActive"), value: summary ? summary.active : projects.filter((item) => item.status === "ACTIVE").length, scope: isGlobal ? translateI18n('listSummary.scopeActive') : translateI18n('listSummary.thisPage'), icon: FolderKanban },
+    { label: translateI18n("listSummary.projectPlanning"), value: summary ? summary.planning : projects.filter((item) => item.status === "DRAFT").length, scope: isGlobal ? translateI18n('listSummary.scopePlanning') : translateI18n('listSummary.thisPage'), icon: ClipboardList },
+    { label: translateI18n("listSummary.projectComplete"), value: summary ? summary.completed : projects.filter((item) => isProjectDeliveryCompleted(item.status)).length, scope: isGlobal ? translateI18n('listSummary.scopeComplete') : translateI18n('listSummary.thisPage'), icon: CheckCircle2 },
   ];
 
   const hasFilters = Boolean(search || scenarioId || status !== "ALL");
@@ -91,7 +95,7 @@ export default function ProjectsPage() {
           <PageDataFeedback refreshing={isFetching && !isLoading} />
         </div>
         {userRole === "SALES" && (
-          <Link href="/projects/new" className="self-start sm:self-auto">
+          <Link href="/projects/new" prefetch={true} className="self-start sm:self-auto">
             <Button className="gap-2">
               <Plus className="h-4 w-4" />
               {translateI18n("project.create")}
@@ -101,9 +105,9 @@ export default function ProjectsPage() {
       </header>
 
       {/* Snapshot Summary Cards */}
-      <ListSummary aria-label={translateI18n('projectsList.snapshot')} description={translateI18n('listSummary.projectHelp')}
+      <ListSummary aria-label={translateI18n('projectsList.snapshot')} description={translateI18n(isSinglePage ? 'listSummary.projectHelpSingle' : 'listSummary.projectHelp')}
         items={snapshot} loading={isLoading} hasError={isError} refreshing={isFetching && !isLoading} />
-      <p className="px-2 text-xs leading-5 text-muted-foreground">{translateI18n('listSummary.projectCompleteHelp')}</p>
+      <div className="flex items-center gap-1.5 px-2 text-xs leading-5 text-muted-foreground"><Info className="h-3.5 w-3.5 shrink-0 text-muted-foreground/80" aria-hidden="true" /><span>{translateI18n('listSummary.projectCompleteHelp')}</span></div>
 
       {/* Project Table & Filters */}
       <section className="overflow-hidden page-surface">
@@ -166,16 +170,17 @@ export default function ProjectsPage() {
                 </option>
               ))}
             </select>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-10 gap-1.5"
-              disabled={!hasFilters}
-              onClick={resetFilters}
-            >
-              <X className="h-3.5 w-3.5" />
-              {translateI18n("projectsList.reset")}
-            </Button>
+            {hasFilters && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-10 gap-1.5"
+                onClick={resetFilters}
+              >
+                <X className="h-3.5 w-3.5" />
+                {translateI18n("projectsList.reset")}
+              </Button>
+            )}
           </div>
         </div>
 
@@ -219,32 +224,7 @@ export default function ProjectsPage() {
           </div>
         )}
 
-        {/* Pagination Bar */}
-        {!isLoading && !isError && projects.length > 0 && (
-          <div className="flex flex-col gap-3 border-t border-border/60 px-4 py-3 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between sm:px-5">
-            <span>
-              {translateI18n("projectsList.showing", { shown: projects.length, total: pagination?.total || 0 })}
-            </span>
-            <div className="flex gap-2 self-end sm:self-auto">
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={!pagination?.hasPrevPage}
-                onClick={() => setPage((current) => Math.max(1, current - 1))}
-              >
-                {translateI18n("projectsList.previous")}
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={!pagination?.hasNextPage}
-                onClick={() => setPage((current) => current + 1)}
-              >
-                {translateI18n("common.next")}
-              </Button>
-            </div>
-          </div>
-        )}
+        {!isLoading&&!isError&&pagination&&<ListPagination page={pagination.page} pages={pagination.totalPages} total={pagination.total} pageSize={10} onPageChange={setPage}/>}
       </section>
     </div>
   );

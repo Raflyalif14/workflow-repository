@@ -28,7 +28,7 @@ export function StatusBadge({ status, label }: { status: string; label?: string 
     case "LOST":
       return <Badge variant="destructive">{translateI18n("projectStatus.LOST")}</Badge>;
     case "DRAFT":
-      return <Badge variant="outline">{formatProjectStatusLabel(status)}</Badge>;
+      return <Badge variant="secondary">{formatProjectStatusLabel(status)}</Badge>;
     case "CREATED":
       return <Badge variant="outline">{formatMilestoneStatusLabel(status)}</Badge>;
     default:

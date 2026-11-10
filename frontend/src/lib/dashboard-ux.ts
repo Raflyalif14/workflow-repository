@@ -472,7 +472,7 @@ export const getDashboardQueueTitle = (role: DashboardRole): string => {
   }
 };
 
-export const shouldShowSaWorkload = (role: DashboardRole): boolean => role === "HEAD_SA";
+export const shouldShowSaWorkload = (role: DashboardRole): boolean => ["HEAD_SA", "SUPER_ADMIN", "SA"].includes(role || "");
 
 export const getAdditionalDashboardItems = (items: DashboardWorkItem[], limit = 4): DashboardWorkItem[] =>
   sortDashboardItems(items).slice(1, limit + 1);
@@ -596,7 +596,7 @@ const getProjectHealthPriority = (project: DashboardProjectHealth, role: Dashboa
   if (role === "SUPER_ADMIN" && project.status === "ACTIVE" && project.percentage !== null && project.percentage < 25) return 2;
   if (project.status === "ACTIVE") return 3;
   if (project.status === "DRAFT") return 4;
-  if (["COMPLETED", "CANCELLED", "WON", "LOST"].includes(project.status)) return 7;
+  if (["COMPLETED", "CANCELLED", "WON", "LOST"].includes(project.status) || project.percentage === 100) return 7;
   if (project.targetEndDate && formatDashboardDate(project.targetEndDate)) return 5;
   return 6;
 };

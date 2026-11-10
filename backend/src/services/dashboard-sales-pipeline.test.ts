@@ -36,6 +36,7 @@ assert.equal(buildDashboardOverviewFromRows(rows(projects),{userId:'head',role:'
 const headPipeline = buildDashboardOverviewFromRows(rows(projects),{userId:'head',role:'HEAD_SA'}).projectPipeline!;
 assert.equal(headPipeline.submissionTender.advancedFromPreTender,6,'Head SA counts transitions across Sales owners');
 assert.deepEqual(headPipeline.results,{won:2,lost:1,finalRevenue:140});
-for (const role of ['SALES','SA','SUPER_ADMIN']) assert.equal(buildDashboardOverviewFromRows(rows(projects),{userId:'mine',role}).projectPipeline,null);
+assert.deepEqual(buildDashboardOverviewFromRows(rows(projects),{userId:'admin',role:'SUPER_ADMIN'}).projectPipeline,headPipeline,'Admin sees the complete project pipeline');
+for (const role of ['SALES','SA']) assert.equal(buildDashboardOverviewFromRows(rows(projects),{userId:'mine',role}).projectPipeline,null);
 assert.deepEqual(summary([]),{preTender:{active:0,postponed:0,estimatedRevenue:0},submissionTender:{advancedFromPreTender:0,inProgress:0,waitingResult:0,postponed:0,estimatedRevenue:0},results:{won:0,lost:0,finalRevenue:0}});
 console.log('Sales pipeline: current phase, genuine transitions, direct entry, unique projects, revenue boundaries and actor scoping passed.');

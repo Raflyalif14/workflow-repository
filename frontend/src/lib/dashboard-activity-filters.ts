@@ -10,6 +10,7 @@ export type ActivityFilterDraft = {
 };
 export const EMPTY_ACTIVITY_FILTERS: ActivityFilterDraft = { projectId: "", kind: "", period: "all", from: "", to: "" };
 export const ACTIVITY_KIND_LABELS: Record<DashboardActivityKind, TranslationKey> = {
+  MEETING: "meetings.meeting",
   PROJECT: "activityFilters.projectChanges", MILESTONE: "activityFilters.milestones",
   DOCUMENT: "activityFilters.documents", APPROVAL: "activityFilters.approvals", ASSIGNMENT: "activityFilters.assignments",
 };

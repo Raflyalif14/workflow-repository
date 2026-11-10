@@ -1,3 +1,5 @@
+import {readApprovalRows} from './approval-rows';
+import {dashboardMeetingTasks,DashboardMeetingRow} from './dashboard-meeting-tasks';
 import { supabaseAdmin } from '../config/supabase';
 import { getDateOnlyKeyInTimeZone } from '../utils/dates';
 import { UserRole } from '../validators/auth.validator';
@@ -5,7 +7,9 @@ import { RequestTiming, timeOperation } from '../utils/request-timing';
 import { DASHBOARD_ACTIVITY_ACTIONS } from '../constants/dashboard-activity';
 import type { DashboardActivityFilters } from '../validators/dashboard-activity.validator';
 import { compareMilestoneSchedule } from '../utils/milestone-order';
-import { resolveScenarioKey } from '../constants/scenarios';
+import { resolveScenarioKey, ALL_OUTPUT_DEFINITIONS } from '../constants/scenarios';
+
+const outputDefinitionMap = new Map(ALL_OUTPUT_DEFINITIONS.map(d => [d.key, d.name]));
 
 export const DASHBOARD_ACTIVITY_PAGE_SIZE = 8;
 
@@ -57,8 +61,8 @@ export type DashboardProjectRow = {
   current_scenario_id?: string | null;
   active_phase_id?: string | null;
   phase_migration_state?: string | null;
-  active_phase?: { id: string; project_id: string; scenario_id: string; phase_key: string } | null;
-  phases?: Array<{ id: string; project_id: string; scenario_id: string; phase_key: string }>;
+  active_phase?: { id: string; project_id: string; scenario_id: string; phase_key: string; status?: string; sales_decision?: string|null } | null;
+  phases?: Array<{ id: string; project_id: string; scenario_id: string; phase_key: string; status?: string; sales_decision?: string|null }>;
   sales_id: string | null;
   pic_id: string | null;
   status: string;
@@ -80,7 +84,7 @@ export type DashboardMilestoneRow = {
   start_date?: string | null;
   duration_working_days?: number | null;
   step_order?: number;
-  workflow_stage?: { default_role: string } | { default_role: string }[] | null;
+  workflow_stage?: { default_role: string; stage_key?: string | null } | { default_role: string; stage_key?: string | null }[] | null;
 };
 
 export type DashboardScenarioRow = {
@@ -124,6 +128,7 @@ export type DashboardOutputDocumentRow = {
   status: string;
   is_required: boolean;
   is_selected: boolean;
+  document_key?: string | null;
 };
 
 export type DashboardOutputDocuments = {
@@ -285,6 +290,9 @@ export type DashboardSaUserRow = {
 };
 
 export type DashboardSaWorkload = {
+  workItems?: Array<{ id: string; projectId: string; projectName: string; name: string;
+    status: string; dueDate: string | null; startDate: string | null; activeWork: boolean }>;
+
   saId: string;
   saName: string;
   activeProjectCount: number;
@@ -296,6 +304,7 @@ export type DashboardSaWorkload = {
 };
 
 export type DashboardSourceRows = {
+  meetings?: DashboardMeetingRow[];
   projects: DashboardProjectRow[];
   milestones: DashboardMilestoneRow[];
   scenarios: DashboardScenarioRow[];
@@ -417,6 +426,14 @@ function buildSaWorkload(
         .filter((dueDate): dueDate is string => Boolean(dueDate));
 
       return {
+        workItems: saMilestones.filter(milestone => !isMilestoneCompletedLike(milestone.status)
+          && (!milestone.workflow_stage || (Array.isArray(milestone.workflow_stage) ? milestone.workflow_stage[0]?.default_role : milestone.workflow_stage.default_role) === 'SA'))
+          .map(milestone => ({ id: milestone.id, projectId: milestone.project_id,
+            projectName: activeProjectById.get(milestone.project_id)!.name,
+            name: milestone.name || 'Milestone', status: milestone.status,
+            dueDate: getValidDateOnly(milestone.due_date), startDate: getValidDateOnly(milestone.start_date || null),
+            activeWork: SA_ACTIONABLE_MILESTONE_STATUSES.has(milestone.status),
+          })).sort((a,b) => (a.dueDate || '9999').localeCompare(b.dueDate || '9999') || a.id.localeCompare(b.id)),
         saId: sa.id,
         saName: sa.full_name || 'Solution Architect',
         activeProjectCount: saProjects.length,
@@ -435,7 +452,7 @@ function sortNewestFirst<T extends { created_at?: string | null; updated_at?: st
   );
 }
 
-function calculateProjectProgress(project: DashboardProjectRow, milestones: DashboardMilestoneRow[], today: string) {
+function calculateProjectProgress(project: DashboardProjectRow, milestones: DashboardMilestoneRow[], today: string, outputs: DashboardOutputDocumentRow[] = []) {
   const total = milestones.length;
   const deliveryCompleted = ['COMPLETED', 'WAITING_RESULT', 'WON', 'LOST'].includes(project.status);
   const completed = deliveryCompleted
@@ -447,6 +464,16 @@ function calculateProjectProgress(project: DashboardProjectRow, milestones: Dash
       ? Math.round((completed / total) * 100)
       : 0;
   const overdue = countOverdueMilestones(milestones, [project], today);
+
+  const activeMilestone = [...milestones].filter(m => !isMilestoneCompletedLike(m.status)).sort(compareMilestoneSchedule)[0];
+  let currentStage = activeMilestone?.name || null;
+  if (activeMilestone && activeMilestone.name?.trim().toLowerCase() === 'deliverables') {
+    const selectedOutputs = outputs.filter(o => o.milestone_id === activeMilestone.id && (o.is_required || o.is_selected));
+    const outputNames = selectedOutputs.map(o => o.document_key ? (outputDefinitionMap.get(o.document_key) || o.document_key) : null).filter(Boolean);
+    if (outputNames.length > 0) {
+      currentStage = outputNames.join(' • ');
+    }
+  }
 
   return {
     id: project.id,
@@ -462,7 +489,7 @@ function calculateProjectProgress(project: DashboardProjectRow, milestones: Dash
     percentage,
     estimatedRevenue: project.estimated_revenue == null ? null : Number(project.estimated_revenue),
     finalRevenue: project.status === 'WON' && project.final_contract_value != null ? Number(project.final_contract_value) : null,
-    currentStage: [...milestones].filter(m => !isMilestoneCompletedLike(m.status)).sort(compareMilestoneSchedule)[0]?.name || null,
+    currentStage,
   };
 }
 
@@ -476,10 +503,12 @@ export function buildDashboardOverviewFromRows(
   const phaseByProject = new Map(projects.map(project => [project.id, project.active_phase_id]));
   const milestones = rows.milestones.filter((milestone) => projectIds.has(milestone.project_id) && (!phaseByProject.get(milestone.project_id) || milestone.phase_id === phaseByProject.get(milestone.project_id)));
   const milestoneIds = new Set(milestones.map((milestone) => milestone.id));
+  const outputRows = (rows.outputDocuments || []).filter((output) => projectIds.has(output.project_id) && (!phaseByProject.get(output.project_id) || output.phase_id === phaseByProject.get(output.project_id)));
   const scenarioMap = new Map(rows.scenarios.map((scenario) => [scenario.id, scenario.name]));
   const userMap = new Map(rows.users.map((user) => [user.id, user]));
   const projectMap = new Map(projects.map((project) => [project.id, project]));
 
+  const meetingTasks=dashboardMeetingTasks(rows.meetings||[],projects,actor);
   const statusCounts = new Map<string, number>();
   for (const project of projects) {
     statusCounts.set(project.status, (statusCounts.get(project.status) || 0) + 1);
@@ -504,7 +533,8 @@ export function buildDashboardOverviewFromRows(
       ({ ...calculateProjectProgress(
         project,
         milestones.filter((milestone) => milestone.project_id === project.id),
-        today
+        today,
+        outputRows.filter((o) => o.project_id === project.id)
       ), scenarioKey: project.active_phase?.phase_key || resolveScenarioKey(scenarioMap.get(project.current_scenario_id || project.scenario_id || '')) })
     );
 
@@ -538,7 +568,6 @@ export function buildDashboardOverviewFromRows(
       .filter((project) => project.status === 'ACTIVE' && !project.is_postponed)
       .map((project) => project.id)
   );
-  const outputRows = (rows.outputDocuments || []).filter((output) => projectIds.has(output.project_id) && (!phaseByProject.get(output.project_id) || output.phase_id === phaseByProject.get(output.project_id)));
   const projectNameFor = (projectId: string) => projectMap.get(projectId)?.name || 'Project';
   const countByMilestone = (status: string) => {
     const groups = new Map<string, { projectId: string; milestoneId: string; projectName: string; count: number }>();
@@ -599,9 +628,16 @@ export function buildDashboardOverviewFromRows(
           }), { count: 0, finalContractValue: 0 }),
       }
     : null;
-  const saWorkload = actor.role === 'HEAD_SA'
-    ? buildSaWorkload({ ...rows, outputDocuments: outputRows }, projects, milestones, today)
+  const saWorkload = ['HEAD_SA', 'SUPER_ADMIN', 'SA'].includes(actor.role)
+    ? buildSaWorkload({ ...rows, saUsers: actor.role === 'SA' ? (rows.saUsers || []).filter(sa => sa.id === actor.userId) : rows.saUsers, outputDocuments: outputRows }, projects, milestones, today)
     : [];
+  const phaseDecisionTasks=projects.flatMap(project=>{
+    const phase=project.phases?.find(p=>p.id===project.active_phase_id)||project.active_phase;
+    if(actor.role!=='SALES'||project.sales_id!==actor.userId||project.status!=='ACTIVE'||project.is_postponed
+      ||!phase||phase.id!==project.active_phase_id||phase.project_id!==project.id||phase.phase_key!=='PRA_TENDER'||phase.status!=='COMPLETED'
+      ||phase.sales_decision||project.phases?.some(p=>p.phase_key==='ON_SUBMISSION_TENDER'))return [];
+    return [{id:`phase-decision-${project.id}`,projectId:project.id,projectName:project.name,name:'Decide next step after Pra-Tender',action:'PRA_TENDER_DECISION',status:'CREATED',dueDate:null as string|null,startDate:null as string|null,href:`/projects/${project.id}#project-phase-panel`}];
+  });
   const planTasks = projects.flatMap(project => {
     const pending = rows.projectPlanApprovals.some(a => a.project_id === project.id && a.status === 'PENDING');
     const headTask = ['HEAD_SA','SUPER_ADMIN'].includes(actor.role) && (project.status === 'DRAFT' && pending || project.status === 'ACTIVE' && !project.pic_id);
@@ -648,7 +684,7 @@ export function buildDashboardOverviewFromRows(
     saWorkload,
     salesResults,
     salesPipeline: actor.role === 'SALES' ? buildProjectPipeline(projects, scenarioMap) : null,
-    projectPipeline: actor.role === 'HEAD_SA' ? buildProjectPipeline(projects, scenarioMap) : null,
+    projectPipeline: ['HEAD_SA', 'SUPER_ADMIN'].includes(actor.role) ? buildProjectPipeline(projects, scenarioMap) : null,
     headSaProjectValues,
     workTasks: milestones.filter(m => {
       const p = projectMap.get(m.project_id);
@@ -658,7 +694,19 @@ export function buildDashboardOverviewFromRows(
         || actor.role === 'SALES' && role === 'SALES' && p.sales_id === actor.userId
         || actor.role === 'SA' && role === 'SA' && (m.pic_id || p.pic_id) === actor.userId;
     }).sort((a,b) => (a.due_date || '9999-12-31').localeCompare(b.due_date || '9999-12-31') || compareMilestoneSchedule(a,b))
-      .map(m => ({ id: m.id, projectId: m.project_id, projectName: projectMap.get(m.project_id)!.name, name: m.name!, status: m.status, dueDate: m.due_date, startDate: m.start_date || null, href:`/projects/${m.project_id}#project-milestone-${m.id}` })).concat(planTasks),
+      .map(m => {
+        const stage = Array.isArray(m.workflow_stage) ? m.workflow_stage[0] : m.workflow_stage;
+        const selectedOutputs = outputRows.filter(o => o.milestone_id === m.id && (o.is_required || o.is_selected));
+        const outputNames = selectedOutputs.map(o => o.document_key ? (outputDefinitionMap.get(o.document_key) || o.document_key) : null).filter(Boolean);
+        const resolvedName = (m.name?.trim().toLowerCase() === 'deliverables' && outputNames.length > 0)
+          ? outputNames.join(' • ')
+          : m.name!;
+        return { id: m.id, projectId: m.project_id, projectName: projectMap.get(m.project_id)!.name, name: resolvedName, status: m.status,
+          dueDate: m.due_date, startDate: m.start_date || null, href:`/projects/${m.project_id}#project-milestone-${m.id}`,
+          ...(stage?.default_role === 'SALES' ? { salesTask: true } : {}),
+          ...(actor.role === 'SALES' && stage?.stage_key === 'TENDER_PROCESS' ? { tenderResultTask: true } : {}),
+        };
+      }).concat(planTasks).concat(meetingTasks).concat(phaseDecisionTasks),
   };
 }
 
@@ -675,7 +723,7 @@ async function getScopedProjects(actor: DashboardActor, activityOnly = false) {
   for (let offset = 0; ; offset += pageSize) {
     let query = supabaseAdmin
       .from('projects')
-      .select(activityOnly ? 'id,name,sales_id,pic_id' : 'id,name,customer,scenario_id,current_scenario_id,active_phase_id,phase_migration_state,active_phase:project_phases!projects_active_phase_id_fkey(id,project_id,scenario_id,phase_key),phases:project_phases!project_phases_project_id_fkey(id,project_id,scenario_id,phase_key),sales_id,pic_id,status,is_postponed,estimated_revenue,final_contract_value,created_at,updated_at')
+      .select(activityOnly ? 'id,name,sales_id,pic_id' : 'id,name,customer,scenario_id,current_scenario_id,active_phase_id,phase_migration_state,active_phase:project_phases!projects_active_phase_id_fkey(id,project_id,scenario_id,phase_key,status,sales_decision),phases:project_phases!project_phases_project_id_fkey(id,project_id,scenario_id,phase_key,status,sales_decision),sales_id,pic_id,status,is_postponed,estimated_revenue,final_contract_value,created_at,updated_at')
       .order('updated_at', { ascending: false })
       .order('id', { ascending: true })
       .range(offset, offset + pageSize - 1);
@@ -730,7 +778,7 @@ async function getRowsByProjectIds(projectIds: string[], trace?: RequestTiming) 
   const [milestoneResult, scenarioResult, activityResult, outputDocumentResult] = await timeOperation(trace, 'dashboard.base_queries', () => Promise.all([
     supabaseAdmin
       .from('project_milestones')
-      .select('id,project_id,phase_id,pic_id,name,status,start_date,duration_working_days,step_order,due_date,workflow_stage:workflow_stages!project_milestones_workflow_stage_id_fkey(default_role)')
+      .select('id,project_id,phase_id,pic_id,name,status,start_date,duration_working_days,step_order,due_date,workflow_stage:workflow_stages!project_milestones_workflow_stage_id_fkey(default_role,stage_key)')
       .in('project_id', projectIds),
     supabaseAdmin
       .from('scenarios')
@@ -745,7 +793,7 @@ async function getRowsByProjectIds(projectIds: string[], trace?: RequestTiming) 
       .limit(DASHBOARD_ACTIVITY_PAGE_SIZE + 1),
     supabaseAdmin
       .from('project_output_documents')
-      .select('project_id,phase_id,milestone_id,status,is_required,is_selected')
+      .select('project_id,phase_id,milestone_id,status,is_required,is_selected,document_key')
       .in('project_id', projectIds),
   ]));
 
@@ -859,24 +907,29 @@ export class DashboardService {
 
   static async getOverview(actor: DashboardActor, trace?: RequestTiming) {
     // HEAD_SA roster has its own scope and does not depend on the project query.
-    const saUsersPromise = actor.role === 'HEAD_SA'
-      ? timeOperation(trace, 'dashboard.sa_users', () => getActiveSolutionArchitects())
+    const saUsersPromise = ['HEAD_SA', 'SUPER_ADMIN', 'SA'].includes(actor.role)
+      ? timeOperation(trace, 'dashboard.sa_users', async () => {
+          const roster = await getActiveSolutionArchitects();
+          return actor.role === 'SA' ? roster.filter(sa => sa.id === actor.userId) : roster;
+        })
       : Promise.resolve([]);
     void saUsersPromise.catch(() => undefined);
     const projects = await timeOperation(trace, 'dashboard.projects', () => getScopedProjects(actor));
-    const [scopedRows, saUsers] = await Promise.all([
+    const [scopedRows, saUsers, meetings] = await Promise.all([
       getRowsByProjectIds(projects.map((project) => project.id), trace),
       saUsersPromise,
+      ['SALES','SA','HEAD_SA'].includes(actor.role)?readApprovalRows('project_meetings','id,project_id,title,status,starts_at,ends_at,proposed_schedule',{column:'project_id',ids:projects.map(p=>p.id)}):Promise.resolve({data:[],error:null}),
     ]);
 
     return buildDashboardOverviewFromRows(
       {
         projects,
         ...scopedRows,
+        meetings:meetings.data,
         saUsers,
       },
       actor,
-      actor.role === 'HEAD_SA' ? getDateOnlyKeyInTimeZone() : undefined
+      ['HEAD_SA', 'SUPER_ADMIN', 'SA'].includes(actor.role) ? getDateOnlyKeyInTimeZone() : undefined
     );
   }
 }

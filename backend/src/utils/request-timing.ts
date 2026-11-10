@@ -7,7 +7,7 @@ export type TimingOperation =
   | 'auth.verify' | 'auth.profile' | 'auth.me.profile'
   | 'approval.output_reviews' | 'approval.projects' | 'approval.milestones_and_plans' | 'approval.deadline_approvals' | 'approval.history_and_users'
   | 'dashboard.projects' | 'dashboard.base_queries' | 'dashboard.activity_count' | 'dashboard.approvals_and_users' | 'dashboard.sa_users'
-  | 'projects.list.rows' | 'projects.list.milestones';
+  | 'projects.list.rows' | 'projects.list.milestones' | 'projects.list.status_counts';
 
 export type RequestTiming = {
   record: (operation: TimingOperation | 'request.total', durationMs: number) => void;

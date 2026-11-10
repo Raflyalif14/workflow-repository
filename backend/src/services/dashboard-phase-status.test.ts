@@ -121,8 +121,8 @@ async function main() {
     const query = {
       select: (projection: string) => {
         if (table === 'projects') {
-          assert(projection.includes('active_phase:project_phases!projects_active_phase_id_fkey(id,project_id,scenario_id,phase_key)'));
-          assert(projection.includes('phases:project_phases!project_phases_project_id_fkey(id,project_id,scenario_id,phase_key)'));
+          assert(projection.includes('active_phase:project_phases!projects_active_phase_id_fkey(id,project_id,scenario_id,phase_key,status,sales_decision)'));
+          assert(projection.includes('phases:project_phases!project_phases_project_id_fkey(id,project_id,scenario_id,phase_key,status,sales_decision)'));
           assert(projection.includes('current_scenario_id') && !projection.includes('*'));
         }
         return query;

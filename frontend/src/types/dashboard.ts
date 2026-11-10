@@ -64,6 +64,9 @@ export interface DashboardOutputDocuments {
 }
 
 export interface DashboardSaWorkload {
+  workItems?: Array<{ id: string; projectId: string; projectName: string; name: string;
+    status: string; dueDate: string | null; startDate: string | null; activeWork: boolean }>;
+
   saId: string;
   saName: string;
   activeProjectCount: number;
@@ -98,7 +101,7 @@ export interface DashboardActivityPage extends DashboardActivityPagination {
   items: RecentActivity[];
 }
 
-export type DashboardActivityKind = "PROJECT" | "MILESTONE" | "DOCUMENT" | "APPROVAL" | "ASSIGNMENT";
+export type DashboardActivityKind = "PROJECT" | "MILESTONE" | "DOCUMENT" | "APPROVAL" | "ASSIGNMENT" | "MEETING";
 export interface DashboardActivityFilters {
   projectId?: string;
   kind?: DashboardActivityKind;
@@ -109,7 +112,7 @@ export interface DashboardActivityFilters {
 export interface DashboardData {
   salesPipeline?: DashboardSalesPipeline | null;
   projectPipeline?: DashboardSalesPipeline | null;
-  workTasks?: Array<{ id: string; projectId: string; projectName: string; name: string; status: string; dueDate: string | null; startDate: string | null; href?: string }>;
+  workTasks?: Array<{ salesTask?: boolean; tenderResultTask?: boolean; action?: 'PRA_TENDER_DECISION'; kind?: 'MEETING'|'MEETING_REVIEW'; placement?: 'TASK_LIST'|'PRIORITY'; id: string; projectId: string; projectName: string; name: string; status: string; dueDate: string | null; startDate: string | null; href?: string }>;
   allWorkStatus?: {
     total: number; planning: number; active: number; postponed: number;
     completed: number; won: number; lost: number; waitingResult: number; cancelled: number;

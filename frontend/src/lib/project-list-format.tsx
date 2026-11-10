@@ -40,7 +40,7 @@ export function getStatusBadge(projectStatus: ProjectStatus): ReactNode {
     case "ACTIVE":
       return <Badge variant="default">{translateI18n("common.active")}</Badge>;
     case "DRAFT":
-      return <Badge variant="outline">{translateI18n("projectStatus.DRAFT")}</Badge>;
+      return <Badge variant="secondary">{translateI18n("projectStatus.DRAFT")}</Badge>;
     case "POSTPONED":
       return <Badge variant="warning">{translateI18n("projectStatus.POSTPONED")}</Badge>;
     case "COMPLETED":
@@ -66,6 +66,10 @@ export function getProjectState(project: Project, role: string): string {
     return translateI18n("projectsList.waitingAssignment");
   }
   if (project.status === "ACTIVE") return translateI18n("projectsList.deliveryProgress");
+  if (project.status === "WAITING_RESULT") return translateI18n("copy.waitingResult");
+  if (project.status === "WON" || project.status === "LOST" || project.status === "COMPLETED") {
+    return translateI18n("projectsList.deliveryComplete");
+  }
   return translateProjectStatus(project.status);
 }
 

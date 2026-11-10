@@ -458,7 +458,7 @@ if (sortSaWorkload([]).length !== 0) {
   throw new Error("An empty SA workload should remain empty");
 }
 
-if (!shouldShowSaWorkload("HEAD_SA") || shouldShowSaWorkload("SALES") || shouldShowSaWorkload("SA") || shouldShowSaWorkload("SUPER_ADMIN")) {
+if (!shouldShowSaWorkload("HEAD_SA") || shouldShowSaWorkload("SALES") || !shouldShowSaWorkload("SA") || !shouldShowSaWorkload("SUPER_ADMIN")) {
   throw new Error("Only Head SA presentation may render team workload");
 }
 

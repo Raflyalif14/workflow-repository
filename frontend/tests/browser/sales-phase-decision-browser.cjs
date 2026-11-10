@@ -1,0 +1,11 @@
+const assert=require('node:assert/strict'),{createFixture}=require('./fixtures.cjs'),{launch}=require('./cdp.cjs');require('../register.cjs');const {en}=require('../../src/i18n/en');const origin=process.env.WORKFLOW_TEST_ORIGIN||'http://127.0.0.1:3000';
+async function main(){const fixture=createFixture(),base=fixture.respond;fixture.state.role='SALES';fixture.respond=(url,method,body)=>{const result=base(url,method,body),p=new URL(url).pathname.replace(/^\/api/,'');if(method==='GET'&&p==='/dashboard')result.body.data.workTasks=[{id:'phase-decision-'+fixture.pid,action:'PRA_TENDER_DECISION',projectId:fixture.pid,projectName:'Completed Pra-Tender project',name:'Decide next step after Pra-Tender',status:'CREATED',dueDate:null,startDate:null,href:'/projects/'+fixture.pid+'#project-phase-panel'}];if(method==='GET'&&p==='/projects/'+fixture.pid){result.body.data.phases[0].status='COMPLETED';result.body.data.phases[0].sales_decision=null;}return result;};
+const runtime=await launch(fixture,origin),{cdp}=runtime;try{
+await cdp.navigate(origin+'/login');await cdp.wait(`location.origin===${JSON.stringify(origin)}`,'origin');await cdp.evaluate("localStorage.setItem('workflow.session',JSON.stringify({id:crypto.randomUUID(),accessToken:'synthetic-only',refreshToken:'synthetic-only'}));localStorage.setItem('workflow-locale','en');");await cdp.navigate(origin+'/');
+await cdp.wait(`document.querySelector('section[aria-labelledby=quick-insights-heading]')?.textContent.includes(${JSON.stringify(en.salesPhaseTask.title)})`,'Sales decision task',60000);
+await cdp.click(`document.querySelector('a[href="/projects/${fixture.pid}#project-phase-panel"]')`);
+await cdp.wait(`document.querySelector('#project-phase-panel')?.textContent.includes(${JSON.stringify(en.projectPhase.yes)})`,'Yes/No choice');
+assert(await cdp.evaluate(`document.querySelector('#project-phase-panel').textContent.includes(${JSON.stringify(en.projectPhase.no)})`));
+assert(!runtime.traffic.api.some(r=>!['GET','OPTIONS'].includes(r.method)));assert.equal(runtime.traffic.errors.length,0);console.log('PASS Sales dashboard decision task opens project Yes/No choice; no decision submitted; synthetic API');
+}finally{await runtime.cleanup();}}
+main().catch(e=>{console.error(e);process.exitCode=1;});

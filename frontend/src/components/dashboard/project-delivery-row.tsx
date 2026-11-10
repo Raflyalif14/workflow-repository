@@ -53,6 +53,7 @@ export function ProjectDeliveryRow({
   const openProject = (
     <Link
       href={"/projects/" + project.id}
+      prefetch={true}
       className="inline-flex min-h-9 w-fit shrink-0 items-center justify-center gap-1 self-center justify-self-end rounded-md border border-primary/20 bg-primary/5 px-3 text-sm font-medium text-primary transition-colors hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >
       {translateI18n("common.open")}
@@ -98,7 +99,11 @@ export function ProjectDeliveryRow({
       </div>
       <div className="min-w-0">
         <p className="delivery-cell-label">{translateI18n("copy.currentWork")}</p>
-        <p className="break-words text-sm text-foreground [overflow-wrap:anywhere]">{project.currentStage || translateI18n("common.notAvailable")}</p>
+        <p className="break-words text-sm text-foreground [overflow-wrap:anywhere]">
+          {(project.status === "WON" || project.status === "COMPLETED" || project.status === "LOST" || project.percentage === 100)
+            ? translateI18n("projectsList.deliveryComplete")
+            : (project.currentStage || translateI18n("common.notAvailable"))}
+        </p>
         {(role === "SA" || role === "SUPER_ADMIN") && (
           <p className={["mt-1 break-words text-xs", project.overdueMilestones > 0 ? "text-destructive" : "text-muted-foreground"].join(" ")}>
             {translateI18n("copy.deadline")}: {deadlineLabel}
@@ -116,7 +121,16 @@ export function ProjectDeliveryRow({
         <p className="delivery-cell-label">{translateI18n("copy.progress")}</p>
         <p className="text-xs font-medium tabular-nums text-foreground">{hasProgress ? String(project.percentage) + "%" : translateI18n("dashboardPage.unknown")}</p>
         <div className="mt-1.5 h-1.5 rounded-full bg-muted">
-          {hasProgress && <div className="h-full rounded-full bg-primary" style={{ width: String(Math.min(100, Math.max(0, project.percentage || 0))) + "%" }} />}
+          {hasProgress && (
+            <div
+              className={`h-full rounded-full ${
+                project.percentage === 100 || project.status === "COMPLETED" || project.status === "WON"
+                  ? "bg-[hsl(var(--success))]"
+                  : "bg-primary"
+              }`}
+              style={{ width: String(Math.min(100, Math.max(0, project.percentage || 0))) + "%" }}
+            />
+          )}
         </div>
         <p className="mt-1 text-xs text-muted-foreground">{project.totalMilestones > 0
           ? translateI18n("dashboardPage.stages", { done: project.completedMilestones, total: project.totalMilestones })

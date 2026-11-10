@@ -3,6 +3,15 @@ import type { ProjectActivityPage, ProjectActivityTimelineItem } from "@/types/p
 import { getIntlLocale, translateOutputName, translateOutputStatus, translateProjectStatus, translateApprovalStatus, translateMilestoneStatus, translate, type TranslationKey } from "@/i18n";
 
 const actionLabels: Record<string, TranslationKey> = {
+  MEETING_REQUESTED: "meetingActivity.MEETING_REQUESTED_label",
+  MEETING_APPROVED: "meetingActivity.MEETING_APPROVED_label",
+  MEETING_REJECTED: "meetingActivity.MEETING_REJECTED_label",
+  MEETING_CANCELLED: "meetingActivity.MEETING_CANCELLED_label",
+  MEETING_RESCHEDULE: "meetingActivity.MEETING_RESCHEDULE_label",
+  MEETING_APPROVE_RESCHEDULE: "meetingActivity.MEETING_APPROVE_RESCHEDULE_label",
+  MEETING_REJECT_RESCHEDULE: "meetingActivity.MEETING_REJECT_RESCHEDULE_label",
+  MEETING_MINUTES_SAVED: "meetingActivity.MEETING_MINUTES_SAVED_label",
+
   DOCUMENT_VERSION_UPLOADED: 'artifactAudit.version',
   DOCUMENT_APPROVED: 'artifactAudit.approved',
   DOCUMENT_REJECTED: 'artifactAudit.rejected',
@@ -18,6 +27,7 @@ const actionLabels: Record<string, TranslationKey> = {
   PROJECT_SCOPE_CHANGED: "businessAudit.scopeChanged",
   PROJECT_WON: "projectStatus.WON",
   PROJECT_LOST: "projectStatus.LOST",
+  PIC_PHASE_CARRIED: "picOperation.phaseCarried",
   PIC_PHASE_RESET: "picOperation.phaseReset",
   PROJECT_ESTIMATED_VALUE_CHANGED: "estimatedValue.changed",
   PRA_TENDER_DECIDED: "projectPhase.decisionRecorded",
@@ -51,7 +61,30 @@ export const flattenActivityPages = (pages?: ProjectActivityPage[]): ProjectActi
 
 export function formatActivityDescription(action: string, description?: string | null, change?: { before: string | null; after: string }, picChange?: ProjectActivityTimelineItem["picAssignmentChange"]) {
   if (picChange) return translate("picOperation.reviewPic", { before: picChange.before?.name || (picChange.before ? translate("common.notAvailable") : translate("ui.unassigned")), after: picChange.after?.name || (picChange.after ? translate("common.notAvailable") : translate("ui.unassigned")) });
+  const meetingDescriptions: Record<string, TranslationKey> = {
+    MEETING_REQUESTED: "meetingActivity.MEETING_REQUESTED_description",
+    MEETING_APPROVED: "meetingActivity.MEETING_APPROVED_description",
+    MEETING_REJECTED: "meetingActivity.MEETING_REJECTED_description",
+    MEETING_CANCELLED: "meetingActivity.MEETING_CANCELLED_description",
+    MEETING_RESCHEDULE: "meetingActivity.MEETING_RESCHEDULE_description",
+    MEETING_APPROVE_RESCHEDULE: "meetingActivity.MEETING_APPROVE_RESCHEDULE_description",
+    MEETING_REJECT_RESCHEDULE: "meetingActivity.MEETING_REJECT_RESCHEDULE_description",
+    MEETING_MINUTES_SAVED: "meetingActivity.MEETING_MINUTES_SAVED_description",
+  };
+  if (meetingDescriptions[action] && description && description !== action) return translate(meetingDescriptions[action], {title: description});
   if (action === "PROJECT_ESTIMATED_VALUE_CHANGED" && change) return translate("estimatedValue.history", { before: formatEstimatedValue(change.before), after: formatEstimatedValue(change.after) });
+
+  if (description === action && actionLabels[action]) {
+    const summaries: Record<string, TranslationKey> = {
+      PIC_ASSIGNED: "meetingActivity.PIC_ASSIGNED_description",
+      PIC_REASSIGNED: "meetingActivity.PIC_REASSIGNED_description",
+      PROJECT_PLAN_SUBMITTED: "meetingActivity.PROJECT_PLAN_SUBMITTED_description",
+      PROJECT_PLAN_APPROVED: "meetingActivity.PROJECT_PLAN_APPROVED_description",
+      PROJECT_PLAN_REJECTED: "meetingActivity.PROJECT_PLAN_REJECTED_description",
+    };
+    return summaries[action] ? translate(summaries[action]) : formatActivityAction(action);
+  }
+
   if (['PROJECT_PHASE_CREATED', 'PROJECT_PHASE_COMPLETED'].includes(action)
     && (description === 'PRA_TENDER' || description === 'ON_SUBMISSION_TENDER')) {
     return translate('projectPhase.label', { phase: description === 'PRA_TENDER' ? 'Pra-Tender' : 'On Submission Tender' });

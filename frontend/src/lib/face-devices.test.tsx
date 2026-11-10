@@ -67,6 +67,7 @@ async function run() {
   };
   try {
     assert.deepEqual(Object.keys(en.faceDevices).sort(), Object.keys(id.faceDevices).sort());
+    assert.deepEqual(Object.keys(en.faceAccount).sort(), Object.keys(id.faceAccount).sort());
     assert(text('faceDevices.loading')); await settle(); assert.equal(listCalls, 1); assert.equal(rows().length, 2);
     assert.equal(findAll(render(), node => node.props?.children === 'faceDevices.current').length, 1);
     assert(text('formatted:' + records[0].createdAt)); assert(text('formatted:' + records[0].lastUsedAt));
@@ -85,6 +86,17 @@ async function run() {
     await reset(); click('faceLogin.removeAll'); password('fixture-password'); submit(); await settle();
     assert.deepEqual(posts.at(-1), { path: '/face-login/devices/remove-all', body: { password: 'fixture-password' } });
     assert.equal(removed.at(-1), null); assert(text('faceDevices.removedAll')); assert(text('faceDevices.empty'));
+    (props as any).accountMode = true; await reset();
+    assert(!text('faceDevices.current'));assert(!text('faceDevices.remove'));assert(text('faceAccount.removeRegistration'));
+    assert.equal(findAll(render(),node=>node.type==='span'&&node.props.className==='font-medium'&&String(node.props.children).startsWith('faceDevices')).length,0,'Browser is not the account registration title');
+    assert.equal(findAll(render(), node => node.props?.children === 'faceAccount.current').length, 0);
+    select(remote); password('fixture-password'); submit(); await settle();
+    assert(text('faceAccount.removedOne'));
+    click('faceAccount.removeAll');
+    assert(find(node => node.type === 'form' && findAll(node, c => c.props?.children === 'faceAccount.confirmAll').length > 0));
+    password('fixture-password'); submit(); await settle();
+    assert(text('faceAccount.removedAll')); assert(text('faceAccount.empty'));
+    (props as any).accountMode = false;
     listError = true; await reset(); assert(text('faceDevices.loadFailed')); assert(!text('faceDevices.empty'));
     listError = false; click('faceDevices.refresh'); await settle(); assert.equal(rows().length, 2);
     // A response arriving after logout must not restore account device information.

@@ -13,6 +13,11 @@ const schedule=[{id:'later',start_date:'2026-11-04',duration_working_days:1},{id
 assert.deepEqual(schedule.sort(compareMilestoneSchedule).map(m=>m.id),['short','long','later','none']);
 const validId='90000000-0000-4000-8000-000000000001';
 assert(!projectOutcomeSchema.safeParse({outcome:'WON',final_contract_value:10}).success);
+const evidenceDocumentId = '90000000-0000-4000-8000-000000000001';
+for (const invalid of [true, 0.001, 1.239, 1e16, '9007199254740993', '1e6']) {
+  assert(!projectOutcomeSchema.safeParse({outcome:'WON',final_contract_value:invalid,evidence_document_ids:[evidenceDocumentId]}).success);
+}
+assert.equal(projectOutcomeSchema.parse({outcome:'WON',final_contract_value:'1250.50',evidence_document_ids:[evidenceDocumentId]}).final_contract_value, 1250.5);
 assert(projectOutcomeSchema.safeParse({outcome:'WON',final_contract_value:10,evidence_document_ids:[validId]}).success);
 assert(projectOutcomeSchema.safeParse({outcome:'LOST',loss_reason:'Customer decision',evidence_document_ids:[validId]}).success);
 assert(!projectOutcomeSchema.safeParse({outcome:'LOST',loss_reason:'Reason',evidence_document_ids:[validId,validId]}).success);

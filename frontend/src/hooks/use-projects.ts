@@ -4,7 +4,7 @@ import { getAuthSession } from "@/lib/auth";
 import { createProjectCreateRequest, type ProjectCreateInput } from "@/lib/project-create-request";
 import { useBusinessRequest } from "./use-business-request";
 import { outputDocumentKeys } from "./use-output-documents";
-import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiClient, ApiError } from "@/lib/api-client";
 import { approvalKeys, assignmentKeys, dashboardKeys, milestoneKeys, projectKeys } from "@/lib/query-keys";
 import {
@@ -62,11 +62,13 @@ export interface AssignedMilestone {
 
 export type ProjectTimelineEntry = {
   milestoneId: string;
+  outputDocumentId?: string;
   startDate: string;
   durationWorkingDays: number;
 };
 
 const invalidateProjectRuntime = (queryClient: ReturnType<typeof useQueryClient>, projectId: string) => {
+  queryClient.invalidateQueries({ queryKey: ["calendar"] });
   queryClient.invalidateQueries({ queryKey: projectKeys.all() });
   queryClient.invalidateQueries({ queryKey: projectKeys.detail(projectId) });
   queryClient.invalidateQueries({ queryKey: projectKeys.milestones(projectId) });
@@ -98,19 +100,32 @@ export function useProjects(filters: ProjectFilters = {}) {
       if (salesId) params.set("sales_id", salesId);
       return apiClient<ProjectsResponse>(`/projects?${params}`);
     },
-    staleTime: 0,
+    placeholderData: keepPreviousData,
+    staleTime: 30_000,
     refetchOnWindowFocus: true,
   });
 }
 
 export function useProject(id: string, options: { includeActivity?: boolean } = {}) {
+  const queryClient = useQueryClient();
   const includeActivity = options.includeActivity !== false;
   return useQuery<Project>({
     queryKey: includeActivity ? projectKeys.detail(id) : projectKeys.detailWithoutActivity(id),
     queryFn: () => apiClient<Project>(`/projects/${id}${includeActivity ? '' : '?include_activity=false'}`),
     enabled: Boolean(id),
-    staleTime: 0,
+    staleTime: 30_000,
     refetchOnWindowFocus: true,
+    initialData: () => {
+      const queries = queryClient.getQueriesData<ProjectsResponse>({ queryKey: projectKeys.all() });
+      for (const [, data] of queries) {
+        if (data?.projects) {
+          const found = data.projects.find((p) => p.id === id);
+          if (found) return found;
+        }
+      }
+      return undefined;
+    },
+    initialDataUpdatedAt: () => 0,
   });
 }
 
@@ -232,7 +247,7 @@ export function useProjectPlanApproval(projectId: string) {
     queryKey: projectKeys.planApproval(projectId),
     queryFn: () => apiClient<ProjectPlanApproval | null>(`/projects/${projectId}/plan-approval`),
     enabled: Boolean(projectId),
-    staleTime: 0,
+    staleTime: 30_000,
     refetchOnWindowFocus: true,
   });
 }
@@ -242,7 +257,7 @@ export function useProjectPlanApprovalHistory(projectId: string) {
     queryKey: projectKeys.planApprovalHistory(projectId),
     queryFn: () => apiClient<ProjectPlanApproval[]>(`/projects/${projectId}/plan-approval-history`),
     enabled: Boolean(projectId),
-    staleTime: 0,
+    staleTime: 30_000,
     refetchOnWindowFocus: true,
   });
 }
@@ -256,6 +271,7 @@ export function useSaveProjectTimeline(projectId: string) {
       business(projectId, "TIMELINE", `/projects/${projectId}/timeline`, "PUT", { milestones }),
     onSuccess: (_, milestones) => {
       invalidateProjectRuntime(queryClient, projectId);
+      queryClient.invalidateQueries({ queryKey: outputDocumentKeys.project(projectId) });
       milestones.forEach((milestone) => {
         queryClient.invalidateQueries({ queryKey: milestoneKeys.deadlineStatus(milestone.milestoneId) });
       });
@@ -385,7 +401,7 @@ export function useAssignmentHistory(projectId: string) {
     queryKey: projectKeys.assignmentHistory(projectId),
     queryFn: () => apiClient(`/projects/${projectId}/assignments`),
     enabled: Boolean(projectId),
-    staleTime: 0,
+    staleTime: 30_000,
     refetchOnWindowFocus: true,
   });
 }
@@ -395,7 +411,7 @@ export function useProjectMilestones(projectId: string) {
     queryKey: projectKeys.milestones(projectId),
     queryFn: () => apiClient<ProjectMilestonePhase4[]>(`/projects/${projectId}/milestones`),
     enabled: Boolean(projectId),
-    staleTime: 0,
+    staleTime: 30_000,
     refetchOnWindowFocus: true,
   });
 }
@@ -405,7 +421,7 @@ export function useProjectProgress(projectId: string) {
     queryKey: projectKeys.progress(projectId),
     queryFn: () => apiClient<{ completed: number; total: number; percentage: number }>(`/projects/${projectId}/progress`),
     enabled: Boolean(projectId),
-    staleTime: 0,
+    staleTime: 30_000,
     refetchOnWindowFocus: true,
   });
 }
@@ -415,7 +431,7 @@ export function useMyAssignedProjects(enabled = true) {
     queryKey: assignmentKeys.myAssignedProjects(),
     queryFn: () => apiClient<Project[]>("/me/assigned-projects"),
     enabled,
-    staleTime: 0,
+    staleTime: 30_000,
     refetchOnWindowFocus: true,
   });
 }
@@ -425,7 +441,7 @@ export function useMyAssignedMilestones(enabled = true) {
     queryKey: assignmentKeys.myAssignedMilestones(),
     queryFn: () => apiClient<AssignedMilestone[]>("/me/assigned-milestones"),
     enabled,
-    staleTime: 0,
+    staleTime: 30_000,
     refetchOnWindowFocus: true,
   });
 }

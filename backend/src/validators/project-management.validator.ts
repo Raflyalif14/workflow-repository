@@ -54,10 +54,26 @@ export const estimatedValueSchema = z.object({
   request_id: z.string().uuid(),
 }).strict();
 export type EstimatedValueInput = z.infer<typeof estimatedValueSchema>;
+
+const contractValuePattern = /^\d{1,16}(\.\d{1,2})?$/;
+const finalContractValueSchema = z.union([
+  z.number(),
+  z.string().trim().regex(contractValuePattern).transform((input) => {
+    const [whole, fraction] = input.split('.');
+    const normalizedWhole = whole.replace(/^0+(?=\d)/, '');
+    const normalizedFraction = fraction?.replace(/0+$/, '');
+    const canonical = normalizedFraction ? `${normalizedWhole}.${normalizedFraction}` : normalizedWhole;
+    const amount = Number(canonical);
+    return String(amount) === canonical ? amount : NaN;
+  }),
+]).pipe(z.number().finite().positive().refine((amount) => contractValuePattern.test(String(amount)), {
+  message: 'Final contract value must have up to 16 whole digits and two decimal places.',
+}));
+
 export const projectOutcomeSchema = z.object({
   evidence_document_ids: z.array(z.string().uuid()).min(1).max(10).optional(),
   outcome: z.enum(['WON', 'LOST']),
-  final_contract_value: z.coerce.number().finite().positive().optional(),
+  final_contract_value: finalContractValueSchema.optional(),
   loss_reason: z.string().trim().min(1).max(2000).optional(),
 }).superRefine((value, context) => {
   if (!value.evidence_document_ids?.length || new Set(value.evidence_document_ids).size !== value.evidence_document_ids.length) context.addIssue({code:z.ZodIssueCode.custom,path:['evidence_document_ids'],message:'Valid result evidence is required.'});

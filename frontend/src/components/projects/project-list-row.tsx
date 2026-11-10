@@ -6,6 +6,7 @@ import { translate as translateI18n } from "@/i18n";
 import { Button } from "@/components/ui/button";
 import type { Project } from "@/types/project";
 import { projectDisplayStatus } from '@/lib/project-display-status';
+import { isProjectDeliveryCompleted } from '@/lib/project-list-status';
 import { StatusBadge } from './project-status-badge';
 import {
   getProgressPresentation,
@@ -28,13 +29,14 @@ export function ProjectListRow({ project, role }: ProjectListRowProps) {
       <div className="min-w-0">
         <Link
           href={`/projects/${project.id}`}
+          prefetch={true}
           className="font-semibold text-foreground transition-colors hover:text-primary"
         >
           {project.name}
         </Link>
         <p className="mt-1 truncate text-xs text-muted-foreground">
           {project.customer}
-          {project.scenario?.name ? ` | ${project.scenario.name}` : ""}
+          {(project.active_scenario?.name || project.scenario?.name) ? ` | ${project.active_scenario?.name || project.scenario?.name}` : ""}
         </p>
       </div>
 
@@ -62,7 +64,11 @@ export function ProjectListRow({ project, role }: ProjectListRowProps) {
         {progressPresentation.showDeliveryProgress && progress !== null && (
           <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted">
             <div
-              className="h-full rounded-full bg-primary"
+              className={`h-full rounded-full ${
+                progress === 100 || isProjectDeliveryCompleted(project.status)
+                  ? "bg-[hsl(var(--success))]"
+                  : "bg-primary"
+              }`}
               style={{ width: `${Math.max(0, Math.min(progress, 100))}%` }}
             />
           </div>
@@ -94,7 +100,7 @@ export function ProjectListRow({ project, role }: ProjectListRowProps) {
         </div>
       </div>
 
-      <Link href={`/projects/${project.id}`} className="justify-self-stretch xl:justify-self-end">
+      <Link href={`/projects/${project.id}`} prefetch={true} className="justify-self-stretch xl:justify-self-end">
         <Button variant="ghost" size="sm" className="w-full gap-1.5 xl:w-auto">
           {translateI18n("common.open")}
           <ArrowRight className="h-3.5 w-3.5" />

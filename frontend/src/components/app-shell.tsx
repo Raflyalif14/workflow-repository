@@ -4,6 +4,7 @@ import React, { useState, createContext, useContext, useEffect, useRef } from "r
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
+  CalendarDays,
   LayoutDashboard,
   FolderKanban,
   Milestone,
@@ -31,6 +32,7 @@ import type { TranslationKey } from "@/i18n";
 import { GlobalSearchDialog } from "@/components/global-search-dialog";
 import { NavigationLinkFeedback } from "@/components/navigation-feedback";
 import { formatActorRoleLabel } from "@/lib/workflow-ux-helpers";
+import { UserAccountMenu } from "@/components/auth/user-account-menu";
 import { countAssignedMilestonesNeedingAction } from "@/lib/assigned-milestone-ux";
 
 // ─── Sidebar Context ───
@@ -69,6 +71,7 @@ const NAV_ITEMS: NavItem[] = [
     href: "/projects",
     icon: FolderKanban,
   },
+  { labelKey: "meetings.calendar", href: "/calendar", icon: CalendarDays, allowedRoles: ["SALES", "SA", "HEAD_SA", "SUPER_ADMIN"] },
   {
     labelKey: "nav.milestones",
     href: "/milestones",
@@ -160,6 +163,7 @@ export function Sidebar() {
             <Link
               key={item.href}
               href={item.href}
+              prefetch={true}
               onClick={() => setMobileOpen(false)}
               title={item.href === "/milestones" && isAssignedMilestoneRole
                 ? `${t(item.labelKey)} — ${t("milestonePage.needsAction")}: ${badgeCount}`
@@ -364,30 +368,7 @@ export function TopBar() {
           <LanguageSwitcher compact />
           <NotificationBell enabled={Boolean(user)} />
 
-          <div className="flex h-10 items-center gap-2">
-            <div className="hidden h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary-soft sm:flex text-xs font-bold text-primary">
-              {getInitials(user?.fullName)}
-            </div>
-            <div className="hidden md:block text-left">
-              <p className="max-w-[130px] truncate text-xs font-semibold leading-tight text-foreground">
-                {user?.fullName || t("nav.userAccount")}
-              </p>
-              <p className="text-[10px] leading-tight text-muted-foreground">
-                {formatActorRoleLabel(user?.role)}
-              </p>
-            </div>
-
-            {/* Logout Button */}
-            <button
-              type="button"
-              onClick={() => logout()}
-              aria-label={t("nav.logout")}
-              className="ml-1 flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
-              title={t("nav.logout")}
-            >
-              <LogOut className="h-4 w-4" />
-            </button>
-          </div>
+          <UserAccountMenu />
         </div>
       </div>
     </header>
@@ -438,7 +419,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
         {/* Main Content Area - offset by sidebar width */}
         <div
-          className={`min-w-0 transition-all duration-300 ease-in-out ${collapsed
+          className={`min-w-0 transition-[margin-left] duration-300 ease-in-out ${collapsed
               ? "lg:ml-[var(--sidebar-collapsed-width)]"
               : "lg:ml-[var(--sidebar-width)]"
             }`}
