@@ -20,9 +20,10 @@ import { approvalQueuePage, outputReviewHref } from "@/lib/approval-queue";
 import { canReadApprovalOverview } from "@/lib/approval-overview-access";
 import { ApprovalCategory, ApprovalItem, ApprovalStatus } from "@/types/approval";
 
-const categoryOptions: Array<{ key: ApprovalCategory; label: "approvalUi.allRequests" | "approvalUi.projectPlans" | "approvalUi.deadlineChanges" | "outputQueue.category" | "listSummary.approvalMeetings" }> = [
+const categoryOptions: Array<{ key: ApprovalCategory; label: "approvalUi.allRequests" | "approvalUi.projectPlans" | "approvalUi.deadlineChanges" | "outputQueue.category" | "listSummary.approvalMeetings" | "planChange.title" }> = [
   { key: "ALL", label: "approvalUi.allRequests" },
   { key: "PROJECT_PLAN", label: "approvalUi.projectPlans" },
+  { key: "PROJECT_SCOPE", label: "planChange.title" },
   { key: "DEADLINE", label: "approvalUi.deadlineChanges" },
   { key: "OUTPUT_DOCUMENT", label: "outputQueue.category" },
   { key: "MEETING", label: "listSummary.approvalMeetings" },
@@ -210,7 +211,7 @@ function ApprovalCenterPageContent() {
           <div>
             {displayedApprovals.map(item => (
               <ApprovalRow key={`${item.category}-${item.id}`} item={item} canReview={canReview}
-                onOpenProject={() => { if (item.projectId) router.push(item.category === "OUTPUT_DOCUMENT" ? outputReviewHref(item) : `/projects/${item.projectId}${item.category === "MEETING" ? "#project-meetings" : ""}`); }}
+                onOpenProject={() => { if (item.projectId) router.push(item.category === "OUTPUT_DOCUMENT" ? outputReviewHref(item) : `/projects/${item.projectId}${item.category === "MEETING" ? "#project-meetings" : item.category === "PROJECT_SCOPE" ? "#project-scope-changes" : ""}`); }}
                 onOpenAction={openAction} />
             ))}
           </div>

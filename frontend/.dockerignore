@@ -1,0 +1,15 @@
+node_modules
+.next
+.next-dev
+out
+dist
+coverage
+.git
+.vscode
+.env
+.env.*
+.cache
+.private
+.tmp
+*.log
+*.tsbuildinfo

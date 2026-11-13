@@ -100,8 +100,9 @@ export const addWorkingDays = (
 
   let countedDays = 0;
   while (countedDays < durationWorkingDays) {
+    // The start date is day zero; count working days strictly after it.
+    currentDate = addCalendarDays(currentDate, 1);
     if (isWorkingDay(currentDate, holidays)) countedDays += 1;
-    if (countedDays < durationWorkingDays) currentDate = addCalendarDays(currentDate, 1);
   }
 
   return currentDate;

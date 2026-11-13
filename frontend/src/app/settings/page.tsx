@@ -12,6 +12,7 @@ import { PersonalNotificationSettings } from "@/components/settings/personal-not
 import { getAuthSession } from "@/lib/auth";
 import { AppearanceSettings } from "@/components/settings/appearance-settings";
 import { AccountProfileCard } from "@/components/settings/account-profile-card";
+import { GoogleCalendarSettings } from "@/components/settings/google-calendar-settings";
 import { ChangePasswordCard } from "@/components/settings/change-password-card";
 
 export default function SettingsPage() {
@@ -45,6 +46,7 @@ export default function SettingsPage() {
       </Card>
 
       <AppearanceSettings />
+      {user && ["SA", "SALES", "HEAD_SA"].includes(user.role) && <GoogleCalendarSettings key={user.id} />}
       <PersonalNotificationSettings key={`${user?.id ?? "anonymous"}:${getAuthSession()?.id ?? "none"}`} />
 
       {user?.isActive && !user.mustChangePassword && <Card>

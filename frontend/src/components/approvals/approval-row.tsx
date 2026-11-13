@@ -52,13 +52,13 @@ export function ApprovalRow({
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <ApprovalCategoryIcon category={item.category} />
-            <span className="text-xs text-muted-foreground">{translateI18n(item.category === "MEETING" ? "meetings.meeting" : item.category === "OUTPUT_DOCUMENT" ? "outputQueue.category" : item.category === "PROJECT_PLAN" ? "approvalUi.projectPlans" : "approvalUi.deadlineChanges")}</span>
+            <span className="text-xs text-muted-foreground">{translateI18n(item.category === "PROJECT_SCOPE" ? "planChange.title" : item.category === "MEETING" ? "meetings.meeting" : item.category === "OUTPUT_DOCUMENT" ? "outputQueue.category" : item.category === "PROJECT_PLAN" ? "approvalUi.projectPlans" : "approvalUi.deadlineChanges")}</span>
             <StatusBadge status={item.status} />
             {item.stepOrder != null && (
               <Badge variant="outline">{translateI18n("approvalUi.step", { number: item.stepOrder })}</Badge>
             )}
           </div>
-          <h3 className="mt-2 font-semibold text-foreground">{item.category === "OUTPUT_DOCUMENT" ? translateOutputName(item.documentKey || "", item.title) : item.title}</h3>
+          <h3 className="mt-2 font-semibold text-foreground">{item.category === "PROJECT_SCOPE" ? translateI18n("planChange.title") : item.category === "OUTPUT_DOCUMENT" ? translateOutputName(item.documentKey || "", item.title) : item.title}</h3>
           <p className="mt-1 text-xs text-muted-foreground">
             {translateI18n("approvalUi.requestedSummary", { project: item.projectName, customer: item.clientName, name: item.submittedBy || translateI18n("approvalUi.unknown") })}
           </p>
@@ -79,7 +79,7 @@ export function ApprovalRow({
           onClick={(event) => event.stopPropagation()}
           onKeyDown={(event) => event.stopPropagation()}
         >
-          {item.category === "MEETING" && item.meeting ? <><MeetingActions meeting={item.meeting}/><Button size="sm" variant="outline" onClick={onOpenProject}>{translateI18n('approvalUi.viewDetails')}</Button></> : item.category === "OUTPUT_DOCUMENT" ? (
+          {item.category === "PROJECT_SCOPE" ? <Button size="sm" variant="outline" onClick={onOpenProject}>{translateI18n("approvalUi.viewDetails")}</Button> : item.category === "MEETING" && item.meeting ? <><MeetingActions meeting={item.meeting}/><Button size="sm" variant="outline" onClick={onOpenProject}>{translateI18n('approvalUi.viewDetails')}</Button></> : item.category === "OUTPUT_DOCUMENT" ? (
             <Button size="sm" variant="outline" onClick={onOpenProject}>
               {translateI18n(item.canReview ? "outputQueue.openReview" : "outputQueue.viewOutput")}
             </Button>
@@ -137,7 +137,7 @@ function StatusBadge({ status }: { status: ApprovalStatus }) {
 }
 
 function ApprovalSummary({ item }: { item: ApprovalItem }) {
-  if (item.category === "PROJECT_PLAN") {
+  if (item.category === "PROJECT_PLAN" || item.category === "PROJECT_SCOPE") {
     return (
       <div className="mt-3 border-l-2 border-border pl-3 text-xs text-muted-foreground">
         <p>

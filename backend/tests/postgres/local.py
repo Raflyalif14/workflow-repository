@@ -7,6 +7,7 @@ import shutil
 import socket
 import subprocess
 import tempfile
+import time
 import uuid
 from harness import Database, HERE, MIGRATIONS
 
@@ -101,4 +102,16 @@ class LocalDatabase(Database):
             if result.returncode: raise RuntimeError('Owned PostgreSQL stop failed; preserve its test directory')
             self.started = False
         self.check_paths()
-        shutil.rmtree(self.root)
+        def retry_shared_file(operation, name, error):
+            # Windows can retain the pg_ctl log handle briefly after server shutdown.
+            if not isinstance(error[1], PermissionError):
+                raise error[1]
+            for attempt in range(20):
+                time.sleep(0.1)
+                try:
+                    operation(name)
+                    return
+                except PermissionError:
+                    if attempt == 19:
+                        raise
+        shutil.rmtree(self.root, onerror=retry_shared_file)

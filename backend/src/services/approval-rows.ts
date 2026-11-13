@@ -7,7 +7,8 @@ export async function readApprovalRows(
   filter?: { column: string; ids: string[] },
   order?: string,
   equals?: { column: string; value: string },
-  identityColumns: readonly string[] = ['id']
+  identityColumns: readonly string[] = ['id'],
+  allowMissingTable = false
 ): Promise<{ data: any[]; error: null }> {
   const data: any[] = [];
   const ids = filter ? [...new Set(filter.ids)] : null;
@@ -21,6 +22,11 @@ export async function readApprovalRows(
         if (order && !identityColumns.includes(order)) query = query.order(order, { ascending: false });
         for (const column of identityColumns) query = query.order(column, { ascending: true });
         const result = await query.range(offset, offset + 249);
+        if (allowMissingTable && data.length === 0 && offset === 0
+          && ['42P01','PGRST205'].includes(result.error?.code || '')) {
+          console.warn('[ApprovalOverviewService] Optional approval source is not installed:',table);
+          return {data:[],error:null};
+        }
         if (result.error || !Array.isArray(result.data)) {
           throw new Error('Failed to load approval overview.');
         }

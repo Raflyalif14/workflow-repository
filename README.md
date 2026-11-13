@@ -202,6 +202,8 @@ npm.cmd run dev:backend
 npm.cmd run dev:frontend
 ```
 
+Frontend development uses `.next-dev`, while production builds use `.next`. Keeping these folders separate prevents a build from replacing chunks used by the running development server.
+
 ### Option 2: Docker Compose
 
 Ensure `backend/.env` and `frontend/.env` are configured, then run:
@@ -209,6 +211,12 @@ Ensure `backend/.env` and `frontend/.env` are configured, then run:
 ```powershell
 docker compose up --build
 ```
+
+The images use Node.js 22. Compose runs both services in production mode on ports 5000 and 3000. Environment files are loaded at runtime and excluded from the build contexts along with local dependencies and caches.
+
+The frontend API address is embedded at build time through `NEXT_PUBLIC_API_URL` in `docker-compose.yml`. Rebuild the frontend image after changing that address. The default `localhost` address is for a browser running on this computer.
+
+Camera sign-in currently requires the Windows Python/model runtime and development mode. Run that feature using the local development commands above. This Compose setup packages the production web frontend and API.
 
 Default local addresses:
 

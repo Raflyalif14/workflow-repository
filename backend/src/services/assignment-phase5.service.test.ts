@@ -122,8 +122,12 @@ async function verifyAssignedMilestoneProjectMetadata(): Promise<void> {
   const originalFrom = supabaseAdmin.from;
   let selection = '';
   const filters: Array<[string, unknown]> = [];
-  const rows = [{ id: 'm1', status: 'IN_PROGRESS', outputs: [
+  const rows = [{ id: 'm1', name: 'Existing milestone', status: 'IN_PROGRESS', outputs: [
     { status: 'IN_REVIEW', is_required: true, is_selected: true },
+  ] }, { id: 'm2', name: 'Deliverables', status: 'CREATED', outputs: [
+    { status: 'TO_DO', is_required: true, is_selected: false, document_key: 'proposal_teknis' },
+    { status: 'TO_DO', is_required: false, is_selected: true, document_key: 'timeline_proyek' },
+    { status: 'TO_DO', is_required: false, is_selected: false, document_key: 'unselected-output' },
   ] }];
 
   (supabaseAdmin as any).from = (table: string) => {
@@ -145,10 +149,13 @@ async function verifyAssignedMilestoneProjectMetadata(): Promise<void> {
       selection.includes('project:projects!project_milestones_project_id_fkey(id,name,customer,status,is_postponed)'),
       'Test 14A: assigned milestone project metadata must include status and is_postponed'
     );
-    assert(selection.includes('outputs:project_output_documents!project_output_documents_milestone_id_fkey(status,is_required,is_selected)'),
-      'Assigned output metadata must expose only status and selection flags, not files or content');
+    const outputSelection = selection.match(/outputs:project_output_documents!project_output_documents_milestone_id_fkey\(([^)]+)\)/);
+    assert(outputSelection?.[1] === 'status,is_required,is_selected,document_key',
+      'Assigned output metadata must expose only status, selection flags and document key, without file or content fields');
     assert(filters.some(([field, value]) => field === 'pic_id' && value === 'sa-1'), 'Assigned scope must remain actor PIC');
-    assert(result === rows, 'Waiting milestones must remain in the assigned list; only action counters filter them');
+    assert(result.length === rows.length && result[0] === rows[0], 'Existing and waiting milestones must remain in the assigned list');
+    assert(result[1].name === 'Proposal Teknis • Timeline Proyek', 'Deliverables includes only required or selected output names');
+    assert(result[1].status === 'CREATED' && result[1].outputs === rows[1].outputs, 'Display names must preserve milestone status and output metadata');
     const reads = filters.length;
     try {
       await AssignmentPhase5Service.assignedMilestones(sales);

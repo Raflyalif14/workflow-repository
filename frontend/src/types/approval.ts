@@ -1,5 +1,5 @@
 import type {Meeting} from '@/hooks/use-calendar';
-export type ApprovalCategory = "ALL" | "PROJECT_PLAN" | "DEADLINE" | "OUTPUT_DOCUMENT" | "MEETING";
+export type ApprovalCategory = "ALL" | "PROJECT_PLAN" | "DEADLINE" | "OUTPUT_DOCUMENT" | "MEETING" | "PROJECT_SCOPE";
 export type ApprovalStatus = "ALL" | "PENDING" | "APPROVED" | "REJECTED" | "SUPERSEDED" | "CANCELLED";
 
 export interface ApprovalItem {
@@ -7,7 +7,7 @@ export interface ApprovalItem {
   phaseId?: string | null;
   phaseName?: string | null;
   id: string;
-  category: "PROJECT_PLAN" | "DEADLINE" | "OUTPUT_DOCUMENT" | "MEETING";
+  category: "PROJECT_PLAN" | "DEADLINE" | "OUTPUT_DOCUMENT" | "MEETING" | "PROJECT_SCOPE";
   title: string;
   status: "PENDING" | "APPROVED" | "REJECTED" | "SUPERSEDED" | "CANCELLED";
   isCurrentApproval?: boolean;

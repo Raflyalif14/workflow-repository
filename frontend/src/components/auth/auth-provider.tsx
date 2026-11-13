@@ -54,10 +54,10 @@ const isPublicPath = (pathname: string) =>
 
 const isAuthEntryPath = (pathname: string) => pathname === "/login";
 
-function LoadingSession() {
+function LoadingSession({ reconnecting = false }: { reconnecting?: boolean }) {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background text-sm text-muted-foreground">
-      {translate("common.loading")}
+    <div className="flex min-h-screen items-center justify-center bg-background p-4 text-center text-sm text-muted-foreground" role="status">
+      {translate(reconnecting ? "auth.reconnecting" : "common.loading")}
     </div>
   );
 }
@@ -90,8 +90,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setPasswordChangeCompleted(false);
       setUser(result.user);
       setProfileError(null);
-    } else if (result.kind !== "stale" && isCurrentSession(session)) {
-      // Clear locally and redirect even when the auth server cannot be reached.
+    } else if (result.kind === "temporary" && isCurrentSession(session)) {
+      setProfileError("temporary");
+    } else if ((result.kind === "invalid" || result.kind === "forbidden") && isCurrentSession(session)) {
       clearStoredAuth();
       setUser(null);
       setProfileError(null);
@@ -104,6 +105,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     void loadProfile();
   }, [loadProfile]);
+
+  useEffect(() => {
+    if (profileError !== "temporary" || isLoading) return;
+
+    let retrying = false;
+    const retry = () => {
+      if (retrying) return;
+      retrying = true;
+      void loadProfile();
+    };
+    const timer = setTimeout(retry, 10_000);
+    window.addEventListener("online", retry);
+    window.addEventListener("focus", retry);
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener("online", retry);
+      window.removeEventListener("focus", retry);
+    };
+  }, [isLoading, loadProfile, profileError]);
 
   useEffect(() => {
     const unsubscribeCleared = onStoredAuthCleared(() => {
@@ -277,7 +297,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <AuthContext.Provider value={value}>
-      {shouldBlock ? <LoadingSession /> : children}
+      {shouldBlock ? <LoadingSession reconnecting={profileError === "temporary"} /> : children}
     </AuthContext.Provider>
   );
 }

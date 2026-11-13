@@ -1,4 +1,5 @@
 import { projectCreationRequestId, ProjectCreationRequestError } from '../services/project-creation.service';
+import { ProjectScopeChangeController } from '../controllers/project-scope-change.controller';
 import { Request, Response, Router } from 'express';
 import { ProjectDocumentSharingController } from '../controllers/project-document-sharing.controller';
 import { ProjectEstimatedValueController } from '../controllers/project-estimated-value.controller';
@@ -47,6 +48,9 @@ const uploadProjectCreationFiles = handleMultipartUpload(projectCreationUpload, 
 
 // Seluruh endpoint Project diproteksi dengan JWT Authentication
 router.use(authenticateJwt);
+router.get('/:projectId/scope-changes',ProjectScopeChangeController.list);
+router.post('/:projectId/scope-changes',requireRoles(['SALES']),ProjectScopeChangeController.save);
+router.post('/:projectId/scope-changes/:changeId',requireRoles(['SALES','HEAD_SA']),ProjectScopeChangeController.save);
 router.get('/:projectId/document-sharing',requireRoles(['HEAD_SA','SUPER_ADMIN']),ProjectDocumentSharingController.get);
 router.put('/:projectId/document-sharing',requireRoles(['HEAD_SA','SUPER_ADMIN']),ProjectDocumentSharingController.save);
 router.patch('/:projectId/estimated-value', requireRoles(['SALES']), ProjectEstimatedValueController.update);

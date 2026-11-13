@@ -1,5 +1,6 @@
 import type { NextConfig } from "next";
 import path from "node:path";
+import { PHASE_DEVELOPMENT_SERVER } from "next/constants";
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
@@ -15,4 +16,8 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+export default (phase: string): NextConfig => ({
+  ...nextConfig,
+  // Keep production builds from overwriting a running development server's chunks.
+  distDir: phase === PHASE_DEVELOPMENT_SERVER ? ".next-dev" : ".next",
+});

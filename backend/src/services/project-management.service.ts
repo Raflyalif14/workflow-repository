@@ -174,7 +174,9 @@ export class ProjectManagementService {
     let request: any = supabaseAdmin.from('projects').select(projectSelect, { count: 'exact' }).range((page - 1) * limit, page * limit - 1).order('created_at', { ascending: false });
     request = applyProjectAccessScope(request, actor);
     if (!['SALES', 'SA'].includes(actor.role) && query.sales_id) request = request.eq('sales_id', query.sales_id);
-    if (query.scenario_id) request = request.eq('scenario_id', query.scenario_id);
+    if (query.scenario_id) {
+      request = request.or(`current_scenario_id.eq.${query.scenario_id},and(current_scenario_id.is.null,scenario_id.eq.${query.scenario_id})`);
+    }
     if (query.status) request = request.eq('status', query.status);
     if (query.status_group === 'DELIVERY_COMPLETED') request = request.in('status', [...PROJECT_DELIVERY_COMPLETED_STATUSES]);
     if (query.search) request = request.or(`name.ilike.%${query.search}%,customer.ilike.%${query.search}%`);
@@ -274,7 +276,9 @@ export class ProjectManagementService {
       let statusReq: any = supabaseAdmin.from('projects').select('status');
       statusReq = applyProjectAccessScope(statusReq, actor);
       if (!['SALES', 'SA'].includes(actor.role) && query.sales_id) statusReq = statusReq.eq('sales_id', query.sales_id);
-      if (query.scenario_id) statusReq = statusReq.eq('scenario_id', query.scenario_id);
+      if (query.scenario_id) {
+        statusReq = statusReq.or(`current_scenario_id.eq.${query.scenario_id},and(current_scenario_id.is.null,scenario_id.eq.${query.scenario_id})`);
+      }
       if (query.status) statusReq = statusReq.eq('status', query.status);
       if (query.status_group === 'DELIVERY_COMPLETED') statusReq = statusReq.in('status', [...PROJECT_DELIVERY_COMPLETED_STATUSES]);
       if (query.search) statusReq = statusReq.or(`name.ilike.%${query.search}%,customer.ilike.%${query.search}%`);

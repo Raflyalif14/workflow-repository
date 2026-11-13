@@ -41,6 +41,9 @@ const getTransporter = () => {
   if (!ENV.SMTP_HOST) throw new Error('SMTP_HOST is required');
 
   transporter = nodemailer.createTransport({
+    connectionTimeout: 15_000,
+    greetingTimeout: 15_000,
+    socketTimeout: 30_000,
     host: ENV.SMTP_HOST,
     port: parseSmtpPort(ENV.SMTP_PORT),
     secure: parseSmtpSecure(ENV.SMTP_SECURE),
@@ -159,7 +162,26 @@ export const buildPasswordResetEmail = (input: PasswordResetEmailInput): SendMai
   };
 };
 
+export type DeadlineReminderEmailInput = {
+  recipientEmail: string; title: string; message: string; actionUrl: string | null; notificationId: string;
+};
+
+export const buildDeadlineReminderEmail = (input: DeadlineReminderEmailInput): SendMailOptions => {
+  const url = ENV.APP_BASE_URL && input.actionUrl?.startsWith('/projects/')
+    ? `${ENV.APP_BASE_URL.replace(/\/$/, '')}${input.actionUrl}` : '';
+  return {
+    from: ENV.SMTP_FROM || undefined, to: input.recipientEmail,
+    subject: `[Workflow Repository] ${input.title}`,
+    messageId: `<deadline-${input.notificationId}@workflow-repository.local>`,
+    text: `${input.message}${url ? `\n\n${url}` : ''}`,
+    html: `<h2>${escapeHtml(input.title)}</h2><p>${escapeHtml(input.message)}</p>${url ? `<p><a href="${escapeHtml(url)}">${escapeHtml(url)}</a></p>` : ''}`,
+  };
+};
+
 export class EmailService {
+  static async sendDeadlineReminderEmail(input: DeadlineReminderEmailInput) {
+    return getTransporter().sendMail(buildDeadlineReminderEmail(input));
+  }
   static async sendInitialPasswordEmail(input: InitialPasswordEmailInput) {
     return getTransporter().sendMail(buildInitialPasswordEmail(input));
   }

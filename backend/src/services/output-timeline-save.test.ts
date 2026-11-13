@@ -28,9 +28,9 @@ async function main() {
     const context={requestId:'44444444-4444-4444-8444-444444444444',expectedUpdatedAt:'2026-11-02T00:00:00Z'};
     await ProjectPlanApprovalService.saveTimeline('project',request,actor,context);
     assert.deepEqual(captured.p_payload.outputs.map((row:any)=>[row.id,row.start_date,row.due_date]),[
-      [a,'2026-11-02','2026-11-03'],[b,'2026-11-10','2026-11-12'],
+      [a,'2026-11-02','2026-11-04'],[b,'2026-11-10','2026-11-13'],
     ]);
-    assert.equal(captured.p_payload.milestones[0].due_date,'2026-11-12');
+    assert.equal(captured.p_payload.milestones[0].due_date,'2026-11-13');
     assert.equal(captured.p_request_id,context.requestId);
     fail=true;
     await assert.rejects(ProjectPlanApprovalService.saveTimeline('project',request,actor,context),/Business data changed/);

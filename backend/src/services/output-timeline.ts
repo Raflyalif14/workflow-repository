@@ -1,6 +1,6 @@
 import { DeadlineService } from './deadline.service';
 import { HolidayService } from './holiday.service';
-import { calculateWorkingDaysBetween } from '../utils/dates';
+import { calculateWorkingDaysBetween, isWorkingDay } from '../utils/dates';
 import type { SaveProjectTimelineInput } from '../validators/project-plan.validator';
 
 type OutputRow = { id: string; milestone_id: string; is_selected: boolean; is_required: boolean };
@@ -34,7 +34,7 @@ export async function calculateOutputTimeline(entries: SaveProjectTimelineInput[
   const milestones = [];
   for (const [id, dates] of parents) {
     const holidays = await HolidayService.getActiveHolidaysBetween(dates.start_date, dates.due_date);
-    milestones.push({ id, ...dates, duration_working_days: calculateWorkingDaysBetween(dates.start_date, dates.due_date, holidays) });
+    milestones.push({ id, ...dates, duration_working_days: calculateWorkingDaysBetween(dates.start_date, dates.due_date, holidays) - (isWorkingDay(dates.start_date, holidays) ? 1 : 0) });
   }
   return { outputs: updates, milestones };
 }

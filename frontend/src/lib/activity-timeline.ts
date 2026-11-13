@@ -3,6 +3,10 @@ import type { ProjectActivityPage, ProjectActivityTimelineItem } from "@/types/p
 import { getIntlLocale, translateOutputName, translateOutputStatus, translateProjectStatus, translateApprovalStatus, translateMilestoneStatus, translate, type TranslationKey } from "@/i18n";
 
 const actionLabels: Record<string, TranslationKey> = {
+  PROJECT_SCOPE_REQUESTED: "planChange.requestedLabel",
+  PROJECT_SCOPE_APPROVED: "planChange.approvedLabel",
+  PROJECT_SCOPE_REJECTED: "planChange.rejectedLabel",
+  PROJECT_SCOPE_CANCELLED: "planChange.cancelledLabel",
   MEETING_REQUESTED: "meetingActivity.MEETING_REQUESTED_label",
   MEETING_APPROVED: "meetingActivity.MEETING_APPROVED_label",
   MEETING_REJECTED: "meetingActivity.MEETING_REJECTED_label",

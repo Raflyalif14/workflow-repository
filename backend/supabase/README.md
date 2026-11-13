@@ -21,6 +21,10 @@ Tiga tabel lama (`milestone_submission_packages`, `milestone_submission_attachme
 
 ## Cara membaca berkas SQL
 
+Google Calendar memakai `phase47-google-calendar.sql` setelah Phase 46. Migrasi disiapkan terpisah dari kredensial OAuth; lihat [panduan Google Calendar](../../docs/google-calendar.md).
+
+Pengingat H-1 menggunakan `phase45-deadline-reminders.sql` setelah Phase 44. Panduan pengiriman, pencatatan pengingat, dan pengujian ada di [pengingat deadline](../../docs/deadline-reminders.md).
+
 | Jenis | Fungsi |
 | --- | --- |
 | `phase*.sql` dengan nama fitur | Perubahan struktur/fungsi dari tahap tertentu. Bukan file yang perlu dijalankan setiap hari. |

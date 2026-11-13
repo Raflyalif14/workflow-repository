@@ -67,7 +67,10 @@ export function FaceLogin({ enrollment = false }: { enrollment?: boolean }) {
     })().catch(value => { if (current && !abort.signal.aborted) setError(errorText(value)); })
       .finally(() => { if (current) setLoadingDevice(false); });
     const invalidate = () => { current = false; abort.abort(); cancel(); setEnabled(false); };
-    const offClear = onStoredAuthCleared(invalidate), offChange = onAuthSessionChanged(invalidate);
+    // Password sign-in clears the previous session even if the attempt fails.
+    // Cancel old captures immediately, then reload capabilities for the new session.
+    const sessionChanged = () => { invalidate(); setLoadAttempt(value => value + 1); };
+    const offClear = onStoredAuthCleared(sessionChanged), offChange = onAuthSessionChanged(sessionChanged);
     window.addEventListener('pagehide', invalidate);
     return () => { invalidate(); offClear(); offChange(); window.removeEventListener('pagehide', invalidate); };
   }, [owner, enrollment, loadAttempt, cancel, user?.fullName, user?.email]);
@@ -165,7 +168,7 @@ export function FaceLogin({ enrollment = false }: { enrollment?: boolean }) {
     if (own !== generation.current) return;
     setDevice(saved); setPhase('idle'); setRemoved(true);
   };
-  if (!eligible || !enabled && !enrollment) return null;
+  if (!eligible || !enabled && !enrollment && !error) return null;
   const ownRegistration = accountRegistered || device?.registered && device.owner === owner;
   const otherRegistration = enrollment && device?.registered && device.owner !== owner;
   const active = ['starting', 'capture', 'scanning', 'checking'].includes(phase);
@@ -250,7 +253,7 @@ export function FaceLogin({ enrollment = false }: { enrollment?: boolean }) {
     {phase === 'starting' && <p role="status" className="text-sm">{t('faceLogin.starting')}</p>}
     <div className="flex flex-wrap gap-2">
       {!active && enabled && !enrollment && <Button type="button" onClick={() => void start()} disabled={loadingDevice || (!accountLogin && !device?.registered)}>{t('faceLogin.signIn')}</Button>}
-      {enrollment && !loadingDevice && !enabled && error && <Button type="button" variant="outline" onClick={() => setLoadAttempt(value => value+1)}>{t('faceLogin.retryStatus')}</Button>}
+      {!loadingDevice && !enabled && error && <Button type="button" variant="outline" onClick={() => setLoadAttempt(value => value+1)}>{t('faceLogin.retryStatus')}</Button>}
       {active && <Button type="button" variant="outline" onClick={cancel}>{t('common.cancel')}</Button>}
     </div>
     {enrollment && !active && <div className="space-y-3 border-t pt-4">

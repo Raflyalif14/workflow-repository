@@ -3,6 +3,7 @@
 import React, { useState, createContext, useContext, useEffect, useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   CalendarDays,
   LayoutDashboard,
@@ -23,7 +24,8 @@ import {
 import { useAuth } from "@/components/auth/auth-provider";
 import { useApprovalStats } from "@/hooks/use-approvals";
 import { canReadApprovalOverview } from "@/lib/approval-overview-access";
-import { useMyAssignedMilestones } from "@/hooks/use-projects";
+import { projectListQueryOptions, useMyAssignedMilestones } from "@/hooks/use-projects";
+import { getAuthSession } from "@/lib/auth";
 import { NotificationBell } from "@/components/notifications/notification-bell";
 import { LanguageSwitcher } from "@/components/language-switcher";
 import { useLanguage } from "@/components/i18n/language-provider";
@@ -109,6 +111,12 @@ export function Sidebar() {
   const { collapsed, setCollapsed, mobileOpen, setMobileOpen } = useSidebar();
   const { user } = useAuth();
   const { t } = useLanguage();
+  const queryClient = useQueryClient();
+
+  const prepareProjects = () => {
+    if (!user?.isActive || user.mustChangePassword || !getAuthSession()) return;
+    void queryClient.prefetchQuery(projectListQueryOptions());
+  };
 
   const userRole = user?.role || "GUEST";
   const canLoadApprovalOverview = canReadApprovalOverview(user?.role);
@@ -164,6 +172,9 @@ export function Sidebar() {
               key={item.href}
               href={item.href}
               prefetch={true}
+              onPointerEnter={item.href === "/projects" ? prepareProjects : undefined}
+              onFocus={item.href === "/projects" ? prepareProjects : undefined}
+              onPointerDown={item.href === "/projects" ? prepareProjects : undefined}
               onClick={() => setMobileOpen(false)}
               title={item.href === "/milestones" && isAssignedMilestoneRole
                 ? `${t(item.labelKey)} — ${t("milestonePage.needsAction")}: ${badgeCount}`

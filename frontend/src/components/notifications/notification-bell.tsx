@@ -48,7 +48,7 @@ export function NotificationBell({ enabled }: { enabled: boolean }) {
     isLoading,
     isError,
     refetch: refetchNotifications,
-  } = useNotifications(enabled);
+  } = useNotifications(enabled && isOpen);
   const { data: unreadCountData } = useUnreadNotificationCount(enabled);
   const markAsRead = useMarkNotificationAsRead();
   const markAllAsRead = useMarkAllNotificationsAsRead();

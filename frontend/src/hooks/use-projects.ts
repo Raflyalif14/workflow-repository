@@ -85,25 +85,29 @@ const invalidateProjectRuntime = (queryClient: ReturnType<typeof useQueryClient>
   queryClient.invalidateQueries({ queryKey: ["global-search"] });
 };
 
-export function useProjects(filters: ProjectFilters = {}) {
+export function projectListQueryOptions(filters: ProjectFilters = {}) {
   const { page = 1, limit = 10, search = "", status = "ALL", scenarioId, salesId } = filters;
   const queryFilters = { page, limit, search, status, scenarioId, salesId };
 
-  return useQuery<ProjectsResponse>({
+  return {
     queryKey: projectKeys.list(queryFilters),
-    queryFn: () => {
+    queryFn: ({ signal }: { signal: AbortSignal }) => {
       const params = new URLSearchParams({ page: String(page), limit: String(limit) });
       if (search) params.set("search", search);
       if (status === "DELIVERY_COMPLETED") params.set("status_group", status);
       else if (status !== "ALL") params.set("status", status);
       if (scenarioId) params.set("scenario_id", scenarioId);
       if (salesId) params.set("sales_id", salesId);
-      return apiClient<ProjectsResponse>(`/projects?${params}`);
+      return apiClient<ProjectsResponse>(`/projects?${params}`, { signal });
     },
     placeholderData: keepPreviousData,
     staleTime: 30_000,
     refetchOnWindowFocus: true,
-  });
+  };
+}
+
+export function useProjects(filters: ProjectFilters = {}) {
+  return useQuery<ProjectsResponse>(projectListQueryOptions(filters));
 }
 
 export function useProject(id: string, options: { includeActivity?: boolean } = {}) {

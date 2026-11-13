@@ -1,16 +1,41 @@
 "use client";
 
-import { useState } from "react";
-import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
+import { useEffect, useRef, useState } from "react";
+import dynamic from "next/dynamic";
 import { formatNumber, translate } from "@/i18n";
 import { getWorkStatusDistribution, DEFAULT_WORK_STATUS_FILTER, type AllWorkStatus, type PhaseWorkStatus, type WorkStatusPhase } from "@/lib/dashboard-phase-status";
 
 type Props = { summary?: PhaseWorkStatus | null; allSummary?: AllWorkStatus | null; loading: boolean; hasError: boolean; refreshing?: boolean; onRetry: () => void };
 
+const WorkStatusChart = dynamic(() => import("./work-status-chart"), {
+  ssr: false,
+  loading: () => <div className="mx-auto mt-4 h-40 w-40 rounded-full border-[18px] border-muted" />,
+});
+
 export function PhaseWorkStatusPanel({ summary, allSummary, loading, hasError, refreshing, onRetry }: Props) {
   // Query refresh and locale changes update props without replacing the selection.
   const [phase, setPhase] = useState<WorkStatusPhase>(DEFAULT_WORK_STATUS_FILTER);
   const distribution = getWorkStatusDistribution(allSummary, summary, phase);
+  const chartRef = useRef<HTMLDivElement>(null);
+  const [chartVisible, setChartVisible] = useState(false);
+  const hasChart = Boolean(distribution && distribution.total > 0);
+
+  useEffect(() => {
+    const element = chartRef.current;
+    if (!hasChart || chartVisible || !element) return;
+    if (typeof IntersectionObserver === "undefined") {
+      setChartVisible(true);
+      return;
+    }
+    const observer = new IntersectionObserver(entries => {
+      if (entries.some(entry => entry.isIntersecting)) {
+        setChartVisible(true);
+        observer.disconnect();
+      }
+    }, { rootMargin: "200px" });
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [hasChart, chartVisible]);
   const message = distribution ? null : loading ? translate("dashboardPage.loadingHealth")
     : hasError ? translate("dashboardPage.workStatusError") : translate("dashboardPage.workStatusUnavailable");
   const data = distribution?.rows.map(row => ({ ...row, value: row.count })) || [];
@@ -48,16 +73,8 @@ export function PhaseWorkStatusPanel({ summary, allSummary, loading, hasError, r
       ) : distribution ? (
         <div className="mt-4 grid min-w-0 gap-4 sm:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] sm:items-center" aria-live="polite">
           <p className="sr-only">{totalLabel}: {formatNumber(distribution.total)}</p>
-          <div className="relative mx-auto h-48 w-full max-w-[240px]" aria-hidden="true">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie data={data} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={57} outerRadius={78} paddingAngle={2} stroke="none" isAnimationActive={false}>
-                  {data.map(row => <Cell key={row.status} fill={row.color} />)}
-                </Pie>
-                <Tooltip formatter={value => [formatNumber(Number(value)), translate("dashboardPage.chartProjects")]}
-                  contentStyle={{ background: "hsl(var(--popover))", border: "1px solid hsl(var(--border))", borderRadius: "8px", color: "hsl(var(--popover-foreground))", fontSize: "12px" }} />
-              </PieChart>
-            </ResponsiveContainer>
+          <div ref={chartRef} className="relative mx-auto h-48 w-full max-w-[240px]" aria-hidden="true">
+            {chartVisible && <WorkStatusChart data={data} />}
             <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
               <span className="text-2xl font-semibold text-foreground">{formatNumber(distribution.total)}</span>
               <span className="max-w-[112px] text-center text-xs leading-tight text-muted-foreground">{totalLabel}</span>

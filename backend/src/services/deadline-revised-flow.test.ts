@@ -158,7 +158,7 @@ assert(approvedWithoutInjectedValues.effectiveDeadline.due_date !== injectedAtte
 console.log('Test 9 - Approve cannot inject frontend deadline values: passed');
 
 const calculatedWithHoliday = toDateKey(addWorkingDays('2026-08-28', 3, ['2026-08-31']));
-assert(calculatedWithHoliday === '2026-09-02', 'Test 10: Friday + 3 working days with Monday holiday should be Wednesday');
+assert(calculatedWithHoliday === '2026-09-03', 'Test 10: Friday + 3 working days with Monday holiday should be Thursday');
 console.log('Test 10 - Working-day calculation with holiday remains correct: 2026-09-02');
 
 const writeArtifacts = {

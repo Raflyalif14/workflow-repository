@@ -222,6 +222,14 @@ async function main(): Promise<void> {
       assert(response.documents.length === 1 && response.documents[0].key === approvedKey, 'Test 2: approved output remains available through project access');
       assert.deepEqual(response.missingMandatoryNames, [], 'Test 2: non-final output names must not leak through readiness metadata');
       assert.equal(response.unapprovedCount, 1, 'Test 2: only the unapproved Proposal Teknis remains required');
+      if (actor.role === 'SALES') {
+        assert.equal(response.scopeCatalog?.length, getScenarioDocuments('On Submission Tender').length, 'Sales can select optional outputs even when documents are not approved');
+        assert(response.scopeCatalog?.find(item => item.key === nonFinalKey)?.protected, 'Existing work stays protected');
+        assert(response.scopeCatalog?.some(item => !item.isSelected && !item.isRequired), 'Catalog includes outputs not yet selected');
+        for (const item of response.scopeCatalog || []) {
+          assert.deepEqual(Object.keys(item).sort(), ['key','name','group','milestoneId','isRequired','isSelected','protected'].sort(), 'Catalog must not disclose files or review details');
+        }
+      } else assert.equal(response.scopeCatalog, undefined);
     }
     console.log('Test 2 - Sales owner and SUPER_ADMIN receive approved outputs only: passed');
   });

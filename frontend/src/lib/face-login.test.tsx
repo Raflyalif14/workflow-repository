@@ -26,7 +26,7 @@ async function run() {
   let user: any = { id: actor, isActive: true }, starts = 0, photos = 0, submissions = 0, enrollment = true, signedIn = 0, removals = 0;
   let delayStart: ((v: any) => void) | null = null, startSignal: AbortSignal | null = null;
   let delayCapture: ((v: Blob) => void) | null = null;
-  let accountMode = false, emptyBrowser = false, accountRequests = 0;
+  let accountMode = false, emptyBrowser = false, accountRequests = 0, capabilityFailure = false;
   let singleGlance = false, scans = 0, scanError = '', scanSignal: AbortSignal | null = null, delayScan: ((v: Blob[]) => void) | null = null;
   let now = 0, timerId = 0;
   const timers = new Map<number, { at: number; fn: () => void }>();
@@ -56,7 +56,10 @@ async function run() {
   };
   const challenge = (action: string) => ({ id: crypto.randomUUID(), nonce: 'fixture-nonce', deviceId: stored.id, action, direction: 'left', expiresAt: new Date(Date.now()+90000).toISOString() });
   (api as any).apiClient = async (path: string, options: any = {}) => {
-    if (path.endsWith('/capabilities')) return { enabled: true, singleGlance, accountLogin: accountMode, faceIdentify: accountMode };
+    if (path.endsWith('/capabilities')) {
+      if (capabilityFailure) throw Error('FACE_AUTH_UNAVAILABLE');
+      return { enabled: true, singleGlance, accountLogin: accountMode, faceIdentify: accountMode };
+    }
     if (path.endsWith('/device/remove') || path.endsWith('/devices/remove-all')) {
       assert.equal(JSON.parse(options.body).password, 'fixture-management-password'); removals++; return { removed: true };
     }
@@ -161,6 +164,14 @@ async function run() {
     // Logout cancels an armed timer, and a cancelled in-flight capture is discarded.
     await reset(); await startLogin(); const beforeLogout=photos;
     await advance(2000); clearStoredAuth(); await advance(5000); assert.equal(photos,beforeLogout, 'Logout prevents capture even before React effect cleanup');
+    assert(button('faceLogin.signIn'), 'Clearing the session during a failed password login must restore camera sign-in');
+    await startLogin(); click('common.cancel'); await flush();
+    // A capability request failure must remain visible and recover without refreshing the page.
+    capabilityFailure = true; await reset();
+    assert(find(render(), n => n.props?.children === 'faceLogin.FACE_AUTH_UNAVAILABLE'));
+    assert(button('faceLogin.retryStatus'));
+    capabilityFailure = false; click('faceLogin.retryStatus'); await flush();
+    assert(button('faceLogin.signIn'));
     await reset(); await startLogin(); delayCapture=()=>{}; await advance(3000);
     const submissionsBeforeCancel=submissions; click('common.cancel'); await flush();
     (delayCapture as any)(new Blob(['cancelled-frame'])); delayCapture=null; await flush(); await advance(10000);

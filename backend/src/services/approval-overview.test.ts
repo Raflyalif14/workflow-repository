@@ -18,14 +18,14 @@ async function main() {
     version_number: 2, submitted_at: '2026-10-06T01:00:00Z', submission_actor_id: 'submitter', uploaded_by: 'different-uploader' };
   const refs = [1, 2].map(position => ({ version_id: 'v', project_id: 'p', output_document_id: 'o', file_id: `f${position}`, position }));
   const files = refs.map(ref => ({ id: ref.file_id, project_id: 'p', output_document_id: 'o', storage_path: 'private', signed_url: 'private' }));
-  const tables: Record<string, any[]> = { projects: [project], project_milestones: [milestone], project_plan_approvals: [], project_meetings: [],
+  const tables: Record<string, any[]> = { projects: [project], project_milestones: [milestone], project_plan_approvals: [], project_meetings: [], project_scope_changes: [],
     milestone_deadline_approvals: [], milestone_deadline_history: [], project_output_documents: [output],
     project_output_document_versions: [version, { ...version, id: 'old', version_number: 1 }],
     project_output_document_version_files: refs, project_output_document_files: files,
     users: [{ id: 'submitter', full_name: 'Actual submitter', role: 'SA', email: 'private' }] };
   const originalFrom = supabaseAdmin.from, originalAuth = supabaseAdmin.auth.getUser;
   let profile: any = { id: 'actor', full_name: 'Actor', role: 'HEAD_SA', is_active: true, must_change_password: false };
-  let failing = '', throwing = '', reads = 0;
+  let failing = '', throwing = '', failureCode = '', reads = 0;
   const projections: Array<{ table: string; fields: string }> = [];
   (supabaseAdmin as any).from = (table: string) => {
     assert(table in tables, table);
@@ -37,7 +37,7 @@ async function main() {
       projections.push({ table, fields: projection });
       const data = tables[table].filter(row => filters.every(filter => filter(row)));
       data.sort((a, b) => { for (const [key, ascending] of orders) { const diff = String(a[key] ?? '').localeCompare(String(b[key] ?? '')); if (diff) return ascending ? diff : -diff; } return 0; });
-      return { data: data.slice(bounds[0], bounds[1] + 1), error: table === failing ? { message: 'private provider failure' } : null };
+      return { data: data.slice(bounds[0], bounds[1] + 1), error: table === failing ? { code: failureCode, message: 'private provider failure' } : null };
     };
     const query: any = { select: (fields: string) => { projection = fields; return query; },
       eq: (key: string, value: any) => { filters.push(row => row[key] === value); return query; },
@@ -129,6 +129,14 @@ async function main() {
     const admin = await ApprovalOverviewService.getOverview({ ...head, role: 'SUPER_ADMIN' }); assert.equal(admin.stats.pendingDocs, 0);
     assert(!projections.slice(before).some(value => value.table.startsWith('project_output_document')), 'No non-final metadata read for SUPER_ADMIN');
     for (const role of ['SA', 'SALES']) { const count = reads; await assert.rejects(ApprovalOverviewService.getOverview({ ...head, role }), /Forbidden/); assert.equal(reads, count); }
+    tables.project_scope_changes = [{id:'scope-1',project_id:'p',phase_id:'tender',status:'PENDING',reason:'Synthetic revised outputs',requested_by:'sales',requested_at:'2026-11-12'}];
+    const withScope = await overview();
+    assert(withScope.items.some(item => item.category==='PROJECT_SCOPE' && item.id==='scope-1'));
+    assert.equal(withScope.stats.pendingProjectPlans,1);
+    failing='project_scope_changes'; failureCode='PGRST205';
+    const notInstalled=await overview(); assert(!notInstalled.items.some(item=>item.category==='PROJECT_SCOPE'));
+    failureCode='42501'; await assert.rejects(overview(),/Failed to load approval overview/);
+    failing='';failureCode='';tables.project_scope_changes=[];
     // More than a database page and more than an IN batch: every output remains one item.
     tables.projects = Array.from({ length: 270 }, (_, i) => ({ ...project, id: `p${String(i).padStart(3, '0')}` }));
     tables.projects.forEach(p => { p.phases = project.phases.map((phase: any) => ({ ...phase, project_id: p.id })); });

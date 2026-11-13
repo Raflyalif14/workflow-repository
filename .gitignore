@@ -9,6 +9,7 @@ node_modules/
 # Next.js
 # =========================================
 frontend/.next/
+frontend/.next-dev/
 frontend/out/
 .next/
 out/

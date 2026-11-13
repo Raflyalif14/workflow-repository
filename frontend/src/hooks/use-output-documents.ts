@@ -8,6 +8,7 @@ import { ProjectOutputDocumentFile, ProjectOutputDocumentItem, ProjectOutputDocu
 import { approvalKeys, assignmentKeys, dashboardKeys, projectKeys } from "@/lib/query-keys";
 
 export interface OutputDocumentsResponse {
+  scopeCatalog?: Array<Pick<ProjectOutputDocumentItem, 'key' | 'name' | 'group' | 'milestoneId' | 'isRequired' | 'isSelected'> & { protected: boolean }>;
   scenarioKey: string;
   isScopeLocked: boolean;
   canSubmit: boolean;

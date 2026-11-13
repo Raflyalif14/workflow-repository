@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import authRoutes from './auth.routes';
 import calendarRoutes from './calendar.routes';
+import googleCalendarRoutes from './google-calendar.routes';
 import userRoutes from './user.routes';
 import projectRoutes from './project.routes';
 import documentRoutes from './document.routes';
@@ -35,6 +36,7 @@ router.get('/health', (_req, res) => {
 // Authentication endpoints: /api/auth/*
 router.use('/auth', authRoutes);
 router.use('/calendar', calendarRoutes);
+router.use('/google-calendar', googleCalendarRoutes);
 
 // User Management endpoints: /api/users/* (Super Admin)
 router.use('/users', userRoutes);

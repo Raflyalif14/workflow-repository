@@ -707,6 +707,16 @@ export class OutputDocumentService {
       unapprovedCount: selectedItems.filter((item) => item.status !== 'APPROVED').length,
       canRetryCompletion,
       documents: visibleItems,
+      // Scope editing needs the catalog, not the Sales document viewer (approved files only).
+      // Expose planning metadata only; drafts, feedback, versions and files stay private.
+      scopeCatalog: actor.role === 'SALES' && project.sales_id === actor.userId
+        ? items.filter(item => item.group === scenarioKey).map(item => ({
+            key: item.key, name: item.name, group: item.group, milestoneId: item.milestoneId,
+            isRequired: item.isRequired, isSelected: item.isSelected,
+            protected: !['TO_DO', 'NOT_REQUIRED'].includes(item.status) || !!item.draftRevision ||
+              !!item.draftFiles.length || !!item.files.length || !!item.currentVersionId || !!item.versionCount || !!item.legacyVersionCount,
+          }))
+        : undefined,
       fileLimits: { maxFiles: MAX_OUTPUT_DOCUMENT_FILES, maxTotalSizeBytes: MAX_OUTPUT_DOCUMENT_TOTAL_SIZE_BYTES, maxFileSizeBytes: MAX_DOCUMENT_FILE_SIZE_BYTES },
     };
   }

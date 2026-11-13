@@ -1,6 +1,7 @@
 "use client";
 import Link from "next/link";
 import { ProjectMeetings } from "@/components/projects/project-meetings";
+import { ProjectScopeChanges } from "@/components/projects/project-scope-changes";
 import { compareMilestoneSchedule, getScheduledWorkStage } from '@/lib/milestone-order';
 import { projectDisplayStatus } from '@/lib/project-display-status';
 import { useOutcomeEvidence } from '@/hooks/use-outcome-evidence';
@@ -426,6 +427,7 @@ export default function ProjectDetailPage() {
       />}
 
       <ProjectMeetings key={project.id} project={project} />
+      {project.status !== 'DRAFT' && <ProjectScopeChanges project={project} milestones={milestonesLoading||milestonesError?undefined:milestones} />}
 
       {(isActive || isPostponed) && !isPraTenderDecisionPending(project) && (
         <section aria-label={translateI18n("copy.pendingItems")} className="page-surface p-4 text-sm sm:p-5">

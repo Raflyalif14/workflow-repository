@@ -409,6 +409,18 @@ export class ApprovalOverviewService {
             };
         });
 
+        const scopeRows = await readApprovalRows('project_scope_changes',
+            'id,project_id,phase_id,status,reason,requested_by,requested_at,review_note,reviewed_at',
+            {column:'project_id',ids:projectIds},'requested_at',undefined,undefined,true);
+        if (scopeRows.error) throw safeError(scopeRows.error,'project_scope_changes');
+        const scopeItems = scopeRows.data.map(row => {
+            const project=projects.find(p=>p.id===row.project_id)!;
+            return {id:row.id,category:'PROJECT_SCOPE' as const,title:'Project plan change',status:row.status,
+                projectId:project.id,projectName:project.name,projectCode:'',clientName:project.customer||'',targetEntityId:row.id,
+                submittedBy:userMap.get(row.requested_by)?.full_name||'',submittedAt:row.requested_at,requestedAt:row.requested_at,
+                requestNote:row.reason,reviewNote:row.review_note,approvedAt:row.reviewed_at,
+                isCurrentApproval:row.phase_id===project.active_phase_id};
+        });
         const meetingItems = meetingRows.data.map(row => {
             const project=projects.find(p=>p.id===row.project_id)!;
             const meeting={id:row.id,projectId:row.project_id,projectName:project.name,picName:userMap.get(project.pic_id||'')?.full_name||null,title:row.title,
@@ -426,6 +438,7 @@ export class ApprovalOverviewService {
             ...deadlineItems,
             ...outputItems,
             ...meetingItems,
+            ...scopeItems,
         ].sort((a, b) => {
             const aPending =
                 a.status === 'PENDING' &&
@@ -447,7 +460,7 @@ export class ApprovalOverviewService {
         /*
          * Counters count CURRENT visible pending items, including blocked output reviews.
          */
-        const pendingProjectPlans = projectPlanItems.filter(
+        const pendingProjectPlans = [...projectPlanItems,...scopeItems].filter(
             (item) =>
                 item.status === 'PENDING' &&
                 item.isCurrentApproval

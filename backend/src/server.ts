@@ -1,8 +1,10 @@
 import { Server } from 'http';
+import { GoogleCalendarWorker } from './services/google-calendar.worker';
 import app from './app';
 import { ENV } from './config/env';
 import { TelegramRetryWorker } from './services/telegram-retry-worker.service';
 import { OutputNotificationOutboxWorker } from './services/output-notification-outbox.worker';
+import { DeadlineReminderWorker } from './services/deadline-reminder.worker';
 
 let server: Server | null = null;
 let isShuttingDown = false;
@@ -13,6 +15,8 @@ const shutdown = (exitCode: number): void => {
   isShuttingDown = true;
   TelegramRetryWorker.stop();
   OutputNotificationOutboxWorker.stop();
+  DeadlineReminderWorker.stop();
+  GoogleCalendarWorker.stop();
 
   if (!server) {
     process.exit(exitCode);
@@ -38,6 +42,8 @@ const startServer = async () => {
       console.log(`📡 Healthcheck: http://localhost:${port}/api/health`);
       TelegramRetryWorker.start();
       OutputNotificationOutboxWorker.start();
+      DeadlineReminderWorker.start();
+      GoogleCalendarWorker.start();
     });
   } catch (error) {
     console.error('❌ Failed to start server:', error);

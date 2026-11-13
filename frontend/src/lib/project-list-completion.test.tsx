@@ -70,7 +70,7 @@ export async function testProjectCompletion() {
     (api as any).apiClient = async (url: string) => { requested = url; return {}; };
     for (const status of ['DELIVERY_COMPLETED', 'COMPLETED', 'WON', 'ALL'] as ProjectListStatusFilter[]) {
       projects.useProjects({ page: 2, limit: 10, search: 'tor monitor', scenarioId: 'scenario-fixture', status });
-      await options.queryFn(); const params = new URL(requested, 'http://localhost').searchParams;
+      await options.queryFn({ signal: new AbortController().signal }); const params = new URL(requested, 'http://localhost').searchParams;
       assert.equal(params.get('page'), '2'); assert.equal(params.get('search'), 'tor monitor'); assert.equal(params.get('scenario_id'), 'scenario-fixture');
       assert.equal(params.get('status_group'), status === 'DELIVERY_COMPLETED' ? 'DELIVERY_COMPLETED' : null);
       assert.equal(params.get('status'), ['DELIVERY_COMPLETED', 'ALL'].includes(status) ? null : status);

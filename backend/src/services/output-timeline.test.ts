@@ -16,9 +16,9 @@ async function main() {
     assert(!saveProjectTimelineSchema.safeParse({ milestones: [entries[0],entries[0]] }).success);
     const result = await calculateOutputTimeline(entries, outputs);
     assert.deepEqual(result.outputs.map(row => [row.id,row.start_date,row.due_date]), [
-      [a,'2026-11-02','2026-11-03'], [b,'2026-11-10','2026-11-13'],
+      [a,'2026-11-02','2026-11-04'], [b,'2026-11-10','2026-11-16'],
     ]);
-    assert.deepEqual(result.milestones, [{ id, start_date:'2026-11-02', due_date:'2026-11-13', duration_working_days:9 }]);
+    assert.deepEqual(result.milestones, [{ id, start_date:'2026-11-02', due_date:'2026-11-16', duration_working_days:9 }]);
     await assert.rejects(calculateOutputTimeline(entries.slice(0,1), outputs), /every selected output/);
     await assert.rejects(calculateOutputTimeline(entries, []), /not selected/);
     await assert.rejects(calculateOutputTimeline([...entries, { milestoneId:id,startDate:'2026-11-02',durationWorkingDays:1 }], outputs), /Cannot mix/);
