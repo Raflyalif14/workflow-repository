@@ -34,7 +34,8 @@ let downloadFails = false;
 } });
 (globalThis as any).window = { open(...args: any[]) { opened.push(args); } };
 const render = () => elements(ProjectDocumentsSection({ projectId: 'project-a' }));
-const downloadButtons = (tree: Element[]) => tree.filter(node => node.type === Button && node.props.onClick && Array.isArray(node.props.children));
+const downloadButtons = (tree: Element[]) => tree.filter(node => node.type === Button && node.props.onClick && node.props['aria-label'] === translate('docPreview.downloadFile'));
+const previewButtons = (tree: Element[]) => tree.filter(node => node.type === Button && node.props.onClick && typeof node.props['aria-label'] === 'string' && (node.props['aria-label'].startsWith('Preview ') || node.props['aria-label'].startsWith('Pratinjau ')));
 async function run() { try {
   for (const locale of ['en', 'id'] as const) {
     setActiveLanguage(locale); error = ''; docs = { ...docs, data: [], isError: false }; outputs = { ...outputs, isError: false };
@@ -45,6 +46,7 @@ async function run() { try {
     assert.equal(tree.filter(node => node.type === 'p' && node.props.children === translateOutputName(approved.documentKey, approved.name)).length, 1,
       'Multi-file approved output is one entry, deduplicated and scoped to the project');
     const buttons = downloadButtons(tree); assert.equal(buttons.length, 2, 'Exactly the approved snapshot files have download actions');
+    const previews = previewButtons(tree); assert.equal(previews.length, 2, 'Approved snapshot files have preview actions');
     for (const [index, button] of buttons.entries()) {
       // Handlers intentionally return void; drain their synthetic promise before assertions below.
       button.props.onClick();
@@ -56,20 +58,27 @@ async function run() { try {
     downloadFails = true; buttons[0].props.onClick(); await new Promise(resolve => setImmediate(resolve));
     assert(render().some(node => node.props.role === 'alert')); downloadFails = false; error = '';
     tree = render(); assert.equal(downloadButtons(tree).length, 2, 'Refetch retains approved file actions');
+    assert.equal(previewButtons(tree).length, 2, 'Refetch retains preview actions');
     outputs.data = []; tree = render();
     assert(tree.some(node => node.props.children === translate('documents.empty')), 'Next non-approved submission does not expose prior/draft files outside repository policy');
     assert.equal(downloadButtons(tree).length, 0);
+    assert.equal(previewButtons(tree).length, 0);
     docs.data = [{ id: 'official-a', projectId: 'project-a', title: 'Synthetic official', category: 'OTHER', status: 'APPROVED',
       createdAt: '2026-10-09T00:00:00Z', updatedAt: '2026-10-09T00:00:00Z', canUploadVersion: false,
       versions: [{ id: 'official-version', versionNumber: 1, fileName: 'official.pdf' }] }];
     outputs.data = [approved]; tree = render(); assert.equal(downloadButtons(tree).length, 3, 'Official documents remain accessible beside outputs');
-    enabled = false; assert.equal(downloadButtons(render()).length, 0, 'Ineligible session gets no document actions'); enabled = true;
+    assert.equal(previewButtons(tree).length, 3, 'Official documents provide preview actions beside outputs');
+    enabled = false; assert.equal(downloadButtons(render()).length, 0, 'Ineligible session gets no document actions');
+    assert.equal(previewButtons(render()).length, 0, 'Ineligible session gets no preview actions');
+    enabled = true;
     outputs.isError = true; tree = render();
     assert(tree.some(node => node.props.children === translate('documents.loadError')));
     assert.equal(downloadButtons(tree).length, 0, 'Errors never expose stale cached files or masquerade as empty');
+    assert.equal(previewButtons(tree).length, 0, 'Errors never expose preview actions');
     tree.find(node => node.type === Button && node.props.children === translate('common.retry'))!.props.onClick();
     assert(refetches > 0);
     outputs = { ...outputs, data: [], isError: false }; docs.data = []; assert.equal(downloadButtons(render()).length, 0, 'No authorized result means no entry/actions');
+    assert.equal(previewButtons(render()).length, 0, 'No authorized result means no preview actions');
   }
   console.log('Project Documents panel: approved snapshot files, single-entry collections, current project, refresh/revision, official preservation, session/error/empty, retry and EN/ID passed.');
 } finally {

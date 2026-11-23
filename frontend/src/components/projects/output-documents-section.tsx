@@ -9,11 +9,13 @@ import { translate as translateI18n, getIntlLocale, translateOutputStatus, trans
 import { useLanguage } from "@/components/i18n/language-provider";
 
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
-import { AlertCircle, AlertTriangle, CheckCircle2, Download, History, Loader2, RotateCcw, Send } from "lucide-react";
+import { AlertCircle, AlertTriangle, CheckCircle2, Download, Eye, FileText, History, Loader2, RotateCcw, Send } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { DocumentPreviewDialog } from "@/components/documents/document-preview-dialog";
+import { downloadFileFromUrl } from "@/lib/file-download";
 import {
   type OutputDocumentBatchResult,
   useOutputDocumentFileDownload,
@@ -148,8 +150,12 @@ function OutputDocumentRow({ projectId, document, canUpload, canReview, canReadH
           <div className="flex min-w-0 flex-wrap items-center gap-1.5">
             {submittable && submissionSelectionMode && <input type="checkbox" disabled={draftBusy || submissionOperation !== null} checked={submitChecked} onChange={onToggleSubmit} aria-label={getOutputDocumentSubmissionSelectionLabel(translateOutputName(document.key, document.name))} className="h-4 w-4 accent-primary" />}
             {reviewable && approvalSelectionMode && <input type="checkbox" checked={approveChecked} onChange={onToggleApprove} aria-label={getOutputDocumentApprovalSelectionLabel(translateOutputName(document.key, document.name))} className="h-4 w-4 accent-primary" />}
+            <FileText className="h-4 w-4 shrink-0 text-primary/70" />
             <p className="min-w-0 break-words text-sm font-medium text-foreground">{translateOutputName(document.key, document.name)}</p>
             <OutputStatusBadge status={document.status} />
+            <Badge variant={document.isRequired ? "secondary" : "outline"} className={`text-[10px] ${document.isRequired ? "border border-amber-500/20 bg-amber-500/10 text-amber-600" : "border-border/60 text-muted-foreground"}`}>
+              {translateI18n(document.isRequired ? "outputUi.required" : "outputUi.optional")}
+            </Badge>
           </div>
           {document.reviewFeedback && <div className="flex items-start gap-2 text-xs text-destructive">
             <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
@@ -220,7 +226,17 @@ function OutputDocumentRow({ projectId, document, canUpload, canReview, canReadH
           )}
         </div>
       </div>
-      <OutputDocumentFiles projectId={projectId} document={document} editable={uploadable} blocked={submissionOperation !== null || reviewPending} onBusyChange={onDraftBusyChange} refreshDraft={refreshDraft} />
+      <OutputDocumentFiles
+        projectId={projectId}
+        document={document}
+        editable={uploadable}
+        blocked={submissionOperation !== null || reviewPending}
+        canReview={reviewable}
+        onApprove={onApprove}
+        onRequestRevision={onRevision}
+        onBusyChange={onDraftBusyChange}
+        refreshDraft={refreshDraft}
+      />
       {uploadable && <p className="text-xs text-muted-foreground">{translateI18n("outputFiles.draftHelp")}</p>}
     </div>
   );
@@ -231,16 +247,45 @@ function VersionHistoryDialog({ projectId, document, onClose }: { projectId: str
   const download = useOutputDocumentFileDownload(projectId, document.key);
   const [error, setError] = useState<string | null>(null);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
+  const [previewTarget, setPreviewTarget] = useState<{
+    versionId: string;
+    file: { id: string; fileName: string; fileSize?: number | null; mimeType?: string | null };
+    url: string | null;
+    versionNumber: number;
+    status: string;
+    uploadedAt: string;
+  } | null>(null);
+  const [previewLoadingId, setPreviewLoadingId] = useState<string | null>(null);
 
-  const downloadVersion = async (versionId: string, fileId: string) => {
+  const downloadVersion = async (versionId: string, fileId: string, fileName?: string) => {
     setError(null);
     setDownloadingId(fileId);
     try {
       const result = await download.mutateAsync({ versionId, fileId });
-      window.open(result.url, "_blank", "noopener,noreferrer");
+      await downloadFileFromUrl(result.url, fileName);
     } catch {
       setError("outputUi.versionOpenFailed");
     } finally { setDownloadingId(null); }
+  };
+
+  const previewVersion = async (version: { id: string; versionNumber: number; status: string; submittedAt?: string | null; uploadedAt?: string | null }, file: { id: string; fileName: string; fileSize?: number | null; mimeType?: string | null }) => {
+    setError(null);
+    setPreviewLoadingId(file.id);
+    try {
+      const result = await download.mutateAsync({ versionId: version.id, fileId: file.id });
+      setPreviewTarget({
+        versionId: version.id,
+        file,
+        url: result.url,
+        versionNumber: version.versionNumber,
+        status: version.status,
+        uploadedAt: version.submittedAt || version.uploadedAt || "",
+      });
+    } catch {
+      setError("outputUi.versionOpenFailed");
+    } finally {
+      setPreviewLoadingId(null);
+    }
   };
 
   return (
@@ -258,7 +303,49 @@ function VersionHistoryDialog({ projectId, document, onClose }: { projectId: str
             </div>
             {version.versionKind && version.versionKind !== "SUBMITTED" && <p className="mt-1 text-xs text-muted-foreground">{translateI18n(version.versionKind === "LEGACY_SUBMITTED" ? "outputFiles.legacySubmitted" : "outputFiles.legacyUnconfirmed")}</p>}
             {version.versionKind === "LEGACY_UPLOAD_UNCONFIRMED" && <p className="mt-1 text-xs text-muted-foreground">{translateI18n("outputFiles.legacyHelp")}</p>}
-            <div className="mt-2 divide-y divide-border/40">{version.files?.map((file) => <div key={file.id} className="flex min-w-0 items-center justify-between gap-2 py-1.5"><div className="min-w-0"><p className="break-words text-xs">{file.fileName}</p><p className="text-xs text-muted-foreground">{formatOutputFileSize(file.fileSize)}</p>{version.fileRevisions?.filter(marker => marker.fileId === file.id).map(marker => <p key={marker.fileId} className="whitespace-pre-wrap break-words text-xs text-destructive">{marker.feedback}</p>)}</div><Button type="button" size="sm" variant="ghost" disabled={downloadingId !== null} onClick={() => void downloadVersion(version.id, file.id)} aria-label={translateI18n("outputFiles.downloadFile", { name: file.fileName })}>{downloadingId === file.id ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : <Download className="mr-1 h-3.5 w-3.5" />}{translateI18n("common.download")}</Button></div>)}</div>
+            <div className="mt-2 divide-y divide-border/40">
+              {version.files?.map((file) => (
+                <div key={file.id} className="flex min-w-0 items-center justify-between gap-2 py-1.5">
+                  <div className="min-w-0">
+                    <p className="break-words text-xs">{file.fileName}</p>
+                    <p className="text-xs text-muted-foreground">{formatOutputFileSize(file.fileSize)}</p>
+                    {version.fileRevisions?.filter(marker => marker.fileId === file.id).map(marker => (
+                      <p key={marker.fileId} className="whitespace-pre-wrap break-words text-xs text-destructive">{marker.feedback}</p>
+                    ))}
+                  </div>
+                  <div className="flex flex-wrap items-center gap-1">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      className="h-7 px-2 text-xs hover:bg-primary/10 hover:text-primary"
+                      disabled={previewLoadingId !== null}
+                      onClick={() => void previewVersion(version, file)}
+                      aria-label={translateI18n("docPreview.previewFile", { name: file.fileName })}
+                    >
+                      {previewLoadingId === file.id ? (
+                        <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <Eye className="mr-1 h-3.5 w-3.5 text-primary" />
+                      )}
+                      {translateI18n("docPreview.preview")}
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      className="h-7 px-2 text-xs"
+                      disabled={downloadingId !== null}
+                      onClick={() => void downloadVersion(version.id, file.id, file.fileName)}
+                      aria-label={translateI18n("outputFiles.downloadFile", { name: file.fileName })}
+                    >
+                      {downloadingId === file.id ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : <Download className="mr-1 h-3.5 w-3.5" />}
+                      {translateI18n("common.download")}
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
             {version.submissionNote && <p className="mt-2 text-xs text-muted-foreground"><strong>{translateI18n("ui.submitNote")}</strong> {version.submissionNote}</p>}
             {version.reviewFeedback && <p className="mt-2 text-xs text-destructive"><strong>{translateI18n("copy.reviewFeedback")}</strong> {version.reviewFeedback}</p>}
           </div>
@@ -266,6 +353,24 @@ function VersionHistoryDialog({ projectId, document, onClose }: { projectId: str
         {error && <p className="text-xs text-destructive">{translateStoredError(error)}</p>}
       </div>
       <DialogFooter><Button type="button" variant="outline" onClick={onClose}>{translateI18n("common.close")}</Button></DialogFooter>
+
+      {previewTarget && (
+        <DocumentPreviewDialog
+          open={Boolean(previewTarget)}
+          onOpenChange={(open) => {
+            if (!open) setPreviewTarget(null);
+          }}
+          fileName={previewTarget.file.fileName}
+          fileSize={previewTarget.file.fileSize}
+          fileUrl={previewTarget.url}
+          mimeType={previewTarget.file.mimeType}
+          isLoading={previewLoadingId === previewTarget.file.id}
+          versionNumber={previewTarget.versionNumber}
+          uploadedAt={previewTarget.uploadedAt}
+          status={previewTarget.status}
+          onDownload={() => void downloadVersion(previewTarget.versionId, previewTarget.file.id, previewTarget.file.fileName)}
+        />
+      )}
     </Dialog>
   );
 }
@@ -535,8 +640,8 @@ export function OutputDocumentsSection({ project, milestoneId, milestoneStatus, 
       <div className="space-y-3">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0">
-            <h4 className="text-sm font-semibold text-foreground">{translateI18n("outputUi.title")}</h4>
-            {!outputQuery.isLoading && !outputQuery.isError && summaryParts.filter(Boolean).length > 0 && <p className="mt-1 text-xs text-muted-foreground">{summaryParts.filter(Boolean).join(" · ")}</p>}
+            {!milestoneId && <h4 className="text-sm font-semibold text-foreground">{translateI18n("outputUi.title")}</h4>}
+            {!milestoneId && !outputQuery.isLoading && !outputQuery.isError && summaryParts.filter(Boolean).length > 0 && <p className="mt-0.5 text-xs text-muted-foreground">{summaryParts.filter(Boolean).join(" · ")}</p>}
           </div>
           <div className="flex flex-wrap gap-2">
             {isSalesOwner && !isScopeLocked && !milestoneId && <Button type="button" size="sm" variant="outline" onClick={openChecklist}>{translateI18n("copy.optionalOutputs")}</Button>}

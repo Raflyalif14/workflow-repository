@@ -160,12 +160,9 @@ export default function LoginPage() {
                 <ArrowRight className="h-4 w-4" />
               </Button>
 
-              <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
+              <div className="flex items-center justify-end text-xs text-muted-foreground">
                 <Link className="hover:text-foreground" href="/forgot-password">
                   {t("auth.forgotPassword")}
-                </Link>
-                <Link className="hover:text-foreground" href="/register">
-                  {t("auth.createAccount")}
                 </Link>
               </div>
             </form>

@@ -152,3 +152,19 @@
     .delivery-cell-label { display: none; }
   }
 }
+
+/* ─── In-Browser DOCX Preview Styles ─── */
+.docx-wrapper {
+  background: transparent !important;
+  padding: 1rem !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  min-height: 100% !important;
+}
+
+.docx-wrapper > section.docx {
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.12) !important;
+  margin-bottom: 1.5rem !important;
+  border-radius: 4px !important;
+}

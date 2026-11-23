@@ -138,17 +138,19 @@ function UsersPageContent() {
         </div>
 
         {/* Pagination Footer */}
-        <UserPagination
-          shownCount={users.length}
-          totalCount={pagination.total}
-          currentPage={pagination.page}
-          totalPages={pagination.totalPages || 1}
-          hasPrevPage={pagination.hasPrevPage}
-          hasNextPage={pagination.hasNextPage}
-          isLoading={isLoading}
-          onPrevPage={() => setPage((p) => Math.max(1, p - 1))}
-          onNextPage={() => setPage((p) => p + 1)}
-        />
+        {!isLoading && !isError && pagination.total > 0 && (
+          <UserPagination
+            shownCount={users.length}
+            totalCount={pagination.total}
+            currentPage={pagination.page}
+            totalPages={pagination.totalPages || 1}
+            hasPrevPage={pagination.hasPrevPage}
+            hasNextPage={pagination.hasNextPage}
+            isLoading={isLoading}
+            onPrevPage={() => setPage((p) => Math.max(1, p - 1))}
+            onNextPage={() => setPage((p) => p + 1)}
+          />
+        )}
       </Card>
 
       {/* Create / Edit Dialog */}

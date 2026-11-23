@@ -54,11 +54,11 @@ function navigationChecks() {
         assert.equal(panels.length, 2);
         for (const panel of panels) {
           const hrefs = elements(panel).map(node => node.props.href).filter(Boolean);
-          assert.equal(hrefs.includes('/milestones'), ['SA', 'HEAD_SA', 'SUPER_ADMIN'].includes(role ?? ''));
+          assert.equal(hrefs.includes('/milestones'), ['SA', 'HEAD_SA'].includes(role ?? ''));
           assert.equal(hrefs.includes('/settings'), Boolean(role && role !== 'UNKNOWN'));
           if (role === 'SALES') { assert(hrefs.includes('/projects')); assert(hrefs.includes('/')); }
           if (!role || role === 'UNKNOWN') assert.equal(hrefs.length, 0);
-          assert.equal(hrefs.includes('/approvals'), role === 'HEAD_SA' || role === 'SUPER_ADMIN');
+          assert.equal(hrefs.includes('/approvals'), role === 'HEAD_SA');
           assert.equal(hrefs.includes('/users'), role === 'SUPER_ADMIN');
         }
         assert.equal(canShowNavigationItem(role), Boolean(role && role !== 'UNKNOWN'));

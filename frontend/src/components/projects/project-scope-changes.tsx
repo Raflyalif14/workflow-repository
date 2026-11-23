@@ -1,5 +1,5 @@
 "use client";
-import {useRef,useState} from 'react';
+import {useMemo,useRef,useState} from 'react';
 import {useAuth} from '@/components/auth/auth-provider';
 import {useLanguage} from '@/components/i18n/language-provider';
 import {useScopeChanges,useScopeChangeMutation,ScopeChange} from '@/hooks/use-scope-changes';
@@ -12,11 +12,13 @@ import {Dialog,DialogHeader,DialogTitle,DialogFooter} from '@/components/ui/dial
 import {getLocalDateOnlyKey} from '@/lib/dates';
 import type {Project} from '@/types/project';
 
-export function ProjectScopeChanges({project,milestones}:{project:Project;milestones?:{id:string;status:string}[]}){
+type ScopeMilestone = { id: string; status: string; name?: string; workflow_stage?: { stage_key?: string | null } | null };
+
+export function ProjectScopeChanges({project,milestones}:{project:Project;milestones?:ScopeMilestone[]}){
  const {user}=useAuth();
  return project.active_phase_id ? <ScopeChangeForm key={`${project.id}:${project.active_phase_id}:${user?.id}`} project={project} milestones={milestones}/> : null;
 }
-function ScopeChangeForm({project,milestones}:{project:Project;milestones?:{id:string;status:string}[]}){
+function ScopeChangeForm({project,milestones}:{project:Project;milestones?:ScopeMilestone[]}){
  const {user}=useAuth(),{t,formatDate}=useLanguage();
  const query=useScopeChanges(project.id),output=useOutputDocuments(project.id),mutation=useScopeChangeMutation(project.id);
  const [open,setOpen]=useState(false),[keys,setKeys]=useState<string[]>([]),[reason,setReason]=useState('');
@@ -57,8 +59,26 @@ function ScopeChangeForm({project,milestones}:{project:Project;milestones?:{id:s
   {(query.data||[]).filter(item=>item.status==='PENDING'||history).map(item=><article key={item.id} className="mt-4 space-y-3 rounded-xl border border-border p-4">
    <div className="flex flex-wrap justify-between gap-2"><p className="text-xs text-muted-foreground">{formatDate(item.requested_at,{dateStyle:'medium',timeStyle:'short'})}</p><Badge variant="outline">{status(item.status)}</Badge></div>
    <p className="break-words text-sm">{item.reason}</p>
-   <div className="grid gap-3 text-sm sm:grid-cols-2"><div><p className="font-medium">{t('planChange.added')}</p><ul className="mt-1 space-y-1 text-muted-foreground">{item.proposal.selected_keys.filter(key=>!item.before_keys.includes(key)).map(key=><li key={key}>{name(key)}{item.proposal.additions.find(value=>value.key===key)&&<span className="block text-xs">{item.proposal.additions.find(value=>value.key===key)!.start_date} → {item.proposal.additions.find(value=>value.key===key)!.due_date}</span>}</li>)}</ul></div>
-    <div><p className="font-medium">{t('planChange.removed')}</p><ul className="mt-1 space-y-1 text-muted-foreground">{item.before_keys.filter(key=>!item.proposal.selected_keys.includes(key)).map(key=><li key={key}>{name(key)}</li>)}</ul></div></div>
+   <div className="grid gap-3 text-sm sm:grid-cols-2">
+    <div>
+     <p className="font-medium flex items-center gap-1.5 text-foreground">
+      <span className="h-2 w-2 rounded-full bg-emerald-500 inline-block shrink-0" />
+      {t('planChange.added')}
+     </p>
+     <ul className="mt-1 space-y-1 text-muted-foreground pl-3.5">
+      {item.proposal.selected_keys.filter(key=>!item.before_keys.includes(key)).map(key=><li key={key}>{name(key)}{item.proposal.additions.find(value=>value.key===key)&&<span className="block text-xs">{item.proposal.additions.find(value=>value.key===key)!.start_date} → {item.proposal.additions.find(value=>value.key===key)!.due_date}</span>}</li>)}
+     </ul>
+    </div>
+    <div>
+     <p className="font-medium flex items-center gap-1.5 text-foreground">
+      <span className="h-2 w-2 rounded-full bg-destructive inline-block shrink-0" />
+      {t('planChange.removed')}
+     </p>
+     <ul className="mt-1 space-y-1 text-muted-foreground pl-3.5">
+      {item.before_keys.filter(key=>!item.proposal.selected_keys.includes(key)).map(key=><li key={key}>{name(key)}</li>)}
+     </ul>
+    </div>
+   </div>
    {item.review_note&&<p className="break-words text-sm">{t('planChange.reviewNote')}: {item.review_note}</p>}
    {item.status==='PENDING'&&<div className="flex flex-wrap gap-2">
     {user?.role==='HEAD_SA'&&<><Button disabled={mutation.isPending||!active||item.phase_id!==project.active_phase_id} onClick={()=>void submit(item.id,{decision:'APPROVED'})}>{t('common.approve')}</Button><Button variant="outline" disabled={mutation.isPending} onClick={()=>{setReject(item);setNote('');setFailure('');}}>{t('common.reject')}</Button></>}
@@ -67,16 +87,45 @@ function ScopeChangeForm({project,milestones}:{project:Project;milestones?:{id:s
   </article>)}
   {!query.isLoading&&!query.isError&&!pending&&<p className="mt-3 text-sm text-muted-foreground">{t('planChange.noPending')}</p>}
   {(query.data||[]).some(item=>item.status!=='PENDING')&&<Button variant="ghost" className="mt-2" onClick={()=>setHistory(value=>!value)}>{t(history?'planChange.hideHistory':'planChange.history')}</Button>}
-  <Dialog open={open} onOpenChange={value=>{if(!mutation.isPending)setOpen(value);}}><DialogHeader><DialogTitle>{t('planChange.request')}</DialogTitle></DialogHeader>
+  <Dialog open={open} onOpenChange={value=>{if(!mutation.isPending)setOpen(value);}}><DialogHeader><DialogTitle>{t('planChange.dialogTitle')}</DialogTitle></DialogHeader>
    <form onSubmit={event=>{event.preventDefault();void submit(undefined,{reason,selected_keys:keys,expected_updated_at:expected.current,
     additions:added.map(key=>({key,start_date:schedules[key]?.start_date||getLocalDateOnlyKey(),duration_working_days:schedules[key]?.duration_working_days||1}))});}} className="space-y-4">
-    <p className="text-sm text-muted-foreground">{t('planChange.rules')}</p>
+    <p className="text-xs leading-relaxed text-muted-foreground">{t('planChange.dialogHelp')}</p>
     {!documents.length&&<p role="alert" className="text-sm text-destructive">{t('outputScope.loadFailed')} <Button type="button" variant="ghost" onClick={()=>void output.refetch()}>{t('common.retry')}</Button></p>}
-    <div className="max-h-[45vh] space-y-3 overflow-y-auto">{documents.map(item=><div key={item.key} className="rounded-lg border border-border p-3"><label className="flex gap-2 text-sm"><input type="checkbox" checked={keys.includes(item.key)} disabled={item.isRequired||mutation.isPending||selected.includes(item.key)&&(!milestones?.some(m=>m.id===item.milestoneId&&m.status==='CREATED')||item.protected)}
-     onChange={()=>setKeys(current=>current.includes(item.key)?current.filter(key=>key!==item.key):[...current,item.key])}/>{name(item.key)}{item.isRequired&&<span className="text-xs text-muted-foreground">({t('outputScope.required')})</span>}</label>
-     {added.includes(item.key)&&<div className="mt-3 grid grid-cols-2 gap-3"><label className="text-xs">{t('planChange.start')} *<Input required type="date" disabled={mutation.isPending} value={schedules[item.key]?.start_date||getLocalDateOnlyKey()} onChange={event=>setSchedules(current=>({...current,[item.key]:{duration_working_days:current[item.key]?.duration_working_days||1,start_date:event.target.value}}))}/></label>
-      <label className="text-xs">{t('planChange.duration')} *<Input required type="number" min={1} max={1000} disabled={mutation.isPending} value={schedules[item.key]?.duration_working_days||1} onChange={event=>setSchedules(current=>({...current,[item.key]:{start_date:current[item.key]?.start_date||getLocalDateOnlyKey(),duration_working_days:Number(event.target.value)}}))}/></label></div>}
-    </div>)}</div>
+    <div className="max-h-[45vh] space-y-3 overflow-y-auto">
+     {documents.map(item => (
+       <div key={item.key} className="rounded-lg border border-border p-3 transition-colors hover:border-primary/30">
+        <div className="flex items-start gap-2.5">
+         <input
+          type="checkbox"
+          id={`scope-doc-${item.key}`}
+          checked={keys.includes(item.key)}
+          disabled={item.isRequired||mutation.isPending||selected.includes(item.key)&&(!milestones?.some(m=>m.id===item.milestoneId&&m.status==='CREATED')||item.protected)}
+          onChange={()=>setKeys(current=>current.includes(item.key)?current.filter(key=>key!==item.key):[...current,item.key])}
+          className="mt-0.5 h-4 w-4 shrink-0 rounded-xs accent-primary"
+         />
+         <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-1.5">
+           <label htmlFor={`scope-doc-${item.key}`} className="cursor-pointer text-sm font-medium text-foreground">
+            {name(item.key)}
+           </label>
+           {item.isRequired ? (
+            <Badge variant="secondary" className="border border-amber-500/20 bg-amber-500/10 text-[10px] text-amber-600">
+             {t('outputScope.required')}
+            </Badge>
+           ) : (
+            selected.includes(item.key)&&(!milestones?.some(m=>m.id===item.milestoneId&&m.status==='CREATED')||item.protected)?<Badge variant="secondary" className="border border-blue-500/20 bg-blue-500/10 text-[10px] text-blue-600">{t('planChange.startedBadge')}</Badge>:<Badge variant="outline" className="border-border/60 text-[10px] text-muted-foreground">
+             {t('outputUi.optional')}
+            </Badge>
+           )}
+          </div>
+         </div>
+        </div>
+        {added.includes(item.key)&&<div className="mt-3 grid grid-cols-2 gap-3 pl-6"><label className="text-xs">{t('planChange.start')} *<Input required type="date" disabled={mutation.isPending} value={schedules[item.key]?.start_date||getLocalDateOnlyKey()} onChange={event=>setSchedules(current=>({...current,[item.key]:{duration_working_days:current[item.key]?.duration_working_days||1,start_date:event.target.value}}))}/></label>
+         <label className="text-xs">{t('planChange.duration')} *<Input required type="number" min={1} max={1000} disabled={mutation.isPending} value={schedules[item.key]?.duration_working_days||1} onChange={event=>setSchedules(current=>({...current,[item.key]:{start_date:current[item.key]?.start_date||getLocalDateOnlyKey(),duration_working_days:Number(event.target.value)}}))}/></label></div>}
+       </div>
+      ))}
+    </div>
     <label className="block text-sm">{t('planChange.reason')} *<textarea required maxLength={2000} disabled={mutation.isPending} value={reason} onChange={event=>setReason(event.target.value)} className="mt-1 min-h-20 w-full rounded-lg border border-input bg-background p-3"/></label>
     {failure&&<p role="alert" className="text-sm text-destructive">{t(failure)}</p>}
     <DialogFooter><Button type="button" variant="outline" disabled={mutation.isPending} onClick={()=>setOpen(false)}>{t('common.cancel')}</Button><Button type="submit" disabled={mutation.isPending||!reason.trim()||!added.length&&!removed.length}>{t('planChange.submit')}</Button></DialogFooter>

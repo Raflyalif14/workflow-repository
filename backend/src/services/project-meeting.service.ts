@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { supabaseAdmin } from '../config/supabase';
 import { canAccessProject, getAccessibleProjectIds, ProjectAccessActor } from './project-access.service';
+import { notifyProjectMeetingAction, notifyMeetingMinutesSaved } from './project-meeting-notification.service';
 
 export class MeetingError extends Error { constructor(message:string,readonly statusCode=400){super(message);} }
 const instant=z.string().datetime({offset:true});
@@ -54,7 +55,7 @@ export async function listMeetings(actor:ProjectAccessActor,options:{projectId?:
  return {items:(data||[]).map(serializeMeeting),total:count||0,page,totalPages:Math.max(1,Math.ceil((count||0)/50))};
 }
 export async function mutateMeeting(projectId:string,actor:ProjectAccessActor,input:unknown,meetingId?:string){
- await meetingProject(projectId,actor);
+ const project=await meetingProject(projectId,actor);
  const parsed=meetingId?z.union([meetingRescheduleSchema,meetingReviewSchema]).parse(input):(meetingCreateSchema.parse(input) as z.infer<typeof meetingCreateSchema>&{action?:never});
  if(meetingId&&!z.string().uuid().safeParse(meetingId).success)throw new MeetingError('Invalid meeting.',422);
  const review=parsed.action!==undefined;
@@ -65,6 +66,16 @@ export async function mutateMeeting(projectId:string,actor:ProjectAccessActor,in
   p_meeting_id:meetingId||null,p_expected_revision:review?parsed.revision:null});
  if(error)throw safeDatabase(error);
  if(!data?.meeting)throw new MeetingError('Meeting could not be confirmed. Retry the same request.',503);
+ if(!data.replayed){
+  const action=review?parsed.action:'CREATE';
+  const meetingTitle=(payload as any).title||data.meeting.title||'Meeting';
+  await notifyProjectMeetingAction({
+   project,
+   meeting:{id:data.meeting.id,title:meetingTitle},
+   action,
+   actorUserId:actor.userId,
+  });
+ }
  return {id:data.meeting.id,status:data.meeting.status,replayed:data.replayed===true};
 }
 
@@ -153,13 +164,20 @@ export async function meetingConflicts(projectId:string,actor:ProjectAccessActor
 
 export const meetingMinutesSchema=z.object({requestId:z.string().uuid(),revision:z.number().int().positive(),completed:z.literal(true),notes:z.string().trim().min(1).max(10000),decisions:z.string().trim().max(10000).default(''),followUp:z.string().trim().max(10000).default('')}).strict();
 export async function saveMeetingMinutes(projectId:string,meetingId:string,actor:ProjectAccessActor,input:unknown){
- await meetingProject(projectId,actor);
+ const project=await meetingProject(projectId,actor);
  if(!['SALES','SA','HEAD_SA'].includes(actor.role))throw new MeetingError('Forbidden.',403);
  if(!z.string().uuid().safeParse(meetingId).success)throw new MeetingError('Invalid meeting.',422);
  const {requestId,revision,...payload}=meetingMinutesSchema.parse(input);
  const {data,error}=await supabaseAdmin.rpc('save_project_meeting_minutes',{p_project_id:projectId,p_meeting_id:meetingId,p_actor_id:actor.userId,p_payload:payload,p_request_id:requestId,p_expected_revision:revision});
  if(error)throw safeDatabase(error);
  if(!data?.meeting)throw new MeetingError('Minutes could not be confirmed. Retry the same request.',503);
+ if(!data.replayed){
+  await notifyMeetingMinutesSaved({
+   project,
+   meeting:{id:data.meeting.id,title:data.meeting.title||'Meeting'},
+   actorUserId:actor.userId,
+  });
+ }
  return {id:data.meeting.id,replayed:data.replayed===true};
 }
 

@@ -7,7 +7,7 @@ import { ApiError } from "@/lib/api-client";
 import { triggerWonConfetti } from "@/lib/confetti";
 import { translate as translateI18n, translateOutputName, translateStoredError, translateStoredMessage } from "@/i18n";
 import { useRef, useState } from "react";
-import { CalendarClock, Check, CheckCircle2, ChevronDown, RotateCcw, Trophy, UploadCloud, Users, XCircle } from "lucide-react";
+import { CalendarClock, Check, CheckCircle2, ChevronDown, FileText, RotateCcw, Trophy, UploadCloud, Users, XCircle } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { MilestoneContributionsPanel } from "@/components/milestones/milestone-contributions-panel";
 import { SalesMilestoneDocumentUploadDialog } from "@/components/projects/sales-milestone-document-upload-dialog";
@@ -89,6 +89,7 @@ export function MilestoneRow({
   const [finalLossReason, setFinalLossReason] = useState("");
   const [review, setReview] = useState<null | { type: "DEADLINE"; decision: "APPROVE" | "REJECT" }>(null);
   const [error, setError] = useState("");
+  const [evidenceErrorTrigger, setEvidenceErrorTrigger] = useState(0);
   const [message, setMessage] = useState("");
   const [uploadedDocumentCount, setUploadedDocumentCount] = useState(0);
 
@@ -218,7 +219,11 @@ export function MilestoneRow({
       setError("projectDetail.lossRequired");
       return;
     }
-    if (!evidence.files.length) { setError('workflowUpdate.evidenceRequired'); return; }
+    if (!evidence.files.length) {
+      setError('workflowUpdate.evidenceRequired');
+      setEvidenceErrorTrigger(c => c + 1);
+      return;
+    }
     if (!finalConfirming) { setFinalConfirming(true); return; }
     finalSaving.current = true;
     try {
@@ -402,7 +407,13 @@ export function MilestoneRow({
             </div>
           )}
           {error && <p role="alert" className="text-xs text-destructive">{translateStoredError(error)}</p>}
-          <OutcomeEvidenceField files={evidence.files} onChange={files => { evidence.setFiles(files); setFinalConfirming(false); }} disabled={complete.isPending || evidence.isUploading} />
+          <OutcomeEvidenceField
+            files={evidence.files}
+            onChange={files => { evidence.setFiles(files); setFinalConfirming(false); }}
+            disabled={complete.isPending || evidence.isUploading}
+            hasError={error === 'workflowUpdate.evidenceRequired'}
+            errorTrigger={evidenceErrorTrigger}
+          />
           {finalConfirming && (
             <div className="rounded-xl border border-primary/30 bg-primary/5 p-3.5 space-y-1.5 text-xs">
               <p className="font-semibold text-primary">{translateI18n("copy.confirmOutcomeTitle")}</p>
@@ -491,18 +502,22 @@ export function MilestoneRow({
             >
               {isCompleted ? <Check className="h-3.5 w-3.5" /> : String(displayIndex ?? milestone.step_order).padStart(2, "0")}
             </span>
-            {selectedMilestoneOutputs.length > 0 ? (
-              <h3 className="min-w-0 break-words text-sm font-semibold text-foreground sm:text-base">
-                {selectedMilestoneOutputs.map((d) => translateOutputName(d.key, d.name)).join(" • ")}
-              </h3>
-            ) : (
-              <h3 className="min-w-0 break-words text-sm font-semibold text-foreground sm:text-base">{milestone.name}</h3>
-            )}
+            <h3 className="min-w-0 break-words text-sm font-semibold text-foreground sm:text-base">
+              {selectedMilestoneOutputs.length === 1
+                ? translateOutputName(selectedMilestoneOutputs[0].key, selectedMilestoneOutputs[0].name)
+                : milestone.name}
+            </h3>
             <StatusBadge status={milestoneStatus} />
             {isCurrentStage && (
               <span className="text-xs font-medium text-primary">
                 {translateI18n("copy.currentWork")}
               </span>
+            )}
+            {selectedMilestoneOutputs.length > 1 && (
+              <Badge variant="outline" className="gap-1 border-border/70 bg-muted/40 text-[11px] font-normal text-muted-foreground">
+                <FileText className="h-3 w-3 text-primary/70" />
+                {translateI18n("milestoneCompact.outputCountBadge", { count: selectedMilestoneOutputs.length })}
+              </Badge>
             )}
             {outputCounts.inReview > 0 && <Badge variant="outline" className="border-blue-500/30 text-primary">{translateI18n("milestoneCompact.awaitingReview", { count: outputCounts.inReview })}</Badge>}
             {outputCounts.revisionRequired > 0 && <Badge variant="destructive">{translateI18n("milestoneCompact.needsRevision", { count: outputCounts.revisionRequired })}</Badge>}
@@ -583,7 +598,11 @@ export function MilestoneRow({
           )}
         </div>
 
-      {stageRole === "SA" && <div className="mt-3 border-t border-border/50 pt-3"><OutputDocumentsSection project={project} milestoneId={milestone.id} milestoneStatus={milestoneStatus} milestoneStartDate={milestone.start_date} milestonePicId={milestone.pic_id} /></div>}
+      {stageRole === "SA" && (
+        <div className="mt-3">
+          <OutputDocumentsSection project={project} milestoneId={milestone.id} milestoneStatus={milestoneStatus} milestoneStartDate={milestone.start_date} milestonePicId={milestone.pic_id} />
+        </div>
+      )}
 
       <details className="mt-3 border-t border-border/50 pt-3 text-sm">
         <summary className="w-fit cursor-pointer rounded-sm font-medium text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-primary">{translateI18n("milestoneCompact.scheduleDetails")}</summary>

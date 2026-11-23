@@ -4,7 +4,7 @@ import { BusinessConfirmation } from "./business-confirmation";
 import { unresolvedFileRevisions } from "@/lib/output-file-revisions";
 
 import { useEffect, useRef, useState, type DragEvent } from "react";
-import { Download, FileText, Loader2, Plus, RefreshCw, RotateCcw, Trash2, UploadCloud } from "lucide-react";
+import { Download, Eye, FileText, Loader2, Plus, RefreshCw, RotateCcw, Trash2, UploadCloud } from "lucide-react";
 import { useLanguage } from "@/components/i18n/language-provider";
 import { Button } from "@/components/ui/button";
 import { translate, translateOutputName, translateStoredError } from "@/i18n";
@@ -14,6 +14,8 @@ import {
   useUploadOutputDocument,
 } from "@/hooks/use-output-documents";
 import { DOCUMENT_ACCEPT } from "@/lib/document-file-selection";
+import { DocumentPreviewDialog } from "@/components/documents/document-preview-dialog";
+import { downloadFileFromUrl } from "@/lib/file-download";
 import {
   getDraftUploadError,
   getOutputDraftReloadRevision,
@@ -30,11 +32,24 @@ export function formatOutputFileSize(bytes?: number | null): string {
   return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
 }
 
-export function OutputDocumentFiles({ projectId, document, editable, blocked, onBusyChange, refreshDraft }: {
+export function OutputDocumentFiles({
+  projectId,
+  document,
+  editable,
+  blocked,
+  canReview = false,
+  onApprove,
+  onRequestRevision,
+  onBusyChange,
+  refreshDraft,
+}: {
   projectId: string;
   document: ProjectOutputDocumentItem;
   editable: boolean;
   blocked: boolean;
+  canReview?: boolean;
+  onApprove?: () => void;
+  onRequestRevision?: () => void;
   onBusyChange: (documentKey: string, busy: boolean) => void;
   refreshDraft: (documentKey: string) => Promise<ProjectOutputDocumentItem>;
 }) {
@@ -55,6 +70,11 @@ export function OutputDocumentFiles({ projectId, document, editable, blocked, on
   const [downloadError, setDownloadError] = useState<string | null>(null);
   const [removingId, setRemovingId] = useState<string | null>(null);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
+  const [previewTarget, setPreviewTarget] = useState<{
+    file: { id: string; fileName: string; fileSize?: number | null; mimeType?: string | null; uploadedAt?: string | null; uploadedBy?: { fullName?: string } | null };
+    url: string | null;
+  } | null>(null);
+  const [previewLoadingId, setPreviewLoadingId] = useState<string | null>(null);
   const busy = running || removingId !== null || hasUnfinishedDraftUploads(queue)
     || error === "outputFiles.refreshFailed" || error === "outputFiles.draftConflict";
   const locked = blocked || running || removingId !== null;
@@ -140,14 +160,27 @@ export function OutputDocumentFiles({ projectId, document, editable, blocked, on
     } finally { runningRef.current = false; setRemovingId(null); }
   };
 
-  const downloadFile = async (fileId: string) => {
+  const downloadFile = async (fileId: string, fileName?: string) => {
     setDownloadError(null);
     setDownloadingId(fileId);
     try {
       const receipt = await download.mutateAsync({ fileId });
-      window.open(receipt.url, "_blank", "noopener,noreferrer");
+      await downloadFileFromUrl(receipt.url, fileName);
     } catch { setDownloadError("outputUi.openFailed"); }
     finally { setDownloadingId(null); }
+  };
+
+  const openPreview = async (file: { id: string; fileName: string; fileSize?: number | null; mimeType?: string | null; uploadedAt?: string | null; uploadedBy?: { fullName?: string } | null }) => {
+    setDownloadError(null);
+    setPreviewLoadingId(file.id);
+    try {
+      const receipt = await download.mutateAsync({ fileId: file.id });
+      setPreviewTarget({ file, url: receipt.url });
+    } catch {
+      setDownloadError("outputUi.openFailed");
+    } finally {
+      setPreviewLoadingId(null);
+    }
   };
 
   const reloadDraft = async () => {
@@ -258,8 +291,24 @@ export function OutputDocumentFiles({ projectId, document, editable, blocked, on
                   size="sm"
                   variant="ghost"
                   className="h-7 px-2 text-xs hover:bg-primary/10 hover:text-primary"
+                  disabled={previewLoadingId !== null}
+                  onClick={() => void openPreview(file)}
+                  aria-label={translate("docPreview.previewFile", { name: file.fileName })}
+                >
+                  {previewLoadingId === file.id ? (
+                    <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Eye className="mr-1 h-3.5 w-3.5 text-primary" />
+                  )}
+                  {translate("docPreview.preview")}
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  className="h-7 px-2 text-xs hover:bg-primary/10 hover:text-primary"
                   disabled={downloadingId !== null}
-                  onClick={() => void downloadFile(file.id)}
+                  onClick={() => void downloadFile(file.id, file.fileName)}
                   aria-label={translate("outputFiles.downloadFile", { name: file.fileName })}
                 >
                   {downloadingId === file.id ? (
@@ -415,6 +464,27 @@ export function OutputDocumentFiles({ projectId, document, editable, blocked, on
         title={translateOutputName(document.key,document.name)} changes={confirmation === "UPLOAD" ? [translate("businessAudit.files", { count: queue.filter(item => item.status !== "succeeded").length }), ...queue.filter(item => item.status !== "succeeded").map(item => `${item.replaceFileId ? (files.find(file => file.id === item.replaceFileId)?.fileName || "-") + " -> " : ""}${item.file.name}`)] : [translate("businessAudit.removeHelp"), files.find(file => file.id === confirmation)?.fileName || ""]}
         action={translate(confirmation === "UPLOAD" ? "businessAudit.upload" : "businessAudit.remove")}
         onConfirm={() => confirmation === "UPLOAD" ? runQueue(queue) : removeFile(confirmation!)} />
+
+      {previewTarget && (
+        <DocumentPreviewDialog
+          open={Boolean(previewTarget)}
+          onOpenChange={(open) => {
+            if (!open) setPreviewTarget(null);
+          }}
+          fileName={previewTarget.file.fileName}
+          fileSize={previewTarget.file.fileSize}
+          fileUrl={previewTarget.url}
+          mimeType={previewTarget.file.mimeType}
+          isLoading={previewLoadingId === previewTarget.file.id}
+          uploadedByName={previewTarget.file.uploadedBy?.fullName}
+          uploadedAt={previewTarget.file.uploadedAt}
+          status={document.status}
+          canReview={canReview}
+          onApprove={onApprove}
+          onRequestRevision={onRequestRevision}
+          onDownload={() => void downloadFile(previewTarget.file.id, previewTarget.file.fileName)}
+        />
+      )}
     </div>
   );
 }

@@ -18,6 +18,7 @@
     "@tanstack/react-query": "^5.66.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "docx-preview": "^0.4.1",
     "lucide-react": "^0.475.0",
     "next": "15.5.27",
     "pdfmake": "0.3.12",

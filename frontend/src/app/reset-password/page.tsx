@@ -11,6 +11,7 @@ import { clearStoredAuth, validatePasswordPolicyKey } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { LanguageSwitcher } from "@/components/language-switcher";
 
 export default function ResetPasswordPage() {
   useLanguage();
@@ -66,7 +67,10 @@ export default function ResetPasswordPage() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4 py-8">
+    <div className="flex min-h-screen flex-col items-center justify-center bg-background px-4 py-8">
+      <div className="mb-4 flex w-full max-w-md justify-end">
+        <LanguageSwitcher />
+      </div>
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-2">
           <CardTitle className="text-xl">{translateI18n("copy.resetPassword")}</CardTitle>

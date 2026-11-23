@@ -5,6 +5,7 @@ type NotificationContext = {
   type: string;
   projectName?: string;
   milestoneName?: string;
+  meetingTitle?: string;
 };
 
 export function localizeNotificationText(
@@ -16,6 +17,7 @@ export function localizeNotificationText(
 
   const project = context.projectName;
   const milestone = context.milestoneName;
+  const meeting = context.meetingTitle;
   switch (context.type) {
     case 'PROJECT_PLAN_SUBMITTED':
       return project ? { title: 'Rencana Proyek Diajukan', message: `Rencana proyek '${project}' menunggu peninjauan.` } : original;
@@ -48,6 +50,38 @@ export function localizeNotificationText(
       return project && milestone ? { title: 'Perubahan Tenggat Ditolak', message: `Perubahan tenggat milestone '${milestone}' pada proyek '${project}' ditolak.` } : original;
     case 'PROJECT_WAITING_RESULT':
       return project ? { title: 'Hasil Proyek Diperlukan', message: `Pekerjaan proyek '${project}' selesai. Catat hasil tender sebagai WON atau LOST.` } : original;
+    case 'MEETING_REQUESTED':
+      return project && meeting
+        ? { title: 'Pengajuan Rapat Proyek', message: `Pengajuan rapat '${meeting}' pada proyek '${project}' menunggu peninjauan.` }
+        : original;
+    case 'MEETING_APPROVED':
+      return project && meeting
+        ? { title: 'Rapat Proyek Disetujui', message: `Rapat '${meeting}' pada proyek '${project}' telah disetujui.` }
+        : original;
+    case 'MEETING_REJECTED':
+      return project && meeting
+        ? { title: 'Rapat Proyek Ditolak', message: `Rapat '${meeting}' pada proyek '${project}' ditolak.` }
+        : original;
+    case 'MEETING_CANCELLED':
+      return project && meeting
+        ? { title: 'Rapat Proyek Dibatalkan', message: `Rapat '${meeting}' pada proyek '${project}' telah dibatalkan.` }
+        : original;
+    case 'MEETING_RESCHEDULE':
+      return project && meeting
+        ? { title: 'Pengajuan Reschedule Rapat', message: `Perubahan jadwal rapat '${meeting}' pada proyek '${project}' menunggu peninjauan.` }
+        : original;
+    case 'MEETING_APPROVE_RESCHEDULE':
+      return project && meeting
+        ? { title: 'Reschedule Rapat Disetujui', message: `Jadwal baru rapat '${meeting}' pada proyek '${project}' telah disetujui.` }
+        : original;
+    case 'MEETING_REJECT_RESCHEDULE':
+      return project && meeting
+        ? { title: 'Reschedule Rapat Ditolak', message: `Pengajuan jadwal baru rapat '${meeting}' pada proyek '${project}' ditolak.` }
+        : original;
+    case 'MEETING_MINUTES_SAVED':
+      return project && meeting
+        ? { title: 'MoM Rapat Disimpan', message: `Hasil meeting '${meeting}' pada proyek '${project}' telah disimpan.` }
+        : original;
     default:
       return original;
   }

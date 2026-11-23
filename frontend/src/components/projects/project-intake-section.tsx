@@ -2,25 +2,45 @@
 
 import { translate as translateI18n, translateStoredError } from "@/i18n";
 import { useState } from "react";
-import { Download } from "lucide-react";
+import { Download, Eye, Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { useProjectIntake, useProjectIntakeDownloadUrl } from "@/hooks/use-project-intake";
 import { formatDate } from "@/lib/project-detail-format";
+import { DocumentPreviewDialog } from "@/components/documents/document-preview-dialog";
+import { downloadFileFromUrl } from "@/lib/file-download";
 
 export function ProjectIntakeSection({ projectId }: { projectId: string }) {
   const { data: attachments = [], isLoading, isError } = useProjectIntake(projectId);
   const intakeDownload = useProjectIntakeDownloadUrl(projectId);
   const [downloadError, setDownloadError] = useState("");
+  const [previewTarget, setPreviewTarget] = useState<{
+    attachment: (typeof attachments)[0];
+    url: string | null;
+  } | null>(null);
+  const [previewLoadingId, setPreviewLoadingId] = useState<string | null>(null);
 
-  const handleDownload = async (attachmentId: string) => {
+  const handleDownload = async (attachmentId: string, fileName?: string) => {
     setDownloadError("");
     try {
       const { url } = await intakeDownload.mutateAsync(attachmentId);
-      window.open(url, "_blank", "noopener,noreferrer");
+      await downloadFileFromUrl(url, fileName);
     } catch {
       setDownloadError("projectDetail.intakeDownloadFailed");
+    }
+  };
+
+  const handlePreview = async (attachment: (typeof attachments)[0]) => {
+    setDownloadError("");
+    setPreviewLoadingId(attachment.id);
+    try {
+      const { url } = await intakeDownload.mutateAsync(attachment.id);
+      setPreviewTarget({ attachment, url });
+    } catch {
+      setDownloadError("projectDetail.intakeDownloadFailed");
+    } finally {
+      setPreviewLoadingId(null);
     }
   };
 
@@ -79,16 +99,34 @@ export function ProjectIntakeSection({ projectId }: { projectId: string }) {
                           {attachment.mime_type} - {formatFileSize(attachment.size_bytes)} - {translateI18n("projectDetail.addedOn", { date: formatDate(attachment.created_at) })}
                         </p>
                       </div>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="h-8 shrink-0 gap-1.5 self-start text-xs sm:self-auto"
-                        onClick={() => void handleDownload(attachment.id)}
-                        disabled={intakeDownload.isPending}
-                      >
-                        <Download className="h-3.5 w-3.5" />
-                        <span>{translateI18n("copy.viewDownload")}</span>
-                      </Button>
+                      <div className="flex flex-wrap items-center gap-1.5 self-start sm:self-auto">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-8 shrink-0 gap-1.5 text-xs hover:bg-primary/10 hover:text-primary"
+                          onClick={() => void handlePreview(attachment)}
+                          disabled={previewLoadingId !== null}
+                          aria-label={translateI18n("docPreview.previewFile", { name: attachment.file_name })}
+                        >
+                          {previewLoadingId === attachment.id ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <Eye className="h-3.5 w-3.5 text-primary" />
+                          )}
+                          <span>{translateI18n("docPreview.preview")}</span>
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-8 shrink-0 gap-1.5 text-xs text-muted-foreground hover:text-foreground"
+                          onClick={() => void handleDownload(attachment.id, attachment.file_name)}
+                          disabled={intakeDownload.isPending}
+                          aria-label={translateI18n("docPreview.downloadFile")}
+                        >
+                          <Download className="h-3.5 w-3.5" />
+                          <span>{translateI18n("common.download")}</span>
+                        </Button>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -97,6 +135,23 @@ export function ProjectIntakeSection({ projectId }: { projectId: string }) {
           </div>
         )}
       </CardContent>
+
+      {previewTarget && (
+        <DocumentPreviewDialog
+          open={Boolean(previewTarget)}
+          onOpenChange={(open) => {
+            if (!open) setPreviewTarget(null);
+          }}
+          fileName={previewTarget.attachment.file_name}
+          fileSize={previewTarget.attachment.size_bytes}
+          fileUrl={previewTarget.url}
+          mimeType={previewTarget.attachment.mime_type}
+          isLoading={previewLoadingId === previewTarget.attachment.id}
+          uploadedAt={previewTarget.attachment.created_at}
+          status={translateI18n("copy.intakeEvidence")}
+          onDownload={() => void handleDownload(previewTarget.attachment.id, previewTarget.attachment.file_name)}
+        />
+      )}
     </Card>
   );
 }

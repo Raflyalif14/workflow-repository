@@ -10,6 +10,7 @@ import { apiClient } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { LanguageSwitcher } from "@/components/language-switcher";
 
 export default function RegisterPage() {
   useLanguage();
@@ -33,15 +34,25 @@ export default function RegisterPage() {
         }),
       });
       setIsSuccess(true);
-    } catch (err) {
-      setError("auth.registerFailed");
+    } catch (err: any) {
+      const message = String(err?.message || "").toLowerCase();
+      if (err?.status === 422 || message.includes("internal company domain") || message.includes("domain")) {
+        setError(translateI18n("auth.registerInvalidDomain"));
+      } else if (err?.status === 429 || message.includes("too many")) {
+        setError(translateI18n("auth.registerRateLimited"));
+      } else {
+        setError(translateI18n("auth.registerFailedDetailed"));
+      }
     } finally {
       setIsSubmitting(false);
     }
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4 py-8">
+    <div className="flex min-h-screen flex-col items-center justify-center bg-background px-4 py-8">
+      <div className="mb-4 flex w-full max-w-md justify-end">
+        <LanguageSwitcher />
+      </div>
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-2">
           <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-primary text-primary-foreground">
@@ -96,16 +107,20 @@ export default function RegisterPage() {
                     autoComplete="email"
                     value={email}
                     onChange={(event) => setEmail(event.target.value)}
+                    placeholder="nama@test.com"
                     className="pl-9"
                     required
                   />
                 </div>
+                <p className="text-[11px] text-muted-foreground">
+                  {translateI18n("auth.emailDomainHint")}
+                </p>
               </div>
 
               {error && (
                 <div className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
                   <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-                  <span>{translateI18n("auth.registerFailed")}</span>
+                  <span className="leading-relaxed">{error}</span>
                 </div>
               )}
 

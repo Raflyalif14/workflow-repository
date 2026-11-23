@@ -37,6 +37,7 @@ export type CreateNotificationInput = {
   actionUrl?: string | null;
   projectName?: string;
   milestoneName?: string;
+  meetingTitle?: string;
 };
 
 export class NotificationServiceError extends Error {

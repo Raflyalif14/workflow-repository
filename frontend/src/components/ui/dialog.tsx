@@ -8,9 +8,10 @@ interface DialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   children: React.ReactNode;
+  contentClassName?: string;
 }
 
-export function Dialog({ open, onOpenChange, children }: DialogProps) {
+export function Dialog({ open, onOpenChange, children, contentClassName }: DialogProps) {
   useLanguage();
   if (!open) return null;
 
@@ -20,7 +21,7 @@ export function Dialog({ open, onOpenChange, children }: DialogProps) {
         className="fixed inset-0"
         onClick={() => onOpenChange(false)}
       />
-      <div className="relative z-50 w-full max-w-lg max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-[var(--shell-radius)] border border-border bg-card p-6 shadow-xl shadow-slate-900/10 animate-in zoom-in-95 duration-200">
+      <div className={cn("relative z-50 w-full max-w-lg max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-[var(--shell-radius)] border border-border bg-card p-6 shadow-xl shadow-slate-900/10 animate-in zoom-in-95 duration-200", contentClassName)}>
         <button
           onClick={() => onOpenChange(false)}
           type="button"

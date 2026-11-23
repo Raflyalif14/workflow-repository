@@ -20,7 +20,7 @@ import { useLanguage } from "@/components/i18n/language-provider";
 import { translate as translateI18n, translateOutputName, translateStoredError, translateStoredMessage } from "@/i18n";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { AlertCircle, AlertTriangle, ArrowLeft, CheckCircle2, Clock3, PauseCircle, Trophy, XCircle } from "lucide-react";
+import { AlertCircle, AlertTriangle, ArrowLeft, Calendar, CheckCircle2, Clock3, FolderOpen, History, LayoutGrid, Layers, List, PauseCircle, Trophy, XCircle } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { AssignmentHistoryCard } from "@/components/projects/assignment-history-card";
 import { PicAssignmentCard } from "@/components/projects/pic-assignment-card";
@@ -63,6 +63,7 @@ import { ActivityTimeline } from "@/components/projects/project-activity-timelin
 import { ProjectIntakeSection } from "@/components/projects/project-intake-section";
 import { NextActionCard, DraftProgressionTracker, ProjectPlanCard } from "@/components/projects/project-plan-summary";
 import { MilestoneRow } from "@/components/projects/project-milestone-row";
+import { ProjectMilestoneKanban } from "@/components/projects/project-milestone-kanban";
 import { PlanReviewDialog } from "@/components/projects/project-plan-review-dialog";
 import { StatusBadge } from "@/components/projects/project-status-badge";
 import { formatIdr, formatDateTime } from "@/lib/project-detail-format";
@@ -97,9 +98,13 @@ export default function ProjectDetailPage() {
   const [error, setError] = useState("");
   const [outcomeDecision, setOutcomeDecision] = useState<"WON" | "LOST" | null>(null);
   const evidence = useOutcomeEvidence(project?.id || '');
+  const [evidenceErrorTrigger, setEvidenceErrorTrigger] = useState(0);
   const [finalContractValue, setFinalContractValue] = useState("");
   const [lossReason, setLossReason] = useState("");
   const [expandedMilestones, setExpandedMilestones] = useState<Set<string>>(() => new Set());
+  const [stageViewMode, setStageViewMode] = useState<"list" | "kanban">("list");
+  type ProjectDetailTab = "STAGES" | "MEETINGS" | "DOCUMENTS" | "HISTORY";
+  const [activeTab, setActiveTab] = useState<ProjectDetailTab>("STAGES");
   const initializedExpansionProject = useRef<string | null>(null);
   const manuallyToggledMilestones = useRef<Set<string>>(new Set());
   const projectId = project?.id;
@@ -125,8 +130,20 @@ export default function ProjectDetailPage() {
     if (!projectId || milestonesLoading || typeof window === "undefined") return;
     const validMilestoneIds: string[] = JSON.parse(allMilestoneIds);
     const openLinkedMilestone = () => {
+      const hash = window.location.hash.toLowerCase();
+      if (hash.includes("meeting")) {
+        setActiveTab("MEETINGS");
+      } else if (hash.includes("document") || hash.includes("intake") || hash.includes("scope")) {
+        setActiveTab("DOCUMENTS");
+      } else if (hash.includes("history") || hash.includes("activity") || hash.includes("danger") || hash.includes("deletion")) {
+        setActiveTab("HISTORY");
+      } else if (hash.includes("milestone") || hash.includes("timeline") || hash.includes("plan") || hash.includes("pic") || hash.includes("stages")) {
+        setActiveTab("STAGES");
+      }
+
       const milestoneId = milestoneIdFromHash(window.location.hash, validMilestoneIds);
       if (!milestoneId) return;
+      setActiveTab("STAGES");
       setExpandedMilestones((current) => new Set(current).add(milestoneId));
       window.requestAnimationFrame(() => window.requestAnimationFrame(() => {
         focusOutputReviewLink(window.location.hash, milestoneId, document);
@@ -279,7 +296,11 @@ export default function ProjectDetailPage() {
       setError("projectDetail.lossReasonRequired");
       return;
     }
-    if (!evidence.files.length) { setError('workflowUpdate.evidenceRequired'); return; }
+    if (!evidence.files.length) {
+      setError('workflowUpdate.evidenceRequired');
+      setEvidenceErrorTrigger(c => c + 1);
+      return;
+    }
     if (!outcomeConfirming) { setOutcomeConfirming(true); return; }
     outcomeSaving.current = true;
     try {
@@ -324,6 +345,16 @@ export default function ProjectDetailPage() {
       default: {
         const targetId = resolveNextActionTargetId(nextAction);
         if (!targetId || typeof document === "undefined") return;
+
+        if (targetId.includes("meeting")) {
+          setActiveTab("MEETINGS");
+        } else if (targetId.includes("document") || targetId.includes("intake") || targetId.includes("scope")) {
+          setActiveTab("DOCUMENTS");
+        } else if (targetId.includes("history") || targetId.includes("activity") || targetId.includes("deletion") || targetId.includes("danger")) {
+          setActiveTab("HISTORY");
+        } else {
+          setActiveTab("STAGES");
+        }
 
         const targetMilestoneId = milestoneIdFromHash(`#${targetId}`, milestones.map((milestone) => milestone.id));
         if (targetMilestoneId) setExpandedMilestones((current) => new Set(current).add(targetMilestoneId));
@@ -400,130 +431,511 @@ export default function ProjectDetailPage() {
         </div>
       )}
 
-      {/* ─── Project Result Hero Card (WON / LOST) ─── */}
-      <ProjectResultCard project={project} />
+      {/* ─── Tabs Navigation Bar ─── */}
+      <div className="border-b border-border/80">
+        <nav className="-mb-px flex space-x-2 sm:space-x-4 overflow-x-auto no-scrollbar" role="tablist" aria-label="Project Sections">
+          {[
+            { id: "STAGES", label: translateI18n("projectTabs.stages"), icon: Layers, count: visibleWorkStages.length },
+            { id: "MEETINGS", label: translateI18n("projectTabs.meetings"), icon: Calendar },
+            { id: "DOCUMENTS", label: translateI18n("projectTabs.documents"), icon: FolderOpen },
+            { id: "HISTORY", label: translateI18n("projectTabs.history"), icon: History },
+          ].map((tab) => {
+            const Icon = tab.icon;
+            const isSelected = activeTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                role="tab"
+                id={`tab-${tab.id.toLowerCase()}`}
+                aria-selected={isSelected}
+                aria-controls={`tabpanel-${tab.id.toLowerCase()}`}
+                onClick={() => setActiveTab(tab.id as ProjectDetailTab)}
+                className={`inline-flex items-center gap-2 border-b-2 px-3 py-2.5 text-sm font-medium transition-colors whitespace-nowrap sm:px-4 ${
+                  isSelected
+                    ? "border-primary text-primary font-semibold"
+                    : "border-transparent text-muted-foreground hover:border-border hover:text-foreground"
+                }`}
+              >
+                <Icon className="h-4 w-4 shrink-0" />
+                <span>{tab.label}</span>
+                {typeof tab.count === "number" && tab.count > 0 && (
+                  <span
+                    className={`ml-1 rounded-full px-2 py-0.5 text-xs font-semibold ${
+                      isSelected
+                        ? "bg-primary/10 text-primary"
+                        : "bg-muted text-muted-foreground"
+                    }`}
+                  >
+                    {tab.count}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </nav>
+      </div>
 
-      {/* ─── Next Action Card ─── */}
-      {(!tenderResultStage || nextAction.targetMilestoneId !== tenderResultStage.id) && !isPraTenderDecisionPending(project) && !isProjectClosedAtPraTender(project) && <NextActionCard
-        nextAction={nextAction}
-        onAction={handleNextAction}
-        isSubmittingPlan={submitProjectPlan.isPending}
-        isResuming={resumeProject.isPending}
-        isStartingMilestone={startNextMilestone.isPending}
-        startError={nextAction.actionType === 'START_MILESTONE' && startNextMilestone.isError ? translateI18n('workflowUpdate.startFailed') : undefined}
-      />}
+      {/* ─── Tab 1: Stages & Deliverables ─── */}
+      <div
+        role="tabpanel"
+        id="tabpanel-stages"
+        aria-labelledby="tab-stages"
+        className={activeTab === "STAGES" ? "space-y-5" : "hidden"}
+      >
+        {/* Project Result Hero Card (WON / LOST) */}
+        <ProjectResultCard project={project} />
 
-      {tenderResultStage && <MilestoneRow
-        key={tenderResultStage.id}
-        project={project}
-        milestone={tenderResultStage}
-        isFinalMilestone
-        isCurrentStage
-        hasNextCreatedMilestone={false}
-        finalPrerequisitesComplete={visibleWorkStages.every((milestone) => ['COMPLETED', 'APPROVED'].includes(milestone.status))}
-        expanded={false}
-        onToggle={() => {}}
-        resultOnly
-      />}
+        {/* Next Action Card */}
+        {(!tenderResultStage || nextAction.targetMilestoneId !== tenderResultStage.id) && !isPraTenderDecisionPending(project) && !isProjectClosedAtPraTender(project) && (
+          <NextActionCard
+            nextAction={nextAction}
+            onAction={handleNextAction}
+            isSubmittingPlan={submitProjectPlan.isPending}
+            isResuming={resumeProject.isPending}
+            isStartingMilestone={startNextMilestone.isPending}
+            startError={nextAction.actionType === 'START_MILESTONE' && startNextMilestone.isError ? translateI18n('workflowUpdate.startFailed') : undefined}
+          />
+        )}
 
-      <ProjectMeetings key={project.id} project={project} />
-      {project.status !== 'DRAFT' && <ProjectScopeChanges project={project} milestones={milestonesLoading||milestonesError?undefined:milestones} />}
+        {tenderResultStage && (
+          <MilestoneRow
+            key={tenderResultStage.id}
+            project={project}
+            milestone={tenderResultStage}
+            isFinalMilestone
+            isCurrentStage
+            hasNextCreatedMilestone={false}
+            finalPrerequisitesComplete={visibleWorkStages.every((milestone) => ['COMPLETED', 'APPROVED'].includes(milestone.status))}
+            expanded={false}
+            onToggle={() => {}}
+            resultOnly
+          />
+        )}
 
-      {(isActive || isPostponed) && !isPraTenderDecisionPending(project) && (
-        <section aria-label={translateI18n("copy.pendingItems")} className="page-surface p-4 text-sm sm:p-5">
-          <h2 className="font-semibold text-foreground">{translateI18n("copy.pendingItems")}</h2>
-          {milestonesLoading || outputReadiness.isLoading ? (
-            <p className="mt-2 text-muted-foreground">{translateI18n("copy.checkingProgress")}</p>
-          ) : outputReadiness.isError ? (
-            <p className="mt-2 text-muted-foreground">{translateI18n("copy.outputStatusError")}</p>
-          ) : (
-            <div className="mt-2 space-y-1 text-muted-foreground">
-              {unfinishedMilestones.length > 0 && <p>{translateI18n(unfinishedMilestones.length === 1 ? "projectDetail.milestoneRemainingOne" : "projectDetail.milestonesRemaining", { count: unfinishedMilestones.length })}</p>}
-              {unapprovedOutputCount > 0 && <p>{translateI18n(unapprovedOutputCount === 1 ? "projectDetail.outputRemainingOne" : "projectDetail.outputsRemaining", { count: unapprovedOutputCount })} {translateI18n(canSeeOutputNames ? "projectDetail.outputNextAction" : "projectDetail.outputWait")}</p>}
-              {pendingOutputNames.length > 0 && <p className="break-words">{translateI18n("projectDetail.outputsNeedingAction", { names: pendingOutputNames.join(", ") })}</p>}
-              {unfinishedMilestones.length === 0 && unapprovedOutputCount === 0 && <p>{translateI18n("copy.allComplete")}</p>}
-              {isPostponed && <p>{translateI18n("copy.pausedBanner")}</p>}
+        {(isActive || isPostponed) && !isPraTenderDecisionPending(project) && (
+          <section aria-label={translateI18n("copy.pendingItems")} className="page-surface p-4 text-sm sm:p-5">
+            <h2 className="font-semibold text-foreground">{translateI18n("copy.pendingItems")}</h2>
+            {milestonesLoading || outputReadiness.isLoading ? (
+              <p className="mt-2 text-muted-foreground">{translateI18n("copy.checkingProgress")}</p>
+            ) : outputReadiness.isError ? (
+              <p className="mt-2 text-muted-foreground">{translateI18n("copy.outputStatusError")}</p>
+            ) : (
+              <div className="mt-2 space-y-1 text-muted-foreground">
+                {unfinishedMilestones.length > 0 && <p>{translateI18n(unfinishedMilestones.length === 1 ? "projectDetail.milestoneRemainingOne" : "projectDetail.milestonesRemaining", { count: unfinishedMilestones.length })}</p>}
+                {unapprovedOutputCount > 0 && <p>{translateI18n(unapprovedOutputCount === 1 ? "projectDetail.outputRemainingOne" : "projectDetail.outputsRemaining", { count: unapprovedOutputCount })} {translateI18n(canSeeOutputNames ? "projectDetail.outputNextAction" : "projectDetail.outputWait")}</p>}
+                {pendingOutputNames.length > 0 && <p className="break-words">{translateI18n("projectDetail.outputsNeedingAction", { names: pendingOutputNames.join(", ") })}</p>}
+                {unfinishedMilestones.length === 0 && unapprovedOutputCount === 0 && <p>{translateI18n("copy.allComplete")}</p>}
+                {isPostponed && <p>{translateI18n("copy.pausedBanner")}</p>}
+              </div>
+            )}
+          </section>
+        )}
+
+        {/* Postponed Banner */}
+        {isPostponed && (
+          <div className="space-y-3 rounded-lg border border-amber-500/30 bg-amber-500/10 p-4 sm:p-5">
+            <div className="flex items-center gap-2 text-sm font-semibold tracking-tight text-warning">
+              <PauseCircle className="h-5 w-5 shrink-0" />
+              <span>{translateI18n("copy.projectPaused")}</span>
             </div>
-          )}
-        </section>
-      )}
-
-      {/* ─── Postponed Banner ─── */}
-      {isPostponed && (
-        <div className="space-y-3 rounded-lg border border-amber-500/30 bg-amber-500/10 p-4 sm:p-5">
-          <div className="flex items-center gap-2 text-sm font-semibold tracking-tight text-warning">
-            <PauseCircle className="h-5 w-5 shrink-0" />
-            <span>{translateI18n("copy.projectPaused")}</span>
-          </div>
-          <p className="text-xs text-muted-foreground leading-relaxed">
-            {project.postpone_reason
-              ? translateI18n("ui.reasonValue", { reason: project.postpone_reason })
-              : translateI18n("ui.postponedByOwner")}
-            {" "}{translateI18n("projectDetail.pausedActions")}
-          </p>
-          {project.postponed_at && (
-            <p className="text-[11px] font-mono text-muted-foreground">
-              {translateI18n("projectDetail.postponedAt", { date: formatDateTime(project.postponed_at) })}
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              {project.postpone_reason
+                ? translateI18n("ui.reasonValue", { reason: project.postpone_reason })
+                : translateI18n("ui.postponedByOwner")}
+              {" "}{translateI18n("projectDetail.pausedActions")}
             </p>
+            {project.postponed_at && (
+              <p className="text-[11px] font-mono text-muted-foreground">
+                {translateI18n("projectDetail.postponedAt", { date: formatDateTime(project.postponed_at) })}
+              </p>
+            )}
+          </div>
+        )}
+
+        {/* Delivery result */}
+        {isWaitingResult && (
+          <div className="flex flex-col gap-4 rounded-lg border border-amber-500/30 bg-amber-500/10 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2 text-sm font-semibold text-warning">
+                <Clock3 className="h-5 w-5 shrink-0" />
+                <span>{translateI18n("copy.waitingTender")}</span>
+              </div>
+              <p className="text-xs leading-5 text-muted-foreground">
+                {translateI18n("projectDetail.waitingResult")}
+              </p>
+            </div>
+            {isSalesOwner && (
+              <div className="flex w-full gap-2 sm:w-auto">
+                <Button
+                  type="button"
+                  size="sm"
+                  className="flex-1 sm:flex-none gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold"
+                  disabled={setProjectOutcome.isPending || evidence.isUploading}
+                  onClick={() => {
+                    setError("");
+                    setOutcomeDecision("WON");
+                    setOutcomeConfirming(false);
+                    if (!finalContractValue && project.estimated_revenue) {
+                      setFinalContractValue(formatContractAmountInput(String(project.estimated_revenue), "", "insertText"));
+                    }
+                  }}
+                >
+                  <Trophy className="h-4 w-4" />
+                  {translateI18n("projectDetail.recordWon")}
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="flex-1 sm:flex-none gap-1.5 border-destructive/40 text-destructive hover:bg-destructive/10 font-semibold"
+                  disabled={setProjectOutcome.isPending || evidence.isUploading}
+                  onClick={() => {
+                    setError("");
+                    setOutcomeDecision("LOST");
+                    setOutcomeConfirming(false);
+                  }}
+                >
+                  <XCircle className="h-4 w-4" />
+                  {translateI18n("projectDetail.recordLost")}
+                </Button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {project.status === "COMPLETED" && (
+          <div className="flex flex-col gap-4 rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2 text-sm font-semibold tracking-tight text-success">
+                <CheckCircle2 className="h-5 w-5 shrink-0" />
+                <span>{translateI18n("ui.projectCompleted")} - 100%</span>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {translateI18n("projectDetail.resultComplete")}
+              </p>
+            </div>
+            <Badge variant="success" className="self-start px-3 py-1 text-xs sm:self-auto">
+              {formatProjectStatusLabel(project.status)}
+            </Badge>
+          </div>
+        )}
+
+        {/* Draft Project Lifecycle Tracker */}
+        {isDraft && (
+          <DraftProgressionTracker
+            planApproval={planApproval}
+            milestones={milestones}
+            workflowModel={project.scenario?.workflow_model}
+            workflowVersion={project.scenario?.workflow_version}
+          />
+        )}
+
+        {isHeadSaPlanReviewWorkspace && (
+          <section
+            id="project-plan-review"
+            tabIndex={-1}
+            className="scroll-mt-20 space-y-5 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/60 focus:ring-offset-2 focus:ring-offset-background"
+            aria-labelledby="project-plan-review-heading"
+          >
+            <div className="max-w-2xl space-y-1 border-b border-border/60 pb-4">
+              <h2 id="project-plan-review-heading" className="text-xl font-semibold text-foreground">
+                {translateI18n("projectDetail.reviewPlan")}
+              </h2>
+              <p className="text-sm leading-6 text-muted-foreground">
+                {translateI18n("projectDetail.reviewPlanHelp")}
+              </p>
+            </div>
+
+            <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
+              <div className="min-w-0 space-y-6">
+                <ProjectIntakeSection projectId={project.id} />
+                <ProjectTimelineEditor
+                  projectId={id}
+                  milestones={milestones}
+                  canEdit={false}
+                  workflowModel={project.scenario?.workflow_model}
+                  workflowVersion={project.scenario?.workflow_version}
+                />
+              </div>
+
+              <div className="xl:sticky xl:top-20 xl:self-start">
+                <ProjectPlanCard
+                  onReviewDecision={openPlanReview}
+                  project={project}
+                  approval={planApproval}
+                  canSubmit={false}
+                  canReview
+                  onSubmit={() => undefined}
+                  isSubmitting={false}
+                  reviewWorkspace
+                />
+              </div>
+            </div>
+          </section>
+        )}
+
+        {/* Timeline & Plan Review (Draft Stage) */}
+        {isDraft && !isHeadSaPlanReviewWorkspace && !isHeadSaWaitingForSalesPlan && (
+          <div className="space-y-4">
+            <div id="project-timeline" tabIndex={-1} className="scroll-mt-20 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/60 focus:ring-offset-2 focus:ring-offset-background">
+              {isSalesOwner && planApproval?.status === "REJECTED" && planApproval.review_note && (
+                <div className="mb-4 border-l-2 border-destructive pl-3 text-sm text-muted-foreground">
+                  <p className="font-medium text-foreground">{translateI18n("copy.planInput")}</p>
+                  <p className="mt-1 leading-6">{planApproval.review_note}</p>
+                </div>
+              )}
+              <ProjectTimelineEditor
+                projectId={id}
+                milestones={milestones}
+                canEdit={isSalesOwner && planApproval?.status !== "PENDING"}
+                workflowModel={project.scenario?.workflow_model}
+                workflowVersion={project.scenario?.workflow_version}
+              />
+            </div>
+            <div id="project-plan-review" tabIndex={-1} className="scroll-mt-24 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/60 focus:ring-offset-2 focus:ring-offset-background">
+              <ProjectPlanCard
+                onReviewDecision={openPlanReview}
+                project={project}
+                approval={planApproval}
+                canSubmit={showPlanCardSubmit}
+                canReview={isHeadSa && planApproval?.status === "PENDING"}
+                onSubmit={() => { submitProjectPlan.prepare?.(); setBusinessConfirmation("PLAN"); }}
+                isSubmitting={submitProjectPlan.isPending}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Project Plan Card for Non-Draft (Read-only reference) */}
+        {!isDraft && planApproval && (
+          <div id="project-plan-review" tabIndex={-1} className="scroll-mt-24 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/60 focus:ring-offset-2 focus:ring-offset-background">
+            <ProjectPlanCard
+              onReviewDecision={openPlanReview}
+              project={project}
+              approval={planApproval}
+              canSubmit={false}
+              canReview={false}
+              onSubmit={() => undefined}
+              isSubmitting={false}
+            />
+          </div>
+        )}
+
+        {/* PIC Assignment & History */}
+        {shouldShowProjectPic && (
+          <div id="project-pic-assignment" tabIndex={-1} className="scroll-mt-20 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/60 focus:ring-offset-2 focus:ring-offset-background">
+            <PicAssignmentCard
+              project={project}
+              canAssign={isHeadSa && isActive && !isPostponed && (Boolean(project.pic) || assignPicIsCurrent)}
+              unassignedNotice={projectPicNotice}
+            />
+          </div>
+        )}
+
+        {/* Workflow Progress Bar */}
+        {!isDraft && (
+          <section className="border-b border-border/60 pb-4" aria-labelledby="delivery-progress-heading">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div className="space-y-1">
+                <h2 id="delivery-progress-heading" className="text-base font-semibold text-foreground">{translateI18n("copy.workProgress")}</h2>
+                {progress && <p className="text-sm text-muted-foreground">{translateI18n("projectDetail.stagesFinished", { done: progress.completed, total: progress.total })}</p>}
+              </div>
+              {progress && (
+                <span className={`text-sm font-medium ${isCompleted || progress.percentage === 100 ? "text-success" : "text-primary"}`}>
+                  {translateI18n("projectDetail.percentComplete", { percent: progress.percentage })}
+                </span>
+              )}
+            </div>
+            {milestonesError ? (
+              <div className="mt-3 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+                <span>{translateI18n("dashboardPage.stageUnavailable")}</span>
+                <Button type="button" variant="outline" size="sm" onClick={() => void refetchMilestones()}>{translateI18n("common.retry")}</Button>
+              </div>
+            ) : progress ? (
+              <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-secondary/80">
+                <div
+                  className={`h-full rounded-full transition-all duration-500 ${isCompleted || progress.percentage === 100 ? "bg-[hsl(var(--success))]" : "bg-primary"}`}
+                  style={{ width: `${progress.percentage}%` }}
+                />
+              </div>
+            ) : (
+              <p className="mt-3 text-sm text-muted-foreground">{translateI18n("milestone.loading")}</p>
+            )}
+          </section>
+        )}
+
+        {/* Milestones Execution List & Kanban */}
+        {!isDraft && (
+          <div>
+            <Card>
+              <CardHeader className="pb-3">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="space-y-1">
+                    <CardTitle className="text-base font-semibold tracking-tight">{translateI18n("ui.workStages")}</CardTitle>
+                    <CardDescription className="text-xs">
+                      {translateI18n("ui.completedStagesHelp")}
+                    </CardDescription>
+                  </div>
+                  <div className="flex items-center gap-2 self-start sm:self-auto">
+                    <div className="flex items-center rounded-lg border border-border/80 bg-muted/40 p-0.5">
+                      <Button
+                        type="button"
+                        variant={stageViewMode === "list" ? "secondary" : "ghost"}
+                        size="sm"
+                        className="h-7 gap-1.5 px-2.5 text-xs font-medium"
+                        onClick={() => setStageViewMode("list")}
+                      >
+                        <List className="h-3.5 w-3.5" />
+                        <span>{translateI18n("kanban.viewList")}</span>
+                      </Button>
+                      <Button
+                        type="button"
+                        variant={stageViewMode === "kanban" ? "secondary" : "ghost"}
+                        size="sm"
+                        className="h-7 gap-1.5 px-2.5 text-xs font-medium"
+                        onClick={() => setStageViewMode("kanban")}
+                      >
+                        <LayoutGrid className="h-3.5 w-3.5" />
+                        <span>{translateI18n("kanban.viewKanban")}</span>
+                      </Button>
+                    </div>
+                    <Badge variant="outline" className="text-xs">
+                      {translateI18n("projectDetail.stageCount", { count: visibleWorkStages.length })}
+                    </Badge>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {milestonesLoading ? (
+                  <p className="py-8 text-center text-muted-foreground">{translateI18n("milestone.loading")}</p>
+                ) : visibleWorkStages.length === 0 ? (
+                  <p className="py-8 text-center text-sm text-muted-foreground">{translateI18n("milestone.noMilestones")}</p>
+                ) : stageViewMode === "kanban" ? (
+                  <ProjectMilestoneKanban
+                    project={project}
+                    milestones={visibleWorkStages}
+                    documents={outputReadiness.data?.documents}
+                    approvalByMilestone={approvalByMilestone}
+                    currentStageMilestone={currentStageMilestone}
+                    onStartMilestone={(milestoneId) => {
+                      if (!startNextMilestone.isPending) {
+                        startNextMilestone.mutate(milestoneId);
+                      }
+                    }}
+                    isStartingMilestone={startNextMilestone.isPending}
+                    onSelectMilestone={(milestoneId) => {
+                      setStageViewMode("list");
+                      manuallyToggledMilestones.current.add(milestoneId);
+                      setExpandedMilestones((current) => new Set(current).add(milestoneId));
+                      setTimeout(() => {
+                        const el = document.getElementById(`project-milestone-${milestoneId}`);
+                        if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+                      }, 120);
+                    }}
+                  />
+                ) : (
+                  visibleWorkStages.map((milestone, index) => (
+                    <MilestoneRow
+                      key={milestone.id}
+                      displayIndex={index + 1}
+                      project={project}
+                      milestone={milestone}
+                      isFinalMilestone={!milestones.some((candidate) => candidate.step_order > milestone.step_order)}
+                      finalPrerequisitesComplete={milestones.every(candidate => candidate.id === milestone.id || ['COMPLETED','APPROVED'].includes(candidate.status))}
+                      isCurrentStage={currentStageMilestone?.id === milestone.id}
+                      hasNextCreatedMilestone={milestones.filter((candidate) => candidate.step_order > milestone.step_order)
+                        .sort((left, right) => left.step_order - right.step_order)[0]?.status === "CREATED"}
+                      approvalState={approvalByMilestone.get(milestone.id)}
+                      expanded={expandedMilestones.has(milestone.id)}
+                      onToggle={() => {
+                        manuallyToggledMilestones.current.add(milestone.id);
+                        setExpandedMilestones((current) => {
+                          const next = new Set(current);
+                          if (next.has(milestone.id)) next.delete(milestone.id);
+                          else next.add(milestone.id);
+                          return next;
+                        });
+                      }}
+                    />
+                  ))
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        )}
+      </div>
+
+      {/* ─── Tab 2: Project Meetings ─── */}
+      <div
+        role="tabpanel"
+        id="tabpanel-meetings"
+        aria-labelledby="tab-meetings"
+        className={activeTab === "MEETINGS" ? "space-y-5" : "hidden"}
+      >
+        <div id="project-meetings">
+          <ProjectMeetings key={project.id} project={project} />
+        </div>
+      </div>
+
+      {/* ─── Tab 3: Documents & Intake ─── */}
+      <div
+        role="tabpanel"
+        id="tabpanel-documents"
+        aria-labelledby="tab-documents"
+        className={activeTab === "DOCUMENTS" ? "space-y-5" : "hidden"}
+      >
+        <div id="project-documents" className="space-y-5">
+          {!isHeadSaPlanReviewWorkspace && <ProjectIntakeSection projectId={project.id} />}
+          {isDraft && <OutputScopeSection project={project} />}
+          <ProjectDocumentsSection projectId={project.id} />
+          {project.status !== 'DRAFT' && (
+            <ProjectScopeChanges
+              project={project}
+              milestones={milestonesLoading || milestonesError ? undefined : milestones}
+            />
           )}
         </div>
-      )}
+      </div>
 
-      {/* Delivery result */}
-      {isWaitingResult && (
-        <div className="flex flex-col gap-4 rounded-lg border border-amber-500/30 bg-amber-500/10 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
-          <div className="space-y-1">
-            <div className="flex items-center gap-2 text-sm font-semibold text-warning">
-              <Clock3 className="h-5 w-5 shrink-0" />
-              <span>{translateI18n("copy.waitingTender")}</span>
-            </div>
-            <p className="text-xs leading-5 text-muted-foreground">
-              {translateI18n("projectDetail.waitingResult")}
-            </p>
-          </div>
-          {isSalesOwner && (
-            <div className="flex w-full gap-2 sm:w-auto">
-              <Button
-                type="button"
-                size="sm"
-                className="flex-1 sm:flex-none gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold"
-                disabled={setProjectOutcome.isPending || evidence.isUploading}
-                onClick={() => {
-                  setError("");
-                  setOutcomeDecision("WON");
-                  setOutcomeConfirming(false);
-                  if (!finalContractValue && project.estimated_revenue) {
-                    setFinalContractValue(formatContractAmountInput(String(project.estimated_revenue), "", "insertText"));
-                  }
-                }}
-              >
-                <Trophy className="h-4 w-4" />
-                {translateI18n("projectDetail.recordWon")}
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                className="flex-1 sm:flex-none gap-1.5 border-destructive/40 text-destructive hover:bg-destructive/10 font-semibold"
-                disabled={setProjectOutcome.isPending || evidence.isUploading}
-                onClick={() => {
-                  setError("");
-                  setOutcomeDecision("LOST");
-                  setOutcomeConfirming(false);
-                }}
-              >
-                <XCircle className="h-4 w-4" />
-                {translateI18n("projectDetail.recordLost")}
-              </Button>
-            </div>
-          )}
+      {/* ─── Tab 4: Activity & History ─── */}
+      <div
+        role="tabpanel"
+        id="tabpanel-history"
+        aria-labelledby="tab-history"
+        className={activeTab === "HISTORY" ? "space-y-5" : "hidden"}
+      >
+        <div id="project-history" className="space-y-5">
+          {project.phases?.filter(phase => phase.id !== project.active_phase_id).map(phase => (
+            <details key={phase.id} className="rounded-md border border-border p-3">
+              <summary className="cursor-pointer text-sm font-medium">
+                {phase.phase_key === 'PRA_TENDER' ? 'Pra-Tender' : 'On Submission Tender'} · {translateI18n('projectPhase.history')}
+              </summary>
+              {allMilestones.filter(milestone => milestone.phase_id === phase.id).map(milestone => (
+                <div key={milestone.id} id={`project-milestone-${milestone.id}`} className="mt-3 border-t border-border pt-2">
+                  <h4 className="text-sm font-medium">{milestone.name}</h4>
+                  <p className="text-xs text-muted-foreground">{formatMilestoneDate(milestone.start_date)} · {formatMilestoneDate(milestone.due_date)}</p>
+                  <OutputDocumentsSection project={project} milestoneId={milestone.id} milestoneStatus={milestone.status} milestonePicId={milestone.pic_id} milestoneStartDate={milestone.start_date} />
+                </div>
+              ))}
+            </details>
+          ))}
+          <ActivityTimeline project={project} milestones={allMilestones} />
+          <AssignmentHistoryCard projectId={id} />
+          {user?.role === "SUPER_ADMIN" && <ProjectDeletionDangerZone project={project} />}
         </div>
-      )}
+      </div>
 
-      <BusinessConfirmation open={businessConfirmation !== null} onOpenChange={open => !open && setBusinessConfirmation(null)}
-        title={project.name} changes={[project.active_scenario?.name || project.scenario?.name || "", translateI18n(businessConfirmation === "PLAN" ? "businessAudit.plan" : "businessAudit.resume")]}
+      {/* ─── Dialogs & Modals ─── */}
+      <BusinessConfirmation
+        open={businessConfirmation !== null}
+        onOpenChange={open => !open && setBusinessConfirmation(null)}
+        title={project.name}
+        changes={[project.active_scenario?.name || project.scenario?.name || "", translateI18n(businessConfirmation === "PLAN" ? "businessAudit.plan" : "businessAudit.resume")]}
         action={translateI18n(businessConfirmation === "PLAN" ? "businessAudit.submit" : "businessAudit.save")}
-        onConfirm={businessConfirmation === "PLAN" ? submitPlan : resume} />
+        onConfirm={businessConfirmation === "PLAN" ? submitPlan : resume}
+      />
+
       <Dialog
         open={Boolean(outcomeDecision)}
         onOpenChange={(open) => {
@@ -682,7 +1094,13 @@ export default function ProjectDetailPage() {
               />
             </div>
           )}
-          <OutcomeEvidenceField files={evidence.files} onChange={files => { evidence.setFiles(files); setOutcomeConfirming(false); }} disabled={setProjectOutcome.isPending || evidence.isUploading} />
+          <OutcomeEvidenceField
+            files={evidence.files}
+            onChange={files => { evidence.setFiles(files); setOutcomeConfirming(false); }}
+            disabled={setProjectOutcome.isPending || evidence.isUploading}
+            hasError={error === 'workflowUpdate.evidenceRequired'}
+            errorTrigger={evidenceErrorTrigger}
+          />
           {outcomeConfirming && (
             <div className="rounded-xl border border-primary/30 bg-primary/5 p-3.5 space-y-1.5 text-xs">
               <p className="font-semibold text-primary">{translateI18n("copy.confirmOutcomeTitle")}</p>
@@ -715,236 +1133,6 @@ export default function ProjectDetailPage() {
         </form>
       </Dialog>
 
-      {project.status === "COMPLETED" && (
-        <div className="flex flex-col gap-4 rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
-          <div className="space-y-1">
-            <div className="flex items-center gap-2 text-sm font-semibold tracking-tight text-success">
-              <CheckCircle2 className="h-5 w-5 shrink-0" />
-              <span>{translateI18n("ui.projectCompleted")} - 100%</span>
-            </div>
-            <p className="text-xs text-muted-foreground">
-              {translateI18n("projectDetail.resultComplete")}
-            </p>
-          </div>
-          <Badge variant="success" className="self-start px-3 py-1 text-xs sm:self-auto">
-            {formatProjectStatusLabel(project.status)}
-          </Badge>
-        </div>
-      )}
-
-      {/* ─── Draft Project Lifecycle Tracker ─── */}
-      {isDraft && (
-        <DraftProgressionTracker
-          planApproval={planApproval}
-          milestones={milestones}
-          workflowModel={project.scenario?.workflow_model}
-          workflowVersion={project.scenario?.workflow_version}
-        />
-      )}
-
-      {isHeadSaPlanReviewWorkspace && (
-        <section
-          id="project-plan-review"
-          tabIndex={-1}
-          className="scroll-mt-20 space-y-5 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/60 focus:ring-offset-2 focus:ring-offset-background"
-          aria-labelledby="project-plan-review-heading"
-        >
-          <div className="max-w-2xl space-y-1 border-b border-border/60 pb-4">
-            <h2 id="project-plan-review-heading" className="text-xl font-semibold text-foreground">
-              {translateI18n("projectDetail.reviewPlan")}
-            </h2>
-            <p className="text-sm leading-6 text-muted-foreground">
-              {translateI18n("projectDetail.reviewPlanHelp")}
-            </p>
-          </div>
-
-          <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
-            <div className="min-w-0 space-y-6">
-              <ProjectIntakeSection projectId={project.id} />
-              <ProjectTimelineEditor
-                projectId={id}
-                milestones={milestones}
-                canEdit={false}
-                workflowModel={project.scenario?.workflow_model}
-                workflowVersion={project.scenario?.workflow_version}
-              />
-            </div>
-
-            <div className="xl:sticky xl:top-20 xl:self-start">
-              <ProjectPlanCard
-                onReviewDecision={openPlanReview}
-                project={project}
-                approval={planApproval}
-                canSubmit={false}
-                canReview
-                onSubmit={() => undefined}
-                isSubmitting={false}
-                reviewWorkspace
-              />
-            </div>
-          </div>
-        </section>
-      )}
-
-      {/* ─── Timeline & Plan Review (Draft Stage) ─── */}
-      {isDraft && !isHeadSaPlanReviewWorkspace && !isHeadSaWaitingForSalesPlan && (
-        <div className="space-y-4">
-          <div id="project-timeline" tabIndex={-1} className="scroll-mt-20 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/60 focus:ring-offset-2 focus:ring-offset-background">
-            {isSalesOwner && planApproval?.status === "REJECTED" && planApproval.review_note && (
-              <div className="mb-4 border-l-2 border-destructive pl-3 text-sm text-muted-foreground">
-                <p className="font-medium text-foreground">{translateI18n("copy.planInput")}</p>
-                <p className="mt-1 leading-6">{planApproval.review_note}</p>
-              </div>
-            )}
-            <ProjectTimelineEditor
-              projectId={id}
-              milestones={milestones}
-              canEdit={isSalesOwner && planApproval?.status !== "PENDING"}
-              workflowModel={project.scenario?.workflow_model}
-              workflowVersion={project.scenario?.workflow_version}
-            />
-          </div>
-          <div id="project-plan-review" tabIndex={-1} className="scroll-mt-24 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/60 focus:ring-offset-2 focus:ring-offset-background">
-            <ProjectPlanCard
-                onReviewDecision={openPlanReview}
-              project={project}
-              approval={planApproval}
-              canSubmit={showPlanCardSubmit}
-              canReview={isHeadSa && planApproval?.status === "PENDING"}
-              onSubmit={() => { submitProjectPlan.prepare?.(); setBusinessConfirmation("PLAN"); }}
-              isSubmitting={submitProjectPlan.isPending}
-            />
-          </div>
-        </div>
-      )}
-
-      {/* ─── Project Plan Card for Non-Draft (Read-only reference) ─── */}
-      {!isDraft && planApproval && (
-        <div id="project-plan-review" tabIndex={-1} className="scroll-mt-24 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/60 focus:ring-offset-2 focus:ring-offset-background">
-          <ProjectPlanCard
-                onReviewDecision={openPlanReview}
-            project={project}
-            approval={planApproval}
-            canSubmit={false}
-            canReview={false}
-            onSubmit={() => undefined}
-            isSubmitting={false}
-          />
-        </div>
-      )}
-
-      {/* ─── PIC Assignment & History ─── */}
-      {shouldShowProjectPic && (
-        <div id="project-pic-assignment" tabIndex={-1} className="scroll-mt-20 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/60 focus:ring-offset-2 focus:ring-offset-background">
-          <PicAssignmentCard
-            project={project}
-            canAssign={isHeadSa && isActive && !isPostponed && (Boolean(project.pic) || assignPicIsCurrent)}
-            unassignedNotice={projectPicNotice}
-          />
-        </div>
-      )}
-
-      {/* ─── Workflow Progress Bar ─── */}
-      {!isDraft && (
-        <section className="border-b border-border/60 pb-4" aria-labelledby="delivery-progress-heading">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-            <div className="space-y-1">
-              <h2 id="delivery-progress-heading" className="text-base font-semibold text-foreground">{translateI18n("copy.workProgress")}</h2>
-              {progress && <p className="text-sm text-muted-foreground">{translateI18n("projectDetail.stagesFinished", { done: progress.completed, total: progress.total })}</p>}
-            </div>
-            {progress && (
-              <span className={`text-sm font-medium ${isCompleted || progress.percentage === 100 ? "text-success" : "text-primary"}`}>
-                {translateI18n("projectDetail.percentComplete", { percent: progress.percentage })}
-              </span>
-            )}
-          </div>
-          {milestonesError ? (
-            <div className="mt-3 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-              <span>{translateI18n("dashboardPage.stageUnavailable")}</span>
-              <Button type="button" variant="outline" size="sm" onClick={() => void refetchMilestones()}>{translateI18n("common.retry")}</Button>
-            </div>
-          ) : progress ? (
-            <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-secondary/80">
-              <div
-                className={`h-full rounded-full transition-all duration-500 ${isCompleted || progress.percentage === 100 ? "bg-[hsl(var(--success))]" : "bg-primary"}`}
-                style={{ width: `${progress.percentage}%` }}
-              />
-            </div>
-          ) : (
-            <p className="mt-3 text-sm text-muted-foreground">{translateI18n("milestone.loading")}</p>
-          )}
-        </section>
-      )}
-
-      {!isHeadSaPlanReviewWorkspace && <ProjectIntakeSection projectId={project.id} />}
-      {isDraft && <OutputScopeSection project={project} />}
-      <ProjectDocumentsSection projectId={project.id} />
-
-      {/* ─── Milestones Execution List & Activity Log ─── */}
-      {!isDraft && (
-      <div>
-<Card>
-          <CardHeader className="pb-3">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-              <div className="space-y-1">
-                <CardTitle className="text-base font-semibold tracking-tight">{translateI18n("ui.workStages")}</CardTitle>
-                <CardDescription className="text-xs">
-                  {translateI18n("ui.completedStagesHelp")}
-                </CardDescription>
-              </div>
-              <Badge variant="outline" className="self-start text-xs sm:self-auto">
-                {translateI18n("projectDetail.stageCount", { count: visibleWorkStages.length })}
-              </Badge>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {milestonesLoading ? (
-              <p className="py-8 text-center text-muted-foreground">{translateI18n("milestone.loading")}</p>
-            ) : visibleWorkStages.length === 0 ? (
-              <p className="py-8 text-center text-sm text-muted-foreground">{translateI18n("milestone.noMilestones")}</p>
-            ) : (
-              visibleWorkStages.map((milestone, index) => (
-                <MilestoneRow
-                  key={milestone.id}
-                  displayIndex={index + 1}
-                  project={project}
-                  milestone={milestone}
-                  isFinalMilestone={!milestones.some((candidate) => candidate.step_order > milestone.step_order)}
-                  finalPrerequisitesComplete={milestones.every(candidate => candidate.id === milestone.id || ['COMPLETED','APPROVED'].includes(candidate.status))}
-                  isCurrentStage={currentStageMilestone?.id === milestone.id}
-                  hasNextCreatedMilestone={milestones.filter((candidate) => candidate.step_order > milestone.step_order)
-                    .sort((left, right) => left.step_order - right.step_order)[0]?.status === "CREATED"}
-                  approvalState={approvalByMilestone.get(milestone.id)}
-                  expanded={expandedMilestones.has(milestone.id)}
-                  onToggle={() => {
-                    manuallyToggledMilestones.current.add(milestone.id);
-                    setExpandedMilestones((current) => {
-                      const next = new Set(current);
-                      if (next.has(milestone.id)) next.delete(milestone.id);
-                      else next.add(milestone.id);
-                      return next;
-                    });
-                  }}
-                />
-              ))
-            )}
-          </CardContent>
-        </Card>
-
-      </div>
-      )}
-
-      {project.phases?.filter(phase => phase.id !== project.active_phase_id).map(phase => <details key={phase.id} className="rounded-md border border-border p-3">
-          <summary className="cursor-pointer text-sm font-medium">{phase.phase_key === 'PRA_TENDER' ? 'Pra-Tender' : 'On Submission Tender'} · {translateI18n('projectPhase.history')}</summary>
-          {allMilestones.filter(milestone => milestone.phase_id === phase.id).map(milestone => <div key={milestone.id} id={`project-milestone-${milestone.id}`} className="mt-3 border-t border-border pt-2">
-            <h4 className="text-sm font-medium">{milestone.name}</h4><p className="text-xs text-muted-foreground">{formatMilestoneDate(milestone.start_date)} · {formatMilestoneDate(milestone.due_date)}</p>
-            <OutputDocumentsSection project={project} milestoneId={milestone.id} milestoneStatus={milestone.status} milestonePicId={milestone.pic_id} milestoneStartDate={milestone.start_date} />
-          </div>)}
-        </details>)}
-        <ActivityTimeline project={project} milestones={allMilestones} />
-      <AssignmentHistoryCard projectId={id} />
-
-      {user?.role === "SUPER_ADMIN" && <ProjectDeletionDangerZone project={project} />}
       <PlanReviewDialog open={Boolean(planReviewTarget)} onOpenChange={open => !open && !reviewProjectPlan.isPending && setPlanReviewTarget(null)}
         decision={planReviewTarget?.decision || 'APPROVE'} projectName={planReviewTarget?.projectName || project.name}
         picRevision={project.pic_revision} currentPicId={project.pic?.id} currentPicName={project.pic?.full_name || project.pic?.fullName}

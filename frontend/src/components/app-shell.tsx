@@ -78,13 +78,13 @@ const NAV_ITEMS: NavItem[] = [
     labelKey: "nav.milestones",
     href: "/milestones",
     icon: Milestone,
-    allowedRoles: ["SUPER_ADMIN", "HEAD_SA", "SA"],
+    allowedRoles: ["HEAD_SA", "SA"],
   },
   {
     labelKey: "nav.approvals",
     href: "/approvals",
     icon: ShieldCheck,
-    allowedRoles: ["SUPER_ADMIN", "HEAD_SA"],
+    allowedRoles: ["HEAD_SA"],
   },
   {
     labelKey: "nav.documents",

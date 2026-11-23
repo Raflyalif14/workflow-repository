@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { downloadFileFromUrl } from "@/lib/file-download";
 import {
   useCreateMilestoneContribution,
   useDownloadMilestoneContributionAttachment,
@@ -101,11 +102,11 @@ export function MilestoneContributionsPanel({
     }
   };
 
-  const openAttachment = async (contributionId: string, attachmentId: string) => {
+  const openAttachment = async (contributionId: string, attachmentId: string, fileName?: string) => {
     setDownloadError(null);
     try {
       const result = await downloadAttachment.mutateAsync({ contributionId, attachmentId });
-      window.open(result.url, "_blank", "noopener,noreferrer");
+      await downloadFileFromUrl(result.url, fileName);
     } catch {
       setDownloadError("contribution.openFailed");
     }
@@ -209,7 +210,7 @@ export function MilestoneContributionsPanel({
                           variant="outline"
                           className="h-8 shrink-0 gap-1.5 text-xs"
                           disabled={downloadAttachment.isPending}
-                          onClick={() => void openAttachment(contribution.id, attachment.id)}
+                          onClick={() => void openAttachment(contribution.id, attachment.id, attachment.file_name)}
                         >
                           <Download className="h-3.5 w-3.5" />
                           {translateI18n("copy.viewDownload")}

@@ -80,4 +80,7 @@ backend/uploads/
 
 # Local generated report outputs (DOCX, PDF, PNG)
 outputs/
+_evidence-report-qa/
+_monthly-report-qa/
+*.docx
 
