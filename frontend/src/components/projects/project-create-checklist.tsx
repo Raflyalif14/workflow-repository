@@ -81,12 +81,24 @@ export function ProjectCreateChecklist({
         />
         <ChecklistItem
           label={translateI18n("projectCreate.projectPhotos")}
-          detail={photos.length ? translateI18n("projectCreate.photosAttached", { count: photos.length }) : translateI18n("projectCreate.photosMissing")}
+          detail={
+            photos.length
+              ? photos.length === 1
+                ? translateI18n("projectCreate.photoAttachedSingle")
+                : translateI18n("projectCreate.photosAttached", { count: photos.length })
+              : translateI18n("projectCreate.photosMissing")
+          }
           complete={photos.length > 0}
         />
         <ChecklistItem
           label={translateI18n("ui.supportingDocuments")}
-          detail={documents.length ? translateI18n("ui.attachedFiles", { count: documents.length }) : translateI18n("ui.noAttachedFiles")}
+          detail={
+            documents.length
+              ? documents.length === 1
+                ? translateI18n("ui.attachedFileSingle")
+                : translateI18n("ui.attachedFiles", { count: documents.length })
+              : translateI18n("ui.noAttachedFiles")
+          }
           complete={documents.length > 0}
           optional
         />

@@ -72,7 +72,9 @@ async function checkDialog() {
   (projectHooks as any).useUpdateEstimatedValue = () => mutation;
   const props = { project: p, role: 'SALES', userId: 'owner' };
   const render = (project = p) => { stateIndex = 0; refIndex = 0; return EstimatedProjectValue({ ...props, project }); };
-  const find = (label: string, tree = render()) => elements(tree).find(node => node.props.children === label)!;
+  const find = (label: string, tree = render()) => elements(tree).find(node =>
+    node.props?.children === label || (Array.isArray(node.props?.children) && node.props?.children.includes(label))
+  )!;
   const dialog = () => elements(render()).find(node => node.type === Dialog)!;
   const input = () => elements(render()).find(node => node.type === Input)!;
   const flush = () => new Promise<void>(resolve => setImmediate(resolve));

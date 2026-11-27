@@ -1,9 +1,19 @@
 "use client";
 
 import React, { useState } from "react";
+import { AlertCircle, CheckCircle2, Loader2, X } from "lucide-react";
 import { useLanguage } from "@/components/i18n/language-provider";
 import { RoleGuard } from "@/components/auth/role-guard";
+import { useAuth } from "@/components/auth/auth-provider";
+import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { useUsers, useUpdateUserStatus } from "@/hooks/use-users";
 import { User, UserRole } from "@/types/user";
 import { UserFormDialog } from "@/components/users/user-form-dialog";
@@ -23,6 +33,7 @@ export default function UsersPage() {
 }
 
 function UsersPageContent() {
+  const { user: currentUser } = useAuth();
   const [page, setPage] = useState(1);
   const [limit] = useState(8);
   const [search, setSearch] = useState("");
@@ -32,6 +43,8 @@ function UsersPageContent() {
   // Dialog state
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [selectedUserForEdit, setSelectedUserForEdit] = useState<User | null>(null);
+  const [statusTarget, setStatusTarget] = useState<{ user: User; nextActive: boolean } | null>(null);
+  const [feedback, setFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
   const { data, isLoading, isError } = useUsers({
     page,
@@ -63,13 +76,78 @@ function UsersPageContent() {
   };
 
   const handleToggleStatus = (user: User) => {
-    updateStatus.mutate({ id: user.id, isActive: !user.isActive });
+    setFeedback(null);
+    const isSelf = Boolean(
+      currentUser && (
+        (currentUser.id && user.id && currentUser.id === user.id) ||
+        (currentUser.email && user.email && currentUser.email.toLowerCase() === user.email.toLowerCase())
+      )
+    );
+    if (isSelf && user.isActive) {
+      setFeedback({
+        type: "error",
+        message: translateI18n("userPage.cannotDeactivateSelf"),
+      });
+      return;
+    }
+    setStatusTarget({ user, nextActive: !user.isActive });
+  };
+
+  const handleConfirmStatusChange = async () => {
+    if (!statusTarget) return;
+    try {
+      await updateStatus.mutateAsync({
+        id: statusTarget.user.id,
+        isActive: statusTarget.nextActive,
+      });
+      setFeedback({
+        type: "success",
+        message: translateI18n("userPage.statusUpdateSuccess"),
+      });
+      setStatusTarget(null);
+    } catch (err: any) {
+      setFeedback({
+        type: "error",
+        message: err?.message || translateI18n("userPage.statusUpdateFailed"),
+      });
+      setStatusTarget(null);
+    }
   };
 
   return (
     <div className="mx-auto w-full max-w-[1600px] min-w-0 space-y-5 px-4 py-6 sm:px-6 lg:px-8">
       {/* Header */}
       <UserManagementHeader onAddUser={handleOpenCreate} />
+
+      {/* Alert Notification Banner */}
+      {feedback && (
+        <div
+          role="alert"
+          className={`flex items-center justify-between gap-3 rounded-lg border p-3.5 text-sm transition-all ${
+            feedback.type === "success"
+              ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
+              : "border-destructive/30 bg-destructive/10 text-destructive"
+          }`}
+        >
+          <div className="flex items-center gap-2.5">
+            {feedback.type === "success" ? (
+              <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
+            ) : (
+              <AlertCircle className="h-4 w-4 shrink-0 text-destructive" />
+            )}
+            <span>{feedback.message}</span>
+          </div>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6 text-muted-foreground hover:text-foreground"
+            onClick={() => setFeedback(null)}
+            aria-label={translateI18n("common.close")}
+          >
+            <X className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+      )}
 
       {/* Filter and Search Bar */}
       <UserManagementFilters
@@ -130,6 +208,12 @@ function UsersPageContent() {
                     onEdit={handleOpenEdit}
                     onToggleStatus={handleToggleStatus}
                     isStatusUpdating={updateStatus.isPending}
+                    isCurrentUser={Boolean(
+                      currentUser && (
+                        (currentUser.id && user.id && currentUser.id === user.id) ||
+                        (currentUser.email && user.email && currentUser.email.toLowerCase() === user.email.toLowerCase())
+                      )
+                    )}
                   />
                 ))
               )}
@@ -158,7 +242,59 @@ function UsersPageContent() {
         open={isFormOpen}
         onOpenChange={setIsFormOpen}
         userToEdit={selectedUserForEdit}
+        isCurrentUser={Boolean(
+          selectedUserForEdit && currentUser && (
+            (currentUser.id && selectedUserForEdit.id && currentUser.id === selectedUserForEdit.id) ||
+            (currentUser.email && selectedUserForEdit.email && currentUser.email.toLowerCase() === selectedUserForEdit.email.toLowerCase())
+          )
+        )}
       />
+
+      {/* Confirmation Dialog for Status Change */}
+      <Dialog
+        open={statusTarget !== null}
+        onOpenChange={(open) => {
+          if (!open && !updateStatus.isPending) setStatusTarget(null);
+        }}
+      >
+        {statusTarget && (
+          <>
+            <DialogHeader>
+              <DialogTitle>
+                {statusTarget.nextActive
+                  ? translateI18n("userPage.confirmActivateTitle")
+                  : translateI18n("userPage.confirmDeactivateTitle")}
+              </DialogTitle>
+              <DialogDescription>
+                {statusTarget.nextActive
+                  ? translateI18n("userPage.confirmActivateDesc", { name: statusTarget.user.fullName || statusTarget.user.email })
+                  : translateI18n("userPage.confirmDeactivateDesc", { name: statusTarget.user.fullName || statusTarget.user.email })}
+              </DialogDescription>
+            </DialogHeader>
+
+            <DialogFooter className="mt-4 gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setStatusTarget(null)}
+                disabled={updateStatus.isPending}
+              >
+                {translateI18n("common.cancel")}
+              </Button>
+              <Button
+                variant={statusTarget.nextActive ? "default" : "destructive"}
+                disabled={updateStatus.isPending}
+                onClick={() => void handleConfirmStatusChange()}
+                className="gap-2"
+              >
+                {updateStatus.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+                {statusTarget.nextActive
+                  ? translateI18n("userPage.confirmActivateBtn")
+                  : translateI18n("userPage.confirmDeactivateBtn")}
+              </Button>
+            </DialogFooter>
+          </>
+        )}
+      </Dialog>
     </div>
   );
 }

@@ -115,7 +115,6 @@ async function checkHandlers() {
     assert(text(review()).includes(translate('picOperation.reviewUnavailable')), 'Missing review data is a pre-mutation error, not uncertain success');
     assert.equal(elements(review()).find(e => e.type === 'select')!.props.value, 'new', 'Missing data retains the selected PIC');
     current = { ...current, pic_revision: '3' };
-    await submit(); assert.equal(requests.length, 0);
     const originalUUID = crypto.randomUUID;
     try {
       (crypto as any).randomUUID = () => { throw new Error('Synthetic UUID failure'); };

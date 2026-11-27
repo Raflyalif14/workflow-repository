@@ -182,17 +182,17 @@ export function Sidebar() {
               aria-label={compact ? t(item.labelKey) : undefined}
               aria-current={active ? "page" : undefined}
               className={`
-                group relative flex min-h-11 items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30
+                group relative flex min-h-10 items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30
                 ${compact ? "justify-center px-0" : ""}
                 ${active
-                  ? "bg-primary-soft text-primary font-semibold"
+                  ? "bg-slate-100 text-foreground font-semibold dark:bg-slate-800/80"
                   : "text-[hsl(var(--sidebar-foreground))] hover:bg-[hsl(var(--sidebar-hover))] hover:text-foreground"
                 }
               `}
             >
               {/* Active indicator bar */}
               {active && (
-                <span className="absolute left-0 top-1/2 h-5 w-0.5 -translate-y-1/2 rounded-r bg-primary" />
+                <span className="absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-r bg-primary" />
               )}
 
               <div className="relative shrink-0">

@@ -23,9 +23,10 @@ export function buildProjectReport(project: Project, rows: ProjectMilestonePhase
   const phaseName = phase?.phase_key === 'PRA_TENDER' ? 'Pra-Tender' : phase?.phase_key === 'ON_SUBMISSION_TENDER' ? 'On Submission Tender' : (project.active_scenario?.name || project.scenario?.name || missing);
   const progress = calculateProjectMilestoneProgress(milestones);
   const status = project.is_postponed ? translateProjectStatus('POSTPONED', language) : projectDisplayStatus(project, language);
+  const salesOwner = project.sales?.full_name || project.sales?.fullName;
   const labels = {
-    title: t('reportExport.title'), project: t('reportExport.project'), customer: t('projectDetail.customer'),
-    scenario: t('projectDetail.scenario'), phase: t('reportExport.phase'), status: t('reportExport.status'),
+    title: t('reportExport.title'), project: t('reportExport.project'), customer: t('reportExport.customer'),
+    scenario: t('reportExport.scenario'), phase: t('reportExport.phase'), status: t('reportExport.status'),
     sales: t('reportExport.sales'), pic: t('reportExport.pic'), progress: t('reportExport.progress'),
     milestones: t('reportExport.milestones'), generated: t('reportExport.generated'),
     scope: t('reportExport.scope'), note: t('reportExport.snapshot'), empty: t('reportExport.noMilestones'),
@@ -40,13 +41,13 @@ export function buildProjectReport(project: Project, rows: ProjectMilestonePhase
       [labels.project, project.name], [labels.customer, project.customer || missing],
       [labels.scenario, project.active_scenario?.name || project.scenario?.name || missing],
       [labels.phase, phaseName], [labels.status, status],
-      [labels.sales, project.sales?.full_name || project.sales?.fullName || missing],
+      [labels.sales, salesOwner || missing],
       [labels.pic, project.pic?.full_name || project.pic?.fullName || missing],
       [labels.progress, `${progress.percentage}% (${progress.completed}/${progress.total})`],
     ],
     headers: [t('reportExport.number'), t('reportExport.milestone'), labels.status, t('reportExport.owner'), t('reportExport.start'), t('reportExport.due')],
     rows: milestones.map((item, index) => [String(index + 1), item.name, translateMilestoneStatus(item.status, language),
-      item.pic?.full_name || item.pic?.fullName || (item.workflow_stage?.default_role ? t('reportExport.unassignedRole', { role: translateRole(item.workflow_stage.default_role, language) }) : missing),
+      item.pic?.full_name || item.pic?.fullName || (item.workflow_stage?.default_role === 'SALES' ? salesOwner : undefined) || (item.workflow_stage?.default_role ? t('reportExport.unassignedRole', { role: translateRole(item.workflow_stage.default_role, language) }) : missing),
       date(item.start_date), date(item.due_date)]),
   };
 }

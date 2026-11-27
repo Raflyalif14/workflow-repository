@@ -80,7 +80,7 @@ function ApprovalCenterPageContent() {
   return (
     <div className="mx-auto w-full max-w-[1600px] space-y-5 px-4 py-6 sm:px-6 xl:px-8">
       <header className="border-b border-border/60 pb-5">
-        <p className="text-xs font-semibold uppercase text-primary">
+        <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
           {translateI18n(canReview ? "approvalUi.headWorkspace" : "approvalUi.oversight")}
         </p>
         <h1 className="mt-1 text-2xl font-semibold text-foreground sm:text-3xl">

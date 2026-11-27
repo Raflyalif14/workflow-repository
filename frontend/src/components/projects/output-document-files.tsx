@@ -105,6 +105,7 @@ export function OutputDocumentFiles({
         (id, update) => { if (update.status === "failed") { failed = true; stale ||= update.error === "outputFiles.draftConflict"; } setQueue((current) => current.map((item) => item.id === id ? { ...item, ...update } : item)); });
       if (failed) throw Object.assign(new Error("Upload not confirmed"), { status: stale ? 409 : 503 });
       await refreshDraft(document.key);
+      setQueue((current) => current.filter((item) => item.status === "failed"));
     } catch (cause) {
       setError("outputFiles.refreshFailed"); throw cause;
     } finally {
@@ -384,9 +385,9 @@ export function OutputDocumentFiles({
         </div>
       )}
 
-      {queue.length > 0 && (
+      {queue.filter((item) => item.status !== "succeeded").length > 0 && (
         <div aria-live="polite" className="divide-y divide-border/40 text-xs">
-          {queue.map((item) => (
+          {queue.filter((item) => item.status !== "succeeded").map((item) => (
             <div key={item.id} className="flex min-w-0 flex-wrap items-center justify-between gap-2 py-1.5">
               <span className="min-w-0 break-words font-medium">{item.file.name}</span>
               <span className={`flex items-center gap-1 ${item.status === "failed" ? "text-destructive" : "text-muted-foreground"}`}>

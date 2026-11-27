@@ -82,9 +82,13 @@ function BatchResultNotice({ results, documents, action }: { results: OutputDocu
   const failed = results.filter((result) => !result.success);
   const successful = results.filter((result) => result.success);
   const succeeded = results.length - failed.length;
+  const summaryTitle = failed.length === 0
+    ? translateI18n(action === "submit" ? "outputUi.submitSuccessAll" : action === "approve" ? "outputUi.approveSuccessAll" : "outputUi.reviseSuccessAll", { count: succeeded })
+    : translateI18n(action === "submit" ? "outputUi.submitSummary" : action === "approve" ? "outputUi.approveSummary" : "outputUi.reviseSummary", { success: succeeded, failed: failed.length });
+
   return (
     <div className={`rounded-md border p-3 text-xs ${failed.length ? "border-amber-500/30 bg-amber-500/10 text-warning" : "border-emerald-500/30 bg-emerald-500/10 text-success"}`}>
-      <p className="font-semibold">{translateI18n(action === "submit" ? "outputUi.submitSummary" : action === "approve" ? "outputUi.approveSummary" : "outputUi.reviseSummary", { success: succeeded, failed: failed.length })}</p>
+      <p className="font-semibold">{summaryTitle}</p>
       {successful.map((result) => { const item = documents.find((document) => document.key === result.documentKey); return <p key={result.documentKey} className="mt-1">{translateI18n("outputUi.itemSuccess", { name: item ? translateOutputName(item.key, item.name) : translateI18n("documents.output") })}</p>; })}
       {failed.length > 0 && <p className="mt-1">{translateI18n("copy.retryFailed")}</p>}
       {failed.map((result) => { const item = documents.find((document) => document.key === result.documentKey); return <p key={result.documentKey} className="mt-1">{item ? translateOutputName(item.key, item.name) : translateI18n("documents.output")}: {translateStoredError(result.message || "outputUi.actionFailed")}</p>; })}

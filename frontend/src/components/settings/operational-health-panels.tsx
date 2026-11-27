@@ -45,7 +45,17 @@ export function OutputOutboxPanel({ enabled }: { enabled: boolean }) {
           <dl className="grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-4">
             <div><dt className="text-muted-foreground">{t("operations.pending")}</dt><dd className="font-semibold">{number(summary!.pending)}</dd></div>
             <div><dt className="text-muted-foreground">{t("operations.previouslyFailed")}</dt><dd className="font-semibold">{number(summary!.previouslyFailed)}</dd></div>
-            <div><dt className="text-muted-foreground">{t("operations.oldestPending")}</dt><dd className="font-semibold">{age(summary!.oldestAgeSeconds)}</dd><dd className="text-xs text-muted-foreground">{date(summary!.oldestCreatedAt)}</dd></div>
+            <div>
+              <dt className="text-muted-foreground">{t("operations.oldestPending")}</dt>
+              {summary!.oldestAgeSeconds === null ? (
+                <dd className="font-semibold">{t("operations.notAvailable")}</dd>
+              ) : (
+                <>
+                  <dd className="font-semibold">{age(summary!.oldestAgeSeconds)}</dd>
+                  <dd className="text-xs text-muted-foreground">{date(summary!.oldestCreatedAt)}</dd>
+                </>
+              )}
+            </div>
             <div><dt className="text-muted-foreground">{t("operations.latestAttempt")}</dt><dd className="font-semibold">{date(summary!.latestAttemptAt)}</dd></div>
           </dl>
           {query.data.items.length === 0 ? <p className="border-t pt-4 text-sm text-muted-foreground">{t("operations.noPending")}</p>

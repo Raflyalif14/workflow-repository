@@ -7,6 +7,7 @@ import { AuthRequestError, authUnavailable, isInvalidProviderSession } from '../
 
 export interface AuthenticatedRequest extends Request {
   user?: {
+    id?: string;
     userId: string;
     email: string;
     role: UserRole;
@@ -66,6 +67,7 @@ export const authenticateUser = async (req: AuthenticatedRequest, res: Response,
     if (!profile || !profile.is_active) { sendError(res, profile ? 'User account is inactive' : 'User profile not found', { code: 'AUTH_ACCOUNT_INACTIVE' }, 401); return; }
     verifiedProfiles.set(req, profile as VerifiedProfileRow);
     req.user = {
+      id: profile.id,
       userId: profile.id,
       email: profile.email,
       fullName: profile.full_name,

@@ -222,7 +222,9 @@ export default function ProjectDetailPage() {
     role: user?.role,
     fullName: user?.fullName,
   }, {
-    outputDocuments: outputReadiness.data?.documents,
+    outputDocuments: outputReadiness.data?.documents?.filter(
+      (doc) => !doc.milestoneId || milestones.some((m) => m.id === doc.milestoneId)
+    ),
   });
   const showPlanCardSubmit =
     isSalesOwner &&
@@ -332,6 +334,7 @@ export default function ProjectDetailPage() {
     switch (nextAction.actionType) {
       case "START_MILESTONE":
         if (nextAction.canPerformAction && nextAction.targetMilestoneId && !startNextMilestone.isPending) {
+          setMessage(""); setError("");
           startNextMilestone.mutate(nextAction.targetMilestoneId);
         }
         return;
@@ -369,8 +372,11 @@ export default function ProjectDetailPage() {
     }
   };
 
-  const openPlanReview = (decision: 'APPROVE' | 'REJECT') => setPlanReviewTarget({ decision,
-    projectName: project.name, phaseName: project.active_scenario?.name || project.scenario?.name || '', approvalId: planApproval?.id });
+  const openPlanReview = (decision: 'APPROVE' | 'REJECT') => {
+    setMessage(""); setError("");
+    setPlanReviewTarget({ decision,
+      projectName: project.name, phaseName: project.active_scenario?.name || project.scenario?.name || '', approvalId: planApproval?.id });
+  };
   const savePlanReview = async (note?: string, picId?: string, expectedApprovalId?: string, expectedPicRevision?: string, requestId?: string) => {
     if (!planReviewTarget) return;
     await reviewProjectPlan.mutateAsync({ decision: planReviewTarget.decision, note, picId, expectedApprovalId, expectedPicRevision, requestId });
@@ -406,7 +412,7 @@ export default function ProjectDetailPage() {
         <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
           <ProjectReportExport key={id} projectId={id} />
           {isActive && isSalesOwner && (
-            <Button size="sm" variant="outline" className="h-9 gap-1.5 rounded-lg" onClick={() => setPostponeOpen(true)}>
+            <Button size="sm" variant="outline" className="h-9 gap-1.5 rounded-lg" onClick={() => { setMessage(""); setError(""); setPostponeOpen(true); }}>
               <PauseCircle className="h-4 w-4 text-warning" />
               <span>{translateI18n("projectDetail.postpone")}</span>
             </Button>
@@ -491,6 +497,7 @@ export default function ProjectDetailPage() {
           <NextActionCard
             nextAction={nextAction}
             onAction={handleNextAction}
+            hideAction={activeTab === "STAGES" && ["SETUP_TIMELINE", "SUBMIT_PLAN", "RESUBMIT_PLAN"].includes(nextAction.actionType || "")}
             isSubmittingPlan={submitProjectPlan.isPending}
             isResuming={resumeProject.isPending}
             isStartingMilestone={startNextMilestone.isPending}
@@ -687,10 +694,16 @@ export default function ProjectDetailPage() {
               )}
               <ProjectTimelineEditor
                 projectId={id}
+                project={project}
                 milestones={milestones}
                 canEdit={isSalesOwner && planApproval?.status !== "PENDING"}
                 workflowModel={project.scenario?.workflow_model}
                 workflowVersion={project.scenario?.workflow_version}
+                canSubmitPlan={isSalesOwner && isDraft && planApproval?.status !== "PENDING" && planApproval?.status !== "APPROVED"}
+                onSubmitPlan={() => { submitProjectPlan.prepare?.(); setBusinessConfirmation("PLAN"); }}
+                isSubmittingPlan={submitProjectPlan.isPending}
+                planApprovalStatus={planApproval?.status}
+                onOutputsUpdated={() => refetchMilestones()}
               />
             </div>
             <div id="project-plan-review" tabIndex={-1} className="scroll-mt-24 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/60 focus:ring-offset-2 focus:ring-offset-background">
@@ -1141,7 +1154,7 @@ export default function ProjectDetailPage() {
         workflowVersion={project.active_scenario?.workflow_version || project.scenario?.workflow_version}
         onConflictReload={async () => { await refetchProject({ throwOnError: true }); }}
         isPending={reviewProjectPlan.isPending} onSubmit={savePlanReview} />
-      <PostponeProjectDialog open={postponeOpen} onOpenChange={setPostponeOpen} project={project} />
+      <PostponeProjectDialog open={postponeOpen} onOpenChange={setPostponeOpen} project={project} onSuccess={() => { setMessage(""); setError(""); }} />
     </div>
   );
 }

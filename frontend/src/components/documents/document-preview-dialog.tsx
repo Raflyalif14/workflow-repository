@@ -20,13 +20,24 @@ import {
 import { Dialog, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { translate as translateI18n, formatDate } from "@/i18n";
+import { translate as translateI18n, formatDate, translateOutputStatus } from "@/i18n";
 import { downloadFileFromUrl } from "@/lib/file-download";
+import { formatDocumentMimeType, formatDocumentStatus } from "@/lib/document-surface-ux";
 
 function formatFileSize(bytes?: number | null): string {
   if (!bytes || bytes <= 0) return "-";
   if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+}
+
+function formatStatusBadge(value?: string | null): string {
+  if (!value) return "";
+  const normalized = value === "UNDER_REVIEW" ? "IN_REVIEW" : value;
+  const translated = translateOutputStatus(normalized);
+  if (translated && translated !== "-" && translated !== translateI18n("common.notAvailable")) {
+    return translated;
+  }
+  return formatDocumentStatus(value);
 }
 
 export type FileCategory = "pdf" | "image" | "office" | "code" | "archive" | "other";
@@ -217,7 +228,7 @@ export function DocumentPreviewDialog({
           <div className="flex items-center gap-2">
             {status && (
               <Badge variant="outline" className="text-xs">
-                {status}
+                {formatStatusBadge(status)}
               </Badge>
             )}
             {fileUrl && (
@@ -349,7 +360,9 @@ export function DocumentPreviewDialog({
               {typeof fileSize === "number" && (
                 <Badge variant="secondary">{formatFileSize(fileSize)}</Badge>
               )}
-              {mimeType && <Badge variant="outline">{mimeType}</Badge>}
+              {mimeType && (
+                <Badge variant="outline">{formatDocumentMimeType(mimeType, fileName)}</Badge>
+              )}
             </div>
 
             <div className="mt-5 max-w-md rounded-xl border border-amber-500/20 bg-amber-500/10 p-3.5 text-xs text-amber-700 dark:text-amber-300">

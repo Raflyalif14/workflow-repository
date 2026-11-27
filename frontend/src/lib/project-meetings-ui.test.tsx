@@ -19,6 +19,7 @@ let meetingRows:any[]=[];
 };
 try {
   const { ProjectMeetings } = require('../components/projects/project-meetings');
+  const { MeetingMinutes, MinutesEditor } = require('../components/projects/meeting-minutes');
   // Mirror the project detail API: pic is nested and pic_id is absent.
   const project: Pick<Project, 'id' | 'sales_id' | 'pic' | 'status' | 'is_postponed'> = {
     id: 'project', sales_id: 'sales', status: 'ACTIVE', is_postponed: false,
@@ -40,6 +41,21 @@ try {
     user = { id: 'sales', role: 'SALES' };
     meetingRows=Array.from({length:7},(_,i)=>({id:'meeting'+i,projectId:project.id,title:'Meeting '+i,startsAt:'2030-01-02T10:00:00Z',endsAt:null,status:'PENDING',revision:1}));
     const meetingsHtml=render();assert.equal((meetingsHtml.match(/<article/g)||[]).length,4);assert(meetingsHtml.includes(translate('taskPreview.all',{count:7})));assert(!meetingsHtml.includes('overflow-y-auto'));assert(!meetingsHtml.includes('max-h-[32rem]'));meetingRows=[];
+
+    // MoM card header action grouping & modal footer/checkbox behavior
+    const finishedMeeting:any={id:'m-done',projectId:project.id,title:'Done Meeting',startsAt:'2020-01-02T10:00:00Z',endsAt:'2020-01-02T11:00:00Z',status:'APPROVED',revision:2,minutes:{notes:'Saved notes',decisions:'',followUp:''},minutesUpdatedAt:'2020-01-02T12:00:00Z',minutesAuthor:'Sales'};
+    const minutesHtml=renderToStaticMarkup(React.createElement(MeetingMinutes,{meeting:finishedMeeting}));
+    assert(minutesHtml.includes('flex flex-wrap items-center gap-2'), 'Export MoM PDF and Edit MoM are grouped in the right header container');
+    assert(minutesHtml.includes(translate('meetings.exportMinutes')) && minutesHtml.includes(translate('meetings.editMinutes')));
+
+    const addEditorHtml=renderToStaticMarkup(React.createElement(MinutesEditor,{meeting:{...finishedMeeting,minutes:null},onClose:()=>{}}));
+    assert(!addEditorHtml.includes('checked=""') && !addEditorHtml.includes('checked '), 'Add MoM starts with completion checkbox unchecked');
+    assert(addEditorHtml.includes('flex items-center justify-end gap-2'), 'MoM modal footer is right-aligned');
+    assert(addEditorHtml.includes(`>${translate('common.cancel')}</button>`), 'MoM modal includes Cancel button');
+    assert(addEditorHtml.includes(`>${translate('meetings.saveMinutes')}</button>`), 'MoM modal includes Save MoM button');
+
+    const editEditorHtml=renderToStaticMarkup(React.createElement(MinutesEditor,{meeting:finishedMeeting,onClose:()=>{}}));
+    assert(editEditorHtml.includes('checked=""') || editEditorHtml.includes('checked '), 'Edit MoM starts with completion checkbox checked by default');
   }
   console.log('Meeting request visibility: actual nested PIC DTO, missing PIC, ownership, roles and project state passed in EN/ID.');
 } finally {

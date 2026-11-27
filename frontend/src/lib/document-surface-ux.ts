@@ -20,9 +20,17 @@ const mimeLabels: Record<string, string> = {
     "DOCX",
   "application/vnd.ms-excel": "XLS",
   "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": "XLSX",
+  "application/vnd.ms-powerpoint": "PPT",
+  "application/vnd.openxmlformats-officedocument.presentationml.presentation":
+    "PPTX",
   "application/zip": "ZIP",
-  "image/jpeg": "JPEG",
+  "application/x-zip-compressed": "ZIP",
+  "image/jpeg": "JPG",
+  "image/jpg": "JPG",
   "image/png": "PNG",
+  "image/webp": "WEBP",
+  "text/plain": "TXT",
+  "text/csv": "CSV",
 };
 
 function titleCase(value: string): string {
@@ -72,9 +80,20 @@ export function formatDocumentFileSize(value?: number | null): string {
   return `${(value / 1024 / 1024).toFixed(2)} MB`;
 }
 
-export function formatDocumentMimeType(value?: string | null): string {
+export function formatDocumentMimeType(value?: string | null, fileName?: string | null): string {
+  if (value && mimeLabels[value.toLowerCase()]) {
+    return mimeLabels[value.toLowerCase()];
+  }
+  if (fileName && fileName.includes(".")) {
+    const ext = fileName.split(".").pop()?.toUpperCase();
+    if (ext && ext.length >= 2 && ext.length <= 5) return ext;
+  }
   if (!value) return translate("documentSurface.typeUnavailable");
-  return mimeLabels[value.toLowerCase()] || titleCase(value.split("/").pop() || value);
+  const fallback = value.toLowerCase();
+  if (mimeLabels[fallback]) return mimeLabels[fallback];
+  const lastPart = fallback.split("/").pop() || fallback;
+  if (lastPart.length <= 5) return lastPart.toUpperCase();
+  return titleCase(lastPart);
 }
 
 export function getDocumentContextLabel(

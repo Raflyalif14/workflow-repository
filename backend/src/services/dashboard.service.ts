@@ -104,6 +104,24 @@ export type DashboardProjectPlanApprovalRow = {
   project_id: string;
   phase_id?: string | null;
   status: string;
+  submitted_at?: string | null;
+  created_at?: string | null;
+};
+
+type DashboardWorkTask = {
+  salesTask?: boolean;
+  tenderResultTask?: boolean;
+  action?: 'PRA_TENDER_DECISION' | 'PLAN_REVISION';
+  kind?: string;
+  placement?: string;
+  id: string;
+  projectId: string;
+  projectName: string;
+  name: string | null;
+  status: string;
+  dueDate: string | null;
+  startDate: string | null;
+  href: string;
 };
 
 export type DashboardActivityRow = {
@@ -466,12 +484,27 @@ function calculateProjectProgress(project: DashboardProjectRow, milestones: Dash
   const overdue = countOverdueMilestones(milestones, [project], today);
 
   const activeMilestone = [...milestones].filter(m => !isMilestoneCompletedLike(m.status)).sort(compareMilestoneSchedule)[0];
-  let currentStage = activeMilestone?.name || null;
-  if (activeMilestone && activeMilestone.name?.trim().toLowerCase() === 'deliverables') {
+  let currentStage: string | null = null;
+  if (activeMilestone) {
     const selectedOutputs = outputs.filter(o => o.milestone_id === activeMilestone.id && (o.is_required || o.is_selected));
     const outputNames = selectedOutputs.map(o => o.document_key ? (outputDefinitionMap.get(o.document_key) || o.document_key) : null).filter(Boolean);
-    if (outputNames.length > 0) {
+    if (outputNames.length === 1) {
+      currentStage = outputNames[0];
+    } else if (outputNames.length > 1) {
       currentStage = outputNames.join(' • ');
+    } else {
+      currentStage = activeMilestone.name || null;
+    }
+  } else {
+    const activePhase = project.phases?.find(p => p.id === project.active_phase_id) || project.active_phase;
+    const isWaitingSalesDecision = activePhase
+      && activePhase.id === project.active_phase_id
+      && activePhase.phase_key === 'PRA_TENDER'
+      && activePhase.status === 'COMPLETED'
+      && !activePhase.sales_decision
+      && !project.phases?.some(p => p.phase_key === 'ON_SUBMISSION_TENDER');
+    if (isWaitingSalesDecision) {
+      currentStage = 'Waiting Sales Decision';
     }
   }
 
@@ -636,13 +669,26 @@ export function buildDashboardOverviewFromRows(
     if(actor.role!=='SALES'||project.sales_id!==actor.userId||project.status!=='ACTIVE'||project.is_postponed
       ||!phase||phase.id!==project.active_phase_id||phase.project_id!==project.id||phase.phase_key!=='PRA_TENDER'||phase.status!=='COMPLETED'
       ||phase.sales_decision||project.phases?.some(p=>p.phase_key==='ON_SUBMISSION_TENDER'))return [];
-    return [{id:`phase-decision-${project.id}`,projectId:project.id,projectName:project.name,name:'Decide next step after Pra-Tender',action:'PRA_TENDER_DECISION',status:'CREATED',dueDate:null as string|null,startDate:null as string|null,href:`/projects/${project.id}#project-phase-panel`}];
+    return [{id:`phase-decision-${project.id}`,projectId:project.id,projectName:project.name,name:'Decide next step after Pra-Tender',action:'PRA_TENDER_DECISION' as const,status:'CREATED',dueDate:null as string|null,startDate:null as string|null,href:`/projects/${project.id}#project-phase-panel`}];
   });
   const planTasks = projects.flatMap(project => {
-    const pending = rows.projectPlanApprovals.some(a => a.project_id === project.id && a.status === 'PENDING');
+    const phaseApprovals = rows.projectPlanApprovals.filter(
+      a => a.project_id === project.id && (!project.active_phase_id || !a.phase_id || a.phase_id === project.active_phase_id)
+    );
+    const pending = phaseApprovals.some(a => a.status === 'PENDING');
+    const sortedApprovals = [...phaseApprovals].sort((a, b) => {
+      const aTime = Date.parse(a.submitted_at || a.created_at || '') || 0;
+      const bTime = Date.parse(b.submitted_at || b.created_at || '') || 0;
+      return bTime - aTime;
+    });
+    const latestApproval = sortedApprovals[0] ?? null;
+    const rejectedPlan = project.status === 'DRAFT' && !pending && latestApproval?.status === 'REJECTED';
     const headTask = ['HEAD_SA','SUPER_ADMIN'].includes(actor.role) && (project.status === 'DRAFT' && pending || project.status === 'ACTIVE' && !project.pic_id);
     const salesTask = actor.role === 'SALES' && project.sales_id === actor.userId && project.status === 'DRAFT' && !pending;
     if (!headTask && !salesTask) return [];
+    if (salesTask && rejectedPlan) {
+      return [{id:`plan-${project.id}`,projectId:project.id,projectName:project.name,name:'Revise Project Plan',status:'REJECTED',action:'PLAN_REVISION' as const,dueDate:null as string|null,startDate:null as string|null,href:`/projects/${project.id}`}];
+    }
     return [{id:`plan-${project.id}`,projectId:project.id,projectName:project.name,name:salesTask?'Complete Project Plan':pending?'Project Plan Review':'Assign PIC',status:'CREATED',dueDate:null as string|null,startDate:null as string|null,href:`/projects/${project.id}`}];
   });
 
@@ -694,13 +740,15 @@ export function buildDashboardOverviewFromRows(
         || actor.role === 'SALES' && role === 'SALES' && p.sales_id === actor.userId
         || actor.role === 'SA' && role === 'SA' && (m.pic_id || p.pic_id) === actor.userId;
     }).sort((a,b) => (a.due_date || '9999-12-31').localeCompare(b.due_date || '9999-12-31') || compareMilestoneSchedule(a,b))
-      .map(m => {
+      .map<DashboardWorkTask>(m => {
         const stage = Array.isArray(m.workflow_stage) ? m.workflow_stage[0] : m.workflow_stage;
         const selectedOutputs = outputRows.filter(o => o.milestone_id === m.id && (o.is_required || o.is_selected));
         const outputNames = selectedOutputs.map(o => o.document_key ? (outputDefinitionMap.get(o.document_key) || o.document_key) : null).filter(Boolean);
-        const resolvedName = (m.name?.trim().toLowerCase() === 'deliverables' && outputNames.length > 0)
-          ? outputNames.join(' • ')
-          : m.name!;
+        const resolvedName = outputNames.length === 1
+          ? outputNames[0]
+          : outputNames.length > 1
+            ? outputNames.join(' • ')
+            : m.name!;
         return { id: m.id, projectId: m.project_id, projectName: projectMap.get(m.project_id)!.name, name: resolvedName, status: m.status,
           dueDate: m.due_date, startDate: m.start_date || null, href:`/projects/${m.project_id}#project-milestone-${m.id}`,
           ...(stage?.default_role === 'SALES' ? { salesTask: true } : {}),
@@ -769,9 +817,11 @@ async function getRowsByProjectIds(projectIds: string[], trace?: RequestTiming) 
   // Project-plan approvals need only the scoped project IDs, so start them while the base batch runs.
   const projectPlanPromise = Promise.resolve(supabaseAdmin
     .from('project_plan_approvals')
-    .select('id,project_id,status')
-    .eq('status', 'PENDING')
-    .in('project_id', projectIds));
+    .select('id,project_id,phase_id,status,submitted_at,created_at')
+    .in('status', ['PENDING', 'REJECTED'])
+    .in('project_id', projectIds)
+    .order('submitted_at', { ascending: false })
+    .order('created_at', { ascending: false }));
   // The base batch can fail first; keep an early rejection handled without hiding it when awaited below.
   void projectPlanPromise.catch(() => undefined);
 

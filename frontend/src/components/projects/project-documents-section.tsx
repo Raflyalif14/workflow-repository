@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Download, Eye, Loader2 } from "lucide-react";
+import { Download, Eye, FileText, Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,6 +9,7 @@ import { useDocuments, useDocumentDownloadUrl } from "@/hooks/use-documents";
 import { useOutputRepository, useOutputRepositoryDownload, type OutputRepositoryItem } from "@/hooks/use-output-documents";
 import { useRepositorySession } from "@/hooks/use-repository-session";
 import { buildRepositoryItems, repositoryLoadState } from "@/lib/document-repository";
+import { getFileIconColor } from "@/components/documents/document-repository-rows";
 import { formatHumanReadableLabel } from "@/lib/workflow-ux-helpers";
 import { getIntlLocale, translate, translateOutputName, translateStoredError } from "@/i18n";
 import { DocumentPreviewDialog } from "@/components/documents/document-preview-dialog";
@@ -126,11 +127,17 @@ export function ProjectDocumentsSection({ projectId }: { projectId: string }) {
             return <div key={`output:${item.sourceId}`} className="space-y-2 rounded-md border border-border/40 bg-muted/10 p-3">
               <div className="flex min-w-0 flex-wrap items-center gap-2">
                 <p className="min-w-0 break-words text-sm font-semibold text-foreground">{translateOutputName(output.documentKey, output.name)}</p>
+                <Badge variant="secondary" className="text-[10px]">
+                  {output.group === "PRA_TENDER" ? translate("projectPhase.stepPraTender") : translate("projectPhase.stepSubmission")}
+                </Badge>
                 <Badge variant="success" className="text-[10px]">{translate("documentStatus.APPROVED")}</Badge>
                 <Badge variant="outline" className="text-[10px]">{translate("projectDetail.version", { number: output.versionNumber })}</Badge>
               </div>
               {output.files.map(file => <div key={file.id} className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                <p className="min-w-0 break-words text-xs text-muted-foreground">{file.fileName}</p>
+                <div className="flex items-center gap-2 min-w-0">
+                  <FileText className={`h-4 w-4 shrink-0 ${getFileIconColor(file.fileName)}`} />
+                  <p className="min-w-0 break-words text-xs font-medium text-foreground">{file.fileName}</p>
+                </div>
                 <div className="flex flex-wrap items-center gap-1.5 self-start sm:self-auto">
                   <Button
                     size="sm"
@@ -162,19 +169,46 @@ export function ProjectDocumentsSection({ projectId }: { projectId: string }) {
             </div>;
           }
           const document = item.document, latestVersion = document.versions?.[0];
-          const sourceLabel = document.category === "MOM" ? "MoM" : document.milestoneId
-            ? document.milestone?.name || translate("documentSurface.milestoneDeliverable")
-            : document.category === "OTHER" ? translate("documentSurface.projectDocument") : formatHumanReadableLabel(document.category);
+          const isOutcomeEvidence = document.title.toLowerCase().startsWith("result evidence") || !document.milestoneId;
+          const cleanTitle = document.title
+            .replace(/^Sales milestone document\s*-\s*/i, "")
+            .replace(/^Result evidence\s*-\s*/i, "");
+          const displayTitle = latestVersion?.fileName || cleanTitle || document.title;
+          const stageBadge = isOutcomeEvidence
+            ? translate("documentPage.outcomeStage")
+            : document.milestone?.name
+            ? document.milestone.name
+            : document.category === "OTHER"
+            ? translate("documentSurface.projectDocument")
+            : formatHumanReadableLabel(document.category);
+
           return <div key={`official:${document.id}`} className="flex flex-col gap-3 rounded-md border border-border/40 bg-muted/10 p-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="min-w-0 space-y-1.5">
-              <div className="flex flex-wrap items-center gap-2"><p className="truncate text-sm font-semibold text-foreground">{document.title}</p>
-                <Badge variant="secondary" className="text-[10px] uppercase">{sourceLabel}</Badge>
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="flex items-center gap-2 min-w-0">
+                  {latestVersion && (
+                    <FileText className={`h-4 w-4 shrink-0 ${getFileIconColor(latestVersion.fileName)}`} />
+                  )}
+                  <p className="truncate text-sm font-semibold text-foreground">{displayTitle}</p>
+                </div>
+                {isOutcomeEvidence ? (
+                  <Badge variant="outline" className="border-purple-500/30 bg-purple-500/10 text-purple-700 dark:text-purple-300 text-[10px]">
+                    {stageBadge}
+                  </Badge>
+                ) : (
+                  <Badge variant="secondary" className="text-[10px]">
+                    {stageBadge}
+                  </Badge>
+                )}
+                <Badge variant="success" className="text-[10px]">{translate("approvalStatus.APPROVED")}</Badge>
                 {latestVersion && <Badge variant="outline" className="text-[10px]">{translate("projectDetail.version", { number: latestVersion.versionNumber })}</Badge>}
               </div>
-              <p className="truncate text-xs text-muted-foreground">{latestVersion?.fileName || translate("projectDetail.noFileVersion")}</p>
               <p className="text-[11px] text-muted-foreground">
-                {latestVersion?.uploadedBy?.fullName && <>{translate("projectDetail.uploadedBy", { name: latestVersion.uploadedBy.fullName })} - </>}
+                {latestVersion?.uploadedBy?.fullName && <>{translate("projectDetail.uploadedBy", { name: latestVersion.uploadedBy.fullName })} • </>}
                 {formatDate(latestVersion?.createdAt || document.createdAt)}
+                {typeof latestVersion?.fileSize === "number" && (
+                  <> • {latestVersion.fileSize < 1024 * 1024 ? `${Math.max(1, Math.round(latestVersion.fileSize / 1024))} KB` : `${(latestVersion.fileSize / (1024 * 1024)).toFixed(2)} MB`}</>
+                )}
               </p>
             </div>
             {latestVersion && (

@@ -200,18 +200,18 @@ export default function DashboardPage() {
   };
 
   return (
-    <div className="mx-auto w-full max-w-[1600px] min-w-0 space-y-4 px-4 py-5 sm:px-6 lg:px-8 lg:py-6">
+    <div className="mx-auto w-full max-w-[1600px] min-w-0 space-y-3.5 px-4 py-4 sm:px-6 lg:px-8 lg:py-5">
       <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div className="min-w-0">
-          <p className="text-xs font-semibold text-primary">{roleContent.eyebrow}</p>
-          <h1 className="mt-1.5 break-words text-[26px] font-semibold leading-tight tracking-tight text-foreground">
+          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{roleContent.eyebrow}</p>
+          <h1 className="mt-1 break-words text-[26px] font-semibold leading-tight tracking-tight text-foreground">
             {greeting}, {greetingSubject}
           </h1>
-          <p className="mt-1.5 max-w-2xl text-sm leading-5 text-muted-foreground">{roleContent.description}</p>
+          <p className="mt-1 max-w-2xl text-sm leading-5 text-muted-foreground">{roleContent.description}</p>
 
         </div>
 
-        <Link href="/projects" prefetch={true} className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border border-border bg-card px-4 text-sm font-medium text-foreground hover:bg-primary-soft hover:text-primary">
+        <Link href="/projects" prefetch={true} className="inline-flex min-h-9 items-center justify-center gap-2 rounded-lg border border-border bg-card px-3.5 text-sm font-medium text-foreground hover:bg-muted/70">
           {translateI18n("dashboardPage.viewAllProjects")}<ArrowRight className="h-4 w-4" aria-hidden="true" />
         </Link>
       </header>
@@ -233,9 +233,9 @@ export default function DashboardPage() {
       )}
 
       {dashboardQuery.data?.workTasks ? <TaskPanels tasks={dashboardQuery.data.workTasks} loading={dashboardQuery.isLoading} /> : <div className={`grid min-w-0 gap-4 ${combineEmptySalesPanels ? "" : "xl:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)] xl:items-start"}`}>
-        <section aria-labelledby="next-task-heading" className="dashboard-surface p-4 sm:p-5">
-          <div className="flex items-center gap-3">
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary-soft text-primary"><ClipboardCheck className="h-5 w-5" aria-hidden="true" /></span>
+        <section aria-labelledby="next-task-heading" className="dashboard-surface p-4">
+          <div className="flex items-center gap-2.5">
+            <ClipboardCheck className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
             <h2 id="next-task-heading" className="text-base font-semibold">{roleContent.title}</h2>
           </div>
           {isRoleDataLoading ? (
@@ -279,7 +279,7 @@ export default function DashboardPage() {
 
       }
       <section aria-labelledby="project-delivery-heading" className="project-delivery-layout dashboard-surface">
-        <div className="flex flex-col gap-3 border-b border-border px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+        <div className="flex flex-col gap-3 border-b border-border px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5">
           <div>
             <h2 id="project-delivery-heading" className="text-base font-semibold text-foreground">{projectDeliveryTitle}</h2>
             <p className="mt-1 text-sm text-muted-foreground">{projectDeliveryDescription}</p>

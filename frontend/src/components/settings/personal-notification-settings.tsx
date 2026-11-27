@@ -298,13 +298,9 @@ export function PersonalNotificationSettings() {
   return (
     <section id="personal-notifications" aria-labelledby="personal-notifications-title" className="scroll-mt-20 space-y-4">
       <div>
-        <div className="mb-3 flex items-center gap-3">
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-primary/15 bg-primary/10 text-primary">
-            <Bell className="h-4 w-4" aria-hidden="true" />
-          </span>
-          <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-primary">
-            {translateI18n("notificationSettings.personal")}
-          </span>
+        <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+          <Bell className="h-4 w-4 shrink-0" aria-hidden="true" />
+          <span>{translateI18n("notificationSettings.personal")}</span>
         </div>
         <h2 id="personal-notifications-title" className="text-xl font-semibold">{translateI18n("notifications.settings")}</h2>
         <p className="mt-1 text-sm text-muted-foreground">{translateI18n("copy.notificationDelivery")}</p>
@@ -351,9 +347,7 @@ export function PersonalNotificationSettings() {
           <Card>
             <CardHeader className="space-y-3">
               <div className="flex items-start justify-between gap-4">
-                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-primary/15 bg-primary/10 text-primary">
-                  <Bell className="h-4 w-4" aria-hidden="true" />
-                </span>
+                <Bell className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
                 <Badge variant={preferences.in_app_enabled ? "success" : "outline"}>
                   {translateI18n(preferences.in_app_enabled ? "common.enabled" : "common.disabled")}
                 </Badge>

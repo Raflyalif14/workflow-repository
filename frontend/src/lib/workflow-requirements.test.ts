@@ -18,7 +18,7 @@ const workStages = [
 assert.equal(getScheduledWorkStage(workStages)?.id,'created-short');
 assert.equal(getScheduledWorkStage(workStages.map(m=>({...m,status:'COMPLETED'}))),null);
 assert.deepEqual(getMandatoryDocumentKeys('ON_SUBMISSION_TENDER'),['proposal_teknis']);
-for(const locale of ['en','id']as const){setActiveLanguage(locale);assert.equal(projectDisplayStatus({status:'ACTIVE',scenario:{name:'On Submission Tender'} as any}),'On Progress Tender');assert.notEqual(projectDisplayStatus({status:'ACTIVE',scenario:{name:'Pra-Tender'}as any}),'On Progress Tender');assert.notEqual(projectDisplayStatus({status:'WON',scenario:{name:'On Submission Tender'}as any}),'On Progress Tender');assert.equal(translate('copy.needsAttention'),'Task List');assert.equal(translate('dashboardCopy.headTitle'),'Priority Task');assert.equal(translate('nav.dashboard'),'Dashboard');}
+for(const locale of ['en','id']as const){setActiveLanguage(locale);assert.equal(projectDisplayStatus({status:'ACTIVE',scenario:{name:'On Submission Tender'} as any}),'On Progress Tender');assert.notEqual(projectDisplayStatus({status:'ACTIVE',scenario:{name:'Pra-Tender'}as any}),'On Progress Tender');assert.notEqual(projectDisplayStatus({status:'WON',scenario:{name:'On Submission Tender'}as any}),'On Progress Tender');assert.equal(translate('copy.needsAttention'),'Task List');assert.equal(translate('dashboardCopy.headTitle'),locale==='id'?'Tugas Prioritas':'Priority Task');assert.equal(translate('nav.dashboard'),'Dashboard');}
 setActiveLanguage('en');
 
 const meetingTask={...task('meeting','2030-01-01T10:00:00Z','APPROVED'),kind:'MEETING' as const,placement:'PRIORITY' as const};

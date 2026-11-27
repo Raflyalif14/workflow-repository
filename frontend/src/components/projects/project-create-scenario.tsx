@@ -103,7 +103,7 @@ export function ProjectCreateScenario({
                 {translateI18n("ui.outputSelectionHelp")}
               </p>
             </div>
-            <Badge variant="outline" className="self-start sm:self-auto text-xs font-mono">
+            <Badge variant="outline" className="self-start sm:self-auto text-xs font-mono whitespace-nowrap shrink-0">
               {translateI18n("ui.documentsSelected", { selected: allSelectedDocumentKeys.length, total: scenarioDocuments.length })}
             </Badge>
           </div>

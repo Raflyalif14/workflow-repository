@@ -29,6 +29,8 @@ try{
  assert(decision.includes(translate('salesPhaseTask.title')));assert(decision.includes('#project-phase-panel'));
  const sales=render([{...common,id:'sales-stage',name:'Tender Process',salesTask:true,href:'/projects/p#project-milestone-sales-stage'}]);
  assert(sales.includes(translate('salesStage.task')));assert(sales.includes(translate('common.open')));assert(sales.includes('#project-milestone-sales-stage'));
+ const rejectedPlan=render([{...common,id:'plan-p',name:'Revise Project Plan',status:'REJECTED',action:'PLAN_REVISION',dueDate:null,href:'/projects/p'}]);
+ assert(rejectedPlan.includes(translate('taskHub.revisePlan')));assert(rejectedPlan.includes(translate('approvalStatus.REJECTED')));
  const now=new Date('2030-01-02T18:00:00Z'); // Jan 3 in Jakarta
  assert.equal(taskDeadlineDays({...common,dueDate:'2030-01-02'},now),-1);
  assert.equal(taskDeadlineDays({...common,dueDate:'2030-01-03'},now),0);

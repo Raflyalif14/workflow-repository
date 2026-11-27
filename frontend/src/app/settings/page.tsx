@@ -23,7 +23,7 @@ export default function SettingsPage() {
   return (
     <div className="container space-y-6 py-8">
       <div className="border-b border-border/50 pb-6">
-        <div className="mb-1 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-primary">
+        <div className="mb-1 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
           <Settings className="h-4 w-4" aria-hidden="true" />
           {t("settings.personal")}
         </div>

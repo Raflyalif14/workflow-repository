@@ -5,6 +5,7 @@ import { translate as translateI18n, translateStoredError } from "@/i18n";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { appendDocumentFiles, appendProjectPhotoFiles, DOCUMENT_ACCEPT, getDocumentFileKey, MAX_DOCUMENT_FILES, MAX_PROJECT_PHOTOS, PROJECT_MOM_ACCEPT, PROJECT_PHOTO_ACCEPT, removeDocumentFile, selectSingleProjectMomFile } from "@/lib/document-file-selection";
+import { formatDocumentMimeType } from "@/lib/document-surface-ux";
 import { SectionHeading } from "./project-create-section-heading";
 
 function formatFileSize(size: number): string {
@@ -30,7 +31,7 @@ function SelectedFileRow({
           {file.name}
         </p>
         <p className="truncate text-xs text-muted-foreground">
-          {file.type || "File"} · {formatFileSize(file.size)}
+          {formatDocumentMimeType(file.type, file.name)} · {formatFileSize(file.size)}
         </p>
       </div>
       <Button
@@ -75,6 +76,9 @@ export function ProjectCreateAttachments({
   submitAttempted,
 }: ProjectCreateAttachmentsProps) {
   const momInputRef = useRef<HTMLInputElement>(null);
+  const photoInputRef = useRef<HTMLInputElement>(null);
+  const documentInputRef = useRef<HTMLInputElement>(null);
+
   const removeMom = () => {
     setMom(null);
     onError(null);
@@ -83,10 +87,12 @@ export function ProjectCreateAttachments({
   const removePhoto = (index: number) => {
     setPhotos(removeDocumentFile(photos, index));
     onError(null);
+    if (photoInputRef.current) photoInputRef.current.value = "";
   };
   const removeDocument = (index: number) => {
     setDocuments(removeDocumentFile(documents, index));
     onError(null);
+    if (documentInputRef.current) documentInputRef.current.value = "";
   };
   return <>
     <section className="border-b border-border px-5 py-6 sm:px-7">
@@ -102,13 +108,14 @@ export function ProjectCreateAttachments({
             </label>
             <p className="mt-1 text-xs leading-5 text-muted-foreground">{translateI18n("ui.exactPdf")}</p>
           </div>
-          <Input
+          <input
             ref={momInputRef}
             id="project-mom"
             name="mom"
             type="file"
             accept={PROJECT_MOM_ACCEPT}
             disabled={disabled}
+            className="sr-only"
             aria-invalid={submitAttempted && !mom}
             onChange={(event) => {
               const selection = selectSingleProjectMomFile(event.target.files);
@@ -123,6 +130,17 @@ export function ProjectCreateAttachments({
               onError(null);
             }}
           />
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={disabled}
+            onClick={() => momInputRef.current?.click()}
+            className="gap-2 text-xs"
+          >
+            <Paperclip className="h-3.5 w-3.5" />
+            {mom ? translateI18n("projectCreate.changeFile") : translateI18n("projectCreate.chooseFile")}
+          </Button>
           {mom ? (
             <div className="mt-2 border-y border-border/50">
               <SelectedFileRow
@@ -146,13 +164,15 @@ export function ProjectCreateAttachments({
               {translateI18n("projectCreate.photosHelp", { count: MAX_PROJECT_PHOTOS })}
             </p>
           </div>
-          <Input
+          <input
+            ref={photoInputRef}
             id="project-photos"
             name="photos"
             type="file"
             multiple
             accept={PROJECT_PHOTO_ACCEPT}
             disabled={disabled}
+            className="sr-only"
             aria-invalid={submitAttempted && photos.length === 0}
             onChange={(event) => {
               const selection = appendProjectPhotoFiles(photos, event.target.files);
@@ -161,6 +181,17 @@ export function ProjectCreateAttachments({
               onError(selection.error);
             }}
           />
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={disabled}
+            onClick={() => photoInputRef.current?.click()}
+            className="gap-2 text-xs"
+          >
+            <ImageIcon className="h-3.5 w-3.5" />
+            {translateI18n("projectCreate.chooseFiles")}
+          </Button>
           {photos.length > 0 ? (
             <div className="mt-2 border-y border-border/50">
               {photos.map((file, index) => (
@@ -195,13 +226,15 @@ export function ProjectCreateAttachments({
       <p className="mb-3 text-xs leading-5 text-muted-foreground">
         {translateI18n("ui.fileLimit", { count: MAX_DOCUMENT_FILES })}
       </p>
-      <Input
+      <input
+        ref={documentInputRef}
         id="project-documents"
         name="documents"
         type="file"
         multiple
         accept={DOCUMENT_ACCEPT}
         disabled={disabled}
+        className="sr-only"
         onChange={(event) => {
           const selection = appendDocumentFiles(documents, event.target.files);
           setDocuments(selection.files);
@@ -209,6 +242,22 @@ export function ProjectCreateAttachments({
           onError(selection.error);
         }}
       />
+      <div className="flex flex-wrap items-center gap-3">
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          disabled={disabled}
+          onClick={() => documentInputRef.current?.click()}
+          className="gap-2 text-xs"
+        >
+          <Paperclip className="h-3.5 w-3.5" />
+          {translateI18n("projectCreate.chooseFiles")}
+        </Button>
+        <span className="text-xs text-muted-foreground">
+          {translateI18n("projectCreate.supportedFormatsHelp")}
+        </span>
+      </div>
       {documents.length > 0 && (
         <div className="mt-2 border-y border-border/50">
           {documents.map((file, index) => (

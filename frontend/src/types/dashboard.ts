@@ -112,7 +112,7 @@ export interface DashboardActivityFilters {
 export interface DashboardData {
   salesPipeline?: DashboardSalesPipeline | null;
   projectPipeline?: DashboardSalesPipeline | null;
-  workTasks?: Array<{ salesTask?: boolean; tenderResultTask?: boolean; action?: 'PRA_TENDER_DECISION'; kind?: 'MEETING'|'MEETING_REVIEW'; placement?: 'TASK_LIST'|'PRIORITY'; id: string; projectId: string; projectName: string; name: string; status: string; dueDate: string | null; startDate: string | null; href?: string }>;
+  workTasks?: Array<{ salesTask?: boolean; tenderResultTask?: boolean; action?: 'PRA_TENDER_DECISION' | 'PLAN_REVISION'; kind?: 'MEETING'|'MEETING_REVIEW'; placement?: 'TASK_LIST'|'PRIORITY'; id: string; projectId: string; projectName: string; name: string; status: string; dueDate: string | null; startDate: string | null; href?: string }>;
   allWorkStatus?: {
     total: number; planning: number; active: number; postponed: number;
     completed: number; won: number; lost: number; waitingResult: number; cancelled: number;

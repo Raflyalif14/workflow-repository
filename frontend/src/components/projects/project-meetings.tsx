@@ -19,6 +19,7 @@ import {Dialog,DialogHeader,DialogTitle} from '@/components/ui/dialog';
 import {ApiError} from '@/lib/api-client';
 
 import {localInputValue} from '@/lib/calendar-view';
+import {BUSINESS_TIMEZONE} from '@/lib/dates';
 
 import {Meeting,useMeetingMutation,useMeetings} from '@/hooks/use-calendar';
 
@@ -190,7 +191,7 @@ export function ProjectMeetings({project}:{project:Pick<Project,'id'|'sales_id'|
     <MeetingConflictWarning projectId={project.id} startsAt={startsAt} endsAt={endsAt||null}/>
     <p className="text-xs text-muted-foreground">{t('meetings.endHelp')}</p>
 
-    <p className="text-xs text-muted-foreground">{t('meetings.timezone',{zone:Intl.DateTimeFormat().resolvedOptions().timeZone})}</p>
+    <p className="text-xs text-muted-foreground">{t('meetings.timezone',{zone:BUSINESS_TIMEZONE})}</p>
 
     <label className="block space-y-1 text-sm"><span>{t('meetings.location')}</span><Input maxLength={1000} disabled={locked||mutation.isPending} value={location} onChange={e=>{setLocation(e.target.value);requestId.current='';}}/></label>
 
@@ -245,7 +246,7 @@ function RescheduleMeeting({meeting}:{meeting:Meeting}){
     <MeetingConflictWarning projectId={meeting.projectId} meetingId={meeting.id} startsAt={startsAt} endsAt={endsAt||null}/>
     <p className="text-xs text-muted-foreground">{t('meetings.endHelp')}</p>
 
-    <p className="text-xs text-muted-foreground">{t('meetings.timezone',{zone:Intl.DateTimeFormat().resolvedOptions().timeZone})}</p>
+    <p className="text-xs text-muted-foreground">{t('meetings.timezone',{zone:BUSINESS_TIMEZONE})}</p>
 
     <label className="block space-y-1 text-sm"><span>{t('meetings.location')}</span><Input maxLength={1000} disabled={locked||mutation.isPending} value={location} onChange={e=>{setLocation(e.target.value);requestId.current='';}}/></label>
 

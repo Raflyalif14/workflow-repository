@@ -29,11 +29,11 @@ export function TaskPanels({ tasks, loading }: { tasks: Task[]; loading: boolean
   const visible = expanded ? items : items.slice(0, 4);
 
   return <section aria-labelledby="next-task-heading" className="dashboard-surface min-w-0 overflow-hidden">
-    <div className="flex flex-wrap items-center justify-between gap-4 border-b border-border p-5">
-      <div className="flex items-center gap-3">
-        <span className="rounded-xl bg-primary/10 p-2.5 text-primary"><ListTodo aria-hidden="true" className="h-5 w-5" /></span>
+    <div className="flex flex-wrap items-center justify-between gap-4 border-b border-border px-5 py-4">
+      <div className="flex items-center gap-2.5">
+        <ListTodo aria-hidden="true" className="h-5 w-5 shrink-0 text-muted-foreground" />
         <div><h2 id="next-task-heading" className="text-base font-semibold">{t('taskHub.title')}</h2>
-          <p className="mt-1 text-sm text-muted-foreground">{t('taskHub.help')}</p></div>
+          <p className="mt-0.5 text-sm text-muted-foreground">{t('taskHub.help')}</p></div>
       </div>
       <div role="group" aria-label={t('taskHub.title')} className="flex rounded-xl bg-muted p-1">
         {(['priority', 'all'] as const).map(option => <button key={option} type="button" aria-pressed={view === option}
@@ -53,7 +53,12 @@ export function TaskPanels({ tasks, loading }: { tasks: Task[]; loading: boolean
             <Link href={task.href || `/projects/${task.projectId}#project-milestone-${task.id}`}
               className="group flex min-w-0 flex-wrap items-center justify-between gap-3 rounded-lg py-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring hover:bg-muted/50 sm:flex-nowrap">
               <div className="min-w-0 flex-1">
-                <p className="break-words text-sm font-semibold group-hover:text-primary">{task.action === 'PRA_TENDER_DECISION' ? t('salesPhaseTask.title') : task.tenderResultTask ? t('salesStage.resultTitle') : task.name}</p>
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="break-words text-sm font-semibold group-hover:text-primary">{task.action === 'PRA_TENDER_DECISION' ? t('salesPhaseTask.title') : task.action === 'PLAN_REVISION' ? t('taskHub.revisePlan') : task.tenderResultTask ? t('salesStage.resultTitle') : task.name}</p>
+                  {(task.action === 'PLAN_REVISION' || task.status === 'REJECTED') && (
+                    <span className="inline-flex items-center rounded-full bg-destructive/15 px-2 py-0.5 text-[11px] font-semibold text-destructive">{t('approvalStatus.REJECTED')}</span>
+                  )}
+                </div>
                 <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
                   <span className="break-words">{task.projectName}</span>
                   {task.salesTask && <span>{t('salesStage.task')}</span>}

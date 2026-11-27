@@ -518,4 +518,21 @@ for (const locale of ["en", "id"] as const) {
   }
 }
 setActiveLanguage("en");
+for (const locale of ["en", "id"] as const) {
+  setActiveLanguage(locale);
+  const readyRows = [milestone1, milestone2, milestone3];
+  const rejectedNoPunct = resolveNextAction(baseProject, readyRows, { status: "REJECTED", review_note: "Adjust dates" } as ProjectPlanApproval, { id: "sales-1", role: "SALES" });
+  if (rejectedNoPunct.description !== translate("nextAction.reviseFeedback", { feedback: "Adjust dates." })) {
+    throw new Error(`Expected trailing period on review_note without punctuation, got: ${rejectedNoPunct.description}`);
+  }
+  const rejectedWithPunct = resolveNextAction(baseProject, readyRows, { status: "REJECTED", review_note: "Adjust dates!" } as ProjectPlanApproval, { id: "sales-1", role: "SALES" });
+  if (rejectedWithPunct.description !== translate("nextAction.reviseFeedback", { feedback: "Adjust dates!" })) {
+    throw new Error(`Expected existing punctuation preserved, got: ${rejectedWithPunct.description}`);
+  }
+  const rejectedBlank = resolveNextAction(baseProject, readyRows, { status: "REJECTED", review_note: "   " } as ProjectPlanApproval, { id: "sales-1", role: "SALES" });
+  if (rejectedBlank.description !== translate("nextAction.reviseHelp")) {
+    throw new Error(`Expected blank review_note to fall back to reviseHelp, got: ${rejectedBlank.description}`);
+  }
+}
+setActiveLanguage("en");
 console.log("All workflow UX helper tests passed successfully!");

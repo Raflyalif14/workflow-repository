@@ -10,6 +10,7 @@ export function BusinessConfirmation({
   open,
   onOpenChange,
   title,
+  description,
   changes,
   action,
   onConfirm,
@@ -20,6 +21,7 @@ export function BusinessConfirmation({
   open: boolean;
   onOpenChange: (open: boolean) => void;
   title: string;
+  description?: string | React.ReactNode;
   changes?: (string | React.ReactNode)[];
   action: string;
   onConfirm: () => Promise<unknown>;
@@ -89,7 +91,7 @@ export function BusinessConfirmation({
       >
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
-          <DialogDescription>{translate("businessAudit.check")}</DialogDescription>
+          <DialogDescription>{description || translate("businessAudit.check")}</DialogDescription>
         </DialogHeader>
         {children ? (
           <div className="mb-4 max-h-80 space-y-3 overflow-y-auto pr-1 text-sm">{children}</div>

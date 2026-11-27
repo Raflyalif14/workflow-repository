@@ -17,10 +17,12 @@ export function PostponeProjectDialog({
   open,
   onOpenChange,
   project,
+  onSuccess,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   project: Project | null;
+  onSuccess?: () => void;
 }) {
   useLanguage();
   const [confirming, setConfirming] = useState(false);
@@ -44,6 +46,7 @@ export function PostponeProjectDialog({
     try {
       await postponeProject.mutateAsync({ projectId: project.id, reason: data.reason });
       reset(); setConfirming(false);
+      onSuccess?.();
       onOpenChange(false);
     } catch (cause) {
       setError((cause as {status?:number})?.status === 409 ? "businessAudit.stale" : "businessAudit.failed");

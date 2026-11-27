@@ -56,7 +56,7 @@ export function ProjectListRow({ project, role }: ProjectListRowProps) {
         <div className="flex items-center justify-between gap-3 text-xs">
           <span className="text-muted-foreground">{progressPresentation.label}</span>
           {progressPresentation.showDeliveryProgress && (
-            <span className="font-medium text-foreground">
+            <span className="font-medium tabular-nums text-foreground">
               {progress === null ? translateI18n("common.notAvailable") : `${progress}%`}
             </span>
           )}
@@ -76,7 +76,7 @@ export function ProjectListRow({ project, role }: ProjectListRowProps) {
         {progressPresentation.showDeliveryProgress &&
           typeof project.totalMilestones === "number" &&
           typeof project.completedMilestones === "number" && (
-            <p className="mt-1.5 text-[11px] text-muted-foreground">
+            <p className="mt-1.5 text-[11px] tabular-nums text-muted-foreground">
               {translateI18n("projectDetail.stagesFinished", {
                 done: project.completedMilestones,
                 total: project.totalMilestones,

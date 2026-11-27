@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { supabaseAdmin as db } from '../config/supabase';
-import { calendarConfig,calendarScope,encryptToken,decryptToken,meetingEvent,completeGoogleConnection,beginGoogleConnection,GoogleCalendarError } from './google-calendar.service';
+import { calendarConfig,calendarScope,encryptToken,decryptToken,meetingEvent,completeGoogleConnection,beginGoogleConnection,connectionStatus,disconnectGoogle,GoogleCalendarError } from './google-calendar.service';
 import { synchronizeGoogleConnection } from './google-calendar.worker';
 
 async function main(){
@@ -78,6 +78,25 @@ async function main(){
   calls.length=0;await synchronizeGoogleConnection({...connection,status:'DISCONNECTING',lease_id:'lease'});
   assert(calls.some(c=>c.method==='DELETE'&&c.url.endsWith('/calendars/app-calendar')));
   assert(!connectionExists);
+
+  // Worker disconnect must still clean up local connection if Google returns HTTP 500 or network timeout.
+  connectionExists=true;
+  const okFetch=globalThis.fetch;
+  globalThis.fetch=(async()=>new Response(JSON.stringify({error:'internal'}),{status:500})) as typeof fetch;
+  await synchronizeGoogleConnection({...connection,status:'DISCONNECTING',lease_id:'lease'});
+  assert(!connectionExists,'Worker disconnect must delete local connection even on non-404 Google errors');
+
+  // Direct disconnectGoogle must perform best-effort remote cleanup and immediately reset to NOT_CONNECTED even when Google fails.
+  connectionExists=true;
+  globalThis.fetch=(async()=>{throw Error('offline');}) as typeof fetch;
+  const disconnected=await disconnectGoogle(user);
+  assert.equal(disconnected.status,'NOT_CONNECTED');
+  assert(!connectionExists,'disconnectGoogle must remove stuck local connection even if Google API fails');
+  assert.equal((await connectionStatus(user)).status,'NOT_CONNECTED');
+  const reconnected=await beginGoogleConnection(user);
+  assert(reconnected.url.includes('accounts.google.com'),'User can immediately reconnect after disconnect');
+  globalThis.fetch=okFetch;
+
   console.log('PASS OAuth actor/state/replay, encrypted credentials, meeting sync, reschedule, cancellation, retry identity and disconnect');
  }finally{globalThis.fetch=saved.fetch;db.from=saved.from;db.rpc=saved.rpc;for(const key of Object.keys(process.env))if(!(key in saved.env))delete process.env[key];Object.assign(process.env,saved.env);}
 }

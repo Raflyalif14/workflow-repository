@@ -12,7 +12,7 @@ export function UserManagementHeader({ onAddUser }: UserManagementHeaderProps) {
   return (
     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-border/50 pb-6">
       <div>
-        <div className="flex items-center gap-2 text-primary text-xs font-semibold uppercase tracking-wider mb-1">
+        <div className="flex items-center gap-2 text-muted-foreground text-xs font-semibold uppercase tracking-wider mb-1">
           <Users className="h-4 w-4" />
           <span>{translateI18n("copy.superAdminAccess")}</span>
         </div>

@@ -212,3 +212,32 @@ assert(salesResults?.totalEstimatedRevenue === 415000.5, 'Totals must exclude ot
 assert(buildDashboardOverviewFromRows(resultRows, sa, today).salesResults === null, 'SA must not receive Sales financial results');
 assert(buildDashboardOverviewFromRows(resultRows, superAdmin, today).salesResults === null, 'Other roles must not receive Sales financial results');
 console.log('Test 17 - Sales outcomes and values are owner-scoped and separate estimated from final: passed');
+
+const rejectedPlanRows: DashboardSourceRows = {
+  ...rows,
+  projects: [
+    ...rows.projects,
+    { id: 'draft-rejected', name: 'Rejected Plan Project', customer: null, scenario_id: null, active_phase_id: 'phase-1', sales_id: 'sales-1', pic_id: null, status: 'DRAFT' },
+    { id: 'draft-resubmitted', name: 'Resubmitted Plan Project', customer: null, scenario_id: null, active_phase_id: 'phase-2', sales_id: 'sales-1', pic_id: null, status: 'DRAFT' },
+  ],
+  projectPlanApprovals: [
+    { project_id: 'draft-rejected', phase_id: 'phase-1', status: 'REJECTED', submitted_at: '2026-09-02T10:00:00Z' },
+    { project_id: 'draft-rejected', phase_id: 'phase-0', status: 'PENDING', submitted_at: '2026-09-01T10:00:00Z' },
+    { project_id: 'draft-resubmitted', phase_id: 'phase-2', status: 'PENDING', submitted_at: '2026-09-03T10:00:00Z' },
+    { project_id: 'draft-resubmitted', phase_id: 'phase-2', status: 'REJECTED', submitted_at: '2026-09-01T10:00:00Z' },
+  ],
+};
+const salesRejectedOverview = buildDashboardOverviewFromRows(rejectedPlanRows, sales, today);
+const rejectedPlanTask = salesRejectedOverview.workTasks?.find(task => task.id === 'plan-draft-rejected');
+assert(rejectedPlanTask?.name === 'Revise Project Plan' && rejectedPlanTask.status === 'REJECTED' && rejectedPlanTask.action === 'PLAN_REVISION', 'Sales must see Revise Project Plan with REJECTED action/status for rejected active phase');
+assert(!salesRejectedOverview.workTasks?.some(task => task.id === 'plan-draft-resubmitted'), 'Sales must not see Revise Project Plan while resubmitted approval is PENDING');
+const pendingOnlyPlanRows: DashboardSourceRows = {
+  ...rejectedPlanRows,
+  projectPlanApprovals: rejectedPlanRows.projectPlanApprovals.filter(a => a.status === 'PENDING'),
+};
+assert(
+  buildDashboardOverviewFromRows(rejectedPlanRows, headSa, today).summary.waitingApproval
+    === buildDashboardOverviewFromRows(pendingOnlyPlanRows, headSa, today).summary.waitingApproval,
+  'waitingApproval counts PENDING plan approvals only and excludes REJECTED'
+);
+console.log('Test 18 - Rejected project plans surface Revise Project Plan task without inflating waitingApproval: passed');

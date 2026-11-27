@@ -77,8 +77,8 @@ export async function synchronizeGoogleConnection(c:Connection) {
     }
   }catch(error){
     errorCode=error instanceof GoogleCalendarError?error.code:'GOOGLE_SYNC_FAILED';
-    if(errorCode==='GOOGLE_RECONNECT'&&c.status==='DISCONNECTING'){
-      // Revoked consent makes remote cleanup impossible; discard unusable local credentials.
+    if(c.status==='DISCONNECTING'&&errorCode!=='GOOGLE_SYNC_CHANGED'){
+      // Any remote cleanup failure during disconnect must clear local state so users are never trapped in DISCONNECTING.
       checked(await db.from('google_calendar_connections').delete().eq('id',c.id).eq('lease_id',c.lease_id));return;
     }
   }

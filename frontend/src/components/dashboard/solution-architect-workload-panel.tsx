@@ -30,7 +30,7 @@ export function SolutionArchitectWorkloadPanel({
 
   return (
     <section aria-labelledby="sa-workload-heading" className="dashboard-surface overflow-hidden">
-      <div className="border-b border-border px-5 py-5">
+      <div className="border-b border-border px-5 py-4">
         <h2 id="sa-workload-heading" className="text-base font-semibold text-foreground">{translateI18n(personal ? "roleDashboard.myWork" : "copy.saWorkload")}</h2>
         <p className="mt-1 text-sm text-muted-foreground">{translateI18n(personal ? "roleDashboard.myWorkHelp" : "workflowUpdate.workloadHelp")}</p>
       </div>
@@ -55,51 +55,51 @@ export function SolutionArchitectWorkloadPanel({
                 return (
                   <div key={item.saId} className="space-y-4">
                     <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-                      <div className="flex flex-col justify-between rounded-xl border border-border/70 bg-card p-3.5 transition-all hover:border-primary/30 hover:bg-muted/30">
+                      <div className="flex flex-col justify-between rounded-lg border border-border/70 bg-card p-3 transition-all hover:border-primary/30 hover:bg-muted/30">
                         <div className="flex items-center justify-between text-muted-foreground">
                           <span className="text-xs font-medium">{translateI18n("copy.activeProjects")}</span>
-                          <FolderKanban className="h-4 w-4 text-primary" aria-hidden="true" />
+                          <FolderKanban className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
                         </div>
                         <div className="mt-2">
-                          <span className="text-2xl font-bold tracking-tight text-foreground">{item.activeProjectCount}</span>
+                          <span className="text-2xl font-bold tracking-tight tabular-nums text-foreground">{item.activeProjectCount}</span>
                           <p className="mt-0.5 text-[11px] leading-tight text-muted-foreground">{translateI18n("roleDashboard.activeProjectsHelp")}</p>
                         </div>
                       </div>
 
-                      <div className="flex flex-col justify-between rounded-xl border border-border/70 bg-card p-3.5 transition-all hover:border-primary/30 hover:bg-muted/30">
+                      <div className="flex flex-col justify-between rounded-lg border border-border/70 bg-card p-3 transition-all hover:border-primary/30 hover:bg-muted/30">
                         <div className="flex items-center justify-between text-muted-foreground">
                           <span className="text-xs font-medium">{translateI18n("copy.activeWork")}</span>
-                          <ListTodo className="h-4 w-4 text-primary" aria-hidden="true" />
+                          <ListTodo className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
                         </div>
                         <div className="mt-2">
-                          <span className="text-2xl font-bold tracking-tight text-foreground">{item.activeMilestoneCount}</span>
+                          <span className="text-2xl font-bold tracking-tight tabular-nums text-foreground">{item.activeMilestoneCount}</span>
                           <p className="mt-0.5 text-[11px] leading-tight text-muted-foreground">{translateI18n("roleDashboard.activeWorkHelp")}</p>
                         </div>
                       </div>
 
-                      <div className="flex flex-col justify-between rounded-xl border border-border/70 bg-card p-3.5 transition-all hover:border-primary/30 hover:bg-muted/30">
+                      <div className="flex flex-col justify-between rounded-lg border border-border/70 bg-card p-3 transition-all hover:border-primary/30 hover:bg-muted/30">
                         <div className="flex items-center justify-between text-muted-foreground">
                           <span className="text-xs font-medium">{translateI18n("copy.nearestDeadline")}</span>
-                          <Calendar className="h-4 w-4 text-primary" aria-hidden="true" />
+                          <Calendar className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
                         </div>
                         <div className="mt-2">
-                          <span className="text-sm font-semibold tracking-tight text-foreground sm:text-base">{deadline || translateI18n("dashboardPage.noDeadline")}</span>
+                          <span className="text-sm font-semibold tracking-tight tabular-nums text-foreground sm:text-base">{deadline || translateI18n("dashboardPage.noDeadline")}</span>
                           <p className="mt-0.5 text-[11px] leading-tight text-muted-foreground">{translateI18n("roleDashboard.nearestDeadlineHelp")}</p>
                         </div>
                       </div>
 
-                      <div className="flex flex-col justify-between rounded-xl border border-border/70 bg-card p-3.5 transition-all hover:border-primary/30 hover:bg-muted/30">
+                      <div className="flex flex-col justify-between rounded-lg border border-border/70 bg-card p-3 transition-all hover:border-primary/30 hover:bg-muted/30">
                         <div className="flex items-center justify-between text-muted-foreground">
                           <span className="text-xs font-medium">{translateI18n("copy.waitingReview")}</span>
                           <Clock className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
                         </div>
                         <div className="mt-2">
-                          <span className="text-2xl font-bold tracking-tight text-foreground">{item.waitingReviewCount}</span>
+                          <span className="text-2xl font-bold tracking-tight tabular-nums text-foreground">{item.waitingReviewCount}</span>
                           <p className="mt-0.5 text-[11px] leading-tight text-muted-foreground">{translateI18n("roleDashboard.waitingReviewHelp")}</p>
                         </div>
                       </div>
 
-                      <div className={`flex flex-col justify-between rounded-xl border p-3.5 transition-all ${
+                      <div className={`flex flex-col justify-between rounded-lg border p-3 transition-all ${
                         item.revisionCount > 0 ? "border-[hsl(var(--warning)/0.4)] bg-[hsl(var(--warning)/0.06)]" : "border-border/70 bg-card hover:bg-muted/30"
                       }`}>
                         <div className="flex items-center justify-between text-muted-foreground">
@@ -107,14 +107,14 @@ export function SolutionArchitectWorkloadPanel({
                           <AlertCircle className={`h-4 w-4 ${item.revisionCount > 0 ? "text-[hsl(var(--warning))]" : "text-muted-foreground"}`} aria-hidden="true" />
                         </div>
                         <div className="mt-2">
-                          <span className={`text-2xl font-bold tracking-tight ${item.revisionCount > 0 ? "text-[hsl(var(--warning))]" : "text-foreground"}`}>
+                          <span className={`text-2xl font-bold tracking-tight tabular-nums ${item.revisionCount > 0 ? "text-[hsl(var(--warning))]" : "text-foreground"}`}>
                             {item.revisionCount}
                           </span>
                           <p className="mt-0.5 text-[11px] leading-tight text-muted-foreground">{translateI18n("roleDashboard.revisionHelp")}</p>
                         </div>
                       </div>
 
-                      <div className={`flex flex-col justify-between rounded-xl border p-3.5 transition-all ${
+                      <div className={`flex flex-col justify-between rounded-lg border p-3 transition-all ${
                         item.overdueCount > 0 ? "border-destructive/40 bg-destructive/5" : "border-border/70 bg-card hover:bg-muted/30"
                       }`}>
                         <div className="flex items-center justify-between text-muted-foreground">
@@ -122,7 +122,7 @@ export function SolutionArchitectWorkloadPanel({
                           <AlertTriangle className={`h-4 w-4 ${item.overdueCount > 0 ? "text-destructive" : "text-muted-foreground"}`} aria-hidden="true" />
                         </div>
                         <div className="mt-2">
-                          <span className={`text-2xl font-bold tracking-tight ${item.overdueCount > 0 ? "text-destructive" : "text-foreground"}`}>
+                          <span className={`text-2xl font-bold tracking-tight tabular-nums ${item.overdueCount > 0 ? "text-destructive" : "text-foreground"}`}>
                             {item.overdueCount}
                           </span>
                           <p className="mt-0.5 text-[11px] leading-tight text-muted-foreground">{translateI18n("roleDashboard.overdueHelp")}</p>
@@ -185,12 +185,12 @@ export function SolutionArchitectWorkloadPanel({
                           <td className="px-5 py-4 font-medium text-foreground"><button type="button" aria-expanded={expandedSa === item.saId} aria-controls={`workload-desktop-${item.saId}`} onClick={(event) => { event.stopPropagation(); toggle(item.saId); }} className="rounded-lg text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
                             <span className="block">{item.saName}</span><span className="mt-1 flex items-center gap-1 text-xs text-primary">{translateI18n(expandedSa === item.saId ? "workloadDetail.hide" : "workloadDetail.show")}<ChevronDown className={`h-3.5 w-3.5 transition-transform ${expandedSa === item.saId ? "rotate-180" : ""}`} /></span>
                           </button></td>
-                          <td className="px-3 py-4 text-center text-foreground">{item.activeProjectCount}</td>
-                          <td className="px-3 py-4 text-center text-foreground">{item.activeMilestoneCount || <span className="text-muted-foreground">{translateI18n("copy.noActiveWork")}</span>}</td>
-                          <td className="px-3 py-4 text-muted-foreground">{deadline || translateI18n("dashboardPage.noDeadline")}</td>
-                          <td className="px-3 py-4 text-center"><span className={item.revisionCount > 0 ? "font-medium text-[hsl(var(--warning))]" : "text-muted-foreground"}>{item.revisionCount}</span></td>
-                          <td className="px-3 py-4 text-center text-muted-foreground">{item.waitingReviewCount}</td>
-                          <td className="px-5 py-4 text-center"><span className={item.overdueCount > 0 ? "font-semibold text-destructive" : "text-muted-foreground"}>{item.overdueCount}</span></td>
+                          <td className="px-3 py-3.5 text-center tabular-nums text-foreground">{item.activeProjectCount}</td>
+                          <td className="px-3 py-3.5 text-center tabular-nums text-foreground">{item.activeMilestoneCount || <span className="text-muted-foreground">{translateI18n("copy.noActiveWork")}</span>}</td>
+                          <td className="px-3 py-3.5 tabular-nums text-muted-foreground">{deadline || translateI18n("dashboardPage.noDeadline")}</td>
+                          <td className="px-3 py-3.5 text-center tabular-nums"><span className={item.revisionCount > 0 ? "font-medium text-[hsl(var(--warning))]" : "text-muted-foreground"}>{item.revisionCount}</span></td>
+                          <td className="px-3 py-3.5 text-center tabular-nums text-muted-foreground">{item.waitingReviewCount}</td>
+                          <td className="px-5 py-3.5 text-center tabular-nums"><span className={item.overdueCount > 0 ? "font-semibold text-destructive" : "text-muted-foreground"}>{item.overdueCount}</span></td>
                         </tr>
                         {expandedSa === item.saId && <tr><td colSpan={7} className="bg-muted/20 p-4"><div id={`workload-desktop-${item.saId}`}><WorkloadDetails item={item} /></div></td></tr>}
                         </Fragment>

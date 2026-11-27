@@ -15,6 +15,7 @@ const actor = (req: AuthenticatedRequest) => req.user!;
 const run = async (res: Response, action: () => Promise<unknown>, message: string, status = 200) => {
   try { sendSuccess(res, message, await action(), status); }
   catch (error: any) {
+    console.error('[ProjectManagementController] error:', error);
     if (error instanceof ProjectCreationRequestError) { sendError(res, error.message, { code: error.code }, error.statusCode); return; }
     const code = error instanceof BusinessAuditError || error instanceof ProjectCreationError || error instanceof PhaseDecisionError
       ? error.statusCode

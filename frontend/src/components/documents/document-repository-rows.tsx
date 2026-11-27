@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { translate as translateI18n, getIntlLocale, translateOutputStatus, translateOutputName } from "@/i18n";
 import { formatDocumentCategory } from "@/lib/document-surface-ux";
+import { isOutcomeEvidenceDocument } from "@/lib/document-repository";
 import type { OutputRepositoryItem } from "@/hooks/use-output-documents";
 import type { DocumentItem, DocumentStatus } from "@/types/document";
 
@@ -209,8 +210,8 @@ export function DocumentRow({
   onUploadVersion: () => void;
 }) {
   const latestVersion = document.versions?.[0];
-  const isOutcomeEvidence = document.title.toLowerCase().startsWith("result evidence") || !document.milestoneId;
-  const isMilestoneDoc = Boolean(document.milestoneId);
+  const isOutcomeEvidence = isOutcomeEvidenceDocument(document);
+  const isMilestoneDoc = !isOutcomeEvidence && Boolean(document.milestoneId);
 
   const displayTitle = isOutcomeEvidence
     ? translateI18n("documentPage.tenderEvidence")

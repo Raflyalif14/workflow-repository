@@ -61,14 +61,23 @@ export function ProjectDeliveryRow({
     </Link>
   );
 
+  const isWaitingSalesDecision = project.currentStage === "Waiting Sales Decision" || project.currentStage === "WAITING_SALES_DECISION";
+  const renderCurrentStage = (stage?: string | null) => {
+    if (!stage) return translateI18n("common.notAvailable");
+    if (stage === "Waiting Sales Decision" || stage === "WAITING_SALES_DECISION") {
+      return translateI18n("dashboardPage.waitingSalesDecision");
+    }
+    return stage;
+  };
+
   if (role === "SALES") {
     return (
       <div className="sales-delivery-row grid min-w-0 gap-3 px-4 py-3 lg:grid-cols-[minmax(0,1.5fr)_repeat(2,minmax(0,1fr))_minmax(0,1fr)_minmax(0,0.85fr)] lg:items-start lg:gap-4 lg:px-5">
         <div className="min-w-0 space-y-1.5">
           <p className="break-words text-sm font-semibold text-foreground">{project.name}</p>
           {project.outputSelectedCount !== undefined ? (
-            <p className="text-xs text-muted-foreground">{translateI18n("dashboardPage.outputApproved", { approved: project.outputApprovedCount || 0, total: project.outputSelectedCount })}</p>
-          ) : hasProgress && <p className="text-xs text-muted-foreground">{translateI18n("copy.progress")}: {project.percentage}%</p>}
+            <p className="text-xs tabular-nums text-muted-foreground">{translateI18n("dashboardPage.outputApproved", { approved: project.outputApprovedCount || 0, total: project.outputSelectedCount })}</p>
+          ) : hasProgress && <p className="text-xs tabular-nums text-muted-foreground">{translateI18n("copy.progress")}: {project.percentage}%</p>}
           <div className="flex flex-wrap items-center gap-2">
             <span className={["inline-flex items-center gap-1.5 rounded-full border px-2 py-1 text-xs font-medium", getProjectStatusClassName(project.status)].join(" ")}><StatusIcon className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />{(project.status === "ACTIVE" && project.scenarioKey === "ON_SUBMISSION_TENDER" ? translateI18n("workflowUpdate.onProgressTender") : formatDashboardLabel(project.status))}</span>
             {openProject}
@@ -76,7 +85,7 @@ export function ProjectDeliveryRow({
         </div>
         <div className="min-w-0"><p className="text-xs text-muted-foreground lg:hidden">{translateI18n("copy.estimatedRevenue")}</p><p className="mt-1 break-words text-sm tabular-nums text-foreground lg:mt-0">{project.estimatedRevenue === null || project.estimatedRevenue === undefined ? translateI18n("common.notAvailable") : formatRevenue(project.estimatedRevenue)}</p></div>
         <div className="min-w-0"><p className="text-xs text-muted-foreground lg:hidden">{translateI18n("dashboardPage.finalRevenue")}</p><p className="mt-1 break-words text-sm tabular-nums text-foreground lg:mt-0">{project.finalRevenue == null ? '—' : formatRevenue(project.finalRevenue)}</p></div>
-        <div className="min-w-0"><p className="text-xs text-muted-foreground lg:hidden">{translateI18n("copy.stage")}</p><p className="mt-1 break-words text-sm text-foreground lg:mt-0">{project.currentStage || translateI18n("common.notAvailable")}</p></div>
+        <div className="min-w-0"><p className="text-xs text-muted-foreground lg:hidden">{translateI18n("copy.stage")}</p><p className="mt-1 break-words text-sm text-foreground lg:mt-0">{renderCurrentStage(project.currentStage)}</p></div>
         <div className="min-w-0"><p className="text-xs text-muted-foreground lg:hidden">PIC</p><p className="mt-1 break-words text-sm text-foreground lg:mt-0">{project.picName || translateI18n("ui.unassigned")}</p></div>
       </div>
     );
@@ -100,9 +109,11 @@ export function ProjectDeliveryRow({
       <div className="min-w-0">
         <p className="delivery-cell-label">{translateI18n("copy.currentWork")}</p>
         <p className="break-words text-sm text-foreground [overflow-wrap:anywhere]">
-          {(project.status === "WON" || project.status === "COMPLETED" || project.status === "LOST" || project.percentage === 100)
-            ? translateI18n("projectsList.deliveryComplete")
-            : (project.currentStage || translateI18n("common.notAvailable"))}
+          {isWaitingSalesDecision
+            ? translateI18n("dashboardPage.waitingSalesDecision")
+            : (project.status === "WON" || project.status === "COMPLETED" || project.status === "LOST" || project.percentage === 100)
+              ? translateI18n("projectsList.deliveryComplete")
+              : renderCurrentStage(project.currentStage)}
         </p>
         {(role === "SA" || role === "SUPER_ADMIN") && (
           <p className={["mt-1 break-words text-xs", project.overdueMilestones > 0 ? "text-destructive" : "text-muted-foreground"].join(" ")}>
@@ -132,7 +143,7 @@ export function ProjectDeliveryRow({
             />
           )}
         </div>
-        <p className="mt-1 text-xs text-muted-foreground">{project.totalMilestones > 0
+        <p className="mt-1 text-xs tabular-nums text-muted-foreground">{project.totalMilestones > 0
           ? translateI18n("dashboardPage.stages", { done: project.completedMilestones, total: project.totalMilestones })
           : translateI18n("dashboardPage.stageUnavailable")}</p>
       </div>

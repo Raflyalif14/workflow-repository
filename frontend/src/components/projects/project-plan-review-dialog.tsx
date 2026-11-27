@@ -41,7 +41,6 @@ export function PlanReviewDialog({
   isPending: boolean;
 }) {
   useLanguage();
-  const [confirming, setConfirming] = useState(false);
   const [reviewedApprovalId, setReviewedApprovalId] = useState<string | undefined>();
   const [reviewedPicName, setReviewedPicName] = useState("");
   const [reviewedRevision, setReviewedRevision] = useState<string | undefined>();
@@ -60,8 +59,12 @@ export function PlanReviewDialog({
 
   useEffect(() => {
     if (!open) return;
-    setConfirming(false); intent.current = null;
+    intent.current = null;
     setReviewedApprovalId(targetApprovalId);
+    if (picRevision !== undefined) {
+      setReviewedRevision(picRevision);
+    }
+    setReviewedPicName(currentPicName || translateI18n('ui.unassigned'));
     setNote("");
     setPicId(currentPicId || "");
     setError("");
@@ -78,29 +81,49 @@ export function PlanReviewDialog({
       setError("projectDetail.picBeforeApproval");
       return;
     }
-    const replayingReceipt = confirming && !!intent.current && error === 'picOperation.failed';
-    setError("");
-    if (!confirming) {
-      if (workflowModel === 'OPERATIONAL_V2' && picRevision === undefined) { setError('picOperation.reviewUnavailable'); return; }
-      setReviewedPicName(currentPicName || translateI18n('ui.unassigned')); setReviewedRevision(picRevision); setConfirming(true); return;
+    if (workflowModel === 'OPERATIONAL_V2' && picRevision === undefined) {
+      setError('picOperation.reviewUnavailable');
+      return;
     }
-    if (approvalId !== reviewedApprovalId || (approvalStatus !== 'PENDING' && !replayingReceipt)) { setError('reviewConfirm.stale'); return; }
+    const replayingReceipt = !!intent.current && error === 'picOperation.failed';
+    if ((approvalId && reviewedApprovalId && approvalId !== reviewedApprovalId) || (approvalStatus !== 'PENDING' && !replayingReceipt)) {
+      setError('reviewConfirm.stale');
+      return;
+    }
+    setError("");
     busy.current = true;
     let decisionStarted = false;
     try {
-      if (reviewedRevision !== undefined) intent.current = retainPicRequest(intent.current, reviewedRevision, { approval: reviewedApprovalId, decision, note: note.trim(), picId });
-      await runConfirmedDecision({ confirmed: confirming, current: true, reason: note, reasonRequired: decision === "REJECT" }, () => { decisionStarted = true; return onSubmit(note.trim() || undefined, requiresPic ? picId : undefined, reviewedApprovalId, intent.current?.revision, intent.current?.id); });
+      const activeRevision = reviewedRevision !== undefined ? reviewedRevision : picRevision;
+      if (activeRevision !== undefined) {
+        intent.current = retainPicRequest(intent.current, activeRevision, { approval: reviewedApprovalId, decision, note: note.trim(), picId });
+      }
+      await runConfirmedDecision({
+        confirmed: true,
+        current: true,
+        reason: note,
+        reasonRequired: decision === "REJECT"
+      }, () => {
+        decisionStarted = true;
+        return onSubmit(note.trim() || undefined, requiresPic ? picId : undefined, reviewedApprovalId, intent.current?.revision, intent.current?.id);
+      });
       setNote("");
       setPicId(currentPicId || "");
     } catch (reviewError) {
       const code = reviewError instanceof ApiError ? reviewError.code : undefined;
       setError(!decisionStarted ? 'picOperation.preparationFailed' : reviewError instanceof ApiError && reviewError.status === 409 && !code ? "businessAudit.stale" : picErrorKey(code));
       if (code === 'PIC_CONFLICT') {
-        setConfirming(false); intent.current = null;
+        intent.current = null;
         try { await onConflictReload(); } catch { setError('picOperation.conflict'); }
       }
-    } finally { busy.current = false; }
+    } finally {
+      busy.current = false;
+    }
   };
+
+  const selectedPic = pics.find(pic => pic.id === picId);
+  const currentPicFullName = currentPicName || reviewedPicName;
+  const selectedPicFullName = selectedPic?.full_name || (picId ? picId : undefined);
 
   return (
     <Dialog open={open} onOpenChange={value => !busy.current && !isPending && onOpenChange(value)}>
@@ -109,8 +132,6 @@ export function PlanReviewDialog({
         <DialogDescription>{projectName} · {phaseName}. {translateI18n('reviewConfirm.plan')}</DialogDescription>
       </DialogHeader>
       <form className="space-y-4" onSubmit={submit}>
-        {confirming && requiresPic && <p className="text-sm">{translateI18n('picOperation.reviewPic', { before: reviewedPicName, after: pics.find(pic => pic.id === picId)?.full_name || picId })}</p>}
-        {confirming && <p className="text-sm">{translateI18n("reviewConfirm.check")} {note.trim() && <strong className="block whitespace-pre-wrap">{note.trim()}</strong>}</p>}
         <div>
           <label
             htmlFor="project-plan-review-note"
@@ -132,7 +153,7 @@ export function PlanReviewDialog({
             required={reviewCopy.noteRequired}
             aria-invalid={Boolean(error) && reviewCopy.noteRequired}
             aria-describedby={error ? "project-plan-review-error" : undefined}
-            disabled={isPending || confirming}
+            disabled={isPending}
           />
         </div>
         {requiresPic && (
@@ -158,7 +179,7 @@ export function PlanReviewDialog({
                 }}
                 className="flex h-10 w-full rounded-lg border border-input bg-card px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
                 required
-                disabled={isPending || confirming || !!currentPicId}
+                disabled={isPending || !!currentPicId}
               >
                 <option value="">{translateI18n("copy.selectSa")}</option>
                 {currentPicId&&!pics.some(pic=>pic.id===currentPicId)&&<option value={currentPicId}>{currentPicName||currentPicId}</option>}
@@ -168,6 +189,13 @@ export function PlanReviewDialog({
                   </option>
                 ))}
               </select>
+            )}
+            {selectedPicFullName && (
+              <p className="text-xs text-muted-foreground font-medium">
+                {currentPicFullName && selectedPicFullName && currentPicFullName !== selectedPicFullName && currentPicFullName !== translateI18n('ui.unassigned')
+                  ? translateI18n('picOperation.reviewPic', { before: currentPicFullName, after: selectedPicFullName })
+                  : translateI18n('picOperation.currentPic', { name: selectedPicFullName })}
+              </p>
             )}
             {!picsLoading && !picsError && !picId && (
               <p className="text-xs text-muted-foreground">
@@ -187,13 +215,13 @@ export function PlanReviewDialog({
         )}
         <DialogFooter>
           {(error === 'picOperation.reviewUnavailable' || error === 'reviewConfirm.stale') && <Button type="button" variant="outline" disabled={isPending} onClick={async () => {
-            try { await onConflictReload(); setConfirming(false); intent.current = null; setReviewedApprovalId(approvalId); setError(''); }
+            try { await onConflictReload(); intent.current = null; setReviewedApprovalId(approvalId); setError(''); }
             catch { setError('picOperation.reviewUnavailable'); }
           }}>{translateI18n('picOperation.reload')}</Button>}
           <Button
             type="button"
             variant="outline"
-            onClick={() => { setConfirming(false); setError(""); onOpenChange(false); }}
+            onClick={() => { setError(""); onOpenChange(false); }}
             disabled={isPending}
           >
             {translateI18n("common.cancel")}
@@ -208,7 +236,7 @@ export function PlanReviewDialog({
                 : ""
             }
           >
-            {isPending ? reviewCopy.pendingLabel : !confirming ? translateI18n("reviewConfirm.continue") : translateI18n(decision === "APPROVE" ? "reviewConfirm.approve" : "reviewConfirm.reject")}
+            {isPending ? reviewCopy.pendingLabel : translateI18n(decision === "APPROVE" ? "reviewConfirm.approve" : "reviewConfirm.reject")}
           </Button>
         </DialogFooter>
       </form>

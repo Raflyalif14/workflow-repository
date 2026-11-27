@@ -13,7 +13,7 @@ import { isMilestoneCompleted } from "./milestone-ui-state";
 import { formatMilestoneDate, isInitialSubmissionBeforeEffectiveStart } from "./dates";
 import { translateMilestoneStatus, translateProjectStatus, translateRole } from "@/i18n";
 import { compareMilestoneSchedule } from "./milestone-order";
-import {salesStageAction} from './sales-stage-action';
+import { salesStageAction } from './sales-stage-action';
 
 export { formatMilestoneDate, isInitialSubmissionBeforeEffectiveStart } from "./dates";
 
@@ -63,18 +63,18 @@ export interface NextActionInfo {
   description: string;
   actionLabel?: string;
   actionType?:
-    | "SUBMIT_PLAN"
-    | "RESUBMIT_PLAN"
-    | "REVIEW_PLAN"
-    | "ASSIGN_PIC"
-    | "MARK_COMPLETE"
-    | "START_MILESTONE"
-    | "SUBMIT_WORK"
-    | "REVIEW_DEADLINE"
-    | "RESUME_PROJECT"
-    | "SETUP_TIMELINE"
-    | "CONTINUE_PHASE"
-    | "NONE";
+  | "SUBMIT_PLAN"
+  | "RESUBMIT_PLAN"
+  | "REVIEW_PLAN"
+  | "ASSIGN_PIC"
+  | "MARK_COMPLETE"
+  | "START_MILESTONE"
+  | "SUBMIT_WORK"
+  | "REVIEW_DEADLINE"
+  | "RESUME_PROJECT"
+  | "SETUP_TIMELINE"
+  | "CONTINUE_PHASE"
+  | "NONE";
   isWaiting: boolean;
   waitingForRole?: string;
   canPerformAction: boolean;
@@ -187,15 +187,16 @@ export function isTimelineComplete(
 ): {
   isComplete: boolean;
   incompleteMilestoneNames: string[];
+  incompleteMilestones: ProjectMilestonePhase4[];
 } {
   const workflowMode = resolveTimelineWorkflowMode(workflowModel, workflowVersion);
   if (!workflowMode) {
-    return { isComplete: false, incompleteMilestoneNames: ["Unsupported scenario workflow model"] };
+    return { isComplete: false, incompleteMilestoneNames: ["Unsupported scenario workflow model"], incompleteMilestones: [] };
   }
 
   const executable = getTimelinePlanningMilestones(milestones, workflowModel, workflowVersion);
   if (!executable.length) {
-    return { isComplete: false, incompleteMilestoneNames: ["No executable milestones found"] };
+    return { isComplete: false, incompleteMilestoneNames: ["No executable milestones found"], incompleteMilestones: [] };
   }
 
   const incomplete = executable.filter((m) => {
@@ -210,6 +211,7 @@ export function isTimelineComplete(
   return {
     isComplete: incomplete.length === 0,
     incompleteMilestoneNames: incomplete.map((m) => m.name),
+    incompleteMilestones: incomplete,
   };
 }
 
@@ -248,8 +250,10 @@ export function resolveNextAction(
   }
 ): NextActionInfo {
   if (isPraTenderDecisionPending(project)) {
-    return { title: translate('projectPhase.praCompleted'), description: translate('projectPhase.question'),
-      actionLabel: translate('projectPhase.decisionTask'), actionType: 'CONTINUE_PHASE' as const, isWaiting: actor?.role !== 'SALES' || actor.id !== project.sales_id, canPerformAction: actor?.role === 'SALES' && actor.id === project.sales_id && !project.phases?.some(phase => phase.phase_key === 'ON_SUBMISSION_TENDER') };
+    return {
+      title: translate('projectPhase.praCompleted'), description: translate('projectPhase.question'),
+      actionLabel: translate('projectPhase.decisionTask'), actionType: 'CONTINUE_PHASE' as const, isWaiting: actor?.role !== 'SALES' || actor.id !== project.sales_id, canPerformAction: actor?.role === 'SALES' && actor.id === project.sales_id && !project.phases?.some(phase => phase.phase_key === 'ON_SUBMISSION_TENDER')
+    };
   }
   const role = actor?.role || "GUEST";
   const isSalesOwner = role === "SALES" && project.sales_id === actor?.id;
@@ -267,9 +271,9 @@ export function resolveNextAction(
         canPerformAction: true,
       };
     }
-      return {
-        title: translate("nextAction.paused"),
-        description: translate("nextAction.pausedHelp"),
+    return {
+      title: translate("nextAction.paused"),
+      description: translate("nextAction.pausedHelp"),
       isWaiting: true,
       waitingForRole: "SALES",
       canPerformAction: false,
@@ -303,17 +307,32 @@ export function resolveNextAction(
     const planStatus = planApproval?.status;
 
     if (!planApproval || planStatus === undefined) {
-      const { isComplete, incompleteMilestoneNames } = isTimelineComplete(
-        milestones,
+      const activeMilestones = project.active_phase_id
+        ? milestones.filter((m) => !m.phase_id || m.phase_id === project.active_phase_id)
+        : milestones;
+      const { isComplete, incompleteMilestoneNames, incompleteMilestones } = isTimelineComplete(
+        activeMilestones,
         project.scenario?.workflow_model,
         project.scenario?.workflow_version
       );
       if (isSalesOwner) {
+        const incompleteMilestoneIds = new Set((incompleteMilestones || []).map((m) => m.id));
+        const matchedOutputs = context?.outputDocuments?.filter(
+          (d) => (d.isSelected || d.isRequired) && d.milestoneId && incompleteMilestoneIds.has(d.milestoneId)
+        );
+        const displayNames = matchedOutputs && matchedOutputs.length > 0
+          ? matchedOutputs.map((d) => translateOutputName(d.key, d.name))
+          : (incompleteMilestoneNames.length > 0
+            ? incompleteMilestoneNames
+            : (context?.outputDocuments?.filter((d) => d.isSelected || d.isRequired)?.map((d) => translateOutputName(d.key, d.name)) || []));
+
         return {
           title: translate(isComplete ? "nextAction.submitPlan" : "nextAction.setupPlan"),
           description: isComplete
             ? translate("nextAction.timelineReady")
-            : translate("nextAction.timelineIncomplete", { names: `${(context?.outputDocuments?.filter(d => d.isSelected || d.isRequired)?.length ? (context?.outputDocuments?.filter(d => d.isSelected || d.isRequired)?.map(d => translateOutputName(d.key, d.name)) || incompleteMilestoneNames) : incompleteMilestoneNames).slice(0, 2).join(", ")}${incompleteMilestoneNames.length > 2 ? "..." : ""}` }),
+            : translate("nextAction.timelineIncomplete", {
+              names: displayNames.slice(0, 2).join(", ")
+            }),
           actionLabel: translate(isComplete ? "nextAction.submitPlanAction" : "nextAction.setupTimeline"),
           actionType: isComplete ? "SUBMIT_PLAN" : "SETUP_TIMELINE",
           isWaiting: false,
@@ -351,10 +370,14 @@ export function resolveNextAction(
 
     if (planStatus === "REJECTED") {
       if (isSalesOwner) {
+        const trimmedFeedback = planApproval.review_note?.trim();
+        const formattedFeedback = trimmedFeedback
+          ? /[.!?]$/.test(trimmedFeedback) ? trimmedFeedback : `${trimmedFeedback}.`
+          : "";
         return {
           title: translate("nextAction.revisePlan"),
-          description: planApproval.review_note
-            ? translate("nextAction.reviseFeedback", { feedback: planApproval.review_note })
+          description: formattedFeedback
+            ? translate("nextAction.reviseFeedback", { feedback: formattedFeedback })
             : translate("nextAction.reviseHelp"),
           actionLabel: translate("nextAction.resubmitPlan"),
           actionType: "RESUBMIT_PLAN",
@@ -390,6 +413,15 @@ export function resolveNextAction(
     const isAssignedPic =
       (role === "SA" || role === "HEAD_SA") && currentMilestone.pic_id === actor?.id;
 
+    const milestoneOutputs = (context?.outputDocuments || []).filter(
+      (doc) => doc.milestoneId === currentMilestone.id && (doc.isSelected || doc.isRequired)
+    );
+    const resolvedMilestoneName = milestoneOutputs.length === 1
+      ? translateOutputName(milestoneOutputs[0].key, milestoneOutputs[0].name)
+      : milestoneOutputs.length > 1
+        ? milestoneOutputs.map((d) => translateOutputName(d.key, d.name)).join(' • ')
+        : currentMilestone.name;
+
     // Case 5a: Assign PIC stage
     if (isAssignPic && currentMilestone.status === "IN_PROGRESS") {
       if (isHeadSa) {
@@ -420,48 +452,48 @@ export function resolveNextAction(
       if (stageRole === "SALES") {
         if (isSalesOwner) {
           return {
-            title: translate("nextAction.completeStage", { name: currentMilestone.name }),
-            description: translate("nextAction.completeSalesHelp", { name: currentMilestone.name }),
+            title: translate("nextAction.completeStage", { name: resolvedMilestoneName }),
+            description: translate("nextAction.completeSalesHelp", { name: resolvedMilestoneName }),
             actionLabel: translate("nextAction.markComplete"),
             actionType: "MARK_COMPLETE",
             isWaiting: false,
             canPerformAction: true,
             targetMilestoneId: currentMilestone.id,
-            targetMilestoneName: currentMilestone.name,
+            targetMilestoneName: resolvedMilestoneName,
           };
         }
         return {
-          title: translate("nextAction.currentWork", { name: currentMilestone.name }),
+          title: translate("nextAction.currentWork", { name: resolvedMilestoneName }),
           description: translate("nextAction.salesWorking"),
           isWaiting: true,
           waitingForRole: "SALES",
           canPerformAction: false,
           targetMilestoneId: currentMilestone.id,
-          targetMilestoneName: currentMilestone.name,
+          targetMilestoneName: resolvedMilestoneName,
         };
       }
 
       if (stageRole === "HEAD_SA") {
         if (isHeadSa) {
           return {
-            title: translate("nextAction.completeStage", { name: currentMilestone.name }),
-            description: translate("nextAction.completeHeadHelp", { name: currentMilestone.name }),
+            title: translate("nextAction.completeStage", { name: resolvedMilestoneName }),
+            description: translate("nextAction.completeHeadHelp", { name: resolvedMilestoneName }),
             actionLabel: translate("nextAction.markComplete"),
             actionType: "MARK_COMPLETE",
             isWaiting: false,
             canPerformAction: true,
             targetMilestoneId: currentMilestone.id,
-            targetMilestoneName: currentMilestone.name,
+            targetMilestoneName: resolvedMilestoneName,
           };
         }
         return {
-          title: translate("nextAction.currentWork", { name: currentMilestone.name }),
+          title: translate("nextAction.currentWork", { name: resolvedMilestoneName }),
           description: translate("nextAction.headWorking"),
           isWaiting: true,
           waitingForRole: "HEAD_SA",
           canPerformAction: false,
           targetMilestoneId: currentMilestone.id,
-          targetMilestoneName: currentMilestone.name,
+          targetMilestoneName: resolvedMilestoneName,
         };
       }
 
@@ -474,7 +506,7 @@ export function resolveNextAction(
 
           if (isBeforeStart) {
             return {
-              title: translate("nextAction.upcomingStage", { name: currentMilestone.name }),
+              title: translate("nextAction.upcomingStage", { name: resolvedMilestoneName }),
               description: translate("nextAction.startsOn", { date: formatMilestoneDate(currentMilestone.start_date) }),
               actionLabel: translate("nextAction.viewOutputs"),
               actionType: "SUBMIT_WORK",
@@ -482,29 +514,29 @@ export function resolveNextAction(
               waitingForRole: "SA",
               canPerformAction: false,
               targetMilestoneId: currentMilestone.id,
-              targetMilestoneName: currentMilestone.name,
+              targetMilestoneName: resolvedMilestoneName,
             };
           }
 
           return {
-            title: translate("nextAction.workOutputs", { name: currentMilestone.name }),
+            title: translate("nextAction.workOutputs", { name: resolvedMilestoneName }),
             description: translate("nextAction.workOutputsHelp"),
             actionLabel: translate("nextAction.openOutputs"),
             actionType: "SUBMIT_WORK",
             isWaiting: false,
             canPerformAction: true,
             targetMilestoneId: currentMilestone.id,
-            targetMilestoneName: currentMilestone.name,
+            targetMilestoneName: resolvedMilestoneName,
           };
         }
-      return {
-        title: translate("nextAction.currentWork", { name: currentMilestone.name }),
-        description: translate("nextAction.picWorking", { name: currentMilestone.pic?.full_name || currentMilestone.pic?.fullName || translate("role.SA") }),
+        return {
+          title: translate("nextAction.currentWork", { name: resolvedMilestoneName }),
+          description: translate("nextAction.picWorking", { name: currentMilestone.pic?.full_name || currentMilestone.pic?.fullName || translate("role.SA") }),
           isWaiting: true,
           waitingForRole: "SA",
           canPerformAction: false,
           targetMilestoneId: currentMilestone.id,
-          targetMilestoneName: currentMilestone.name,
+          targetMilestoneName: resolvedMilestoneName,
         };
       }
     }
@@ -517,7 +549,7 @@ export function resolveNextAction(
         const action = salesStageAction(currentMilestone.status, currentMilestone.start_date, isFinal, ready)!;
         const canStart = action === 'START' && isSalesOwner;
         return {
-          title: currentMilestone.name,
+          title: resolvedMilestoneName,
           description: translate(`salesStage.${action}`, { date: formatMilestoneDate(currentMilestone.start_date) }),
           actionLabel: translate('salesStage.start'),
           actionType: canStart ? 'START_MILESTONE' : 'NONE',
@@ -525,21 +557,29 @@ export function resolveNextAction(
           canPerformAction: canStart,
           waitingForRole: action === 'START' ? 'SALES' : undefined,
           targetMilestoneId: currentMilestone.id,
-          targetMilestoneName: currentMilestone.name,
+          targetMilestoneName: resolvedMilestoneName,
         };
       }
 
       const previousMilestones = milestones.filter(m => m.step_order < currentMilestone.step_order);
       const incompletePrevious = previousMilestones.find(m => !isMilestoneCompleted(m));
       if (incompletePrevious) {
+        const prevOutputs = (context?.outputDocuments || []).filter(
+          (doc) => doc.milestoneId === incompletePrevious.id && (doc.isSelected || doc.isRequired)
+        );
+        const prevName = prevOutputs.length === 1
+          ? translateOutputName(prevOutputs[0].key, prevOutputs[0].name)
+          : prevOutputs.length > 1
+            ? prevOutputs.map((d) => translateOutputName(d.key, d.name)).join(' • ')
+            : incompletePrevious.name;
         return {
-          title: translate("nextAction.waitingPrevious", { name: incompletePrevious.name }),
+          title: translate("nextAction.waitingPrevious", { name: prevName }),
           description: translate("nextAction.waitingPreviousHelp"),
           isWaiting: true,
           waitingForRole: incompletePrevious.workflow_stage?.default_role || "responsible role",
           canPerformAction: false,
           targetMilestoneId: incompletePrevious.id,
-          targetMilestoneName: incompletePrevious.name,
+          targetMilestoneName: prevName,
         };
       }
 
@@ -550,24 +590,24 @@ export function resolveNextAction(
 
       if (isBeforeStart) {
         return {
-          title: translate("nextAction.upcomingStage", { name: currentMilestone.name }),
+          title: translate("nextAction.upcomingStage", { name: resolvedMilestoneName }),
           description: translate("nextAction.startsOn", { date: formatMilestoneDate(currentMilestone.start_date) }),
           isWaiting: true,
           waitingForRole: stageRole || "responsible role",
           canPerformAction: false,
           targetMilestoneId: currentMilestone.id,
-          targetMilestoneName: currentMilestone.name,
+          targetMilestoneName: resolvedMilestoneName,
         };
       }
 
       return {
-        title: translate("nextAction.currentWork", { name: currentMilestone.name }),
+        title: translate("nextAction.currentWork", { name: resolvedMilestoneName }),
         description: translate("nextAction.picWorking", { name: currentMilestone.pic?.full_name || currentMilestone.pic?.fullName || translate("role.SA") }),
         isWaiting: true,
         waitingForRole: stageRole || "responsible role",
         canPerformAction: false,
         targetMilestoneId: currentMilestone.id,
-        targetMilestoneName: currentMilestone.name,
+        targetMilestoneName: resolvedMilestoneName,
       };
     }
   }

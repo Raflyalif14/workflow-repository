@@ -1,3 +1,5 @@
+import { getIntlLocale, translate, translateOutputName } from "@/i18n";
+import { formatDocumentCategory } from "./document-surface-ux";
 import {LIST_PAGE_SIZE} from './list-pagination';
 import type { OutputRepositoryItem } from "@/hooks/use-output-documents";
 import type { DocumentCategory, DocumentItem, DocumentStatus } from "@/types/document";
@@ -132,6 +134,132 @@ export function buildRepositoryItems(documents: readonly DocumentItem[], outputs
   });
 }
 
+export function isOutcomeEvidenceDocument(document: Pick<DocumentItem, "title" | "milestoneId">): boolean {
+  return document.title.toLowerCase().startsWith("result evidence") || !document.milestoneId;
+}
+
+export function getProjectGroupStageCounts(items: readonly RepositoryItem[]): {
+  praCount: number;
+  subCount: number;
+  outcomeCount: number;
+} {
+  let praCount = 0;
+  let subCount = 0;
+  let outcomeCount = 0;
+
+  for (const item of items) {
+    if (item.sourceType === "OUTPUT") {
+      if (item.output.group === "PRA_TENDER") praCount += 1;
+      else if (item.output.group === "ON_SUBMISSION_TENDER") subCount += 1;
+      continue;
+    }
+
+    if (isOutcomeEvidenceDocument(item.document)) {
+      outcomeCount += 1;
+    } else if (item.document.milestoneId) {
+      praCount += 1;
+    }
+  }
+
+  return { praCount, subCount, outcomeCount };
+}
+
+export type RepositorySummaryCounts = {
+  total: number;
+  outputDocuments: number;
+  finalProjectResults: number;
+  sharedInternal: number;
+};
+
+/** Summarize repository items into business-facing categories where deliverables + outcomes = total. */
+export function getRepositorySummaryCounts(items: readonly RepositoryItem[]): RepositorySummaryCounts {
+  let outputDocuments = 0;
+  let finalProjectResults = 0;
+  let sharedInternal = 0;
+
+  for (const item of items) {
+    const access = item.sourceType === "OFFICIAL" ? item.document : item.output;
+    if (access.accessMode === "SHARED_INTERNAL" || access.canReadProject === false) {
+      sharedInternal += 1;
+    }
+    if (item.sourceType === "OFFICIAL" && isOutcomeEvidenceDocument(item.document)) {
+      finalProjectResults += 1;
+    } else {
+      outputDocuments += 1;
+    }
+  }
+
+  return {
+    total: items.length,
+    outputDocuments,
+    finalProjectResults,
+    sharedInternal,
+  };
+}
+
+export type RepositoryCategoryOption = {
+  value: string;
+  label: string;
+};
+
+function isOtherCategoryOption(value: string, label: string): boolean {
+  const normalizedValue = value.trim().toUpperCase();
+  const normalizedLabel = label.trim().toLocaleLowerCase();
+  return normalizedValue === "OTHER"
+    || normalizedLabel === translate("copy.other").trim().toLocaleLowerCase();
+}
+
+/** Build deduplicated category filter options from currently accessible items, keeping "Other" last. */
+export function buildRepositoryCategoryOptions(items: readonly RepositoryItem[]): RepositoryCategoryOption[] {
+  const seenValues = new Set<string>(["ALL"]);
+  const seenLabels = new Set<string>();
+  const regularOptions: RepositoryCategoryOption[] = [];
+  let otherOption: RepositoryCategoryOption | null = null;
+
+  for (const item of items) {
+    let value = "";
+    let label = "";
+
+    if (item.sourceType === "OUTPUT") {
+      value = item.output.documentKey?.trim() || "";
+      if (!value) continue;
+      label = translateOutputName(value, item.output.name || value).trim();
+    } else if (isOutcomeEvidenceDocument(item.document)) {
+      value = "OFFICIAL_EVIDENCE";
+      label = translate("documentPage.tenderEvidence");
+    } else if (item.document.milestoneId) {
+      value = "OFFICIAL_MILESTONE";
+      label = translate("documentPage.milestoneDoc");
+    } else {
+      value = item.document.category;
+      label = formatDocumentCategory(item.document.category);
+    }
+
+    const normalizedLabel = label.trim().toLocaleLowerCase();
+    if (!value || !normalizedLabel || seenValues.has(value) || seenLabels.has(normalizedLabel)) {
+      continue;
+    }
+
+    seenValues.add(value);
+    seenLabels.add(normalizedLabel);
+
+    if (isOtherCategoryOption(value, label)) {
+      otherOption = { value, label };
+    } else {
+      regularOptions.push({ value, label });
+    }
+  }
+
+  const locale = getIntlLocale();
+  regularOptions.sort((left, right) => left.label.localeCompare(right.label, locale));
+
+  return [
+    { value: "ALL", label: translate("documentPage.allOutputDocuments") },
+    ...regularOptions,
+    ...(otherOption ? [otherOption] : []),
+  ];
+}
+
 export function filterRepositoryItems(items: readonly RepositoryItem[], filters: RepositoryFilters): RepositoryItem[] {
   const query = filters.search.trim().toLocaleLowerCase();
   return items.filter((item) => {
@@ -142,7 +270,7 @@ export function filterRepositoryItems(items: readonly RepositoryItem[], filters:
         return false;
       }
       if (item.sourceType === "OFFICIAL") {
-        const isOutcomeEvidence = item.document.title.toLowerCase().startsWith("result evidence") || !item.document.milestoneId;
+        const isOutcomeEvidence = isOutcomeEvidenceDocument(item.document);
         if (filters.stageGroup === "PRA_TENDER" && isOutcomeEvidence) return false;
         if (filters.stageGroup === "ON_SUBMISSION_TENDER" && !isOutcomeEvidence) return false;
       }
@@ -150,8 +278,8 @@ export function filterRepositoryItems(items: readonly RepositoryItem[], filters:
     if (item.sourceType === "OFFICIAL") {
       const document = item.document;
       const cat = filters.category;
-      const isOutcome = document.title.toLowerCase().startsWith("result evidence") || !document.milestoneId;
-      const isMilestone = Boolean(document.milestoneId);
+      const isOutcome = isOutcomeEvidenceDocument(document);
+      const isMilestone = !isOutcome && Boolean(document.milestoneId);
       const matchesCategory =
         cat === "ALL" ||
         (cat === "OFFICIAL_EVIDENCE" && isOutcome) ||

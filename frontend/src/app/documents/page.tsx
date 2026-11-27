@@ -9,13 +9,12 @@ import { translate as translateI18n, translateStoredError, type TranslationKey }
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { ArrowRight, Building2, CheckCircle2, Files, FolderArchive, Link2, Search, X } from "lucide-react";
+import { ArrowRight, Building2, CheckCircle2, Files, FolderArchive, Search, Share2, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { ListSummary } from '@/components/list-summary';
 import { DocumentRow, OutputRepositoryRow } from "@/components/documents/document-repository-rows";
 import { DocumentPreviewDialog } from "@/components/documents/document-preview-dialog";
 import { downloadFileFromUrl } from "@/lib/file-download";
-import { formatDocumentCategory } from "@/lib/document-surface-ux";
 import { useAuth } from "@/components/auth/auth-provider";
 import { DocumentCommentsDrawer } from "@/components/documents/document-comments-drawer";
 import { UploadVersionDialog } from "@/components/documents/upload-version-dialog";
@@ -23,8 +22,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useDocumentDownloadUrl, useDocuments } from "@/hooks/use-documents";
 import { OutputRepositoryItem, useOutputRepository, useOutputRepositoryDownload } from "@/hooks/use-output-documents";
-import { REPOSITORY_PAGE_SIZE, buildRepositoryItems, filterRepositoryItems, paginateRepositoryItems, repositoryAccessGroups, repositoryLoadState, type RepositoryAccessGroup } from "@/lib/document-repository";
-import { DocumentCategory, DocumentItem, DocumentStatus } from "@/types/document";
+import { REPOSITORY_PAGE_SIZE, buildRepositoryCategoryOptions, buildRepositoryItems, filterRepositoryItems, getProjectGroupStageCounts, getRepositorySummaryCounts, paginateRepositoryItems, repositoryAccessGroups, repositoryLoadState, type RepositoryAccessGroup } from "@/lib/document-repository";
+import { DocumentItem, DocumentStatus } from "@/types/document";
 
 const rolePageCopy: Record<string, { eyebrow: TranslationKey; title: TranslationKey; description: TranslationKey }> = {
   SALES: {
@@ -49,26 +48,6 @@ const rolePageCopy: Record<string, { eyebrow: TranslationKey; title: Translation
   },
 };
 
-const OUTPUT_DOCUMENT_OPTIONS = [
-  { value: "ALL", labelKey: "documentPage.allOutputDocuments" },
-  { value: "proposal_teknis", labelKey: "scenarioDocs.proposalTeknis" },
-  { value: "proposal_deck_solusi", labelKey: "scenarioDocs.proposalDeckSolusi" },
-  { value: "identitas_barang_produk", labelKey: "scenarioDocs.identitasBarang" },
-  { value: "timeline_proyek", labelKey: "scenarioDocs.timelineProyek" },
-  { value: "spesifikasi_teknis", labelKey: "scenarioDocs.spesifikasiTeknis" },
-  { value: "rab", labelKey: "scenarioDocs.rab" },
-  { value: "metodologi_implementasi", labelKey: "scenarioDocs.metodologiImplementasi" },
-  { value: "arsitektur_sistem", labelKey: "scenarioDocs.arsitekturSistem" },
-  { value: "assessment", labelKey: "scenarioDocs.assessment" },
-  { value: "kak_rfp", labelKey: "scenarioDocs.kakRfp" },
-  { value: "poc_demo", labelKey: "scenarioDocs.pocDemo" },
-  { value: "rencana_distribusi", labelKey: "scenarioDocs.rencanaDistribusi" },
-  { value: "kajian_kebutuhan", labelKey: "scenarioDocs.kajianKebutuhan" },
-  { value: "OFFICIAL_EVIDENCE", labelKey: "documentPage.tenderEvidence" },
-  { value: "OFFICIAL_MILESTONE", labelKey: "documentPage.milestoneDoc" },
-  { value: "OTHER", labelKey: "copy.other" },
-] as const;
-
 export default function DocumentsPage() {
   const scope = useRepositorySession();
   // Reset private selections when the verified account/session changes, never on locale changes.
@@ -76,7 +55,7 @@ export default function DocumentsPage() {
 }
 
 function DocumentsContent() {
-  useLanguage();
+  const { locale } = useLanguage();
   const { user } = useAuth();
   const repositorySession = useRepositorySession();
   const pageCopy = rolePageCopy[user?.role || ""] || rolePageCopy.SUPER_ADMIN;
@@ -119,23 +98,8 @@ function DocumentsContent() {
     : user?.role === "SALES" ? "documentPage.myProjects" : "documentPage.assignedProjects";
   const outputDownload = useOutputRepositoryDownload();
   const allItems = useMemo(() => buildRepositoryItems(documents, outputs), [documents, outputs]);
-  const availableOutputOptions = useMemo(() => {
-    const predefinedKeys = new Set(OUTPUT_DOCUMENT_OPTIONS.map((opt) => opt.value as string));
-    const extra: Array<{ value: string; label: string }> = [];
-
-    for (const item of allItems) {
-      if (item.sourceType === "OUTPUT" && item.output.documentKey) {
-        if (!predefinedKeys.has(item.output.documentKey)) {
-          predefinedKeys.add(item.output.documentKey);
-          extra.push({
-            value: item.output.documentKey,
-            label: item.output.name || item.output.documentKey,
-          });
-        }
-      }
-    }
-    return extra;
-  }, [allItems]);
+  const categoryOptions = useMemo(() => buildRepositoryCategoryOptions(allItems), [allItems, locale]);
+  const activeCategory = categoryOptions.some((opt) => opt.value === categoryFilter) ? categoryFilter : "ALL";
   const selectedReadableDocument = !documentsError ? documents.find(document => document.id === selectedDocForDetail?.id) ?? null : null;
   useEffect(() => {
     if (deepLinkOpened.current) return;
@@ -151,17 +115,18 @@ function DocumentsContent() {
     }
   }, [allItems]);
   const visibleItems = useMemo(() => filterRepositoryItems(allItems, {
-    search, category: categoryFilter, status: statusFilter, accessGroup: activeGroup, stageGroup: stageFilter,
-  }), [allItems, search, categoryFilter, statusFilter, activeGroup, stageFilter]);
+    search, category: activeCategory, status: statusFilter, accessGroup: activeGroup, stageGroup: stageFilter,
+  }), [allItems, search, activeCategory, statusFilter, activeGroup, stageFilter]);
   const paged = useMemo(() => paginateRepositoryItems(visibleItems, page), [visibleItems, page]);
   const documentDownload = useDocumentDownloadUrl();
+  const summaryCounts = getRepositorySummaryCounts(visibleItems);
   const snapshot = [
-    { label: translateI18n("listSummary.documentTotal"), value: visibleItems.length, scope: translateI18n('listSummary.scopeAllDocs'), icon: FolderArchive, primary: true },
-    { label: translateI18n("listSummary.documentApproved"), value: visibleItems.filter((item) => item.sourceType === "OUTPUT" || item.document.status === "APPROVED").length, scope: translateI18n('listSummary.scopeApproved'), icon: CheckCircle2 },
-    { label: translateI18n("listSummary.documentLinked"), value: visibleItems.filter((item) => item.sourceType === "OUTPUT" || Boolean(item.document.milestoneId)).length, scope: translateI18n('listSummary.scopeLinked'), icon: Link2 },
-    { label: translateI18n("listSummary.documentOutputs"), value: visibleItems.filter((item) => item.sourceType === "OUTPUT").length, scope: translateI18n('listSummary.scopeDocOutputs'), icon: Files },
+    { label: translateI18n("listSummary.documentTotal"), value: summaryCounts.total, scope: translateI18n("listSummary.scopeAllDocs"), icon: FolderArchive, primary: true },
+    { label: translateI18n("listSummary.documentOutputs"), value: summaryCounts.outputDocuments, scope: translateI18n("listSummary.scopeDocOutputs"), icon: Files },
+    { label: translateI18n("listSummary.documentOutcomes"), value: summaryCounts.finalProjectResults, scope: translateI18n("listSummary.scopeDocOutcomes"), icon: CheckCircle2 },
+    { label: translateI18n("listSummary.documentShared"), value: summaryCounts.sharedInternal, scope: translateI18n("listSummary.scopeDocShared"), icon: Share2 },
   ];
-  const hasFilters = Boolean(search || stageFilter !== "ALL" || categoryFilter !== "ALL" || statusFilter !== "ALL" || activeGroup !== "ALL");
+  const hasFilters = Boolean(search || stageFilter !== "ALL" || activeCategory !== "ALL" || statusFilter !== "ALL" || activeGroup !== "ALL");
 
   const projectGroups = useMemo(() => {
     const groups: Array<{
@@ -197,7 +162,7 @@ function DocumentsContent() {
       group.items.push(item);
     }
     return groups;
-  }, [paged]);
+  }, [paged, locale]);
 
   const handleDownload = async (versionId: string, fileName?: string) => {
     setDownloadError("");
@@ -308,7 +273,7 @@ function DocumentsContent() {
   return (
     <div className="mx-auto w-full max-w-[1600px] space-y-5 px-4 py-6 sm:px-6 xl:px-8">
       <header className="border-b border-border/60 pb-5">
-        <p className="text-xs font-semibold uppercase text-primary">{translateI18n(pageCopy.eyebrow)}</p>
+        <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{translateI18n(pageCopy.eyebrow)}</p>
         <h1 className="mt-1 text-2xl font-semibold text-foreground sm:text-3xl">{translateI18n(pageCopy.title)}</h1>
         <p className="mt-1 max-w-2xl text-sm text-muted-foreground">{translateI18n(pageCopy.description)}</p>
       </header>
@@ -368,19 +333,14 @@ function DocumentsContent() {
             </select>
             <select
               aria-label={translateI18n("documentPage.filterCategory")}
-              value={categoryFilter}
+              value={activeCategory}
               onChange={(event) => {
                 setCategoryFilter(event.target.value);
                 setPage(1);
               }}
               className="h-10 w-full rounded-lg border border-border bg-card px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20"
             >
-              {OUTPUT_DOCUMENT_OPTIONS.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {translateI18n(opt.labelKey as any)}
-                </option>
-              ))}
-              {availableOutputOptions.map((opt) => (
+              {categoryOptions.map((opt) => (
                 <option key={opt.value} value={opt.value}>
                   {opt.label}
                 </option>
@@ -437,7 +397,7 @@ function DocumentsContent() {
               <FolderArchive className="mx-auto h-8 w-8 text-muted-foreground" />
               <p className="mt-3 font-medium text-foreground">{translateI18n("ui.documentNotFound")}</p>
               <p className="mt-1 text-xs text-muted-foreground">
-                {search || stageFilter !== "ALL" || categoryFilter !== "ALL" || statusFilter !== "ALL"
+                {search || stageFilter !== "ALL" || activeCategory !== "ALL" || statusFilter !== "ALL"
                   ? translateI18n("documentPage.expandFilters")
                   : activeGroup === "NATIVE" ? translateI18n(user?.role === "SALES" ? "documentPage.noOwnedProjectResults" : "documentPage.noAssignedProjectResults")
                     : translateI18n(user?.role === "SA" ? "documentPage.noAssignedResults" : user?.role === "SALES" ? "documentPage.noOwnedResults" : "documentPage.resultsAfterApproval")}
@@ -451,31 +411,15 @@ function DocumentsContent() {
                   className="overflow-hidden rounded-xl border border-border/70 bg-card shadow-sm transition-all hover:border-primary/30 hover:shadow-md"
                 >
                   {(() => {
-                    const praCount = group.items.filter((item) =>
-                      item.sourceType === "OUTPUT"
-                        ? item.output.group === "PRA_TENDER"
-                        : Boolean(item.document.milestoneId)
-                    ).length;
-                    const subCount = group.items.filter((item) =>
-                      item.sourceType === "OUTPUT"
-                        ? item.output.group === "ON_SUBMISSION_TENDER"
-                        : false
-                    ).length;
-                    const outcomeCount = group.items.filter((item) =>
-                      item.sourceType === "OFFICIAL"
-                        ? item.document.title.toLowerCase().startsWith("result evidence") || !item.document.milestoneId
-                        : false
-                    ).length;
+                    const { praCount, subCount, outcomeCount } = getProjectGroupStageCounts(group.items);
 
                     return (
                       <div className="flex flex-col gap-2.5 border-b border-border/60 bg-muted/30 px-5 py-3.5 sm:flex-row sm:items-center sm:justify-between">
                         <div className="flex items-center gap-3 min-w-0">
-                          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                            <Building2 className="h-5 w-5" />
-                          </div>
+                          <Building2 className="h-5 w-5 shrink-0 text-muted-foreground" />
                           <div className="min-w-0">
                             <div className="flex flex-wrap items-center gap-2">
-                              <span className="text-[11px] font-semibold uppercase tracking-wider text-primary">
+                              <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
                                 {translateI18n("copy.projectLabel")}
                               </span>
                               <h3 className="break-words font-semibold text-foreground text-sm sm:text-base">

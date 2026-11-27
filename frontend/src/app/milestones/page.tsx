@@ -103,7 +103,7 @@ export default function MilestonesPage() {
     <div className="mx-auto w-full max-w-[1600px] space-y-5 px-4 py-6 sm:px-6 xl:px-8">
       <header className="flex flex-col gap-4 border-b border-border/60 pb-5 sm:flex-row sm:items-end sm:justify-between">
         <div className="max-w-2xl">
-          <p className="text-xs font-semibold uppercase text-primary">{translateI18n(pageCopy.eyebrow)}</p>
+          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{translateI18n(pageCopy.eyebrow)}</p>
           <h1 className="mt-1 text-2xl font-semibold text-foreground sm:text-3xl">{translateI18n(pageCopy.title)}</h1>
           <p className="mt-1 text-sm text-muted-foreground">{translateI18n(pageCopy.description)}</p>
           <PageDataFeedback refreshing={isFetching && !isLoading || pendingReviewsFetching && !pendingReviewsLoading} />

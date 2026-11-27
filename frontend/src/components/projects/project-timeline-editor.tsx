@@ -1,12 +1,13 @@
 "use client";
 import { toDraftRows, type TimelineDraftRow } from "@/lib/output-timeline";
 import { BusinessConfirmation } from "./business-confirmation";
+import { OutputScopeDialog } from "./output-scope-section";
 
 import { translate as translateI18n, translateStoredError, translateStoredMessage, getIntlLocale } from "@/i18n";
 import { useLanguage } from "@/components/i18n/language-provider";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { AlertCircle, ArrowRight, Calendar, CalendarDays, CheckCircle2, Clock, Save } from "lucide-react";
+import { AlertCircle, ArrowRight, Calendar, CalendarDays, CheckCircle2, Clock, Pencil, Save, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -15,20 +16,32 @@ import { useOutputDocuments } from "@/hooks/use-output-documents";
 import {
   resolveTimelineWorkflowMode,
 } from "@/lib/workflow-ux-helpers";
-import { ProjectMilestonePhase4 } from "@/types/project";
+import { Project, ProjectMilestonePhase4, ProjectPlanApprovalStatus } from "@/types/project";
 
 export function ProjectTimelineEditor({
   projectId,
+  project,
   milestones,
   canEdit,
   workflowModel,
   workflowVersion,
+  canSubmitPlan,
+  onSubmitPlan,
+  isSubmittingPlan = false,
+  planApprovalStatus,
+  onOutputsUpdated,
 }: {
   projectId: string;
+  project?: Project;
   milestones: ProjectMilestonePhase4[];
   canEdit: boolean;
   workflowModel?: string | null;
   workflowVersion?: number | null;
+  canSubmitPlan?: boolean;
+  onSubmitPlan?: () => void;
+  isSubmittingPlan?: boolean;
+  planApprovalStatus?: ProjectPlanApprovalStatus | null;
+  onOutputsUpdated?: () => Promise<unknown> | void;
 }) {
   useLanguage();
   const workflowMode = resolveTimelineWorkflowMode(workflowModel, workflowVersion);
@@ -39,13 +52,14 @@ export function ProjectTimelineEditor({
     toDraftRows(milestones, output.data?.documents || [], workflowModel, workflowVersion)
   );
   const [confirming, setConfirming] = useState(false);
+  const [editOutputsOpen, setEditOutputsOpen] = useState(false);
   const [dirty, setDirty] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [missingNames, setMissingNames] = useState("");
   const phaseIdentity = `${projectId}/${milestones[0]?.phase_id || "legacy"}`;
   const previousPhase = useRef(phaseIdentity);
-  useEffect(() => { if (previousPhase.current !== phaseIdentity) { previousPhase.current = phaseIdentity; setDirty(false); setConfirming(false); setError(""); } }, [phaseIdentity]);
+  useEffect(() => { if (previousPhase.current !== phaseIdentity) { previousPhase.current = phaseIdentity; setDirty(false); setConfirming(false); setEditOutputsOpen(false); setError(""); } }, [phaseIdentity]);
 
   useEffect(() => {
     if (!dirty) {
@@ -170,13 +184,49 @@ export function ProjectTimelineEditor({
   );
   if (!rows.length) return null;
 
+  const canEditOutputs = Boolean(
+    project && canEdit && project.status === "DRAFT" && !output.data?.isScopeLocked
+  );
+
+  const handleOutputsSaved = async () => {
+    const [freshOutput, freshMilestones] = await Promise.all([
+      output.refetch(),
+      onOutputsUpdated?.(),
+    ]);
+    const nextDocs = freshOutput?.data?.documents || outputDocs;
+    const milestoneResult = freshMilestones as { data?: ProjectMilestonePhase4[] } | ProjectMilestonePhase4[] | undefined;
+    const nextMilestones = Array.isArray(milestoneResult)
+      ? milestoneResult
+      : Array.isArray(milestoneResult?.data)
+      ? milestoneResult.data
+      : milestones;
+    const rebuilt = toDraftRows(nextMilestones, nextDocs, workflowModel, workflowVersion);
+    if (!hasUnsavedChanges) {
+      setDirty(false);
+      setRows(rebuilt);
+      return;
+    }
+    setRows((prev) =>
+      rebuilt.map((row) => {
+        const existing = prev.find((candidate) => candidate.rowId === row.rowId);
+        return existing &&
+          (existing.startDate !== existing.savedStartDate ||
+            existing.durationWorkingDays !== existing.savedDurationWorkingDays)
+          ? {
+              ...row,
+              startDate: existing.startDate,
+              durationWorkingDays: existing.durationWorkingDays,
+            }
+          : row;
+      })
+    );
+  };
+
   return (
     <Card className="min-w-0">
       <CardHeader className="flex flex-col gap-3 pb-3 sm:flex-row sm:items-start sm:justify-between">
-        <div className="flex items-start gap-3">
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-primary/15 bg-primary/10 text-primary">
-            <CalendarDays className="h-4 w-4" />
-          </span>
+        <div className="flex items-start gap-2.5">
+          <CalendarDays className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
           <div className="min-w-0 space-y-2">
             <CardTitle className="text-base font-semibold tracking-tight">{translateI18n("copy.timelineSetup")}</CardTitle>
             <div className="rounded-lg border border-border/50 bg-muted/15 px-3 py-2">
@@ -186,15 +236,16 @@ export function ProjectTimelineEditor({
             </div>
           </div>
         </div>
-        {canEdit && (
+        {canEditOutputs && (
           <Button
+            type="button"
+            variant="outline"
             size="sm"
-            className="h-9 self-start gap-1.5 rounded-lg shadow-sm sm:self-auto"
-            onClick={() => setConfirming(true)}
-            disabled={!isValid || saveTimeline.isPending || !hasUnsavedChanges}
+            className="h-8 gap-1.5 self-start rounded-lg text-xs shrink-0"
+            onClick={() => setEditOutputsOpen(true)}
           >
-            <Save className="h-3.5 w-3.5" />
-            <span>{translateI18n(saveTimeline.isPending ? "common.saving" : "projectAction.saveTimeline")}</span>
+            <Pencil className="h-3.5 w-3.5" />
+            <span>{translateI18n("outputScope.editButton")}</span>
           </Button>
         )}
       </CardHeader>
@@ -289,7 +340,7 @@ export function ProjectTimelineEditor({
                         changed ? "italic text-warning" : "font-semibold text-foreground"
                       }`}
                     >
-                      {changed ? translateI18n("projectAction.saveTimeline") : formatDate(row.dueDate)}
+                      {changed ? translateI18n("projectAction.saveToCalculate") : formatDate(row.dueDate)}
                     </span>
                   </div>
                 </div>
@@ -297,6 +348,54 @@ export function ProjectTimelineEditor({
             })}
           </div>
         </div>
+
+        {canEdit && (
+          <div className="flex flex-col gap-3 border-t border-border/50 pt-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="min-w-0">
+              {canSubmitPlan && isValid && !hasUnsavedChanges && !dirty && (
+                <p className="flex items-center gap-1.5 text-xs text-amber-700 dark:text-amber-400 font-medium">
+                  <Clock className="h-3.5 w-3.5 shrink-0 text-amber-500" />
+                  <span>{translateI18n("projectAction.timelineSavedNotSent")}</span>
+                </p>
+              )}
+            </div>
+            <div className="flex items-center justify-end gap-2 shrink-0">
+              <Button
+                type="button"
+                size="sm"
+                variant={hasUnsavedChanges ? "default" : "outline"}
+                className={`h-9 gap-1.5 rounded-lg shadow-sm ${hasUnsavedChanges ? "text-white" : ""}`}
+                onClick={() => setConfirming(true)}
+                disabled={!isValid || saveTimeline.isPending || !hasUnsavedChanges}
+              >
+                <Save className="h-3.5 w-3.5" />
+                <span>{translateI18n(saveTimeline.isPending ? "common.saving" : "projectAction.saveTimeline")}</span>
+              </Button>
+              {canSubmitPlan && (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={!hasUnsavedChanges && isValid ? "default" : "outline"}
+                  className={`h-9 gap-1.5 rounded-lg shadow-sm ${!hasUnsavedChanges && isValid ? "text-white" : ""}`}
+                  onClick={onSubmitPlan}
+                  disabled={!isValid || hasUnsavedChanges || isSubmittingPlan}
+                  title={hasUnsavedChanges ? translateI18n("projectAction.saveBeforeSubmit") : undefined}
+                >
+                  <Send className="h-3.5 w-3.5" />
+                  <span>
+                    {translateI18n(
+                      isSubmittingPlan
+                        ? "projectDetail.submitting"
+                        : planApprovalStatus === "REJECTED"
+                        ? "nextAction.resubmitPlan"
+                        : "nextAction.submitPlanAction"
+                    )}
+                  </span>
+                </Button>
+              )}
+            </div>
+          </div>
+        )}
 
         {error && (
           <div className="flex items-start gap-2 rounded-xl border border-destructive/40 bg-destructive/10 p-3 text-xs text-destructive shadow-sm">
@@ -415,6 +514,14 @@ export function ProjectTimelineEditor({
             </div>
           </div>
         </BusinessConfirmation>
+        {canEditOutputs && project && (
+          <OutputScopeDialog
+            open={editOutputsOpen}
+            onOpenChange={setEditOutputsOpen}
+            project={project}
+            onSaved={handleOutputsSaved}
+          />
+        )}
       </CardContent>
     </Card>
   );

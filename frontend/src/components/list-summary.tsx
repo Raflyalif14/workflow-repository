@@ -13,7 +13,7 @@ export function ListSummary({ 'aria-label': label, description, items, loading =
   const isFive = items.length === 5;
   return <section aria-label={label} className="page-surface min-w-0 overflow-hidden" data-testid="list-summary">
     <div className="flex flex-wrap items-start justify-between gap-2 border-b border-border/60 px-4 py-3 sm:px-5">
-      <div className="min-w-0"><h2 className="flex items-center gap-2 text-sm font-semibold text-foreground"><BarChart3 className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />{label}</h2>
+      <div className="min-w-0"><h2 className="flex items-center gap-2 text-sm font-semibold text-foreground"><BarChart3 className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />{label}</h2>
       <p className="mt-1 max-w-4xl text-xs leading-5 text-muted-foreground">{description}</p></div>
       {(unavailable || refreshing) && <p role={hasError ? 'alert' : 'status'} className={`text-xs ${hasError ? 'text-destructive' : 'text-muted-foreground'}`}>{translate(hasError ? 'listSummary.unavailable' : loading ? 'common.loading' : 'listSummary.refreshing')}</p>}
     </div>

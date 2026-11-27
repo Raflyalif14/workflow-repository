@@ -150,11 +150,9 @@ function TelegramDeliveryHealthContent() {
               {translateI18n("telegramHealth.backSettings")}
             </Button>
           </Link>
-          <div className="mb-3 flex items-center gap-3">
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-primary/15 bg-primary/10 text-primary">
-              <RadioTower className="h-4 w-4" aria-hidden="true" />
-            </span>
-            <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-primary">{translateI18n("copy.operationalMonitoring")}</span>
+          <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            <RadioTower className="h-4 w-4 shrink-0" aria-hidden="true" />
+            <span>{translateI18n("copy.operationalMonitoring")}</span>
           </div>
           <h1 className="text-3xl font-bold tracking-tight">{translateI18n("settings.telegramHealth")}</h1>
           <p className="mt-1 text-sm text-muted-foreground">
@@ -211,7 +209,7 @@ function TelegramDeliveryHealthContent() {
                 {needsAttention ? <AlertTriangle className="h-4 w-4" aria-hidden="true" /> : <CheckCircle2 className="h-4 w-4" aria-hidden="true" />}
               </span>
               <div>
-                <p className="text-sm font-semibold text-foreground">{translateI18n(needsAttention ? "telegramHealth.needsAttention" : "telegramHealth.operational")}</p>
+                <p className="text-sm font-semibold text-foreground">{translateI18n(needsAttention ? "telegramHealth.needsAttention" : "telegramHealth.systemOperational")}</p>
                 <p className="mt-0.5 text-xs text-muted-foreground">
                   {translateI18n(needsAttention ? "telegramHealth.reviewFailures" : "telegramHealth.noFailures")}
                 </p>

@@ -40,5 +40,18 @@ for (const language of ['en', 'id'] as const) {
   const missing = buildProjectReport(project, [{ ...rows[0], start_date: null, due_date: null }], language);
   assert.equal(missing.rows[0][4], translate('common.notAvailable', {}, language));
   assert(missing.rows[0][3].includes(translate('role.SA', {}, language)));
+  // Summary metadata labels should not carry trailing colons (consistent with Project, Phase, Status, etc.).
+  assert(!report.labels.customer.endsWith(':'), 'Customer summary label has no trailing colon');
+  assert(!report.labels.scenario.endsWith(':'), 'Scenario summary label has no trailing colon');
+  // SALES milestones without pic_id fall back to project Sales owner name in both PDF & Excel.
+  const salesMilestone = { id: 'tender', project_id: 'project-a', phase_id: 'phase-a', name: 'Tender Process',
+    step_order: 4, status: 'CREATED', start_date: '2026-10-01', due_date: '2026-10-31',
+    workflow_stage: { default_role: 'SALES' } } as ProjectMilestonePhase4;
+  const salesReport = buildProjectReport(project, [salesMilestone], language);
+  assert.equal(salesReport.rows[0][3], 'Sales name');
+  assert(JSON.stringify(projectReportSheet(salesReport)).includes('Sales name'));
+  assert(JSON.stringify(projectReportPdf(salesReport)).includes('Sales name'));
+  const noSalesReport = buildProjectReport({ ...project, sales: null }, [salesMilestone], language);
+  assert.equal(noSalesReport.rows[0][3], translate('reportExport.unassignedRole', { role: translate('role.SALES', {}, language) }, language));
 }
 console.log('Project report: phase/progress parity, ordered rows, localization, business dates, missing values, safe text and filenames passed.');

@@ -40,12 +40,34 @@ export class UserController {
     try { sendSuccess(res, 'User created successfully', await UserService.createUser(req.body), 201); }
     catch (error) { sendUserError(res, error, 'Failed to create user.'); }
   }
-  static async updateUser(req: Request, res: Response): Promise<void> {
-    try { sendSuccess(res, 'User updated successfully', await UserService.updateUser(getRouteParam(req, 'id'), req.body)); }
+  static async updateUser(req: AuthenticatedRequest, res: Response): Promise<void> {
+    const targetUserId = getRouteParam(req, 'id');
+    const currentUserId = req.user?.userId || req.user?.id;
+    const isDeactivating = req.body.isActive === false || req.body.isActive === 'false';
+    if (currentUserId && currentUserId === targetUserId && isDeactivating) {
+      sendError(res, 'Cannot deactivate your own account.', null, 400);
+      return;
+    }
+    if (currentUserId && currentUserId === targetUserId && req.body.role && req.body.role !== req.user?.role) {
+      sendError(res, 'Cannot change your own role.', null, 400);
+      return;
+    }
+    try { sendSuccess(res, 'User updated successfully', await UserService.updateUser(targetUserId, req.body)); }
     catch (error) { sendUserError(res, error, 'Failed to update user.'); }
   }
-  static async updateStatus(req: Request, res: Response): Promise<void> {
-    try { sendSuccess(res, 'User status updated successfully', await UserService.updateStatus(getRouteParam(req, 'id'), req.body.isActive)); }
+  static async updateStatus(req: AuthenticatedRequest, res: Response): Promise<void> {
+    const targetUserId = getRouteParam(req, 'id');
+    const currentUserId = req.user?.userId || req.user?.id;
+    const isDeactivating = req.body.isActive === false || req.body.isActive === 'false';
+    if (currentUserId && currentUserId === targetUserId && isDeactivating) {
+      sendError(res, 'Cannot deactivate your own account.', null, 400);
+      return;
+    }
+    if (currentUserId && currentUserId === targetUserId && req.body.role && req.body.role !== req.user?.role) {
+      sendError(res, 'Cannot change your own role.', null, 400);
+      return;
+    }
+    try { sendSuccess(res, 'User status updated successfully', await UserService.updateStatus(targetUserId, req.body.isActive)); }
     catch (error) { sendUserError(res, error, 'Failed to update user status.'); }
   }
 }

@@ -1,5 +1,6 @@
 "use client";
 import { useRef, useState } from 'react';
+import { Pencil } from 'lucide-react';
 import { useLanguage } from '@/components/i18n/language-provider';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -63,8 +64,19 @@ export function EstimatedProjectValue({ project, role, userId }: { project: Proj
     finally { busy.current = false; }
   };
   return <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
-    <p className="text-muted-foreground">{translate('projectDetail.estimatedRevenue')} <strong className="text-foreground">{formatEstimatedValue(project.estimated_revenue_exact)}</strong></p>
-    {eligible && <Button size="sm" variant="ghost" disabled={!ready} onClick={open}>{translate('estimatedValue.edit')}</Button>}
+    <p className="text-muted-foreground">{translate('projectDetail.estimatedRevenue')} <strong className="tabular-nums text-foreground">{formatEstimatedValue(project.estimated_revenue_exact)}</strong></p>
+    {eligible && (
+      <Button
+        size="sm"
+        variant="outline"
+        disabled={!ready}
+        onClick={open}
+        className="h-7 gap-1.5 border-primary/40 px-2.5 text-xs font-medium text-primary hover:bg-primary/10 hover:text-primary transition-colors"
+      >
+        <Pencil className="h-3 w-3" />
+        {translate('estimatedValue.edit')}
+      </Button>
+    )}
     <Dialog open={step !== null} onOpenChange={open => { if (!open) close(); }}>
       <DialogHeader><DialogTitle>{translate('estimatedValue.edit')}</DialogTitle><DialogDescription>{project.name}</DialogDescription></DialogHeader>
       <p className="text-sm">{translate('estimatedValue.current', { value: formatEstimatedValue(baseline?.value) })}</p>

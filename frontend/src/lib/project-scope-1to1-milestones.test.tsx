@@ -300,7 +300,6 @@ async function run() {
           id: "change-901",
           project_id: "proj-101",
           phase_id: "phase-pra-tender",
-          requested_by: "sales-user-1",
           requested_at: "2026-11-19T10:15:00.000Z",
           reason: "Klien meminta penambahan spesifikasi teknis",
           before_keys: ["proposal_deck_solusi", "kajian_teknis", "poc_demo"],
@@ -314,9 +313,9 @@ async function run() {
                 due_date: "2026-11-23",
               },
             ],
-            reason: "Klien meminta penambahan spesifikasi teknis",
           },
           status: "PENDING",
+          review_note: null,
         },
       ];
 

@@ -24,7 +24,7 @@ export function localizeNotificationText(
     case 'PROJECT_PLAN_APPROVED':
       return project ? { title: 'Rencana Proyek Disetujui', message: `Rencana proyek '${project}' telah disetujui.` } : original;
     case 'PROJECT_PLAN_REJECTED':
-      return project ? { title: 'Rencana Proyek Ditolak', message: `Rencana proyek '${project}' ditolak dan memerlukan revisi.` } : original;
+      return project ? { title: 'Rencana Proyek Ditolak', message: `Rencana proyek '${project}' ditolak dan perlu revisi.` } : original;
     case 'PIC_ASSIGNED':
     case 'PIC_REASSIGNED': {
       if (!project) return original;

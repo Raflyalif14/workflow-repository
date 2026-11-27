@@ -13,14 +13,14 @@ export function MeetingMinutes({meeting}:{meeting:Meeting}){
  const eligible=meeting.status==='APPROVED'&&!meeting.proposedSchedule&&Date.parse(meeting.endsAt||meeting.startsAt)<=Date.now();
  const canEdit=eligible&&['SALES','SA','HEAD_SA'].includes(user?.role||'');
  return <section className="space-y-3 rounded-xl border border-border bg-muted/20 p-4">
- <div className="flex flex-wrap items-center justify-between gap-2"><h4 className="text-sm font-semibold">{t('meetings.minutesTitle')}</h4>{meeting.minutes&&<MeetingMinutesExport meeting={meeting}/>} {canEdit&&<Button size="sm" variant="outline" onClick={()=>setOpen(true)}>{t(meeting.minutes?'meetings.editMinutes':'meetings.addMinutes')}</Button>}</div>
+ <div className="flex flex-wrap items-center justify-between gap-2"><h4 className="text-sm font-semibold">{t('meetings.minutesTitle')}</h4>{(meeting.minutes||canEdit)&&<div className="flex flex-wrap items-center gap-2">{meeting.minutes&&<MeetingMinutesExport meeting={meeting}/>}{canEdit&&<Button size="sm" variant="outline" onClick={()=>setOpen(true)}>{t(meeting.minutes?'meetings.editMinutes':'meetings.addMinutes')}</Button>}</div>}</div>
  {meeting.minutes?<><div className="grid gap-3">{(['notes','decisions','followUp'] as const).map(field=><div key={field}><p className="text-xs font-medium text-muted-foreground">{t(`meetings.${field}`)}</p><p className="whitespace-pre-wrap break-words text-sm">{meeting.minutes?.[field]||'—'}</p></div>)}</div>{meeting.minutesUpdatedAt&&<p className="text-xs text-muted-foreground">{t('meetings.minutesUpdated',{name:meeting.minutesAuthor||'—',date:formatDate(meeting.minutesUpdatedAt,{dateStyle:'medium',timeStyle:'short'})})}</p>}</>:<p className="text-xs text-muted-foreground">{t(eligible?'meetings.noMinutes':'meetings.minutesAfterMeeting')}</p>}
  {open&&<MinutesEditor meeting={meeting} onClose={()=>setOpen(false)}/>}
  </section>;
 }
-function MinutesEditor({meeting,onClose}:{meeting:Meeting;onClose:()=>void}){
+export function MinutesEditor({meeting,onClose}:{meeting:Meeting;onClose:()=>void}){
  const {t}=useLanguage(),mutation=useMeetingMutation(true);
- const [snapshot]=useState(meeting),[notes,setNotes]=useState(meeting.minutes?.notes||''),[decisions,setDecisions]=useState(meeting.minutes?.decisions||''),[followUp,setFollowUp]=useState(meeting.minutes?.followUp||''),[completed,setCompleted]=useState(false);
+ const [snapshot]=useState(meeting),[notes,setNotes]=useState(meeting.minutes?.notes||''),[decisions,setDecisions]=useState(meeting.minutes?.decisions||''),[followUp,setFollowUp]=useState(meeting.minutes?.followUp||''),[completed,setCompleted]=useState(()=>Boolean(meeting.minutes));
  const request=useRef('');
  const uncertain=mutation.isError&&(!(mutation.error instanceof ApiError)||mutation.error.status>=500);
  const disabled=mutation.isPending||uncertain;
@@ -31,6 +31,6 @@ function MinutesEditor({meeting,onClose}:{meeting:Meeting;onClose:()=>void}){
  <p className="text-xs text-muted-foreground">{t('meetings.followUpHelp')}</p>
  <label className="flex items-start gap-2 text-sm"><input type="checkbox" required checked={completed} disabled={disabled} onChange={e=>{setCompleted(e.target.checked);request.current='';}}/>{t('meetings.confirmCompleted')} <span aria-hidden="true" className="text-destructive">*</span></label>
  {mutation.isError&&<p role="alert" className="text-sm text-destructive">{t(uncertain?'meetings.uncertain':mutation.error instanceof ApiError&&mutation.error.status===409?'meetings.conflict':'meetings.error')}</p>}
- <Button type="submit" disabled={mutation.isPending||!notes.trim()||!completed}>{t(mutation.isPending?'common.saving':'meetings.saveMinutes')}</Button>
+ <div className="flex items-center justify-end gap-2"><Button type="button" variant="outline" disabled={mutation.isPending} onClick={onClose}>{t('common.cancel')}</Button><Button type="submit" disabled={mutation.isPending||!notes.trim()||!completed}>{t(mutation.isPending?'common.saving':'meetings.saveMinutes')}</Button></div>
  </form></Dialog>;
 }

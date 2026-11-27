@@ -83,11 +83,23 @@ export async function completeGoogleConnection(userId: string, code: string, sta
 }
 export async function disconnectGoogle(userId: string) {
   requireGoogleConfig();
+  const existing = await db.from('google_calendar_connections').select('id,refresh_token,calendar_id').eq('user_id',userId).maybeSingle();
+  if(existing.error) throw new GoogleCalendarError('GOOGLE_STORAGE_UNAVAILABLE');
   const clear=await db.from('google_calendar_oauth').delete().eq('user_id',userId);
   if(clear.error) throw new GoogleCalendarError('GOOGLE_STORAGE_UNAVAILABLE');
-  const result=await db.from('google_calendar_connections').update({status:'DISCONNECTING',next_attempt_at:new Date().toISOString()}).eq('user_id',userId);
+  if(existing.data?.calendar_id) {
+    try {
+      const token=await accessToken(existing.data.refresh_token,userId);
+      await googleRequest(`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(existing.data.calendar_id)}`,{
+        method:'DELETE',headers:{Authorization:`Bearer ${token}`},
+      });
+    } catch {
+      // Remote calendar cleanup is best-effort; 404/410/revoked/offline errors must never leave disconnect stuck.
+    }
+  }
+  const result=await db.from('google_calendar_connections').delete().eq('user_id',userId);
   if(result.error) throw new GoogleCalendarError('GOOGLE_STORAGE_UNAVAILABLE');
-  return {disconnecting:true};
+  return {disconnecting:false,disconnected:true,status:'NOT_CONNECTED' as const};
 }
 
 export type CalendarMeeting = {id:string;title:string;agenda:string;location:string;starts_at:string;ends_at:string|null;project_id:string;project_name:string};

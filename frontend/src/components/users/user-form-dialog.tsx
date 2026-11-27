@@ -28,15 +28,18 @@ interface UserFormDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   userToEdit?: User | null;
+  isCurrentUser?: boolean;
 }
 
 export function UserFormDialog({
   open,
   onOpenChange,
   userToEdit,
+  isCurrentUser = false,
 }: UserFormDialogProps) {
   useLanguage();
   const isEditing = !!userToEdit;
+  const isSelf = isEditing && isCurrentUser;
   const createUserMutation = useCreateUser();
   const updateUserMutation = useUpdateUser();
   const [saveFailed, setSaveFailed] = useState(false);
@@ -83,8 +86,8 @@ export function UserFormDialog({
           id: userToEdit.id,
           data: {
             fullName: data.fullName,
-            role: data.role,
-            isActive: data.isActive,
+            role: isSelf ? userToEdit.role : data.role,
+            isActive: isSelf ? true : data.isActive,
           },
         });
       } else {
@@ -127,22 +130,19 @@ export function UserFormDialog({
           )}
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1">
-              {translateI18n("userForm.email")} *
-            </label>
-            <Input
-              type="email"
-              placeholder="user@company.com"
-              {...register("email")}
-              disabled={isEditing || isSubmitting}
-            />
-            {errors.email && (
-              <p className="text-xs text-destructive mt-1">{translateStoredError(errors.email.message || "userForm.invalidEmail")}</p>
-            )}
-          </div>
-
+        <div>
+          <label className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1">
+            {translateI18n("userForm.email")} *
+          </label>
+          <Input
+            type="email"
+            placeholder="user@company.com"
+            {...register("email")}
+            disabled={isEditing || isSubmitting}
+          />
+          {errors.email && (
+            <p className="text-xs text-destructive mt-1">{translateStoredError(errors.email.message || "userForm.invalidEmail")}</p>
+          )}
         </div>
 
         {!isEditing && (
@@ -151,38 +151,45 @@ export function UserFormDialog({
           </p>
         )}
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1">
-              {translateI18n("copy.role")} *
-            </label>
-            <select
-              {...register("role")}
-              className="flex h-10 w-full rounded-lg border border-input bg-card px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
-              disabled={isSubmitting}
-            >
-              <option value="SUPER_ADMIN">{translateI18n("role.SUPER_ADMIN")}</option>
-              <option value="SALES">{translateI18n("role.SALES")}</option>
-              <option value="HEAD_SA">{translateI18n("role.HEAD_SA")}</option>
-              <option value="SA">{translateI18n("role.SA")}</option>
-            </select>
-            {errors.role && (
-              <p className="text-xs text-destructive mt-1">{translateI18n("userForm.roleRequired")}</p>
+        <div>
+          <label className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1">
+            {translateI18n("copy.role")} *
+            {isSelf && (
+              <span className="ml-2 text-xs text-muted-foreground font-normal lowercase">
+                ({translateI18n("userPage.cannotChangeOwnRole")})
+              </span>
             )}
-          </div>
-
+          </label>
+          <select
+            {...register("role")}
+            className="flex h-10 w-full rounded-lg border border-input bg-card px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:opacity-50 disabled:cursor-not-allowed"
+            disabled={isSubmitting || isSelf}
+          >
+            <option value="SUPER_ADMIN">{translateI18n("role.SUPER_ADMIN")}</option>
+            <option value="SALES">{translateI18n("role.SALES")}</option>
+            <option value="HEAD_SA">{translateI18n("role.HEAD_SA")}</option>
+            <option value="SA">{translateI18n("role.SA")}</option>
+          </select>
+          {errors.role && (
+            <p className="text-xs text-destructive mt-1">{translateI18n("userForm.roleRequired")}</p>
+          )}
         </div>
 
         <div className="flex items-center gap-2 pt-2">
           <input
             type="checkbox"
             id="isActive"
-            disabled={isSubmitting}
+            disabled={isSubmitting || isSelf}
             {...register("isActive")}
-            className="rounded border-border text-primary focus:ring-primary h-4 w-4 bg-background"
+            className="rounded border-border text-primary focus:ring-primary h-4 w-4 bg-background disabled:opacity-50"
           />
-          <label htmlFor="isActive" className="text-sm font-medium cursor-pointer">
+          <label htmlFor="isActive" className={`text-sm font-medium ${isSelf ? 'cursor-not-allowed text-muted-foreground' : 'cursor-pointer'}`}>
             {translateI18n("userForm.active")}
+            {isSelf && (
+              <span className="ml-2 text-xs text-muted-foreground font-normal">
+                ({translateI18n("userPage.cannotDeactivateSelf")})
+              </span>
+            )}
           </label>
         </div>
 

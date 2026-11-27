@@ -10,6 +10,7 @@ import { useProjectIntake, useProjectIntakeDownloadUrl } from "@/hooks/use-proje
 import { formatDate } from "@/lib/project-detail-format";
 import { DocumentPreviewDialog } from "@/components/documents/document-preview-dialog";
 import { downloadFileFromUrl } from "@/lib/file-download";
+import { formatDocumentMimeType } from "@/lib/document-surface-ux";
 
 export function ProjectIntakeSection({ projectId }: { projectId: string }) {
   const { data: attachments = [], isLoading, isError } = useProjectIntake(projectId);
@@ -90,16 +91,16 @@ export function ProjectIntakeSection({ projectId }: { projectId: string }) {
                       key={attachment.id}
                       className="flex flex-col gap-3 rounded-md border border-border/40 bg-muted/10 p-3 sm:flex-row sm:items-center sm:justify-between"
                     >
-                      <div className="min-w-0 space-y-1">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <p className="truncate text-sm font-semibold text-foreground">{attachment.file_name}</p>
-                          <Badge variant="secondary" className="text-[10px]">{translateI18n("copy.intakeEvidence")}</Badge>
+                      <div className="min-w-0 flex-1 space-y-1">
+                        <div className="flex min-w-0 items-center gap-2">
+                          <p className="min-w-0 truncate text-sm font-semibold text-foreground" title={attachment.file_name}>{attachment.file_name}</p>
+                          <Badge variant="secondary" className="shrink-0 text-[10px]">{translateI18n("copy.intakeEvidence")}</Badge>
                         </div>
-                        <p className="text-xs text-muted-foreground">
-                          {attachment.mime_type} - {formatFileSize(attachment.size_bytes)} - {translateI18n("projectDetail.addedOn", { date: formatDate(attachment.created_at) })}
+                        <p className="truncate text-xs text-muted-foreground">
+                          {formatDocumentMimeType(attachment.mime_type, attachment.file_name)} · {formatFileSize(attachment.size_bytes)} · {translateI18n("projectDetail.addedOn", { date: formatDate(attachment.created_at) })}
                         </p>
                       </div>
-                      <div className="flex flex-wrap items-center gap-1.5 self-start sm:self-auto">
+                      <div className="flex shrink-0 whitespace-nowrap items-center gap-1.5 self-start sm:self-auto">
                         <Button
                           size="sm"
                           variant="outline"

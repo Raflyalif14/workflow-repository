@@ -14,6 +14,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useProcessApproval } from "@/hooks/use-approvals";
 import { useProject, useSolutionArchitects } from "@/hooks/use-projects";
@@ -52,7 +53,6 @@ export function ApprovalActionDialog({
 
   const [action, setAction] = useState<"APPROVE" | "REJECT">(initialAction || "APPROVE");
   const [reviewedItemId, setReviewedItemId] = useState<string | null>(null);
-  const [confirming, setConfirming] = useState(false);
   const [feedback, setFeedback] = useState("");
   const [picId, setPicId] = useState("");
   const [error, setError] = useState("");
@@ -74,7 +74,9 @@ export function ApprovalActionDialog({
       setAction(initialAction);
     }
     if (!open) {
-      setConfirming(false); intent.current = null;
+      intent.current = null;
+      setReviewedRevision(undefined);
+      setReviewedItemId(null);
       setFeedback("");
       setPicId("");
       setError("");
@@ -83,18 +85,24 @@ export function ApprovalActionDialog({
 
   React.useEffect(() => {
     setPicId("");
-    setConfirming(false);
   }, [action, item?.id]);
 
   React.useEffect(() => {
-    if (open && !confirming && projectQuery.data?.pic?.id) setPicId(projectQuery.data.pic.id);
-  }, [open, confirming, action, item?.id, projectQuery.data?.pic?.id]);
+    if (open) {
+      if (projectQuery.data?.pic?.id) setPicId(projectQuery.data.pic.id);
+      if (item?.category === "PROJECT_PLAN") {
+        setReviewedItemId(item.id);
+        setReviewedPicName(projectQuery.data?.pic?.full_name || projectQuery.data?.pic?.fullName || translateI18n('ui.unassigned'));
+        setReviewedRevision((prev) => prev !== undefined ? prev : projectQuery.data?.pic_revision);
+      }
+    }
+  }, [open, action, item?.id, projectQuery.data?.pic, projectQuery.data?.pic_revision]);
 
   if (!item) return null;
 
   const isPending = item.status === "PENDING";
-  const recoveringReceipt = confirming && (item.category === 'DEADLINE' || !!intent.current)
-    && item.id === reviewedItemId && (error === (item.category === 'DEADLINE' ? 'reviewConfirm.failed' : 'picOperation.failed') || busy.current || processMutation.isPending);
+  const recoveringReceipt = (item.category === 'DEADLINE' || !!intent.current)
+    && (!reviewedItemId || item.id === reviewedItemId) && (error === (item.category === 'DEADLINE' ? 'reviewConfirm.failed' : 'picOperation.failed') || busy.current || processMutation.isPending);
   const canProcess = canReview && ((isPending && item.isCurrentApproval !== false) || recoveringReceipt);
 
   const handleDecision = async (e: React.FormEvent) => {
@@ -114,33 +122,56 @@ export function ApprovalActionDialog({
       return;
     }
 
-    setError("");
-    if (!confirming) {
-      if (item.category === "PROJECT_PLAN" && (isOperationalV2 || projectQuery.data?.active_phase_id) && projectQuery.data?.pic_revision === undefined) { setError('picOperation.reviewUnavailable'); return; }
-      setReviewedPicName(projectQuery.data?.pic?.full_name || projectQuery.data?.pic?.fullName || translateI18n('ui.unassigned')); setReviewedRevision(projectQuery.data?.pic_revision); setReviewedItemId(item.id); setConfirming(true); return;
+    if (item.category === "PROJECT_PLAN" && (isOperationalV2 || projectQuery.data?.active_phase_id) && projectQuery.data?.pic_revision === undefined) {
+      setError('picOperation.reviewUnavailable');
+      return;
     }
-    if (item.category === 'PROJECT_PLAN' && item.id !== reviewedItemId) { setError('reviewConfirm.stale'); return; }
+    if (item.category === 'PROJECT_PLAN' && reviewedItemId && item.id !== reviewedItemId) {
+      setError('reviewConfirm.stale');
+      return;
+    }
+
+    setError("");
     busy.current = true;
     let decisionStarted = false;
     try {
-      if (item.category === 'PROJECT_PLAN' && reviewedRevision !== undefined) {
-        intent.current = retainPicRequest(intent.current, reviewedRevision, { approval: reviewedItemId, action, feedback: feedback.trim(), picId });
+      const activeRevision = reviewedRevision !== undefined ? reviewedRevision : projectQuery.data?.pic_revision;
+      if (item.category === 'PROJECT_PLAN' && activeRevision !== undefined) {
+        intent.current = retainPicRequest(intent.current, activeRevision, { approval: item.id, action, feedback: feedback.trim(), picId });
       }
-      await runConfirmedDecision({ confirmed: confirming, current: canProcess && (item.category !== "PROJECT_PLAN" || item.id === reviewedItemId), reason: feedback, reasonRequired: action === "REJECT" }, () => { decisionStarted = true; return processMutation.mutateAsync({
-        item,
-        action,
-        feedback: feedback.trim() || undefined,
-        picId: requiresPic ? picId : undefined,
-        expectedPicRevision: intent.current?.revision, requestId: intent.current?.id,
-      }); });
+      await runConfirmedDecision({
+        confirmed: true,
+        current: canProcess && (item.category !== "PROJECT_PLAN" || !reviewedItemId || item.id === reviewedItemId),
+        reason: feedback,
+        reasonRequired: action === "REJECT"
+      }, () => {
+        decisionStarted = true;
+        return processMutation.mutateAsync({
+          item,
+          action,
+          feedback: feedback.trim() || undefined,
+          picId: requiresPic ? picId : undefined,
+          expectedPicRevision: intent.current?.revision,
+          requestId: intent.current?.id,
+        });
+      });
       onOpenChange(false);
       setFeedback("");
     } catch (failure) {
       const code = failure instanceof ApiError ? failure.code : undefined;
       setError(!decisionStarted && item.category === 'PROJECT_PLAN' ? 'picOperation.preparationFailed' : failure instanceof ApiError && failure.status === 409 && code !== 'PIC_CONFLICT' ? 'businessAudit.stale' : item.category === 'PROJECT_PLAN' ? picErrorKey(code) : 'reviewConfirm.failed');
-      if (code === 'PIC_CONFLICT') { setConfirming(false); intent.current = null; await projectQuery.refetch(); }
-    } finally { busy.current = false; }
+      if (code === 'PIC_CONFLICT') {
+        intent.current = null;
+        await projectQuery.refetch();
+      }
+    } finally {
+      busy.current = false;
+    }
   };
+
+  const selectedPic = pics.find(pic => pic.id === picId);
+  const currentPicFullName = projectQuery.data?.pic?.full_name || projectQuery.data?.pic?.fullName || reviewedPicName;
+  const selectedPicFullName = selectedPic?.full_name || (picId ? picId : undefined);
 
   return (
     <Dialog open={open} onOpenChange={value => !busy.current && !processMutation.isPending && onOpenChange(value)}>
@@ -152,14 +183,20 @@ export function ApprovalActionDialog({
           </span>
           <div className="min-w-0 space-y-1">
             <DialogTitle className="text-base font-semibold tracking-tight">{translateI18n("copy.headReview")}</DialogTitle>
-            <DialogDescription className="mt-0 text-xs leading-relaxed">
-              {translateI18n("approvalDialog.reviewFor", { project: item.projectName, customer: item.clientName })}
-            </DialogDescription>
+            <div className="flex flex-wrap items-center gap-2">
+              <DialogDescription className="mt-0 text-xs leading-relaxed">
+                {translateI18n("approvalDialog.reviewFor", { project: item.projectName, customer: item.clientName })}
+              </DialogDescription>
+              {item.phaseName && (
+                <Badge variant="secondary" className="text-[10px] font-medium">
+                  {item.phaseName}
+                </Badge>
+              )}
+            </div>
           </div>
         </div>
       </DialogHeader>
 
-      {confirming && requiresPic && <p className="mb-2 text-sm">{translateI18n('picOperation.reviewPic', { before: reviewedPicName, after: pics.find(pic => pic.id === picId)?.full_name || picId })}</p>}
       <div className="space-y-4">
         <ApprovalRequestSummary item={item} />
 
@@ -170,9 +207,8 @@ export function ApprovalActionDialog({
               <Button
                 type="button"
                 variant={action === "APPROVE" ? "default" : "outline"}
-                className={`h-9 flex-1 gap-1.5 rounded-lg text-xs ${
-                  action === "APPROVE" ? "bg-emerald-500 text-black font-semibold shadow-sm hover:bg-emerald-600" : ""
-                }`}
+                className={`h-9 flex-1 gap-1.5 rounded-lg text-xs ${action === "APPROVE" ? "bg-emerald-600 text-white font-semibold shadow-sm hover:bg-emerald-700" : ""
+                  }`}
                 onClick={() => {
                   setAction("APPROVE");
                   setError("");
@@ -222,7 +258,6 @@ export function ApprovalActionDialog({
                     disabled={processMutation.isPending || !!projectQuery.data?.pic?.id}
                     value={picId}
                     onChange={(event) => {
-                      setConfirming(false);
                       setPicId(event.target.value);
                       intent.current = null;
                       setError("");
@@ -231,7 +266,7 @@ export function ApprovalActionDialog({
                     required
                   >
                     <option value="">{translateI18n("copy.selectSa")}</option>
-                    {projectQuery.data?.pic&&!pics.some(pic=>pic.id===projectQuery.data?.pic?.id)&&<option value={projectQuery.data.pic.id}>{projectQuery.data.pic.full_name||projectQuery.data.pic.fullName}</option>}
+                    {projectQuery.data?.pic && !pics.some(pic => pic.id === projectQuery.data?.pic?.id) && <option value={projectQuery.data.pic.id}>{projectQuery.data.pic.full_name || projectQuery.data.pic.fullName}</option>}
                     {pics.map((pic) => (
                       <option key={pic.id} value={pic.id}>
                         {pic.full_name} ({translateRole(pic.role)}) - {pic.email}
@@ -241,6 +276,13 @@ export function ApprovalActionDialog({
                 ) : (
                   <p className="rounded-lg border border-border/40 bg-muted/15 px-3 py-2 text-xs text-muted-foreground">
                     {translateI18n("approvalDialog.legacyPic")}
+                  </p>
+                )}
+                {isOperationalV2 && selectedPicFullName && (
+                  <p className="mt-1 text-xs text-muted-foreground font-medium">
+                    {currentPicFullName && selectedPicFullName && currentPicFullName !== selectedPicFullName && currentPicFullName !== translateI18n('ui.unassigned')
+                      ? translateI18n('picOperation.reviewPic', { before: currentPicFullName, after: selectedPicFullName })
+                      : translateI18n('picOperation.currentPic', { name: selectedPicFullName })}
                   </p>
                 )}
               </div>
@@ -261,7 +303,6 @@ export function ApprovalActionDialog({
                 disabled={processMutation.isPending}
                 value={feedback}
                 onChange={(e) => {
-                  setConfirming(false);
                   setFeedback(e.target.value);
                   if (error !== "businessAudit.stale") setError("");
                 }}
@@ -279,10 +320,9 @@ export function ApprovalActionDialog({
               </div>
             )}
 
-            {confirming && <p className="text-sm">{translateI18n("reviewConfirm.check")} {item.phaseName || projectQuery.data?.active_scenario?.name || projectQuery.data?.scenario?.name}<strong className="block whitespace-pre-wrap">{feedback.trim()}</strong></p>}
             <DialogFooter className="border-t border-border/40 pt-4">
               {(error === 'picOperation.reviewUnavailable' || error === 'reviewConfirm.stale') && <Button type="button" variant="outline" disabled={processMutation.isPending || projectQuery.isFetching} onClick={async () => {
-                try { await projectQuery.refetch({ throwOnError: true }); setConfirming(false); intent.current = null; setError(''); }
+                try { await projectQuery.refetch({ throwOnError: true }); intent.current = null; setError(''); }
                 catch { setError('picOperation.reviewUnavailable'); }
               }}>{translateI18n('picOperation.reload')}</Button>}
               <Button
@@ -298,11 +338,13 @@ export function ApprovalActionDialog({
                 type="submit"
                 disabled={error === "businessAudit.stale" || processMutation.isPending || projectModelUnavailable || (requiresPic && (picsLoading || picsError || !picId))}
                 variant={action === "REJECT" ? "destructive" : "default"}
-                className={action === "APPROVE" ? "h-9 rounded-lg bg-emerald-500 font-semibold text-black hover:bg-emerald-600" : "h-9 rounded-lg"}
+                className={action === "APPROVE" ? "h-9 rounded-lg bg-emerald-600 font-semibold text-white hover:bg-emerald-700 shadow-sm" : "h-9 rounded-lg"}
               >
-                {processMutation.isPending ? translateI18n("approvalDialog.processing") : !confirming ? translateI18n("reviewConfirm.continue") : item.category === "PROJECT_PLAN"
-                  ? translateI18n(action === "APPROVE" ? "reviewConfirm.approve" : "reviewConfirm.reject")
-                  : translateI18n(action === "APPROVE" ? "approvalDialog.confirmApprove" : "approvalDialog.confirmReject")}
+                {processMutation.isPending
+                  ? translateI18n("approvalDialog.processing")
+                  : item.category === "PROJECT_PLAN"
+                    ? translateI18n(action === "APPROVE" ? "reviewConfirm.approve" : "reviewConfirm.reject")
+                    : translateI18n(action === "APPROVE" ? "approvalDialog.confirmApprove" : "approvalDialog.confirmReject")}
               </Button>
             </DialogFooter>
           </form>
@@ -313,7 +355,6 @@ export function ApprovalActionDialog({
               <p>{translateI18n("copy.reviewedBy")} <strong className="text-foreground">{item.reviewer?.full_name || item.reviewer?.fullName || "-"}</strong></p>
               {item.reviewNote && <p>{translateI18n("copy.reviewNoteLabel")} <strong className="text-foreground">&quot;{item.reviewNote}&quot;</strong></p>}
             </div>
-            {confirming && <p className="text-sm">{translateI18n("reviewConfirm.check")} {item.phaseName || projectQuery.data?.active_scenario?.name || projectQuery.data?.scenario?.name}<strong className="block whitespace-pre-wrap">{feedback.trim()}</strong></p>}
             <DialogFooter className="border-t border-border/40 pt-4">
               <Button type="button" variant="outline" className="h-9 rounded-lg" onClick={() => onOpenChange(false)}>
                 {translateI18n("common.close")}

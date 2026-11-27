@@ -48,9 +48,30 @@ export function ProjectSharingForm({ project }:Props) {
       <Button variant="outline" size="sm" onClick={() => void reload()}>{translate('common.retry')}</Button></div> : draft && <>
       <p className="text-xs text-muted-foreground">{translate('projectSharing.reviewedSetting',{ mode:translate(draft.before==='SHARED_INTERNAL' ? 'projectSharing.share':'projectSharing.doNotShare') })}</p>
       <div role="group" aria-label={translate('projectSharing.title')} className="grid grid-cols-2 gap-2">
-        {(['SHARED_INTERNAL','RESTRICTED'] as const).map(mode => <Button key={mode} type="button" variant={draft.mode===mode ? 'secondary':'outline'}
-          aria-pressed={draft.mode===mode} disabled={save.isPending || pending.current || error==='conflict'} className="h-auto min-h-10 min-w-0 whitespace-normal"
-          onClick={() => { if (!pending.current && error!=='conflict') { setDraft({ ...draft,mode }); } }}>{translate(mode==='SHARED_INTERNAL' ? 'projectSharing.share':'projectSharing.doNotShare')}</Button>)}
+        {(['SHARED_INTERNAL','RESTRICTED'] as const).map(mode => {
+          const active = draft.mode === mode;
+          return (
+            <Button
+              key={mode}
+              type="button"
+              variant={active ? 'default' : 'outline'}
+              aria-pressed={active}
+              disabled={save.isPending || pending.current || error === 'conflict'}
+              className={`h-auto min-h-10 min-w-0 whitespace-normal font-medium transition-all ${
+                active
+                  ? 'border-primary bg-primary text-white shadow-sm ring-2 ring-primary/20 hover:bg-primary/90'
+                  : 'border-border/70 text-muted-foreground hover:border-primary/40 hover:text-foreground'
+              }`}
+              onClick={() => {
+                if (!pending.current && error !== 'conflict') {
+                  setDraft({ ...draft, mode });
+                }
+              }}
+            >
+              {translate(mode === 'SHARED_INTERNAL' ? 'projectSharing.share' : 'projectSharing.doNotShare')}
+            </Button>
+          );
+        })}
       </div>
       <Button size="sm" disabled={save.isPending || error==='conflict' || (draft.mode===draft.before && !error)} onClick={() => { if (!pending.current) setConfirm(true); }}>{translate('projectSharing.review')}</Button>
     </>}

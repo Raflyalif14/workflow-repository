@@ -9,6 +9,7 @@ import {MeetingApprovalQueue} from '@/components/projects/project-meetings';
 import {useCalendarEvents,CalendarEvent} from '@/hooks/use-calendar';
 import {dateKey,eventsOnDay,monthGrid,offsetDate} from '@/lib/calendar-view';
 import {getIntlLocale,translateMilestoneStatus} from '@/i18n';
+import {BUSINESS_TIMEZONE} from '@/lib/dates';
 
 const tone=(kind:CalendarEvent['kind'])=>kind==='meeting'?'border-primary/20 bg-primary/10 text-primary':kind==='milestone-start'?'border-success/20 bg-success/10 text-success':'border-warning/20 bg-warning/10 text-warning';
 const dotColor=(kind:CalendarEvent['kind'])=>kind==='meeting'?'bg-primary':kind==='milestone-start'?'bg-[hsl(var(--success))]':'bg-[hsl(var(--warning))]';
@@ -25,7 +26,7 @@ export default function CalendarPage(){
  const today=()=>{const now=new Date();setMonth(new Date(now.getFullYear(),now.getMonth(),1));setSelected(now);};
  const label=(kind:CalendarEvent['kind'])=>t(kind==='meeting'?'meetings.meeting':kind==='milestone-start'?'meetings.milestoneStart':'meetings.milestoneDue');
  return <div className="mx-auto max-w-[1600px] space-y-5 p-4 sm:p-6 lg:p-8">
-  <header className="flex flex-wrap items-center justify-between gap-4"><div><p className="text-xs font-semibold uppercase tracking-wider text-primary">{t('meetings.schedule')}</p><h1 className="mt-1 text-3xl font-semibold tracking-tight">{t('meetings.calendar')}</h1><p className="mt-2 max-w-2xl text-sm text-muted-foreground">{t(user?.role==='SA'?'meetings.calendarPersonal':'meetings.calendarHelp')}</p></div><CalendarDays className="hidden h-10 w-10 text-primary/60 sm:block"/></header>
+  <header className="flex flex-wrap items-center justify-between gap-4"><div><p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{t('meetings.schedule')}</p><h1 className="mt-1 text-3xl font-semibold tracking-tight">{t('meetings.calendar')}</h1><p className="mt-2 max-w-2xl text-sm text-muted-foreground">{t(user?.role==='SA'?'meetings.calendarPersonal':'meetings.calendarHelp')}</p></div><CalendarDays className="hidden h-9 w-9 text-muted-foreground sm:block"/></header>
   <section className="page-surface overflow-hidden">
    <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border p-4 sm:p-5"><div className="flex items-center gap-2"><Button size="icon" variant="outline" aria-label={t('meetings.previousMonth')} onClick={()=>move(-1)}><ChevronLeft className="h-4 w-4"/></Button><h2 className="min-w-40 text-center font-semibold">{new Intl.DateTimeFormat(getIntlLocale(),{month:'long',year:'numeric'}).format(month)}</h2><Button size="icon" variant="outline" aria-label={t('meetings.nextMonth')} onClick={()=>move(1)}><ChevronRight className="h-4 w-4"/></Button></div><div className="flex gap-2"><Button variant="outline" onClick={today}>{t('meetings.today')}</Button><select aria-label={t('meetings.eventType')} value={filter} onChange={e=>setFilter(e.target.value)} className="max-w-48 rounded-lg border border-input bg-card px-3 text-sm"><option value="ALL">{t('meetings.allEvents')}</option><option value="meeting">{t('meetings.meeting')}</option><option value="milestone-start">{t('meetings.milestoneStart')}</option><option value="milestone-due">{t('meetings.milestoneDue')}</option></select></div></div>
    <div className="flex flex-wrap gap-4 border-b border-border px-5 py-3 text-xs text-muted-foreground">{(['meeting','milestone-start','milestone-due'] as const).map(kind=><span key={kind} className="flex items-center gap-2"><span className={`h-2.5 w-2.5 rounded-full ${dotColor(kind)}`}/>{label(kind)}</span>)}</div>
@@ -49,7 +50,7 @@ export default function CalendarPage(){
     </aside>
    </div>
   </section>
-  <p className="text-xs text-muted-foreground">{t('meetings.timezone',{zone:Intl.DateTimeFormat().resolvedOptions().timeZone})} {t('meetings.confirmedOnly')}</p>
+  <p className="text-xs text-muted-foreground">{t('meetings.timezone',{zone:BUSINESS_TIMEZONE})} {t('meetings.confirmedOnly')}</p>
   <MeetingApprovalQueue/>
  </div>;
 }

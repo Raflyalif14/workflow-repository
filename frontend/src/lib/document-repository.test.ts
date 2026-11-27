@@ -3,7 +3,8 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { OutputRepositoryItem } from "@/hooks/use-output-documents";
 import type { DocumentItem } from "@/types/document";
-import { buildRepositoryItems, filterRepositoryItems, paginateRepositoryItems, repositoryAccessGroups, repositoryLoadState, requireRepositoryArray } from "./document-repository";
+import { setActiveLanguage, translate } from "../i18n";
+import { buildRepositoryCategoryOptions, buildRepositoryItems, filterRepositoryItems, getProjectGroupStageCounts, getRepositorySummaryCounts, paginateRepositoryItems, repositoryAccessGroups, repositoryLoadState, requireRepositoryArray } from "./document-repository";
 
 const official: DocumentItem = {
   id: "same-id", projectId: "p1", milestoneId: "m1", title: "Official proposal",
@@ -80,4 +81,96 @@ assert.equal(repositoryLoadState(true,empty,{ ...empty,isError:true }),"error");
 assert.throws(() => requireRepositoryArray(null as any));
 assert.throws(() => requireRepositoryArray({ items:[] } as any));
 assert.deepEqual(requireRepositoryArray([]),[]);
+
+// Regression: Result evidence with a milestoneId must count only as Final Project Result, never double-counted as Pre-Tender.
+const resultEvidenceDoc: DocumentItem = {
+  ...official,
+  id: "evidence-1",
+  milestoneId: "tender-process-m",
+  title: "Result evidence - WON",
+  category: "OTHER",
+};
+const mixedProjectItems = buildRepositoryItems(
+  [resultEvidenceDoc],
+  [
+    { ...output("pra-1", "APPROVED"), group: "PRA_TENDER" },
+    { ...output("pra-2", "APPROVED"), group: "PRA_TENDER" },
+    { ...output("pra-3", "APPROVED"), group: "PRA_TENDER" },
+    { ...output("sub-1", "APPROVED"), group: "ON_SUBMISSION_TENDER" },
+    { ...output("sub-2", "APPROVED"), group: "ON_SUBMISSION_TENDER" },
+    { ...output("sub-3", "APPROVED"), group: "ON_SUBMISSION_TENDER" },
+  ]
+);
+assert.equal(mixedProjectItems.length, 7);
+assert.deepEqual(
+  getProjectGroupStageCounts(mixedProjectItems),
+  { praCount: 3, subCount: 3, outcomeCount: 1 },
+  "Stage badge counts must sum cleanly without double-counting Result evidence with milestoneId into Pre-Tender"
+);
+assert.equal(
+  filterRepositoryItems(mixedProjectItems, { search: "", category: "OFFICIAL_MILESTONE", status: "ALL" }).length,
+  0,
+  "Result evidence with milestoneId must not match OFFICIAL_MILESTONE"
+);
+assert.equal(
+  filterRepositoryItems(mixedProjectItems, { search: "", category: "OFFICIAL_EVIDENCE", status: "ALL" }).length,
+  1,
+  "Result evidence with milestoneId must match OFFICIAL_EVIDENCE"
+);
+
+const summarySample = buildRepositoryItems(
+  [
+    { ...resultEvidenceDoc, id: "ev-1", accessMode: "RESTRICTED", canReadProject: true },
+    { ...resultEvidenceDoc, id: "ev-2", accessMode: "SHARED_INTERNAL", canReadProject: false },
+  ],
+  [
+    { ...output("pra-1", "APPROVED"), projectId: "p1", group: "PRA_TENDER", accessMode: "RESTRICTED", canReadProject: true },
+    { ...output("pra-2", "APPROVED"), projectId: "p1", group: "PRA_TENDER", accessMode: "SHARED_INTERNAL", canReadProject: true },
+    { ...output("pra-3", "APPROVED"), projectId: "p2", group: "PRA_TENDER", accessMode: "RESTRICTED", canReadProject: false },
+    { ...output("sub-1", "APPROVED"), projectId: "p1", group: "ON_SUBMISSION_TENDER", accessMode: "RESTRICTED", canReadProject: true },
+    { ...output("poc_demo_report", "APPROVED"), projectId: "p1", name: "POC / Demo Report", group: "ON_SUBMISSION_TENDER" },
+    { ...output("poc_demo_report", "APPROVED"), projectId: "p2", name: "POC / Demo Report", group: "ON_SUBMISSION_TENDER" },
+    { ...output("spesifikasi_teknis_toc", "APPROVED"), projectId: "p1", name: "Spesifikasi Teknis / TOC", group: "ON_SUBMISSION_TENDER" },
+  ]
+);
+const summary = getRepositorySummaryCounts(summarySample);
+assert.deepEqual(summary, {
+  total: 9,
+  outputDocuments: 7,
+  finalProjectResults: 2,
+  sharedInternal: 3,
+});
+assert.equal(summary.outputDocuments + summary.finalProjectResults, summary.total);
+
+const withOtherSample = buildRepositoryItems(
+  [
+    { ...official, id: "m-other", milestoneId: "m1", category: "OTHER", title: "Other milestone doc" },
+    { ...resultEvidenceDoc, id: "ev-only" },
+  ],
+  [
+    { ...output("poc_demo_report", "APPROVED"), projectId: "p1", name: "POC / Demo Report", group: "ON_SUBMISSION_TENDER" },
+    { ...output("poc_demo_report", "APPROVED"), projectId: "p2", name: "POC / Demo Report", group: "ON_SUBMISSION_TENDER" },
+    { ...output("spesifikasi_teknis_toc", "APPROVED"), projectId: "p1", name: "Spesifikasi Teknis / TOC", group: "ON_SUBMISSION_TENDER" },
+    { ...output("other", "APPROVED"), projectId: "p1", name: "Other", group: "PRA_TENDER" },
+  ]
+);
+setActiveLanguage("en");
+const categoryOptionsEn = buildRepositoryCategoryOptions(withOtherSample);
+assert.equal(categoryOptionsEn[0].value, "ALL");
+assert.equal(categoryOptionsEn[0].label, translate("documentPage.allOutputDocuments"));
+assert.equal(new Set(categoryOptionsEn.map((o) => o.label.toLowerCase())).size, categoryOptionsEn.length, "Category labels must be deduplicated");
+assert.equal(categoryOptionsEn.filter((o) => o.value === "poc_demo_report").length, 1);
+assert.equal(categoryOptionsEn.filter((o) => o.value === "spesifikasi_teknis_toc").length, 1);
+assert(!categoryOptionsEn.some((o) => o.value === "assessment"), "Unused categories must not appear");
+assert.equal(categoryOptionsEn.at(-1)?.value, "other", "Other option must be placed last");
+
+setActiveLanguage("id");
+const categoryOptionsId = buildRepositoryCategoryOptions([
+  { sourceType: "OUTPUT", sourceId: "p1:poc_demo_report", output: { ...output("poc_demo_report", "APPROVED"), name: "POC / Demo Report" } },
+  { sourceType: "OUTPUT", sourceId: "p1:other", output: { ...output("other", "APPROVED"), name: "Lainnya" } },
+]);
+assert.equal(categoryOptionsId[0].label, translate("documentPage.allOutputDocuments"));
+assert.equal(categoryOptionsId.at(-1)?.value, "other");
+setActiveLanguage("en");
+
 console.log("Combined repository: access categories, deduplication, whole-result counters, pagination and load/error state passed");

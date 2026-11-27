@@ -45,7 +45,7 @@ export function PhaseWorkStatusPanel({ summary, allSummary, loading, hasError, r
     : phase === "PRA_TENDER" ? "dashboardPage.praWorkStatusScope" : "dashboardPage.tenderWorkStatusScope");
 
   return (
-    <section aria-labelledby="delivery-health-heading" className="dashboard-surface min-w-0 p-5 sm:p-6">
+    <section aria-labelledby="delivery-health-heading" className="dashboard-surface min-w-0 p-4 sm:p-5">
       <div className="min-w-0">
         <h2 id="delivery-health-heading" className="text-base font-semibold text-foreground">{translate("copy.workCondition")}</h2>
         <p className="mt-1 text-sm text-muted-foreground">{scopeLabel}</p>
@@ -76,7 +76,7 @@ export function PhaseWorkStatusPanel({ summary, allSummary, loading, hasError, r
           <div ref={chartRef} className="relative mx-auto h-48 w-full max-w-[240px]" aria-hidden="true">
             {chartVisible && <WorkStatusChart data={data} />}
             <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-              <span className="text-2xl font-semibold text-foreground">{formatNumber(distribution.total)}</span>
+              <span className="text-2xl font-semibold tabular-nums text-foreground">{formatNumber(distribution.total)}</span>
               <span className="max-w-[112px] text-center text-xs leading-tight text-muted-foreground">{totalLabel}</span>
             </div>
           </div>

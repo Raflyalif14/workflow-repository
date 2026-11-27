@@ -83,7 +83,7 @@ export default function ProjectsPage() {
       {/* Page Header */}
       <header className="flex flex-col gap-4 border-b border-border/60 pb-5 sm:flex-row sm:items-end sm:justify-between">
         <div className="max-w-2xl">
-          <p className="text-xs font-semibold uppercase tracking-wider text-primary">
+          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             {translateI18n(pageCopy.eyebrow)}
           </p>
           <h1 className="mt-1 text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
@@ -224,7 +224,7 @@ export default function ProjectsPage() {
           </div>
         )}
 
-        {!isLoading&&!isError&&pagination&&<ListPagination page={pagination.page} pages={pagination.totalPages} total={pagination.total} pageSize={10} onPageChange={setPage}/>}
+        {!isLoading&&!isError&&pagination&&<ListPagination page={pagination.page} pages={Math.max(1, pagination.totalPages)} total={pagination.total} pageSize={10} onPageChange={setPage}/>}
       </section>
     </div>
   );

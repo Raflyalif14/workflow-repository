@@ -50,7 +50,7 @@ export interface AssignedMilestone {
   pic_id: string;
   start_date?: string | null;
   due_date?: string | null;
-  outputs?: { status: string; is_required: boolean; is_selected: boolean }[];
+  outputs?: { status: string; is_required: boolean; is_selected: boolean; document_key?: string }[];
   project?: {
     id: string;
     name: string;

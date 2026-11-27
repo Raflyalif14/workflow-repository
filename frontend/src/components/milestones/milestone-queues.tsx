@@ -65,6 +65,10 @@ function AssignedMilestoneRow({ milestone }: { milestone: AssignedMilestone }) {
   const projectId = milestone.project?.id || milestone.project_id;
   const state = getAssignedMilestoneState(milestone);
   const waitingOutputs = countAssignedOutputsWaitingReview(milestone);
+  const selectedOutputs = (milestone.outputs || []).filter(o => o.is_required || o.is_selected);
+  const displayName = selectedOutputs.length === 1 && selectedOutputs[0].document_key
+    ? translateOutputName(selectedOutputs[0].document_key, milestone.name)
+    : milestone.name;
   const statusBadge = state === "WAITING_REVIEW"
     ? <Badge variant="warning">{translateI18n("milestonePage.underReview")}</Badge>
     : state === "ACTION" ? <Badge variant="default">{translateI18n("milestonePage.needsAction")}</Badge>
@@ -74,7 +78,7 @@ function AssignedMilestoneRow({ milestone }: { milestone: AssignedMilestone }) {
     <div className="flex items-center justify-between gap-3 border-t border-border/60 px-4 py-4 first:border-t-0 sm:px-5">
       <div className="min-w-0">
         <div className="flex flex-wrap items-center gap-2">
-          <p className="font-medium">{milestone.name}</p>
+          <p className="font-medium">{displayName}</p>
           {statusBadge}
         </div>
         <p className="text-xs text-muted-foreground">

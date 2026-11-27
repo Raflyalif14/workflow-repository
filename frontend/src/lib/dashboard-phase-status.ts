@@ -24,7 +24,7 @@ export function isAllWorkStatus(value: unknown): value is AllWorkStatus {
     && allCategories.reduce((sum, key) => sum + (summary[key] as number), 0) === summary.total;
 }
 
-const statusColors = { DRAFT: "#64748b", ACTIVE: "#3b82f6", POSTPONED: "#f59e0b", COMPLETED: "#22c55e",
+const statusColors = { DRAFT: "#64748b", ACTIVE: "#3b82f6", POSTPONED: "#f59e0b", COMPLETED: "#0d9488",
   WON: "#22c55e", LOST: "#ef4444", WAITING_RESULT: "#f59e0b", CANCELLED: "#ef4444" } as const;
 type Row = { status: keyof typeof statusColors; count: number };
 function distribution(rows: Row[], total = rows.reduce((sum, row) => sum + row.count, 0)) {

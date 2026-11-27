@@ -33,6 +33,7 @@ export class ProjectPhaseService {
       p_project_id: projectId, p_sales_id: actor.userId, p_selected_keys: keys,
     });
     if (transitionError) {
+      console.error('[ProjectPhaseService.continue] RPC error:', transitionError);
       if (transitionError.code === '40001') throw new PhaseDecisionError('Pra-Tender decision conflicts with the saved decision.', 409);
       const safe = new Set(['Forbidden', 'Project is not active.', 'Pra-Tender is not completed.',
         'Legacy phase classification requires manual review.', 'Invalid phase output selection.']);
@@ -53,6 +54,7 @@ export class ProjectPhaseService {
       p_project_id: projectId, p_sales_id: actor.userId,
     });
     if (decisionError) {
+      console.error('[ProjectPhaseService.closePraTender] RPC error:', decisionError);
       if (decisionError.code === '40001') throw new PhaseDecisionError('Pra-Tender decision conflicts with the saved decision.', 409);
       const safe = new Set(['Forbidden', 'Project is not active.', 'Pra-Tender is not completed.', 'Legacy phase classification requires manual review.']);
       throw new Error(safe.has(decisionError.message) ? decisionError.message : 'Unable to save the Pra-Tender decision.');

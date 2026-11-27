@@ -2,9 +2,10 @@
 
 import { useRef, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import { translate as translateI18n } from "@/i18n";
+import { translate as translateI18n, translateOutputName } from "@/i18n";
 import { useLanguage } from "@/components/i18n/language-provider";
 import { useAuth } from "@/components/auth/auth-provider";
+import { Badge } from "@/components/ui/badge";
 import { BusinessConfirmation } from "@/components/projects/business-confirmation";
 import { ProjectCreateHeader } from "@/components/projects/project-create-header";
 import { ProjectCreateDetails } from "@/components/projects/project-create-details";
@@ -286,19 +287,61 @@ function NewProjectForm({ accountId }: { accountId: string }) {
         open={confirming}
         onOpenChange={setConfirming}
         title={name.trim()}
-        changes={[
-          customer.trim(),
-          scenarios.find((item) => item.id === scenarioId)?.name || scenarioId,
-          formatEstimatedValue(parseRupiahInput(estimatedRevenue) || estimatedRevenue),
-          mom?.name || "",
-          ...photos.map((file) => file.name),
-          ...documents.map((file) => file.name),
-        ]}
+        description={translateI18n("projectCreate.confirmSubtitle")}
         action={translateI18n(creationFrozen ? "createReceipt.retry" : "businessAudit.create")}
         errorKey={submitError ? projectCreateErrorKey(create.error) : undefined}
         allowConflictRetry={true}
         onConfirm={createConfirmed}
-      />
+      >
+        <dl className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+          <div className="rounded-md border border-border/50 bg-muted/20 p-2.5">
+            <dt className="text-muted-foreground font-medium">{translateI18n("projectDetail.customer")}</dt>
+            <dd className="mt-0.5 font-semibold text-foreground">{customer.trim()}</dd>
+          </div>
+          <div className="rounded-md border border-border/50 bg-muted/20 p-2.5">
+            <dt className="text-muted-foreground font-medium">{translateI18n("projectDetail.scenario")}</dt>
+            <dd className="mt-0.5 font-semibold text-foreground">{scenarios.find((item) => item.id === scenarioId)?.name || scenarioId}</dd>
+          </div>
+          <div className="rounded-md border border-border/50 bg-muted/20 p-2.5">
+            <dt className="text-muted-foreground font-medium">{translateI18n("projectDetail.estimatedRevenue")}</dt>
+            <dd className="mt-0.5 font-semibold text-foreground">{formatEstimatedValue(parseRupiahInput(estimatedRevenue) || estimatedRevenue)}</dd>
+          </div>
+          <div className="rounded-md border border-border/50 bg-muted/20 p-2.5">
+            <dt className="text-muted-foreground font-medium">{translateI18n("projectCreate.momPdf")}</dt>
+            <dd className="mt-0.5 truncate font-semibold text-foreground" title={mom?.name}>{mom?.name || "-"}</dd>
+          </div>
+          <div className="rounded-md border border-border/50 bg-muted/20 p-2.5">
+            <dt className="text-muted-foreground font-medium">{translateI18n("projectCreate.projectPhotos")} ({photos.length})</dt>
+            <dd className="mt-0.5 text-foreground">
+              {photos.length === 0 ? "-" : (
+                <ul className="list-disc pl-3 space-y-0.5">
+                  {photos.map((p) => <li key={p.name} className="truncate">{p.name}</li>)}
+                </ul>
+              )}
+            </dd>
+          </div>
+          <div className="rounded-md border border-border/50 bg-muted/20 p-2.5">
+            <dt className="text-muted-foreground font-medium">{translateI18n("ui.supportingDocuments")} ({documents.length})</dt>
+            <dd className="mt-0.5 text-foreground">
+              {documents.length === 0 ? "-" : (
+                <ul className="list-disc pl-3 space-y-0.5">
+                  {documents.map((d) => <li key={d.name} className="truncate">{d.name}</li>)}
+                </ul>
+              )}
+            </dd>
+          </div>
+          <div className="sm:col-span-2 rounded-md border border-border/50 bg-muted/20 p-2.5">
+            <dt className="text-muted-foreground font-medium">{translateI18n("ui.outputDocumentList")} ({allSelectedDocumentKeys.length})</dt>
+            <dd className="mt-1.5 flex flex-wrap gap-1.5">
+              {allSelectedDocumentKeys.map((key) => (
+                <Badge key={key} variant="outline" className="text-[11px]">
+                  {translateOutputName(key, key)}
+                </Badge>
+              ))}
+            </dd>
+          </div>
+        </dl>
+      </BusinessConfirmation>
     </div>
   );
 }

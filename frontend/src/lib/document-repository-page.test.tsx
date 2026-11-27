@@ -65,15 +65,18 @@ try {
   assert.equal(tabs(tree)[1].props.children,translate('documentPage.assignedProjects'));
   assert.equal(tree.find(node => node.props.role==='tabpanel')!.props['aria-labelledby'],tabs(tree)[1].props.id);
   const item:any={ id:'d',projectId:'p',title:'User title',category:'MOM',status:'APPROVED',canReadProject:true,canManageAccess:true,
-    accessMode:'RESTRICTED',isSharedWithMe:true,createdAt:'2026-01-01',updatedAt:'2026-01-01',versions:[] };
+    accessMode:'RESTRICTED',isSharedWithMe:true,createdAt:'2026-01-01',updatedAt:'2026-01-01',versions:[{ id:'v1',documentId:'d',versionNumber:1,fileName:'doc.pdf',fileUrl:'',fileSize:1024,mimeType:'application/pdf',status:'APPROVED',isLatest:true,createdAt:'2026-01-01' }] };
   official={ ...official,data:[item] }; tree=render();
-  assert.deepEqual(counters(tree),[1,1,0,0],'Refresh keeps selected category and its whole-result counters');
+  assert.deepEqual(counters(tree),[1,0,1,0],'Refresh keeps selected category and its whole-result counters');
   const row=tree.find(node => typeof node.type==='function' && node.props.document?.id==='d')!;
   assert(!nodes(row.type(row.props)).some(node => node.type===Button && node.props.children==='Manage access'),'No per-document controls remain');
   // Both modes and an individual grant stay visible in All, not in Assigned.
   const granted={ ...item,id:'granted',canReadProject:false },shared={ ...item,id:'shared',canReadProject:false,accessMode:'SHARED_INTERNAL' };
-  official={ ...official,data:[item,granted,shared] };tree=render();assert.deepEqual(counters(tree),[1,1,0,0]);
-  tabs(tree)[0].props.onClick();tree=render();assert.deepEqual(counters(tree),[3,3,0,0]);
+  official={ ...official,data:[item,granted,shared] };tree=render();assert.deepEqual(counters(tree),[1,0,1,0]);
+  tabs(tree)[0].props.onClick();tree=render();assert.deepEqual(counters(tree),[3,0,3,2]);
+  assert(tree.some(node => node.props.children===translate('documentPage.standaloneProject')),'Hidden project renders Shared Internal Documents label');
+  assert(nodes(row.type(row.props)).some(node => typeof node.props?.children==='string' && node.props.children.includes(translate('documentPage.unknownUploader'))
+    || Array.isArray(node.props?.children) && node.props.children.includes(translate('documentPage.unknownUploader'))),'Hidden uploader renders neutral Internal Team label');
   const rows=tree.filter(node => typeof node.type==='function' && node.props.document?.id);
   assert(rows.some(node => node.props.document.id==='granted'));
   assert(nodes(rows.find(node => node.props.document.id==='shared')!.type(rows.find(node => node.props.document.id==='shared')!.props))

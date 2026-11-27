@@ -5,7 +5,7 @@ import { translate as translateI18n, getIntlLocale } from "@/i18n";
 
 import { useState } from "react";
 import Link from "next/link";
-import { Plus, Workflow, ArrowRight, Power } from "lucide-react";
+import { Plus, Workflow, ArrowRight, Power, ArrowLeft, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -33,12 +33,26 @@ function WorkflowManagement() {
   const submit = async () => { if (!name.trim()) return; await create.mutateAsync({ name, description }); setName(""); setDescription(""); setShowCreate(false); };
 
   return <div className="container space-y-6 py-8">
+    <Link href="/settings">
+      <Button variant="ghost" size="sm" className="mb-4 -ml-2 gap-2 text-muted-foreground hover:text-foreground">
+        <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+        {translateI18n("telegramHealth.backSettings")}
+      </Button>
+    </Link>
     <div className="flex flex-col gap-4 border-b border-border/50 pb-6 sm:flex-row sm:items-center sm:justify-between">
-      <div><div className="mb-1 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-primary"><Workflow className="h-4 w-4" />{translateI18n("settings.workflowTemplates")}</div><h1 className="text-3xl font-bold tracking-tight">{translateI18n("copy.workflowManagement")}</h1><p className="mt-1 text-sm text-muted-foreground">{translateI18n("copy.manageScenario")}</p></div>
+      <div><div className="mb-1 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground"><Workflow className="h-4 w-4" />{translateI18n("settings.workflowTemplates")}</div><h1 className="text-3xl font-bold tracking-tight">{translateI18n("copy.workflowManagement")}</h1><p className="mt-1 text-sm text-muted-foreground">{translateI18n("copy.manageScenario")}</p></div>
       {isAdmin && <Button onClick={() => setShowCreate(!showCreate)} className="gap-2"><Plus className="h-4 w-4" />{translateI18n("copy.newScenario")}</Button>}
     </div>
     {showCreate && isAdmin && <Card><CardHeader><CardTitle className="text-base">{translateI18n("copy.createScenario")}</CardTitle></CardHeader><CardContent className="space-y-3"><Input placeholder={translateI18n("ui.scenarioName")} value={name} onChange={(event) => setName(event.target.value)} /><Input placeholder={translateI18n("ui.description")} value={description} onChange={(event) => setDescription(event.target.value)} /><Button onClick={() => void submit()} disabled={create.isPending || !name.trim()}>{translateI18n("copy.createScenario")}</Button></CardContent></Card>}
-    <Input placeholder="Search scenarios" value={search} onChange={(event) => setSearch(event.target.value)} />
+    <div className="relative">
+      <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+      <Input
+        placeholder={translateI18n("copy.searchScenarios")}
+        value={search}
+        onChange={(event) => setSearch(event.target.value)}
+        className="pl-9"
+      />
+    </div>
     {isLoading ? <p className="py-12 text-center text-muted-foreground">{translateI18n("copy.loadingScenarios")}</p> : isError ? <p className="py-12 text-center text-destructive">{translateI18n("copy.scenarioLoadError")}</p> : visible.length === 0 ? <Card><CardContent className="py-12 text-center"><p className="font-medium">{translateI18n("copy.noScenarios")}</p><p className="mt-1 text-sm text-muted-foreground">{translateI18n("copy.createFirstScenario")}</p></CardContent></Card> : <div className="grid gap-4 md:grid-cols-2">{visible.map((scenario) => <ScenarioCard key={scenario.id} scenario={scenario} isAdmin={isAdmin} />)}</div>}
   </div>;
 }

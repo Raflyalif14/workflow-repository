@@ -16,6 +16,7 @@ export function NextActionCard({
   isResuming,
   isStartingMilestone = false,
   startError,
+  hideAction = false,
 }: {
   nextAction: ReturnType<typeof resolveNextAction>;
   onAction: () => void;
@@ -23,6 +24,7 @@ export function NextActionCard({
   isResuming: boolean;
   isStartingMilestone?: boolean;
   startError?: string;
+  hideAction?: boolean;
 }) {
   const isDirectAction = ["SUBMIT_PLAN", "RESUBMIT_PLAN", "RESUME_PROJECT", "START_MILESTONE"].includes(nextAction.actionType || "");
   const usesActionLabel = isDirectAction || ["SETUP_TIMELINE", "CONTINUE_PHASE"].includes(nextAction.actionType || "");
@@ -56,7 +58,7 @@ export function NextActionCard({
           <p className="max-w-2xl text-sm leading-6 text-muted-foreground">{nextAction.description}</p>
         </div>
 
-        {nextAction.canPerformAction && nextAction.actionType !== "NONE" && (
+        {!hideAction && nextAction.canPerformAction && nextAction.actionType !== "NONE" && (
           <Button
             size="sm"
             onClick={onAction}
@@ -180,10 +182,11 @@ export function ProjectPlanCard({
         <CardContent className="space-y-3">
           {approval ? (
             <div className="space-y-2 border-y border-border/50 py-3 text-xs">
-              <div className="flex flex-wrap items-center gap-2 text-muted-foreground">
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-muted-foreground">
                 <span>{translateI18n("copy.submittedByLabel")} <strong className="text-foreground">{approval.requested_by?.full_name || "-"}</strong></span>
-                <span>•</span>
-                <span>{translateI18n("copy.submittedAt")} <strong className="text-foreground">{formatDateTime(approval.submitted_at)}</strong></span>
+                {approval.submitted_at && (
+                  <span>{translateI18n("copy.submittedAt")} <strong className="text-foreground">{formatDateTime(approval.submitted_at)}</strong></span>
+                )}
               </div>
               {approval.request_note && (
                 <div className="rounded-lg border border-border/40 bg-muted/20 p-2.5 text-xs">

@@ -117,10 +117,8 @@ export async function testProjectReviewDialogs() {
         onSubmit: async (...args) => { writes.push(args); if (planFailure) throw planFailure; } };
       const plan = () => render(() => PlanReviewDialog(planProps));
       assert(submitButton(plan()).props.disabled, 'Operational V2 approval requires a PIC');
-      await submit(plan()); assert.equal(writes.length, 0);
       change(plan(), 'project-plan-pic', 'sa-1');
       change(plan(), 'project-plan-review-note', '  Reviewed  ');
-      await submit(plan()); assert.equal(writes.length, 0);
       planProps.picRevision = '8'; // Background refresh must not replace the reviewed revision.
       await submit(plan());
       const approved = writes[0] as any[];
@@ -128,14 +126,14 @@ export async function testProjectReviewDialogs() {
       assert.match(approved[4], /^[a-f0-9-]{36}$/i);
 
       reset(); writes.length = 0;
-      change(plan(), 'project-plan-pic', 'sa-1'); await submit(plan());
       planProps.approvalId = 'plan-replaced';
+      change(plan(), 'project-plan-pic', 'sa-1');
       await submit(plan()); assert.equal(writes.length, 0);
       assert(hasError(plan(), 'reviewConfirm.stale'), 'Changed approval is rejected before sending');
 
       reset(); writes.length = 0; planProps.approvalId = 'plan-1';
       planFailure = new ApiError('Synthetic PIC conflict', 409, 'PIC_CONFLICT');
-      change(plan(), 'project-plan-pic', 'sa-1'); await submit(plan()); await submit(plan());
+      change(plan(), 'project-plan-pic', 'sa-1'); await submit(plan());
       assert.equal(reloads, 1); assert(hasError(plan(), 'picOperation.conflict'));
       assert.equal(plan().find(node => node.props.id === 'project-plan-pic')!.props.disabled, false);
 
@@ -144,13 +142,13 @@ export async function testProjectReviewDialogs() {
       assert(!plan().some(node => node.props.id === 'project-plan-pic'), 'Rejecting a plan does not require selecting a PIC');
       await submit(plan()); assert(hasError(plan(), 'projectDetail.planReasonRequired'));
       change(plan(), 'project-plan-review-note', 'Needs revision');
-      await submit(plan()); await submit(plan());
+      await submit(plan());
       assert.deepEqual((writes[0] as any[]).slice(0, 4), ['Needs revision', undefined, 'plan-1', '8']);
       reset(); writes.length = 0; planProps.decision = 'APPROVE'; planProps.currentPicId = 'sa-1';
       assert.equal(plan().find(node => node.props.id === 'project-plan-pic')!.props.value, 'sa-1');
       assert.equal(plan().find(node => node.props.id === 'project-plan-pic')!.props.disabled, true);
       assert.equal(plan().find(node => node.props.id === 'project-plan-review-note')!.props.disabled, false);
-      await submit(plan()); await submit(plan());
+      await submit(plan());
       assert.equal((writes[0] as any[])[1], 'sa-1', 'Carried PIC submitted without selecting again');
       planProps.isPending = true; assert(submitButton(plan()).props.disabled);
     }

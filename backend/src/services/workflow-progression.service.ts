@@ -1,6 +1,7 @@
 import { activePhaseProject, phaseRows } from './project-phase.service';
 import { supabaseAdmin } from '../config/supabase';
 import { NotificationService } from './notification.service';
+import { notifySalesMilestoneStarted } from './milestone-notification.service';
 import { runNotificationBestEffort } from './notification-dispatch.service';
 import { getProjectMandatoryDocumentKeys, resolveScenarioKey } from '../constants/scenarios';
 import { projectOutcomeSchema, ProjectOutcomeInput } from '../validators/project-management.validator';
@@ -278,10 +279,78 @@ export async function advanceToNextMilestone(
     return existingNextMilestoneResult(next);
   }
 
-  // Parallel stages are explicitly started by their owner once their planning date arrives.
-  // Do not auto-start a later numbered stage or a stage scheduled in the future.
-  return { next_milestone: { id: next.id, name: next.name, step_order: next.step_order, status: next.status },
-    started: false, project_completed: false, blocked_reason: 'START_MANUALLY' as const };
+  const stageRole = stageRoleOf(next);
+  const picId = next.pic_id || (stageRole === 'SA' ? project.pic_id : null);
+  const autoStartBlockReason = getAutoStartBlockReason(stageRole, picId);
+  if (autoStartBlockReason) {
+    return {
+      next_milestone: { id: next.id, name: next.name, step_order: next.step_order, status: next.status },
+      started: false,
+      project_completed: false,
+      blocked_reason: autoStartBlockReason,
+    };
+  }
+
+  const today = nowIso().slice(0, 10);
+  const updatePayload: Record<string, any> = {
+    status: 'IN_PROGRESS',
+    updated_at: nowIso(),
+  };
+  if (stageRole === 'SA' && !next.pic_id && picId) {
+    updatePayload.pic_id = picId;
+  }
+  // If next milestone has a future start_date, advance start_date to today so it can start immediately
+  // and satisfy trigger keep_future_milestone_unstarted.
+  // Note: due_date remains completely untouched.
+  if (next.start_date && next.start_date > today) {
+    updatePayload.start_date = today;
+  }
+
+  let startRequest = supabaseAdmin
+    .from('project_milestones')
+    .update(updatePayload)
+    .eq('id', next.id)
+    .eq('status', 'CREATED');
+
+  if (stageRole === 'SA' && !next.pic_id && picId) startRequest = startRequest.is('pic_id', null);
+  const { data: startedMilestone, error } = await startRequest.select('id,name,step_order,status,pic_id,start_date,due_date').maybeSingle();
+
+  if (error) throw new Error(error.message);
+  if (!startedMilestone) {
+    const [latestProject, latestMilestones] = await Promise.all([getProject(projectId), getProjectMilestones(projectId)]);
+    if ((latestProject.status === 'COMPLETED' || RESULT_PHASE_STATUSES.has(latestProject.status)) && !latestProject.is_postponed) {
+      return { next_milestone: null, started: false, project_completed: true, blocked_reason: null };
+    }
+    if (latestProject.status !== 'ACTIVE' || latestProject.is_postponed) {
+      return { next_milestone: null, started: false, project_completed: false, blocked_reason: 'PROJECT_NOT_ACTIVE' as const };
+    }
+    const latestNext = phaseRows(latestMilestones as (WorkflowMilestone & { phase_id?: string })[], latestProject.active_phase_id).find((milestone) => milestone.id === next.id);
+    if (latestNext && latestNext.status !== 'CREATED') return existingNextMilestoneResult(latestNext);
+    return {
+      next_milestone: { id: next.id, name: next.name, step_order: next.step_order, status: next.status },
+      started: false,
+      project_completed: false,
+      blocked_reason: 'STALE_NEXT_MILESTONE' as const,
+    };
+  }
+
+  await logWorkflowActivityBestEffort(actor, project.id, 'MILESTONE_STARTED', `${actor.fullName} started milestone '${startedMilestone.name}'`);
+  if (stageRole === 'SALES') {
+    await notifySalesMilestoneStarted({
+      projectId: project.id,
+      projectName: project.name,
+      milestoneId: startedMilestone.id,
+      milestoneName: startedMilestone.name,
+      salesOwnerId: project.sales_id,
+    });
+  }
+
+  return {
+    next_milestone: startedMilestone,
+    started: true,
+    project_completed: false,
+    blocked_reason: null,
+  };
 
   }
 

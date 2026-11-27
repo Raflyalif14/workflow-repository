@@ -6,7 +6,6 @@ import { useRouter } from "next/navigation";
 import {
   AlertCircle,
   ArrowRight,
-  CheckCircle2,
   Eye,
   EyeOff,
   Layers,
@@ -19,7 +18,6 @@ import { Input } from "@/components/ui/input";
 import { useAuth } from "@/components/auth/auth-provider";
 import { useLanguage } from "@/components/i18n/language-provider";
 import { LanguageSwitcher } from "@/components/language-switcher";
-import type { TranslationKey } from "@/i18n";
 import { FaceLogin } from "@/components/auth/face-login";
 
 export default function LoginPage() {
@@ -64,8 +62,8 @@ export default function LoginPage() {
       <div className="mx-auto grid min-h-[calc(100vh-4rem)] w-full max-w-5xl items-center gap-8 lg:grid-cols-[1fr_420px]">
         <section className="space-y-6">
           <div className="flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-lg shadow-primary/20">
-              <Layers className="h-6 w-6" />
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+              <Layers className="h-5 w-5" />
             </div>
             <div>
               <p className="text-sm font-semibold text-foreground">WorkflowHub</p>
@@ -80,18 +78,6 @@ export default function LoginPage() {
             <p className="text-sm leading-6 text-muted-foreground">
               {t("auth.loginDescription")}
             </p>
-          </div>
-
-          <div className="grid max-w-xl gap-3 sm:grid-cols-3">
-            {(["auth.backendAuth", "auth.roleAccess", "auth.protectedApi"] as TranslationKey[]).map((key) => (
-              <div
-                key={key}
-                className="flex items-center gap-2 rounded-lg border border-border/60 bg-card/50 px-3 py-2 text-xs text-muted-foreground"
-              >
-                <CheckCircle2 className="h-4 w-4 shrink-0 text-success" />
-                <span>{t(key)}</span>
-              </div>
-            ))}
           </div>
         </section>
 
